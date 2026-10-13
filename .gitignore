@@ -1,0 +1,16 @@
+# Workflow scratch
+.idea-to-pr-state.md
+
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+captures/
+
+# OS
+.DS_Store
