@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One square cushion-cut gem (18% radius) with the two-facet highlight. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/bone"
+        android:pathData="M42.5,34h23a8.5,8.5 0,0 1,8.5 8.5v23a8.5,8.5 0,0 1,-8.5 8.5h-23a8.5,8.5 0,0 1,-8.5 -8.5v-23a8.5,8.5 0,0 1,8.5 -8.5z" />
+    <path
+        android:fillColor="#33FFFFFF"
+        android:pathData="M34,42.5a8.5,8.5 0,0 1,8.5 -8.5H54L34,54z" />
+    <path
+        android:fillColor="#24000000"
+        android:pathData="M74,54v11.5a8.5,8.5 0,0 1,-8.5 8.5h-11.5z" />
+</vector>
