@@ -283,6 +283,7 @@ Sound and Haptics each get a Settings toggle. Both default to on.
   - photo canvases: Rename, Delete;
   - bundled pictures: Start over.
 - Photo canvas titles default to "My photo · 13 Oct" (Phase 5 D26).
+- **Rename sheet** (#13): title "Rename", a one-line text field (at most 60 characters) with the current title, primary "Save" (disabled while blank) and "Keep" as a text button.
 - **Damaged canvas** (Phase 5 D9): when the save or grid is refused and there's no last good file, the tile keeps its last thumbnail with a `felt-deep` label "Can't open".
   - Tapping it opens a sheet: "This canvas's file is damaged, so it can't be opened. You can delete it, or start the picture over."
   - The primary button is Delete for a photo canvas, Start over for a bundled picture. Keep is a text button.
@@ -330,6 +331,8 @@ Sound and Haptics each get a Settings toggle. Both default to on.
 5. "Finished" (display-lg), the meta line (title · gems · time), then Share (primary) and Done (quiet) fade in.
 
 Reduced motion skips the sweep. The interstitial (if allowed) can appear only after leaving this screen.
+
+**Until the time-lapse ships (#4)** (founder decision 2026-10-13, #13): Share stays the primary button but is disabled, with a muted line under it: "Video sharing is coming soon." The lights-down dim is on the room around the picture; the picture itself stays lit. The meta line's time is active play time ("5 min", "1 h 12 min").
 
 A finished picture reopened from the gallery shows the **completion still**:
 - the picture at rest with no sweep;
@@ -454,3 +457,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-13 | Outside voices: Codex unavailable (gpt-6.1-sol unsupported on ChatGPT login); Claude subagent converged on the same direction | Independent input recorded |
 | 2026-10-13 | Phase 5 design plan review (/plan-design-review): D3-D27 applied above (nav map, all missing states, gestures, two-tone ring, raised placed gems, Find, TalkBack, font scale, reduced motion, large screens, valid-ground contrast rule, 48dp text buttons, starter picture, time-lapse intro/timing) | Ledger in docs/designs/gemmory.md "Design Review (Phase 5)" |
 | 2026-10-13 | Selected color shown as a stronger own tint (40% toward bone) at every zoom; replaces the D17 two-tone ring | Founder call while playing #18 on the emulator: the outline looked busy. Chosen from five HTML mockups (ring, dim the rest, lamp fill, stronger own tint, dim + tint). Weak on light colors, so #19 adds a player setting with the ring and dimming as options |
+| 2026-10-13 | Starter picture = The Starry Night (van Gogh, public domain), cypress-and-swirl crop; Share disabled with "Video sharing is coming soon." until #4; Rename sheet copy; face photos at faceMinSize = Medium disable Quick | Founder answers during #13. Provenance in tools/bundled/PROVENANCE.md |

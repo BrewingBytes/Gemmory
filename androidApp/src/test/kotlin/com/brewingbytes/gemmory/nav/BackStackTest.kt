@@ -1,0 +1,109 @@
+package com.brewingbytes.gemmory.nav
+
+import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.CanvasRef
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+/** The navigation map (design D3): system back always goes one step up. */
+class BackStackTest {
+    private val photo = CanvasRef(CanvasKind.PHOTO, "photo-1")
+    private val starter = CanvasRef(CanvasKind.BUNDLED, "starter")
+
+    @Test
+    fun galleryIsTheRootAndBackThereLeavesTheApp() {
+        val stack = BackStack()
+        assertEquals(listOf(Route.Gallery), stack.routes)
+        assertFalse(stack.pop())
+    }
+
+    @Test
+    fun photoFlowStepsBackOneAtATimeAndStartReplacesIt() {
+        val stack = BackStack()
+        stack.push(Route.Crop)
+        stack.push(Route.Size)
+        stack.push(Route.Preview)
+        assertTrue(stack.pop())
+        assertEquals(Route.Size, stack.top)
+        stack.push(Route.Preview)
+        stack.started(photo)
+        assertEquals(listOf(Route.Gallery, Route.Canvas(photo)), stack.routes)
+        assertTrue(stack.pop())
+        assertEquals(Route.Gallery, stack.top)
+    }
+
+    @Test
+    fun tilesOpenTheCanvasOrTheCompletionStill() {
+        val stack = BackStack()
+        stack.openTile(starter, finished = false)
+        assertEquals(Route.Canvas(starter), stack.top)
+        stack.pop()
+        stack.openTile(starter, finished = true)
+        assertEquals(Route.Completion(starter, fresh = false), stack.top)
+    }
+
+    @Test
+    fun finishingReplacesTheCanvasSoDoneAndBackGoToTheGallery() {
+        val stack = BackStack()
+        stack.openTile(starter, finished = false)
+        stack.finished(starter)
+        assertEquals(listOf(Route.Gallery, Route.Completion(starter, fresh = true)), stack.routes)
+        stack.pop()
+        assertEquals(listOf(Route.Gallery), stack.routes)
+    }
+
+    @Test
+    fun finishedIsIgnoredUnlessThatCanvasIsOnTop() {
+        val stack = BackStack()
+        stack.openTile(photo, finished = false)
+        stack.finished(starter)
+        assertEquals(Route.Canvas(photo), stack.top)
+    }
+
+    @Test
+    fun playAgainOpensTheCanvasWithTheGalleryBelow() {
+        val stack = BackStack()
+        stack.openTile(starter, finished = true)
+        stack.playAgain(starter)
+        assertEquals(listOf(Route.Gallery, Route.Canvas(starter)), stack.routes)
+    }
+
+    @Test
+    fun settingsIsOneStepAboveTheGallery() {
+        val stack = BackStack()
+        stack.push(Route.Settings)
+        stack.push(Route.Settings)
+        assertEquals(listOf(Route.Gallery, Route.Settings), stack.routes)
+    }
+
+    @Test
+    fun dropPhotoFlowLeavesTheRest() {
+        val stack = BackStack(listOf(Route.Gallery, Route.Crop, Route.Size))
+        stack.dropPhotoFlow()
+        assertEquals(listOf(Route.Gallery), stack.routes)
+    }
+
+    @Test
+    fun savedStateRoundTripsAndAFreshCompletionRestoresAsTheStill() {
+        val stack = BackStack()
+        stack.push(Route.Crop)
+        stack.started(photo)
+        stack.finished(photo)
+        val saved = stack.routes.map(Route::encode)
+        assertEquals(listOf("gallery", "completion:PHOTO:photo-1"), saved)
+        assertEquals(listOf(Route.Gallery, Route.Completion(photo, fresh = false)), BackStack(saved.mapNotNull(Route::decode)).routes)
+        for (r in listOf(Route.Settings, Route.Crop, Route.Size, Route.Preview, Route.Canvas(starter))) {
+            assertEquals(r, Route.decode(Route.encode(r)))
+        }
+    }
+
+    @Test
+    fun unreadableSavedRoutesAreDroppedAndTheGalleryIsAlwaysTheRoot() {
+        assertEquals(null, Route.decode("canvas:PHOTO:Bad/Id"))
+        assertEquals(null, Route.decode("canvas:NOPE:x"))
+        assertEquals(null, Route.decode("gallery:extra"))
+        assertEquals(listOf(Route.Gallery, Route.Settings), BackStack(listOf(Route.Settings)).routes)
+    }
+}

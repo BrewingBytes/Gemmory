@@ -13,14 +13,15 @@ import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.view.View
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.settings.AppSettings
 import kotlin.math.pow
 import kotlin.random.Random
 
 /**
- * Haptics and sound for the play canvas (design system, Haptics and sound). The Sound and Haptics settings toggles
- * come with #13; until then both are on. Haptics also follow the system touch-feedback setting.
+ * Haptics and sound for the play canvas and the completion screen (design system, Haptics and sound). Each follows
+ * its Settings toggle, read at the moment it plays; haptics also follow the system touch-feedback setting.
  */
-class Feedback(context: Context) {
+class Feedback(context: Context, private val settings: AppSettings) {
     private val appContext = context.applicationContext
     private val sounds = SoundPool.Builder()
         .setMaxStreams(4)
@@ -36,8 +37,8 @@ class Feedback(context: Context) {
     private val chime = sounds.load(appContext, R.raw.finish_chime, 1)
     private var lastTickAt = 0L
 
-    var soundOn = true
-    var hapticsOn = true
+    private val soundOn: Boolean get() = settings.sound.value
+    private val hapticsOn: Boolean get() = settings.haptics.value
 
     /** Tick throttled to one per 40ms (drag paint lands with #10); soft click at a random ±3 semitone pitch. */
     fun gemPlaced(view: View) {

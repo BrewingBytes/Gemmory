@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- No INTERNET permission: user photos never leave the phone (AGENTS.md). Photo Picker needs no media permission. -->
+<!-- User photos never leave the phone (AGENTS.md): nothing in the app uploads them, and the Photo Picker needs no
+     media permission. INTERNET and ACCESS_NETWORK_STATE arrive through ML Kit's merged manifest (its datatransport
+     sends ML Kit diagnostics, never images; design doc R3-6, declared in Data safety). AdMob (#7) needs them too. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- The one 400ms soft vibration when a picture is finished (design system, Haptics and sound). -->

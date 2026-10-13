@@ -71,6 +71,8 @@ tasks.named("allTests") { dependsOn(checkCommonMainPurity) }
 tasks.named<Test>("jvmTest") {
     inputs.dir("src/jvmTest/fixtures").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("src/jvmTest/goldens").withPathSensitivity(PathSensitivity.RELATIVE)
+    // BundledGridToolTest pins the shipped starter grid's CRC.
+    inputs.dir("../androidApp/src/main/assets/pictures").withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 /** Regenerates the 27 converter goldens (+ review PNGs). Only after an intended converter change (eng D19). */
@@ -83,4 +85,26 @@ tasks.register<Test>("updateConverterGoldens") {
     filter { includeTestsMatching("*ConverterGoldenTest") }
     systemProperty("gemmory.updateGoldens", "true")
     outputs.upToDateWhen { false }
+}
+
+/**
+ * Freezes a bundled picture's grid (design D13, eng D11): converts the source once, at build time, and writes a
+ * GridCodec file that the app ships and never re-converts. Only for new pictures: re-freezing a shipped one changes
+ * its grid CRC and orphans saves made on it. Defaults freeze the starter picture.
+ */
+tasks.register<JavaExec>("freezeBundledGrid") {
+    group = "build"
+    description = "Converts a bundled picture's source image once and writes its frozen grid asset."
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    dependsOn(jvmMain.compileTaskProvider)
+    classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("com.brewingbytes.gemmory.tools.BundledGridTool")
+    val root = rootProject.layout.projectDirectory
+    args(
+        root.file(providers.gradleProperty("source").getOrElse("tools/bundled/starter-starry-night.jpg")).asFile.path,
+        providers.gradleProperty("spec").getOrElse("starter-3:4"),
+        providers.gradleProperty("focus").getOrElse("0.2"),
+        root.file(providers.gradleProperty("out").getOrElse("androidApp/src/main/assets/pictures/starter.gmrg")).asFile.path,
+        root.file(providers.gradleProperty("review").getOrElse("tools/bundled/starter.review.png")).asFile.path,
+    )
 }

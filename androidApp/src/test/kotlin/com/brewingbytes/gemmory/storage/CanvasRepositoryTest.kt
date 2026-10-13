@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.storage
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.save.Crc32
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridBinding
@@ -254,6 +255,55 @@ class CanvasRepositoryTest {
         assertEquals(WriteResult.WriteFailed(diskFull = false), started.writeView(ref, ViewState(24f, 0f, 0f, 0)))
         assertFalse(dir.exists())
         assertTrue(started.list(CanvasKind.PHOTO).isEmpty())
+    }
+
+    @Test
+    fun createWritesTheRecordAndSourcePhotoInTheExcludedPhotoDir() {
+        val r = repo()
+        val record = CanvasRecord("My photo · 13 Oct", createdAtMillis = 1_000, playMillis = 0)
+        assertEquals(WriteResult.Written, r.create(ref, gridBytes, record, source = byteArrayOf(1, 2, 3)))
+        assertEquals(record, r.readRecord(ref))
+        assertContentEquals(byteArrayOf(1, 2, 3), r.sourceFile(ref).readBytes())
+        assertTrue(r.sourceFile(ref).path.startsWith(File(tmp.root, StorageLayout.PHOTO_CANVASES).path))
+        assertFailsWith<IllegalArgumentException> {
+            r.create(CanvasRef(CanvasKind.BUNDLED, "b1"), gridBytes, source = byteArrayOf(1))
+        }
+    }
+
+    @Test
+    fun renameRewritesTheRecordAndAMissingOrCorruptRecordReadsAsNull() {
+        assertNull(started.readRecord(ref), "created without a record")
+        assertEquals(WriteResult.Written, started.writeRecord(ref, CanvasRecord("Beach", 5, 60_000)))
+        assertEquals(CanvasRecord("Beach", 5, 60_000), started.readRecord(ref))
+        file("record").writeBytes(byteArrayOf(1, 2, 3))
+        assertNull(started.readRecord(ref))
+    }
+
+    @Test
+    fun clearProgressRemovesProgressViewAndThumbAndResetsPlayTime() {
+        started.writeRecord(ref, CanvasRecord("Beach", 5, 60_000))
+        started.writeSave(ref, binding, intArrayOf(3))
+        started.writeSave(ref, binding, intArrayOf(3, 1))
+        started.writeView(ref, ViewState(24f, 0f, 0f, 1))
+        started.writeThumb(ref, byteArrayOf(9))
+        assertTrue(started.clearProgress(ref))
+        for (name in listOf("save", "save.last-good", "view", "thumb.png")) assertFalse(file(name).exists(), name)
+        assertContentEquals(IntArray(0), assertIs<LoadResult.Loaded>(started.load(ref)).log)
+        assertNull(started.readView(ref, paletteSize = 2))
+        assertEquals(CanvasRecord("Beach", 5, 0), started.readRecord(ref), "title kept, play time reset")
+        assertTrue(file("grid").exists())
+    }
+
+    @Test
+    fun deleteAlsoRemovesTheRecordAndSourcePhoto() {
+        val r = repo()
+        r.create(ref, gridBytes, CanvasRecord("x", 1, 0), byteArrayOf(1))
+        r.writeSave(ref, binding, intArrayOf(3))
+        r.writeView(ref, ViewState(24f, 0f, 0f, 0))
+        assertTrue(r.delete(ref))
+        assertFalse(r.dirOf(ref).exists())
+        assertNull(r.readRecord(ref))
+        assertFalse(r.sourceFile(ref).exists())
     }
 
     @Test

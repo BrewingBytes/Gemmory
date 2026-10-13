@@ -1,0 +1,261 @@
+package com.brewingbytes.gemmory.ui
+
+import android.provider.Settings
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
+
+object GemIcons {
+    val Back: ImageVector = ImageVector.Builder("Back", 24.dp, 24.dp, 24f, 24f, autoMirror = true)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(20f, 11f)
+            horizontalLineTo(7.83f)
+            lineToRelative(5.59f, -5.59f)
+            lineTo(12f, 4f)
+            lineToRelative(-8f, 8f)
+            lineToRelative(8f, 8f)
+            lineToRelative(1.41f, -1.41f)
+            lineTo(7.83f, 13f)
+            horizontalLineTo(20f)
+            close()
+        }
+        .build()
+
+    /** Material "settings" outline gear. */
+    val Settings: ImageVector = ImageVector.Builder("Settings", 24.dp, 24.dp, 24f, 24f)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(19.43f, 12.98f)
+            curveToRelative(0.04f, -0.32f, 0.07f, -0.64f, 0.07f, -0.98f)
+            reflectiveCurveToRelative(-0.03f, -0.66f, -0.07f, -0.98f)
+            lineToRelative(2.11f, -1.65f)
+            curveToRelative(0.19f, -0.15f, 0.24f, -0.42f, 0.12f, -0.64f)
+            lineToRelative(-2f, -3.46f)
+            curveToRelative(-0.12f, -0.22f, -0.39f, -0.3f, -0.61f, -0.22f)
+            lineToRelative(-2.49f, 1f)
+            curveToRelative(-0.52f, -0.4f, -1.08f, -0.73f, -1.69f, -0.98f)
+            lineToRelative(-0.38f, -2.65f)
+            curveTo(14.46f, 2.18f, 14.25f, 2f, 14f, 2f)
+            horizontalLineToRelative(-4f)
+            curveToRelative(-0.25f, 0f, -0.46f, 0.18f, -0.49f, 0.42f)
+            lineToRelative(-0.38f, 2.65f)
+            curveToRelative(-0.61f, 0.25f, -1.17f, 0.59f, -1.69f, 0.98f)
+            lineToRelative(-2.49f, -1f)
+            curveToRelative(-0.23f, -0.09f, -0.49f, 0f, -0.61f, 0.22f)
+            lineToRelative(-2f, 3.46f)
+            curveToRelative(-0.13f, 0.22f, -0.07f, 0.49f, 0.12f, 0.64f)
+            lineToRelative(2.11f, 1.65f)
+            curveToRelative(-0.04f, 0.32f, -0.07f, 0.65f, -0.07f, 0.98f)
+            reflectiveCurveToRelative(0.03f, 0.66f, 0.07f, 0.98f)
+            lineToRelative(-2.11f, 1.65f)
+            curveToRelative(-0.19f, 0.15f, -0.24f, 0.42f, -0.12f, 0.64f)
+            lineToRelative(2f, 3.46f)
+            curveToRelative(0.12f, 0.22f, 0.39f, 0.3f, 0.61f, 0.22f)
+            lineToRelative(2.49f, -1f)
+            curveToRelative(0.52f, 0.4f, 1.08f, 0.73f, 1.69f, 0.98f)
+            lineToRelative(0.38f, 2.65f)
+            curveToRelative(0.03f, 0.24f, 0.24f, 0.42f, 0.49f, 0.42f)
+            horizontalLineToRelative(4f)
+            curveToRelative(0.25f, 0f, 0.46f, -0.18f, 0.49f, -0.42f)
+            lineToRelative(0.38f, -2.65f)
+            curveToRelative(0.61f, -0.25f, 1.17f, -0.59f, 1.69f, -0.98f)
+            lineToRelative(2.49f, 1f)
+            curveToRelative(0.23f, 0.09f, 0.49f, 0f, 0.61f, -0.22f)
+            lineToRelative(2f, -3.46f)
+            curveToRelative(0.12f, -0.22f, 0.07f, -0.49f, -0.12f, -0.64f)
+            lineToRelative(-2.11f, -1.65f)
+            close()
+            moveTo(12f, 15.5f)
+            curveToRelative(-1.93f, 0f, -3.5f, -1.57f, -3.5f, -3.5f)
+            reflectiveCurveToRelative(1.57f, -3.5f, 3.5f, -3.5f)
+            reflectiveCurveToRelative(3.5f, 1.57f, 3.5f, 3.5f)
+            reflectiveCurveToRelative(-1.57f, 3.5f, -3.5f, 3.5f)
+            close()
+        }
+        .build()
+
+    /** Three vertical dots (⋮), drawn as a vector so no font renders it as an emoji. */
+    val More: ImageVector = ImageVector.Builder("More", 24.dp, 24.dp, 24f, 24f)
+        .path(fill = SolidColor(Color.White)) {
+            for (cy in listOf(6f, 12f, 18f)) {
+                moveTo(12f, cy - 2f)
+                arcToRelative(2f, 2f, 0f, true, true, 0f, 4f)
+                arcToRelative(2f, 2f, 0f, true, true, 0f, -4f)
+                close()
+            }
+        }
+        .build()
+}
+
+/** A 48dp icon button in bone with its own label (Accessibility: every icon button has a label). */
+@Composable
+fun IconAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(icon, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
+    }
+}
+
+/** Material 3 structure: back (when [onBack] is set), a 22sp display title, then trailing actions. */
+@Composable
+fun AppTopBar(title: String, onBack: (() -> Unit)?, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
+    Row(
+        modifier.fillMaxWidth().height(56.dp).padding(start = if (onBack == null) 16.dp else 0.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (onBack != null) {
+            IconAction(GemIcons.Back, "Back", onBack)
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(
+            title,
+            style = GemType.display,
+            color = GemColors.Bone,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).semantics { heading() },
+        )
+        actions()
+    }
+}
+
+/** Text button: bone, underlined, 48dp minimum height (Phase 5 D16). */
+@Composable
+fun GemTextButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            style = GemType.button,
+            color = GemColors.Bone,
+            textDecoration = TextDecoration.Underline,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/** Switch: patina track when on, felt-raised at rest. */
+@Composable
+fun GemSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier) {
+    val raised = LocalFelt.current.raised
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = GemColors.Bone,
+            checkedTrackColor = GemColors.Patina,
+            checkedBorderColor = GemColors.Patina,
+            uncheckedThumbColor = GemColors.Bone,
+            uncheckedTrackColor = raised,
+            uncheckedBorderColor = raised,
+        ),
+    )
+}
+
+/**
+ * Bottom sheet (design system, Layout): felt-deep, 16dp top radius, grab handle, 20dp padding, 55% scrim, at most
+ * 560dp wide. Focus moves to the title on open (Accessibility, Sheets).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GemSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val focus = remember { FocusRequester() }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = state,
+        sheetMaxWidth = 560.dp,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        containerColor = LocalFelt.current.deep,
+        contentColor = GemColors.Bone,
+        scrimColor = GemColors.Scrim.copy(alpha = 0.55f),
+        dragHandle = { BottomSheetDefaults.DragHandle(color = GemColors.TextMuted) },
+    ) {
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 20.dp).navigationBarsPadding()) {
+            Text(
+                title,
+                style = GemType.display,
+                color = GemColors.Bone,
+                modifier = Modifier.focusRequester(focus).semantics { heading() },
+            )
+            Spacer(Modifier.height(12.dp))
+            content()
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+}
+
+/** A confirm sheet: body text, a primary action and a "Keep" text button (design system, Navigation map). */
+@Composable
+fun ConfirmSheet(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    GemSheet(title, onDismiss) {
+        Text(body, style = GemType.body, color = GemColors.Bone)
+        Spacer(Modifier.height(20.dp))
+        PrimaryButton(confirm, onConfirm, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { GemTextButton("Keep", onDismiss) }
+    }
+}
+
+/** Reduced motion (design system, Motion): the system animator scale is 0 ("Remove animations"). */
+@Composable
+fun rememberReducedMotion(): Boolean {
+    val context = LocalContext.current
+    return remember {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
+}
