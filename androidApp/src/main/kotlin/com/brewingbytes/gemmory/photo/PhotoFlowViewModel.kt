@@ -77,6 +77,9 @@ data class PhotoFlowState(
     val nav: PhotoNav? = null,
 ) {
     val rules: SizeRules get() = PhotoFlowRules.sizeRules(faceCheck)
+
+    /** Start waits for the face check, so the face rule always applies to the size it starts (design D4). */
+    val canStart: Boolean get() = PhotoFlowRules.canStart(faceCheck, size, converted = conversions[size] is Conversion.Ready)
 }
 
 /**
@@ -153,7 +156,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         val ready = s.conversions[s.size] as? Conversion.Ready ?: return
         val photo = s.cropped ?: return
         val id = handle.get<String>(KEY_DRAFT) ?: return
-        if (s.starting || !s.rules.startAllowed || s.size in s.rules.disabled) return
+        if (!s.canStart || s.starting) return
         _state.update { it.copy(starting = true, startFailed = false) }
         viewModelScope.launch {
             val ref = CanvasRef(CanvasKind.PHOTO, id)
@@ -295,7 +298,13 @@ object PhotoTitles {
 
     /** A rename that's blank keeps the old title; long ones are cut to the record's limit. */
     fun cleaned(input: String): String? =
-        input.trim().replace(Regex("\\s+"), " ").take(MAX_CHARS).takeIf { it.isNotEmpty() }
+        capped(input.trim().replace(Regex("\\s+"), " ")).takeIf { it.isNotEmpty() }
+
+    /** At most [MAX_CHARS] UTF-16 units, never cutting a surrogate pair (an emoji) in half. */
+    fun capped(input: String): String {
+        val cut = input.take(MAX_CHARS)
+        return if (cut.length < input.length && cut.last().isHighSurrogate()) cut.dropLast(1) else cut
+    }
 
     const val MAX_CHARS = 60
 }

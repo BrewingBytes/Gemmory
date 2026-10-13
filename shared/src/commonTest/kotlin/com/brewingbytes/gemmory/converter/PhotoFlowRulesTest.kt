@@ -55,4 +55,23 @@ class PhotoFlowRulesTest {
         val noFace = PhotoFlowRules.sizeRules(FaceCheck.NO_FACE)
         assertEquals(QUICK, PhotoFlowRules.selectionAfterCheck(QUICK, pickedByPlayer = true, rules = noFace))
     }
+
+    @Test
+    fun startWaitsForTheFaceCheck() {
+        // A quick Quick → Next → Start during the check must not make a Quick face canvas.
+        assertEquals(false, PhotoFlowRules.canStart(FaceCheck.RUNNING, QUICK, converted = true))
+        assertEquals(false, PhotoFlowRules.canStart(FaceCheck.FACE, QUICK, converted = true))
+        assertEquals(true, PhotoFlowRules.canStart(FaceCheck.FACE, MEDIUM, converted = true))
+        assertEquals(true, PhotoFlowRules.canStart(FaceCheck.NO_FACE, QUICK, converted = true))
+    }
+
+    @Test
+    fun startNeedsTheConversionAndAnAllowedRow() {
+        assertEquals(false, PhotoFlowRules.canStart(FaceCheck.NO_FACE, MEDIUM, converted = false))
+        for (size in CanvasSize.entries) {
+            assertEquals(false, PhotoFlowRules.canStart(FaceCheck.FACE, size, converted = true, faceMinSize = FaceMinSize.DISABLED))
+        }
+        assertEquals(false, PhotoFlowRules.canStart(FaceCheck.FACE, MEDIUM, converted = true, faceMinSize = FaceMinSize.BIG))
+        assertEquals(true, PhotoFlowRules.canStart(FaceCheck.FACE, BIG, converted = true, faceMinSize = FaceMinSize.BIG))
+    }
 }

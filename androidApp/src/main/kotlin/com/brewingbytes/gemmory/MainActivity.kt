@@ -116,7 +116,10 @@ class MainActivity : ComponentActivity() {
             is Route.Canvas -> PlayScreen(
                 ref = top.ref,
                 onBack = { stack.pop() },
-                onFinished = { stack.finished(top.ref) },
+                onFinished = {
+                    completion.onFinished(top.ref)
+                    stack.finished(top.ref)
+                },
             )
             is Route.Completion -> CompletionScreen(
                 ref = top.ref,

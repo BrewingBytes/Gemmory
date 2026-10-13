@@ -366,7 +366,7 @@ private fun RenameSheet(current: String, onSave: (String) -> Unit, onDismiss: ()
     GemSheet("Rename", onDismiss) {
         OutlinedTextField(
             value = text,
-            onValueChange = { text = it.take(com.brewingbytes.gemmory.photo.PhotoTitles.MAX_CHARS) },
+            onValueChange = { text = com.brewingbytes.gemmory.photo.PhotoTitles.capped(it) },
             singleLine = true,
             textStyle = GemType.body,
             modifier = Modifier.fillMaxWidth(),

@@ -51,6 +51,16 @@ object PhotoFlowRules {
     }
 
     /**
+     * Start on Preview: only once the face check has ended, so the face rule always applies to the size that starts
+     * (a quick Start must never make, say, a Quick face canvas), and only for an allowed size that's converted.
+     */
+    fun canStart(check: FaceCheck, size: CanvasSize, converted: Boolean, faceMinSize: FaceMinSize = FACE_MIN_SIZE): Boolean {
+        if (check == FaceCheck.RUNNING || !converted) return false
+        val rules = sizeRules(check, faceMinSize)
+        return rules.startAllowed && size !in rules.disabled
+    }
+
+    /**
      * The size selected once the check ends: the rule's pre-selection, unless the player already picked a size
      * that's still allowed.
      */

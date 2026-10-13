@@ -110,6 +110,19 @@ class CanvasStoreTest {
         assertEquals(CanvasRecord("Beach", 1_000, 90_000), record)
     }
 
+    /** The completion screen re-reads on every visit, so a rename and a later play time show up (review on #22). */
+    @Test
+    fun aRenameAfterFinishingShowsOnTheNextOpen() = runBlocking<Unit> {
+        createPhoto()
+        play(photo, *IntArray(12) { it }, playedMillis = 60_000)
+        assertEquals("My photo · 13 Oct", assertIs<CanvasStore.Opened.Ready>(store.open(photo)).title)
+        store.rename(photo, "Beach")
+        val reopened = assertIs<CanvasStore.Opened.Ready>(store.open(photo))
+        assertEquals("Beach", reopened.title)
+        assertTrue(reopened.state.isFinished)
+        assertEquals(60_000, reopened.record?.playMillis)
+    }
+
     @Test
     fun playTimeAccumulatesOnlyWhileStarted() = runBlocking<Unit> {
         createPhoto()

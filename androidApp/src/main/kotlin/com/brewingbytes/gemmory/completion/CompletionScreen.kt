@@ -66,6 +66,24 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 
+/**
+ * Canvases whose lights-down moment already ran in this process, so a rotation mid-sequence doesn't replay it.
+ * A canvas is forgotten whenever it's finished again (after Start over or Play again).
+ */
+class LightsDownTracker {
+    private val played = mutableSetOf<CanvasRef>()
+
+    fun hasPlayed(ref: CanvasRef): Boolean = ref in played
+
+    fun markPlayed(ref: CanvasRef) {
+        played += ref
+    }
+
+    fun forget(ref: CanvasRef) {
+        played -= ref
+    }
+}
+
 /** The finished picture and its meta line. */
 class Finished(val ref: CanvasRef, val image: ImageBitmap, val aspect: Float, val meta: String)
 
@@ -78,18 +96,21 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     var damaged by mutableStateOf(false)
         private set
 
-    /** Canvases whose lights-down moment already played in this process, so a rotation doesn't replay it. */
-    private val played = mutableSetOf<CanvasRef>()
+    private val played = LightsDownTracker()
 
-    fun hasPlayed(ref: CanvasRef) = ref in played
+    fun hasPlayed(ref: CanvasRef) = played.hasPlayed(ref)
 
-    fun markPlayed(ref: CanvasRef) {
-        played += ref
+    fun markPlayed(ref: CanvasRef) = played.markPlayed(ref)
+
+    /** A canvas was just finished: its lights-down moment plays again, whatever ran for it before. */
+    fun onFinished(ref: CanvasRef) {
+        played.forget(ref)
+        if (finished?.ref == ref) finished = null
     }
 
+    /** Always re-reads, so a rename or a new play time since the last visit shows. The old picture stays until then. */
     fun load(ref: CanvasRef) {
-        if (finished?.ref == ref) return
-        finished = null
+        if (finished?.ref != ref) finished = null
         damaged = false
         viewModelScope.launch {
             when (val opened = store.open(ref)) {
@@ -109,7 +130,7 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     fun playAgain(ref: CanvasRef, then: () -> Unit) {
         viewModelScope.launch {
             store.startOver(ref)
-            played -= ref
+            played.forget(ref)
             finished = null
             then()
         }

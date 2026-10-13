@@ -299,6 +299,14 @@ fun PreviewScreen(state: PhotoFlowState, onStart: () -> Unit, onChooseAnother: (
                     style = GemType.body,
                     color = GemColors.Bone,
                 )
+                if (state.faceCheck == FaceCheck.RUNNING) {
+                    Text(
+                        "Checking for faces…",
+                        style = GemType.label,
+                        color = GemColors.TextMuted,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 if (state.startFailed) {
                     Text(
                         "Couldn't save this canvas on the phone. Try again.",
@@ -311,7 +319,7 @@ fun PreviewScreen(state: PhotoFlowState, onStart: () -> Unit, onChooseAnother: (
                 PrimaryButton(
                     "Start",
                     onStart,
-                    enabled = conversion is Conversion.Ready,
+                    enabled = state.canStart,
                     held = state.starting,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 )
