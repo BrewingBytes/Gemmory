@@ -118,7 +118,7 @@ Token roles:
 - `felt` is the app ground, with a subtle grain at about 9% noise. `felt-deep` is the canvas surround, sheets, the tray bar and selected tabs. `felt-raised` is quiet buttons, toggles at rest and closed trough flaps.
 - `bone` is primary text and the **only** primary-button fill (5.7:1 on felt). `on-bone` is text on bone. Bone is never a ground.
 - `text-muted` is for secondary text (4.7:1 on felt, 6.3:1 on felt-deep).
-- `lamp` marks "this one": the selected trough outline, the selected size or plan option, rings on the remaining cells of the selected color, and the face hint text. It is never used for buttons.
+- `lamp` marks "this one": the selected trough outline, the selected size or plan option, and the face hint text. It is never used for buttons.
 - `patina` fills VIP and success states (switch-on track, perk bullets). `patina-text` is VIP wording in text (4.5:1 on felt).
 - `fault` covers offline / no-video wording only (5.1:1 on felt-deep). **It is never used for a wrong-color tap.**
 - `scrim` at 55% sits behind sheets. `frame-text` is text on the darkened 9:16 band.
@@ -135,7 +135,7 @@ Token roles:
 
 QA checks every new string against this table.
 
-**Canvas cell colors:** a placed gem is the exact grid color. An unplaced cell is that color mixed 78% toward `bone`, with its number in `on-bone`. Gem colors are never re-tinted by the theme.
+**Canvas cell colors:** a placed gem is the exact grid color. An unplaced cell is that color mixed 78% toward `bone`, with its number in `on-bone`. A remaining cell of the selected color is its color mixed only 40% toward `bone`, with its number in `on-bone` or `bone`, whichever has more contrast. Gem colors are never re-tinted by the theme.
 
 ## Typography
 
@@ -221,7 +221,7 @@ There are no zero-offset colored halos and no frosted glass anywhere.
   - When a color finishes, the next unfinished trough is auto-selected and scrolled into view.
   - On resume, the last zoom, pan and selected color are restored. They are stored with the canvas record, not in the GMRY placement log.
 - **Find** (Phase 5 D24): when the selected color has 20 or fewer cells left, a 48dp quiet "Find" button appears at the tray's left end.
-  - Each tap pans and zooms (24dp cells) to the next remaining cell and pulses its ring once for 400ms. Under reduced motion the ring stays static.
+  - Each tap pans and zooms (24dp cells) to the next remaining cell and pulses the cell once for 400ms. Under reduced motion the cell doesn't pulse.
   - It is hidden at all other times. It shares its logic with the TalkBack "Find next gem" action.
 - **Font scale** (Phase 5 D20):
   - Trough width grows with the font scale, up to 72dp.
@@ -231,16 +231,17 @@ There are no zero-offset colored halos and no frosted glass anywhere.
 
 | On-screen cell | Renders | Tap does |
 |---|---|---|
-| < 8dp | flat cushions; unplaced cells as pale tints | zooms to 24dp cells centered on the tap |
-| 8-15dp | + two-tone ring on remaining cells of the selected color; placed gems raised | zooms to 24dp cells centered on the tap |
+| < 8dp | flat cushions; unplaced cells as pale tints, the selected color's in a stronger tint | zooms to 24dp cells centered on the tap |
+| 8-15dp | + placed gems raised | zooms to 24dp cells centered on the tap |
 | 16-19dp | + numbers on unplaced cells | places a gem; drag places along the path |
 | ≥ 20dp | + facets, placement glint | places a gem |
 
 - Max zoom is 48dp cells, and min zoom fits the whole canvas.
 - Placement needs at least 16dp cells, so a gem is never placed where its number can't be read.
-- **Selected-color ring** (Phase 5 D17): a 1.5dp `on-bone` outer ring plus a 1dp `lamp` inner ring, drawn at 8dp and up.
-  - A lamp-only ring measures 1.0-1.7:1 against the pale tints, so it's invisible. The dark outer ring gives about 9:1 against any tint.
-  - QA it on white and skin-tone tints.
+- **Selected-color tint** (founder decision 2026-10-13, replaces the Phase 5 D17 ring): the remaining cells of the selected color use their own gem color mixed 40% toward `bone` instead of 78%, at every zoom. Their number is `on-bone` or `bone`, whichever reads better.
+  - It reads as a preview of the gem and stays visible at fit zoom, where the ring wasn't drawn.
+  - It's weak for light colors (cream, skin tones), whose stronger tint lands near the other pale tints. #19 lets the player switch to the D17 outline ring (1.5dp `on-bone` outer + 1dp `lamp` inner, from 8dp) or to dimming the other cells.
+  - QA it on dark, white and skin-tone colors.
 - **Placed vs unplaced** (Phase 5 D18): from 8dp up, a placed gem gets a 1dp bottom-right edge at 18% black and a 1dp top-left edge at 12% white. Unplaced cells stay flat.
   - This makes white, cream and skin-tone gems readable, where the tint vs gem contrast is only 1.1-1.2:1.
   - Bake the edges into the per-color sprite (T10).
@@ -435,7 +436,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - The wrong-tap trough nudge becomes the haptic plus a 120ms lamp-outline blink.
   - Sheets, chrome and screen transitions become 150ms fades.
   - The trough lift is instant.
-  - The Find ring pulse becomes a static ring.
+  - The Find cell pulse is skipped.
   - The lights-down dim (a fade) stays.
 - Haptics also follow the system touch-feedback setting.
 
@@ -452,3 +453,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-13 | `fault` #E8B09E, `patina-text` #ACD6C6 split from `patina` fill | WCAG AA for small text on felt and sheets |
 | 2026-10-13 | Outside voices: Codex unavailable (gpt-6.1-sol unsupported on ChatGPT login); Claude subagent converged on the same direction | Independent input recorded |
 | 2026-10-13 | Phase 5 design plan review (/plan-design-review): D3-D27 applied above (nav map, all missing states, gestures, two-tone ring, raised placed gems, Find, TalkBack, font scale, reduced motion, large screens, valid-ground contrast rule, 48dp text buttons, starter picture, time-lapse intro/timing) | Ledger in docs/designs/gemmory.md "Design Review (Phase 5)" |
+| 2026-10-13 | Selected color shown as a stronger own tint (40% toward bone) at every zoom; replaces the D17 two-tone ring | Founder call while playing #18 on the emulator: the outline looked busy. Chosen from five HTML mockups (ring, dim the rest, lamp fill, stronger own tint, dim + tint). Weak on light colors, so #19 adds a player setting with the ring and dimming as options |

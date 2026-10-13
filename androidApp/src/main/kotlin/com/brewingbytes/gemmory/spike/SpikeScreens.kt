@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -71,8 +72,15 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 @Composable
-fun SpikeApp(vm: SpikeViewModel = viewModel()) {
+fun SpikeApp(onOpenCanvas: (id: String) -> Unit, vm: SpikeViewModel = viewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.refreshSavedCanvases() }
+    LaunchedEffect(state.created) {
+        state.created?.let {
+            vm.onCreatedOpened()
+            onOpenCanvas(it)
+        }
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) vm.onPhotoPicked(uri)
     }
@@ -88,10 +96,10 @@ fun SpikeApp(vm: SpikeViewModel = viewModel()) {
             .padding(horizontal = 16.dp),
     ) {
         when (state.step) {
-            SpikeStep.START -> StartScreen(state.decodeFailed, pickPhoto)
+            SpikeStep.START -> StartScreen(state.decodeFailed, state.savedCanvases, pickPhoto, onOpenCanvas)
             SpikeStep.CROP -> state.source?.let { CropScreen(it, state.ratio, vm::onRatio, vm::onCropped) }
             SpikeStep.SIZE -> SizeScreen(state, vm::onSize, vm::toPreview)
-            SpikeStep.PREVIEW -> PreviewScreen(state, onExport = vm::export, onBack = vm::back)
+            SpikeStep.PREVIEW -> PreviewScreen(state, onPlay = vm::play, onExport = vm::export, onBack = vm::back)
         }
     }
 }
@@ -102,7 +110,7 @@ private fun ScreenTitle(text: String) {
 }
 
 @Composable
-private fun StartScreen(decodeFailed: Boolean, onPick: () -> Unit) {
+private fun StartScreen(decodeFailed: Boolean, saved: List<String>, onPick: () -> Unit, onOpen: (String) -> Unit) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
         Text("Your photos, in gems", style = GemType.displayLarge, color = GemColors.Bone)
         Spacer(Modifier.height(12.dp))
@@ -116,6 +124,15 @@ private fun StartScreen(decodeFailed: Boolean, onPick: () -> Unit) {
         if (decodeFailed) {
             Spacer(Modifier.height(16.dp))
             Text("This photo couldn't be opened. Try another one.", style = GemType.body, color = GemColors.Bone)
+        }
+        // Temporary until the gallery (#13): reopen the newest photo canvases.
+        if (saved.isNotEmpty()) {
+            Spacer(Modifier.height(32.dp))
+            Text("Continue", style = GemType.label, color = GemColors.TextMuted)
+            saved.take(3).forEach { id ->
+                Spacer(Modifier.height(8.dp))
+                QuietButton(SpikeCanvases.title(id), { onOpen(id) }, Modifier.fillMaxWidth())
+            }
         }
     }
 }
@@ -284,7 +301,7 @@ private fun GemImage(bitmap: ImageBitmap, description: String, modifier: Modifie
 }
 
 @Composable
-private fun PreviewScreen(state: SpikeState, onExport: () -> Unit, onBack: () -> Unit) {
+private fun PreviewScreen(state: SpikeState, onPlay: () -> Unit, onExport: () -> Unit, onBack: () -> Unit) {
     val conversion = state.conversions[state.size]
     Column(Modifier.fillMaxSize()) {
         ScreenTitle("Preview")
@@ -327,8 +344,23 @@ private fun PreviewScreen(state: SpikeState, onExport: () -> Unit, onBack: () ->
                     color = GemColors.Bone,
                 )
                 ExportLine(state.export)
+                if (state.createFailed) {
+                    Text(
+                        "Couldn't save this canvas on the phone. Try again.",
+                        style = GemType.label,
+                        color = GemColors.TextMuted,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton(
+                    "Play",
+                    onPlay,
+                    enabled = conversion is Conversion.Ready && !state.creatingCanvas,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                QuietButton(
                     "Save before/after",
                     onExport,
                     enabled = conversion is Conversion.Ready && state.export != ExportStatus.Saving,

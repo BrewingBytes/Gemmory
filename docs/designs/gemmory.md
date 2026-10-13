@@ -1609,7 +1609,7 @@ Every row was an individual AskUserQuestion. The user picked the recommended opt
 | D14 | Locked label glyph/spec | Vector icon, 13sp bone on felt-deep, whole-tile target | Gallery tile |
 | D15 | Weak-ground contrast | "Valid on" table + rules; palette unchanged | Colors |
 | D16 | 44 vs 48dp | 48dp everywhere + documented canvas exception | Layout, Text button |
-| D17 | Invisible lamp ring (1.0-1.7:1) | Two-tone ring (on-bone outer + lamp inner) | Play canvas |
+| D17 | Invisible lamp ring (1.0-1.7:1) | Two-tone ring (on-bone outer + lamp inner). Superseded 2026-10-13 by a stronger own tint (founder, during #18); the ring becomes a player option in #19 | Play canvas |
 | D18 | Light placed ≈ unplaced | Raised edge on placed gems from 8dp | Play canvas |
 | D19 | No TalkBack spec | Canvas node + 5 actions, labeled tray/tiles/sheets | Accessibility |
 | D20 | 200% font breaks tray/top bar | Trough grows to 72dp, count hides >1.5×, title ellipsis, % progress | Palette tray, Play canvas |
@@ -1628,7 +1628,7 @@ Approval readiness: PASS. D3-D27 each have an individual answer. D1/D2 were navi
 - Foreground-service encoding: rejected in D8, revisit if `share_tapped`→`share_completed` drop-off is high.
 - Per-cell TalkBack nodes (ExploreByTouch): rejected in D19 for canvas actions.
 - A paint/pan mode toggle: rejected in D23.
-- Dimming non-selected colors: rejected in D17.
+- Dimming non-selected colors: rejected in D17; offered as a player option in #19.
 - AI mockups: not generated (no OpenAI key). Run `$D setup` and /design-shotgun if visual exploration is wanted.
 
 ### What already exists
