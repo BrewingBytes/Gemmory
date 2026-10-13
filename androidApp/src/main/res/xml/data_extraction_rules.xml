@@ -1,18 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+: no app data goes to cloud backup or to a new device (AGENTS.md: photos never leave the phone). -->
+<!-- Android 12+. Same exclusions for cloud backup and device-to-device transfer: photo canvases (grid, progress,
+     view state, source) and the daily allowance counter. Anything else may be backed up or transferred.
+     Paths must match storage/StorageLayout.kt (checked by BackupRulesTest). -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="root" />
-        <exclude domain="file" />
-        <exclude domain="database" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" />
+        <exclude domain="file" path="canvases/photo/" />
+        <exclude domain="file" path="ledger/" />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="root" />
-        <exclude domain="file" />
-        <exclude domain="database" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" />
+        <exclude domain="file" path="canvases/photo/" />
+        <exclude domain="file" path="ledger/" />
     </device-transfer>
 </data-extraction-rules>

@@ -2,10 +2,10 @@
 <!-- No INTERNET permission: user photos never leave the phone (AGENTS.md). Photo Picker needs no media permission. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Spike: nothing is backed up or transferred. allowBackup=false alone does not stop Android 12+ device transfer,
-         so the extraction rules exclude every domain too. T3 narrows this to photo canvases and the allowance. -->
+    <!-- Backup is on except for photo canvases and the allowance counter, which the rules exclude from cloud backup
+         and device transfer (see res/xml). Bundled-picture progress and settings may be backed up. -->
     <application
-        android:allowBackup="false"
+        android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 and lower: back up nothing. -->
+<!-- Android 11 and lower (auto backup). User photos never leave the phone (AGENTS.md): photo canvases
+     (grid, progress, view state, source) and the daily allowance counter stay out. Anything else may be backed up.
+     Paths must match storage/StorageLayout.kt (checked by BackupRulesTest). -->
 <full-backup-content>
-    <exclude domain="root" />
-    <exclude domain="file" />
-    <exclude domain="database" />
-    <exclude domain="sharedpref" />
-    <exclude domain="external" />
+    <exclude domain="file" path="canvases/photo/" />
+    <exclude domain="file" path="ledger/" />
 </full-backup-content>

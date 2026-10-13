@@ -24,8 +24,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       # The runner's preinstalled SDK has accepted licenses; AGP downloads the pinned platform if missing.
-      - name: Purity check, tests, debug build, lint
-        run: ./gradlew :shared:checkCommonMainPurity :shared:allTests :androidApp:assembleDebug :androidApp:lintDebug
+      - name: Purity check, tests, app unit tests, debug build, lint
+        run: ./gradlew :shared:checkCommonMainPurity :shared:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug
 
       - name: Upload reports
         if: failure()
