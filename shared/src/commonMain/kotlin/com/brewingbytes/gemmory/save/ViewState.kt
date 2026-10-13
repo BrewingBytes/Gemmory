@@ -1,8 +1,9 @@
 package com.brewingbytes.gemmory.save
 
 /**
- * Where the player left a canvas (design D25): [zoom] is the on-screen cell size in dp, [panX]/[panY] the canvas
- * offset in px, [slot] the selected palette slot. Kept next to the canvas, outside the GMRY log, so it never
+ * Where the player left a canvas (design D25): [zoom] is the on-screen cell size in dp, [panX]/[panY] the viewport
+ * center in dp measured from the canvas's top-left (so it means the same spot on any screen size or density), [slot]
+ * the selected palette slot. Kept next to the canvas, outside the GMRY log, so it never
  * affects progress or the time-lapse.
  */
 data class ViewState(val zoom: Float, val panX: Float, val panY: Float, val slot: Int)

@@ -67,6 +67,19 @@ class CanvasViewportTest {
     }
 
     @Test
+    fun restoresTheSameSpotOnADifferentScreen() {
+        // Saved in a square window, restored after process death in landscape at another density.
+        val saved = viewport().apply { set(24f, 30f, 20f) }.toViewState(slot = 4)
+        val v = CanvasViewport(100, 50).apply {
+            restore(saved)
+            onLayout(1000, 600, 2.5f)
+        }
+        assertEquals(24f, v.zoomDp)
+        assertEquals(30f, v.centerX, 1e-3f)
+        assertEquals(20f, v.centerY, 1e-3f)
+    }
+
+    @Test
     fun keepsTheCenterAcrossRotation() {
         val v = viewport()
         v.set(24f, 30f, 20f)

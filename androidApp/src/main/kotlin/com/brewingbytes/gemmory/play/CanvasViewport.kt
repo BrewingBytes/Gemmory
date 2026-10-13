@@ -83,7 +83,9 @@ class CanvasViewport(val columns: Int, val rows: Int) {
         return if (col in 0 until columns && row in 0 until rows) row * columns + col else null
     }
 
-    fun toViewState(slot: Int): ViewState = ViewState(zoom = zoomDp, panX = offsetX, panY = offsetY, slot = slot)
+    /** Pan is the viewport center in dp from the canvas's top-left, so it doesn't depend on the screen it's restored on. */
+    fun toViewState(slot: Int): ViewState =
+        ViewState(zoom = zoomDp, panX = centerX * zoomDp, panY = centerY * zoomDp, slot = slot)
 
     private fun applyPending() {
         val view = pending
@@ -92,8 +94,7 @@ class CanvasViewport(val columns: Int, val rows: Int) {
             set(minZoomDp, columns / 2f, rows / 2f)
             return
         }
-        val px = view.zoom * density
-        set(view.zoom, (width / 2f - view.panX) / px, (height / 2f - view.panY) / px)
+        set(view.zoom, view.panX / view.zoom, view.panY / view.zoom)
     }
 
     private fun clampCenter(center: Float, cells: Int, visibleCells: Float): Float =
