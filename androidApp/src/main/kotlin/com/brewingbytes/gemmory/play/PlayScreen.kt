@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateDpAsState
@@ -69,6 +70,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -83,6 +85,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.GameEvent
@@ -90,6 +93,8 @@ import com.brewingbytes.gemmory.game.PlaceResult
 import com.brewingbytes.gemmory.game.Rejection
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.ui.GemColors
+import com.brewingbytes.gemmory.ui.GemIcons
+import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.QuietButton
@@ -102,11 +107,13 @@ import kotlin.math.floor
 
 /**
  * The play canvas (design system, Play canvas): top bar with back, title and mono progress; the canvas on
- * felt-deep; the sorting tray at the bottom. No ads and no other chrome.
+ * felt-deep; the sorting tray at the bottom. No ads and no other chrome. When the last gem is placed the chrome
+ * slides away over 250ms and [onFinished] hands over to the completion screen ("lights down").
  */
 @Composable
-fun PlayScreen(ref: CanvasRef, title: String, onBack: () -> Unit, vm: PlayViewModel = viewModel()) {
+fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: PlayViewModel = viewModel()) {
     LaunchedEffect(ref) { vm.open(ref) }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onStart() }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { vm.onStop() }
     val leave = {
         vm.close()
@@ -115,19 +122,30 @@ fun PlayScreen(ref: CanvasRef, title: String, onBack: () -> Unit, vm: PlayViewMo
     BackHandler(onBack = leave)
 
     val felt = LocalFelt.current
+    val chrome = remember { Animatable(1f) }
+    val ui = vm.ui
+    val session = (ui as? PlayUi.Ready)?.session
+    // Finishing the last gem, or reopening a canvas that was finished before its completion showed.
+    val finished = session != null && session.placedCount == session.cellCount
+    LaunchedEffect(finished) {
+        if (!finished) return@LaunchedEffect
+        chrome.animateTo(0f, tween(CHROME_OUT_MS, easing = FastOutLinearInEasing))
+        vm.close()
+        onFinished()
+    }
     Column(
         Modifier
             .fillMaxSize()
             .feltGround(felt.ground)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        when (val ui = vm.ui) {
+        when (ui) {
             PlayUi.Loading -> {
-                TopBar(title, progress = null, onBack = leave)
+                TopBar("", progress = null, onBack = leave)
                 Box(Modifier.weight(1f).fillMaxWidth().background(felt.deep))
             }
             PlayUi.Damaged -> {
-                TopBar(title, progress = null, onBack = leave)
+                TopBar("", progress = null, onBack = leave)
                 Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.Center) {
                     Text("This canvas's file is damaged, so it can't be opened.", style = GemType.body, color = GemColors.Bone)
                     Spacer(Modifier.height(16.dp))
@@ -135,9 +153,17 @@ fun PlayScreen(ref: CanvasRef, title: String, onBack: () -> Unit, vm: PlayViewMo
                 }
             }
             is PlayUi.Ready -> {
-                val session = ui.session
-                TopBar(title, progress = session.placedCount to session.cellCount, onBack = leave)
-                val diskFull by session.diskFull.collectAsStateWithLifecycle()
+                val s = ui.session
+                TopBar(
+                    s.title,
+                    progress = s.placedCount to s.cellCount,
+                    onBack = leave,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = chrome.value
+                        translationY = -(1f - chrome.value) * size.height
+                    },
+                )
+                val diskFull by s.diskFull.collectAsStateWithLifecycle()
                 if (diskFull) {
                     Text(
                         "Progress isn't saving: phone storage is full.",
@@ -147,43 +173,24 @@ fun PlayScreen(ref: CanvasRef, title: String, onBack: () -> Unit, vm: PlayViewMo
                     )
                 }
                 val context = LocalContext.current
-                val feedback = remember { Feedback(context) }
+                val feedback = remember { Feedback(context, (context.applicationContext as GemmoryApp).settings) }
                 DisposableEffect(feedback) { onDispose { feedback.release() } }
-                GemCanvas(session, feedback, Modifier.weight(1f).fillMaxWidth())
-                Tray(session)
+                GemCanvas(s, feedback, Modifier.weight(1f).fillMaxWidth())
+                Box(
+                    Modifier.graphicsLayer {
+                        alpha = chrome.value
+                        translationY = (1f - chrome.value) * size.height
+                    },
+                ) { Tray(s) }
             }
         }
     }
 }
 
-private val BackArrow: ImageVector = ImageVector.Builder("Back", 24.dp, 24.dp, 24f, 24f, autoMirror = true)
-    .path(fill = SolidColor(Color.White)) {
-        moveTo(20f, 11f)
-        horizontalLineTo(7.83f)
-        lineToRelative(5.59f, -5.59f)
-        lineTo(12f, 4f)
-        lineToRelative(-8f, 8f)
-        lineToRelative(8f, 8f)
-        lineToRelative(1.41f, -1.41f)
-        lineTo(7.83f, 13f)
-        horizontalLineTo(20f)
-        close()
-    }
-    .build()
-
 @Composable
-private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .clickable(role = Role.Button, onClick = onBack)
-                .semantics { contentDescription = "Back" },
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(BackArrow, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
-        }
+private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth().height(56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconAction(GemIcons.Back, "Back", onBack)
         Spacer(Modifier.width(4.dp))
         Text(
             title,
@@ -241,6 +248,7 @@ private fun GemCanvas(session: PlaySession, feedback: Feedback, modifier: Modifi
 
     Canvas(
         modifier
+            .testTag("play-canvas")
             .clipToBounds()
             .background(LocalFelt.current.deep)
             .onSizeChanged { viewport.onLayout(it.width, it.height, density) }
@@ -258,10 +266,11 @@ private fun GemCanvas(session: PlaySession, feedback: Feedback, modifier: Modifi
     }
 }
 
+/** The picture-finished chime and haptic play on the completion screen, at their step of "lights down". */
 private fun play(event: GameEvent, feedback: Feedback, view: View) = when (event) {
     is GameEvent.GemPlaced -> feedback.gemPlaced(view)
     is GameEvent.ColorFinished -> feedback.colorFinished(view)
-    GameEvent.PictureFinished -> feedback.pictureFinished()
+    GameEvent.PictureFinished -> Unit
 }
 
 /**
@@ -486,6 +495,7 @@ private fun Trough(
                 translationY = lift.toPx()
                 translationX = nudgeDp * density
             }
+            .testTag("trough-$number")
             .border(BorderStroke(2.dp, if (selected) GemColors.Lamp else Color.Transparent), shape)
             .clip(shape)
             .clickable(enabled = !finished, role = Role.Button, onClick = onClick)
@@ -564,3 +574,4 @@ private const val CELLS_PER_HEAP_GEM = 3.5
 private const val NUDGE_MS = 150
 private const val LIFT_MS = 150
 private const val TAP_ZOOM_MS = 250
+private const val CHROME_OUT_MS = 250

@@ -20,11 +20,14 @@ import kotlinx.coroutines.flow.StateFlow
  */
 class PlaySession internal constructor(
     val ref: CanvasRef,
+    val title: String,
     val pattern: Pattern,
     private val state: CanvasState,
     view: ViewState?,
     private val saver: SaveLoop,
-    private val onClosed: (lastWrite: Job) -> Unit,
+    private val clock: PlayClock,
+    private val onStopped: (playMillis: Long) -> Unit,
+    private val onClosed: (lastWrite: Job, playMillis: Long) -> Unit,
 ) {
     val viewport = CanvasViewport(pattern.width, pattern.height).apply { restore(view) }
 
@@ -77,11 +80,17 @@ class PlaySession internal constructor(
         return result
     }
 
-    /** Activity onStop: progress and view are written right away. */
-    fun onStop(): Deferred<Unit> = saver.writeNow(viewState())
+    /** Activity onStart: play time counts again. */
+    fun onStart() = clock.resume()
 
-    /** Leaving the canvas: last write of progress and view, then the save loop stops. */
-    fun close() = onClosed(saver.close(viewState()))
+    /** Activity onStop: progress, view and play time are written right away. */
+    fun onStop(): Deferred<Unit> {
+        onStopped(clock.pause())
+        return saver.writeNow(viewState())
+    }
+
+    /** Leaving the canvas: last write of progress and view, then the play time; the save loop stops. */
+    fun close() = onClosed(saver.close(viewState()), clock.pause())
 
     private fun viewState(): ViewState? = if (viewport.isLaidOut) viewport.toViewState(selectedSlot) else null
 }

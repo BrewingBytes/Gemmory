@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.storage
 
+import com.brewingbytes.gemmory.save.CanvasRecord
+import com.brewingbytes.gemmory.save.CanvasRecordCodec
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridBinding
 import com.brewingbytes.gemmory.save.GridCodec
@@ -65,7 +67,10 @@ class CanvasStorageException(message: String, cause: Throwable? = null) : Except
 
 /**
  * Canvas records in app-private storage, one directory each: `files/canvases/<photo|bundled>/<id>/` holding
- * `grid` (GridCodec), `save` (SaveCodec), `save.last-good` and `view` (ViewStateCodec). Every write is atomic
+ * `grid` (GridCodec), `save` (SaveCodec), `save.last-good`, `view` (ViewStateCodec), `record` (CanvasRecordCodec:
+ * title, creation time, play time), `thumb.png` (the last gallery thumbnail, kept for the "Can't open" tile) and,
+ * for photo canvases, `source.jpg` (the cropped photo, at most 1024 px). Photo canvases live under the directory the
+ * backup rules exclude, so none of it leaves the phone. Every write is atomic
  * (temp + fsync + rename). Before `save` is replaced, a copy of it that still decodes becomes `save.last-good`,
  * so a refused `save` falls back to progress at most one save interval older. It's a copy, not a hard link: SELinux
  * denies `link` on app data files (CanvasRepositoryDeviceTest).
@@ -92,10 +97,12 @@ class CanvasRepository internal constructor(
 
     /**
      * Starts a canvas from an encoded grid: a photo grid just made by the converter, or a bundled picture's frozen
-     * grid asset copied as is (never re-converted). The canvas appears only once its grid is complete.
+     * grid asset copied as is (never re-converted). [record] and, for a photo canvas, its cropped [source] photo are
+     * written in the same step. The canvas appears only once all of its files are complete.
      */
-    fun create(ref: CanvasRef, gridBytes: ByteArray): WriteResult {
+    fun create(ref: CanvasRef, gridBytes: ByteArray, record: CanvasRecord? = null, source: ByteArray? = null): WriteResult {
         require(GridCodec.decode(gridBytes) is Decoded.Ok) { "not a valid grid file" }
+        require(source == null || ref.kind == CanvasKind.PHOTO) { "only photo canvases keep a source photo" }
         val dir = dirOf(ref)
         require(!dir.exists()) { "canvas ${ref.id} already exists" }
         val staging = File(dir.parentFile, ".${ref.id}.new")
@@ -103,6 +110,8 @@ class CanvasRepository internal constructor(
             staging.deleteRecursively()
             if (!staging.mkdirs()) throw IOException("can't create ${staging.name}")
             files.write(File(staging, GRID), gridBytes)
+            if (record != null) files.write(File(staging, RECORD), CanvasRecordCodec.encode(record))
+            if (source != null) files.write(File(staging, SOURCE), source)
             Files.move(staging.toPath(), dir.toPath(), StandardCopyOption.ATOMIC_MOVE)
             AtomicFiles.syncDir(dir.parentFile)
             WriteResult.Written
@@ -197,8 +206,64 @@ class CanvasRepository internal constructor(
         }
     }
 
+    /** The record, or null if it's missing or refused (the caller falls back to a default title). */
+    fun readRecord(ref: CanvasRef): CanvasRecord? {
+        val file = File(dirOf(ref), RECORD)
+        val bytes = try {
+            if (file.isFile) file.readBytes() else return null
+        } catch (_: IOException) {
+            return null
+        }
+        return (CanvasRecordCodec.decode(bytes) as? Decoded.Ok)?.value
+    }
+
+    /** Rename and play time. A failure is not reported: the old title or a few minutes of play time are kept. */
+    fun writeRecord(ref: CanvasRef, record: CanvasRecord): WriteResult {
+        val dir = dirOf(ref)
+        if (!dir.isDirectory) return WriteResult.WriteFailed(diskFull = false)
+        return try {
+            files.write(File(dir, RECORD), CanvasRecordCodec.encode(record))
+            WriteResult.Written
+        } catch (e: IOException) {
+            WriteResult.WriteFailed(AtomicFiles.isDiskFull(e))
+        }
+    }
+
+    fun sourceFile(ref: CanvasRef): File = File(dirOf(ref), SOURCE)
+
+    fun thumbFile(ref: CanvasRef): File = File(dirOf(ref), THUMB)
+
+    fun writeThumb(ref: CanvasRef, png: ByteArray) {
+        val dir = dirOf(ref)
+        if (!dir.isDirectory) return
+        try {
+            files.write(File(dir, THUMB), png)
+        } catch (_: IOException) {
+        }
+    }
+
     /**
-     * Deletes the canvas with everything in it (grid, progress, view state). The directory is first renamed out
+     * Start over / Play again: removes the progress (last good first, so an interrupted clear never brings back
+     * older progress), the view state and the thumbnail, and resets the play time. The grid, title and source stay.
+     * Callers close the canvas's session and cancel its encode first.
+     */
+    fun clearProgress(ref: CanvasRef): Boolean {
+        val dir = dirOf(ref)
+        if (!dir.isDirectory) return false
+        for (name in listOf(LAST_GOOD, SAVE, VIEW, THUMB)) {
+            val f = File(dir, name)
+            if (f.exists() && !f.delete()) {
+                reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: clearing $name failed"))
+                return false
+            }
+        }
+        AtomicFiles.syncDir(dir)
+        readRecord(ref)?.let { writeRecord(ref, it.copy(playMillis = 0)) }
+        return true
+    }
+
+    /**
+     * Deletes the canvas with everything in it (grid, progress, view state, record, source photo). The directory is first renamed out
      * of the listing, so an interrupted delete never leaves a "Can't open" tile. Callers cancel the canvas's
      * encode first (eng E4d).
      */
@@ -268,5 +333,8 @@ class CanvasRepository internal constructor(
         const val SAVE = "save"
         const val LAST_GOOD = "save.last-good"
         const val VIEW = "view"
+        const val RECORD = "record"
+        const val SOURCE = "source.jpg"
+        const val THUMB = "thumb.png"
     }
 }

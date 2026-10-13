@@ -9,6 +9,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -55,6 +56,8 @@ object GemColors {
     val OnBone = Color(0xFF2B322D)
     val TextMuted = Color(0xFFCDD3C9)
     val Lamp = Color(0xFFF4E3B1)
+    val Patina = Color(0xFF7FB3A0)
+    val PatinaText = Color(0xFFACD6C6)
     val Fault = Color(0xFFE8B09E)
     val Scrim = Color(0xFF141815)
     val FrameText = Color(0xFFF2EEE4)
@@ -133,12 +136,13 @@ fun Modifier.feltGround(color: Color): Modifier = background(color).drawBehind {
 
 private val ButtonShape = RoundedCornerShape(6.dp)
 
+/** [held]: shows the pressed state (1dp down) and ignores taps, for single-flight actions like Start. */
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, held: Boolean = false) {
     Button(
-        onClick = onClick,
+        onClick = { if (!held) onClick() },
         enabled = enabled,
-        modifier = modifier.defaultMinSize(minHeight = 48.dp),
+        modifier = modifier.defaultMinSize(minHeight = 48.dp).offset(y = if (held) 1.dp else 0.dp),
         shape = ButtonShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = GemColors.Bone,

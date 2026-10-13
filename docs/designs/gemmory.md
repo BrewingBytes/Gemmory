@@ -106,8 +106,8 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
 **Face detection ships in the MVP no matter what the gate decides.**
 - Uses ML Kit's bundled on-device face detection, so no photo leaves the phone and photos remain "not collected." ML Kit still sends diagnostic and usage data (device info, app info, performance metrics, API configuration) to Google. Review Google's ML Kit data-disclosure guidance before Play submission and declare that diagnostics data in the Data safety form if required (R3-6).
 - The gate outcome only changes which size rule applies to faces. It's a single config value: `faceMinSize` = Quick | Medium | Big | Disabled.
-- Default rule: when the cropped photo contains a face, the size picker shows "Faces look best at Medium or Big" and pre-selects Medium. Quick stays selectable.
-- After re-scoping, sizes below `faceMinSize` are disabled for face photos.
+- Default rule (`faceMinSize` = Medium): when the cropped photo contains a face, the size picker shows "Faces look best at Medium or Big", pre-selects Medium and disables Quick, as in the table below (founder, 2026-10-13, during #13: the table and design-system.md win over an earlier "Quick stays selectable" line).
+- Sizes below `faceMinSize` are always disabled for face photos.
 - **Mixed photos (R3-4):** if ML Kit detects any face in the cropped photo, the face rule applies to the whole photo, including photos with a pet or landscape too.
 - **Gate outcome → picker behavior (R3-3):**
 

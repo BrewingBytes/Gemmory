@@ -41,6 +41,10 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun onStart() {
+        (ui as? PlayUi.Ready)?.session?.onStart()
+    }
+
     fun onStop() {
         (ui as? PlayUi.Ready)?.session?.onStop()
     }
