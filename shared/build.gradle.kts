@@ -66,3 +66,21 @@ val checkCommonMainPurity = tasks.register<CheckCommonMainPurity>("checkCommonMa
 
 tasks.named("check") { dependsOn(checkCommonMainPurity) }
 tasks.named("allTests") { dependsOn(checkCommonMainPurity) }
+
+// Golden files are test inputs, so editing them must invalidate a cached jvmTest result.
+tasks.named<Test>("jvmTest") {
+    inputs.dir("src/jvmTest/fixtures").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("src/jvmTest/goldens").withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+/** Regenerates the 27 converter goldens (+ review PNGs). Only after an intended converter change (eng D19). */
+tasks.register<Test>("updateConverterGoldens") {
+    group = "verification"
+    description = "Rewrites shared/src/jvmTest/goldens from the current converter output."
+    val jvmTest = tasks.named<Test>("jvmTest")
+    testClassesDirs = jvmTest.get().testClassesDirs
+    classpath = jvmTest.get().classpath
+    filter { includeTestsMatching("*ConverterGoldenTest") }
+    systemProperty("gemmory.updateGoldens", "true")
+    outputs.upToDateWhen { false }
+}
