@@ -151,12 +151,19 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 }
 
 @Composable
-fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun QuietButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val raised = LocalFelt.current.raised
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.defaultMinSize(minHeight = 48.dp),
         shape = ButtonShape,
-        colors = ButtonDefaults.buttonColors(containerColor = LocalFelt.current.raised, contentColor = GemColors.Bone),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = raised,
+            contentColor = GemColors.Bone,
+            disabledContainerColor = raised.copy(alpha = 0.55f),
+            disabledContentColor = GemColors.Bone.copy(alpha = 0.55f),
+        ),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
     ) { Text(text, style = GemType.button) }
 }

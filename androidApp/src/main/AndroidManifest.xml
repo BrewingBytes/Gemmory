@@ -2,9 +2,13 @@
 <!-- No INTERNET permission: user photos never leave the phone (AGENTS.md). Photo Picker needs no media permission. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- The one 400ms soft vibration when a picture is finished (design system, Haptics and sound). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!-- Backup is on except for photo canvases and the allowance counter, which the rules exclude from cloud backup
          and device transfer (see res/xml). Bundled-picture progress and settings may be backed up. -->
     <application
+        android:name=".GemmoryApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

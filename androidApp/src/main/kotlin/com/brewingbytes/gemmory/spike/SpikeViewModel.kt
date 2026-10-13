@@ -7,11 +7,15 @@ import android.graphics.Rect
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.converter.convert
+import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.storage.WriteResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +54,12 @@ data class SpikeState(
     val size: CanvasSize = CanvasSize.MEDIUM,
     val conversions: Map<CanvasSize, Conversion> = emptyMap(),
     val export: ExportStatus = ExportStatus.Idle,
+    /** Temporary entry point until #13: saved photo canvases, newest first, and the Play action's state. */
+    val savedCanvases: List<String> = emptyList(),
+    val creatingCanvas: Boolean = false,
+    val createFailed: Boolean = false,
+    /** A canvas just created by Play, for the screen to open once. */
+    val created: String? = null,
 )
 
 /**
@@ -60,6 +70,35 @@ class SpikeViewModel(application: Application) : AndroidViewModel(application) {
     private val _state = MutableStateFlow(SpikeState())
     val state: StateFlow<SpikeState> = _state.asStateFlow()
     private var conversionJobs: List<Job> = emptyList()
+    private val store = (application as GemmoryApp).store
+
+    fun refreshSavedCanvases() {
+        viewModelScope.launch {
+            val ids = store.list(CanvasKind.PHOTO).sortedDescending()
+            _state.update { it.copy(savedCanvases = ids) }
+        }
+    }
+
+    /** Play: saves the previewed grid as a new photo canvas (GridCodec.encode → CanvasRepository.create). Single-flight. */
+    fun play() {
+        val s = _state.value
+        val ready = s.conversions[s.size] as? Conversion.Ready ?: return
+        if (s.creatingCanvas) return
+        _state.update { it.copy(creatingCanvas = true, createFailed = false) }
+        viewModelScope.launch {
+            val id = SpikeCanvases.newId()
+            val result = store.create(CanvasRef(CanvasKind.PHOTO, id), ready.pattern)
+            _state.update {
+                if (result == WriteResult.Written) {
+                    SpikeState(created = id, savedCanvases = listOf(id) + it.savedCanvases)
+                } else {
+                    it.copy(creatingCanvas = false, createFailed = true)
+                }
+            }
+        }
+    }
+
+    fun onCreatedOpened() = _state.update { it.copy(created = null) }
 
     fun onPhotoPicked(uri: Uri) {
         viewModelScope.launch {

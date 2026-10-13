@@ -3,6 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator).
 
 ---
 
@@ -176,14 +177,14 @@ Labels: P2, renderer
 
 **Scope:** visible-cell culling, one cached gem sprite per palette color, baked full-canvas bitmap below the number zoom threshold, updated incrementally per placement.
 Design review additions (specs in `docs/design-system.md` → Play canvas, Palette tray):
-- Two-tone selected-color ring (1.5dp on-bone outer + 1dp lamp inner) from 8dp (D17)
+- ~~Two-tone selected-color ring (D17)~~: superseded by the stronger own tint, built in #18; the ring is a player option in #19
 - Raised placed gems from 8dp (1dp edges, baked into the per-color sprite) (D18)
 - Gesture rules: start cell decides paint vs pan, silent skip during drags, two fingers navigate, double-tap zoom, long-press selects color (D23)
 - Find button at ≤20 cells left (D24); auto-select first/next color, restore view state on resume (D25)
 - Pure `shared/game` `nextRemainingCell(grid, placed, slot, after)` shared by Find and the TalkBack actions; "Place next gem" uses the normal placement rule (eng re-check)
 - Tray font scaling up to 72dp troughs (D20); 3 one-time coach hints (D12)
 
-**Done when:** a Big canvas pans/zooms smoothly (~60 fps) on the low-end Test Lab device; the ring and raised edges are visible on white and skin-tone fixtures; instrumented tests cover the gesture table.
+**Done when:** a Big canvas pans/zooms smoothly (~60 fps) on the low-end Test Lab device; the selected-color tint and raised edges are visible on white and skin-tone fixtures; instrumented tests cover the gesture table.
 Effort: human ~1d / CC ~30min
 
 ---
@@ -242,5 +243,82 @@ Labels: P2, a11y
 
 **Done when:** TalkBack alone can finish the starter picture; Accessibility Scanner is clean; 200% font on a 360 dp phone has no clipping; tablet and foldable emulators pass in both orientations.
 Effort: human ~2d / CC ~1h
+
+---
+
+## T15: Game core, play canvas and save wiring
+Labels: P1, game
+
+**Why:** plan step S6 ("gameplay UI + persistence wiring", eng parallelization table), MVP gameplay scope, eng D4/D8, design D9/D23/D25. No issue owned it: #10 adds renderer performance and the full gesture set on top of this, and #13 builds the gallery, navigation and completion screens around it. This is the step that gets to a playable build (the closed-test clock starts there).
+
+**Scope**
+- `shared/game` (pure): `CanvasState` built from a `Pattern` + the ordered placement log. It keeps the in-memory placed bitset and the remaining count per color. `place(cell, selectedSlot)` accepts only an unplaced cell of the selected color. Anything else (wrong color, already placed, out of range) is rejected with **no state change** (eng D4), so the log stays an ordered list of unique cell indices. Restoring a log replays it through the same rule.
+- Events from placements: gem placed, color finished, picture finished.
+- Selection (design D25): first unfinished color in tray order on open, next unfinished color auto-selected when one finishes.
+- Play screen (single Compose `Canvas`, never one composable per cell), per the zoom table in `docs/design-system.md` → Play canvas: pale tints, placed gems, numbers from 16dp, placement only from 16dp, tap-to-zoom (24dp cells) below 16dp, pinch/pan, min zoom = fit, max = 48dp cells
+- Palette tray: troughs with number + remaining count, selected lift + lamp outline, finished flap moved to the end, auto-scroll to the selected trough
+- Wrong-color tap feedback: soft haptic + 2dp trough nudge over 150ms, nothing else
+- Haptics and sounds per the Haptics and sound table (the Settings toggles come with #13 and default to on)
+- Save wiring on a background dispatcher, one writer per canvas: `SaveScheduler` (1 s / 5 s) → `CanvasRepository.writeSave`. Immediate write on Activity onStop and on picture finished. View state written on onStop and restored on open.
+- "Progress isn't saving: phone storage is full." under the top bar while `WriteFailed(diskFull = true)`, cleared by the next successful write (design D9)
+- Open uses `CanvasRepository.load`: `Loaded` and `RecoveredFromLastGood` open the canvas; `Damaged` doesn't (the gallery tile and sheet are #13)
+- `CanvasRepository.sweep()` once at app start
+- Canvas, zoom and selection survive rotation and fold changes
+- Temporary entry point until #13: the spike's preview gets a "Play" action that creates a photo canvas (`GridCodec.encode` → `CanvasRepository.create`) and opens it
+
+**Out of scope:** visible-cell culling, sprites, baked bitmap, selected-color ring, raised edges, drag-paint/long-press/double-tap gesture table, Find, tray font scaling, coach hints (#10); gallery, navigation, completion screen, starter picture (#13); time-lapse (#4); TalkBack actions (#14).
+
+**Tests:** `CanvasStateTest` (wrong color, already placed and out of range leave state and log unchanged; log order; color and picture finished; restore replay; selection rules); save loop with a fake clock (idle write, 5 s max, onStop, completion, disk-full line set and cleared); instrumented kill-and-resume (place, kill the process, reopen: at most 5 s of placements lost, view state restored).
+
+**Done when:** a photo made in the spike flow can be played to the end on a device, survives a process kill with at most 5 s lost, and reopens at the same zoom, pan and color.
+Effort: human ~3d / CC ~1.5h
+
+---
+
+## T16: Let players choose how the selected color is highlighted
+Labels: P2, ui, renderer
+
+**Why:** while playing #18 on the emulator, the founder replaced the design D17 outline ring with a stronger own tint for the remaining cells of the selected color (2026-10-13, recorded in `docs/design-system.md` → Play canvas and its decision log). The tint is weak for light colors (cream, skin tones), where the ring or dimming reads better, so the player should be able to choose.
+
+**Scope**
+- A Settings row "Selected color" (in the Settings screen from #13) with three options:
+  - **Stronger tint** (default): selected cells use their gem color mixed 40% toward bone, number in on-bone or bone, whichever reads better.
+  - **Outline**: the D17 two-tone ring (1.5dp on-bone outer + 1dp lamp inner), from 8dp cells up.
+  - **Dim the rest**: selected cells keep the pale tint; every other unplaced cell darkens 35% toward felt-deep.
+- Stored with the other settings (no photo data, so it may be backed up); applied live without reopening the canvas.
+- The canvas renderer takes the style as a parameter, so #10's sprite and baked-bitmap work covers all three.
+- Copy and the option list go into `docs/design-system.md` (Settings, Play canvas) before building.
+
+**Done when:** each style is selectable in Settings, the canvas switches immediately, the choice survives an app restart, and all three are checked on a dark, a cream and a skin-tone color.
+
+Depends on #13 (Settings screen) and #18 (play canvas). Effort: human ~4h / CC ~20min
+
+---
+
+## T17: Placement tools beyond single taps (fill, bigger brush)
+Labels: P2, game, ui
+
+**Why:** founder feedback while playing #18 on the emulator (2026-10-13): a Quick canvas is 3,136 single taps and a Big one ~15k, so players will want a faster way to fill large areas, such as a "fill" or a bigger crayon. Which tools to offer isn't decided yet, so this issue starts with design.
+
+**Step 1: decide the tool set (design, before code)**
+- Candidates to compare:
+  - **Bigger brush**: one tap or drag places every unplaced cell of the selected color inside a 2×2 or 3×3 area.
+  - **Region fill**: one tap fills the connected region of the selected color around the tapped cell.
+  - **Color fill**: places every remaining cell of the selected color, possibly unlocked only below N cells left.
+- Questions to answer:
+  - Do tools keep the game satisfying (the sorting-tray feel, haptic per gem), or make it trivial?
+  - Free, limited per canvas, earned by a rewarded ad, or VIP? This has to fit the ad rules and tiers in `docs/designs/gemmory.md`.
+  - Where does the tool picker live without adding chrome to the canvas (design system: no other chrome on the play canvas)?
+  - Haptic and sound for a multi-gem placement (one tick per gem would buzz).
+- Record the chosen tools, copy and states in `docs/design-system.md` (Play canvas, Palette tray) and the decision in its log.
+
+**Rules every tool must keep** (AGENTS.md, eng D4):
+- A tool is a batch of ordinary placements: each cell goes through `CanvasState.place(cell, selectedSlot)`, so wrong-color and already-placed cells are skipped, and nothing else changes state.
+- The save log stays an ordered list of placed cell indices, in a defined order (for example, distance from the tapped cell), so the time-lapse replays the fill as a sweep.
+- The save loop treats a batch like any placement (1 s / 5 s cadence); picture finished still writes immediately.
+
+**Done when:** the tool set is decided and specified, and the chosen tools work on a Big canvas, with log order, time-lapse replay and kill-and-resume covered by tests.
+
+Builds on #18 (game core and play canvas) and #10 (gestures). Effort: design ~2h; build depends on the chosen tools.
 
 ---
