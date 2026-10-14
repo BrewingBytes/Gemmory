@@ -223,6 +223,7 @@ There are no zero-offset colored halos and no frosted glass anywhere.
 - **Find** (Phase 5 D24): when the selected color has 20 or fewer cells left, a 48dp quiet "Find" button appears at the tray's left end.
   - Each tap pans and zooms (24dp cells) to the next remaining cell and pulses the cell once for 400ms. Under reduced motion the cell doesn't pulse.
   - It is hidden at all other times. It shares its logic with the TalkBack "Find next gem" action.
+  - It is an icon button (magnifier) labelled "Find". In the large-screen rail it is pinned full width at the top, above the scrolling troughs.
 - **Font scale** (Phase 5 D20):
   - Trough width grows with the font scale, up to 72dp.
   - Above 1.5× the remaining count is hidden; TalkBack still reads it. The number never clips.
@@ -250,10 +251,11 @@ There are no zero-offset colored halos and no frosted glass anywhere.
   - **One finger, under 16dp:** a drag pans.
   - **Two fingers:** always pan and zoom.
   - **Tap a placed gem:** nothing happens.
-  - **Double-tap:** zooms to 24dp cells, or back to fit when already zoomed in.
+  - **Double-tap:** zooms to 24dp cells, or back to fit when already zoomed in. Taps never wait for a possible second tap: a double-tap counts only when neither tap places a gem (each lands on a placed gem, another color or outside the canvas). A quick second tap that would place (an unplaced cell of the selected color, at 16dp and up) is a normal tap and places its gem, so a corrective tap right after a miss never zooms out. Under 16dp the first tap already zooms in, so the second adds nothing.
   - **Long-press a cell:** selects its color.
 - **First-time hints** (Phase 5 D12): three inline bone labels on a `felt-deep` chip over the canvas.
-  - Each shows once ever and fades after its action or after 6s.
+  - Each shows once ever and fades after its action or after 6s. One shows at a time: a tap-to-zoom shows hint 3 first, then hint 2.
+  - The "shown" flags hold no photo data and may be backed up and transferred.
   - There is no dimming overlay and no Next button. TalkBack reads them.
   1. First canvas open: "Pinch or tap to zoom in until numbers appear"
   2. First time cells reach 16dp: "Pick a color below, then tap or drag its numbers"
@@ -462,3 +464,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-14 | No daily cap on extra photo canvases: every rewarded video gives one more, so the "All 3 extras used" row and the "(N left today)" count are gone | Founder call during #7 ("we don't need a max video ad unlock, you can watch as many"). Grace stays 1/day per reward type |
 | 2026-10-14 | Rewarded sheet "video ready" copy: locked picture "Watch to unlock" / "Watch a short video to unlock this picture for good."; extra canvas "Another photo canvas" / "Watch a short video for one more photo canvas today."; primary "Watch video". Extra-canvas grace text "Or get VIP: unlimited photo canvases". Interstitial only after a fresh finish (not the completion still). A UMP form that couldn't show on the first launch shows before the first rewarded ad instead | Founder answers during #7 (the Rewarded states table had no ready-state copy) |
 | 2026-10-14 | Share enabled (#4): progress sheet, PNG fallback with "Before"/"After" labels, failure and disk-full messages inside the sheet, killed-encode line under Share | Implements the Share progress sheet and D8 edge states; the labels and in-sheet messages fill details the spec left open |
+| 2026-10-14 | Double-tap never delays a placing tap: it zooms only when neither tap places (a second tap that would place is a normal tap). Coach-hint flags may be backed up. Find in the large-screen rail is pinned at the top | Founder answers during #10. Standard double-tap detection would delay every placement by ~300ms |

@@ -4,10 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.game.CanvasGestures
 import com.brewingbytes.gemmory.game.CanvasState
 import com.brewingbytes.gemmory.game.GameEvent
 import com.brewingbytes.gemmory.game.PlaceResult
 import com.brewingbytes.gemmory.game.Rejection
+import com.brewingbytes.gemmory.game.nextRemainingCell
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.storage.CanvasRef
 import kotlinx.coroutines.Deferred
@@ -49,6 +51,24 @@ class PlaySession internal constructor(
     fun isPlaced(cell: Int): Boolean = state.isPlaced(cell)
 
     fun remaining(slot: Int): Int = state.remaining(slot)
+
+    /** The [index]th placement, oldest first; the renderer catches up on new gems with it. */
+    fun placedAt(index: Int): Int = state.placedAt(index)
+
+    /** Find (design D24) shows while the selected color has 1 to 20 cells left. */
+    val findVisible: Boolean
+        get() {
+            placedCount // a snapshot read, so callers recompose after every placement
+            return remaining(selectedSlot) in 1..FIND_MAX_LEFT
+        }
+
+    private var findCursor = -1
+
+    /** The next remaining cell of the selected color after the last one found, wrapping; null when none is left. */
+    fun findNext(): Int? = nextRemainingCell(pattern, state::isPlaced, selectedSlot, findCursor)?.also { findCursor = it }
+
+    /** Design D23: a one-finger drag from [cell] paints, at the current zoom and selection, instead of panning. */
+    fun startsPaint(cell: Int?): Boolean = CanvasGestures.startsPaint(viewport.zoomDp, cell, state, selectedSlot)
 
     @androidx.annotation.VisibleForTesting
     internal fun placedLogForTest(): IntArray = state.log()
@@ -93,4 +113,8 @@ class PlaySession internal constructor(
     fun close() = onClosed(saver.close(viewState()), clock.pause())
 
     private fun viewState(): ViewState? = if (viewport.isLaidOut) viewport.toViewState(selectedSlot) else null
+
+    private companion object {
+        const val FIND_MAX_LEFT = 20
+    }
 }

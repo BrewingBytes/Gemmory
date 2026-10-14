@@ -1,12 +1,8 @@
 package com.brewingbytes.gemmory.play
 
-import android.content.Context
-import android.graphics.Paint
-import android.graphics.Path
-import android.graphics.RectF
-import android.graphics.Typeface
 import android.view.View
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -20,8 +16,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,15 +23,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,10 +45,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,51 +63,55 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.res.ResourcesCompat
-import androidx.core.graphics.ColorUtils
-import androidx.core.graphics.withSave
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.brewingbytes.gemmory.GemmoryApp
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.game.CanvasGestures
+import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.game.GameEvent
 import com.brewingbytes.gemmory.game.PlaceResult
 import com.brewingbytes.gemmory.game.Rejection
+import com.brewingbytes.gemmory.game.TapAction
+import com.brewingbytes.gemmory.game.TapOutcome
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
-import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.GemType
+import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
+import com.brewingbytes.gemmory.ui.rememberReducedMotion
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import kotlin.math.ceil
-import kotlin.math.floor
 
 /**
  * The play canvas (design system, Play canvas): top bar with back, title and mono progress; the canvas on
@@ -173,23 +181,44 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
                     )
                 }
                 val context = LocalContext.current
+                val view = LocalView.current
+                val scope = rememberCoroutineScope()
+                val reducedMotion = rememberReducedMotion()
                 val feedback = remember { Feedback(context, (context.applicationContext as GemmoryApp).settings) }
                 DisposableEffect(feedback) { onDispose { feedback.release() } }
-                GemCanvas(s, feedback, Modifier.weight(1f).fillMaxWidth())
-                Box(
-                    Modifier.graphicsLayer {
-                        alpha = chrome.value
-                        translationY = (1f - chrome.value) * size.height
-                    },
-                ) { Tray(s) }
+                val controller = remember(s) { CanvasController(s, scope, feedback, view, vm.hints, reducedMotion) }
+                val window = LocalWindowInfo.current.containerSize
+                // Large screens (design D22): at 600dp and wider in landscape the tray is a 2-column rail on the right.
+                val rail = with(LocalDensity.current) { window.width.toDp() >= RAIL_MIN_WIDTH } && window.width > window.height
+                if (rail) {
+                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                        GemCanvas(s, controller, vm.hints, Modifier.weight(1f).fillMaxHeight())
+                        Box(
+                            Modifier.fillMaxHeight().graphicsLayer {
+                                alpha = chrome.value
+                                translationX = (1f - chrome.value) * size.width
+                            },
+                        ) { Tray(s, controller, rail = true) }
+                    }
+                } else {
+                    GemCanvas(s, controller, vm.hints, Modifier.weight(1f).fillMaxWidth())
+                    Box(
+                        Modifier.graphicsLayer {
+                            alpha = chrome.value
+                            translationY = (1f - chrome.value) * size.height
+                        },
+                    ) { Tray(s, controller, rail = false) }
+                }
             }
         }
     }
 }
 
+/** Top bar (design D20): the title ellipsizes to one line; above 1.5× font scale progress shows as a mono "59%". */
 @Composable
 private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().height(56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    val largeFont = LocalDensity.current.fontScale > LARGE_FONT_SCALE
+    Row(modifier.fillMaxWidth().heightIn(min = 56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconAction(GemIcons.Back, "Back", onBack)
         Spacer(Modifier.width(4.dp))
         Text(
@@ -202,232 +231,215 @@ private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit,
         )
         if (progress != null) {
             val format = remember { NumberFormat.getIntegerInstance() }
+            val (placed, total) = progress
             Text(
-                "${format.format(progress.first)} / ${format.format(progress.second)}",
+                if (largeFont) "${placed * 100L / maxOf(1, total)}%" else "${format.format(placed)} / ${format.format(total)}",
                 style = GemType.mono.copy(fontSize = 14.sp),
                 color = GemColors.TextMuted,
-                modifier = Modifier.padding(start = 12.dp),
+                maxLines = 1,
+                modifier = Modifier.padding(start = 12.dp).testTag("play-progress"),
             )
         }
     }
 }
 
+/**
+ * Everything the canvas, the tray's Find button and the hints share: zoom animations, gesture outcomes, glints and
+ * pulses. Lives as long as the session's screen.
+ */
+@Stable
+private class CanvasController(
+    private val session: PlaySession,
+    private val scope: CoroutineScope,
+    private val feedback: Feedback,
+    private val view: View,
+    private val hints: CoachHints,
+    private val reducedMotion: Boolean,
+) : CanvasInputHandler {
+    val effects = CanvasEffects()
+
+    /** The frame clock while an effect runs; the canvas redraws on every change. */
+    var frameNanos by mutableLongStateOf(System.nanoTime())
+        private set
+    private val viewport = session.viewport
+    private var animation: Job? = null
+    private var ticker: Job? = null
+
+    override fun onTouch() {
+        animation?.cancel()
+    }
+
+    override fun onTap(at: Offset): TapOutcome {
+        val cell = viewport.cellAt(at.x, at.y)
+        return when (CanvasGestures.tapAction(viewport.zoomDp, cell)) {
+            TapAction.NONE -> TapOutcome.OTHER
+            TapAction.ZOOM_IN -> {
+                // Below 16dp a tap never places: it zooms to 24dp cells centered on the tap.
+                val (x, y) = viewport.pointAt(at.x, at.y)
+                animateTo(CanvasZoom.TAP_ZOOM_DP, x, y)
+                hints.onTapZoom()
+                TapOutcome.ZOOMED_IN
+            }
+            TapAction.PLACE -> when (val result = session.place(cell!!)) {
+                is PlaceResult.Placed -> {
+                    placed(result)
+                    TapOutcome.PLACED
+                }
+                is PlaceResult.Rejected -> {
+                    if (result.reason == Rejection.WRONG_COLOR) feedback.wrongColor(view)
+                    TapOutcome.OTHER
+                }
+            }
+        }
+    }
+
+    override fun onDoubleTap(at: Offset) {
+        val fit = viewport.minZoomDp
+        val target = CanvasZoom.doubleTapTarget(viewport.zoomDp, fit)
+        if (target == fit) {
+            animateTo(fit, viewport.columns / 2f, viewport.rows / 2f)
+        } else {
+            val (x, y) = viewport.pointAt(at.x, at.y)
+            animateTo(target, x, y)
+        }
+    }
+
+    override fun onLongPress(cell: Int) = session.select(session.pattern.cells[cell])
+
+    override fun onPaint(cell: Int, slot: Int) {
+        // A drag paints only its own color: once that color finishes and the next one is selected, it stops.
+        if (session.selectedSlot != slot || session.pattern.cells[cell] != slot || session.isPlaced(cell)) return
+        (session.place(cell) as? PlaceResult.Placed)?.let(::placed)
+    }
+
+    /** Find (design D24): pan and zoom to 24dp cells on the next remaining cell, then pulse it once. */
+    fun find() {
+        val cell = session.findNext() ?: return
+        val columns = viewport.columns
+        animateTo(CanvasZoom.TAP_ZOOM_DP, cell % columns + 0.5f, cell / columns + 0.5f) {
+            if (!reducedMotion) {
+                effects.pulse(cell, System.nanoTime())
+                tick()
+            }
+        }
+    }
+
+    private fun placed(result: PlaceResult.Placed) {
+        for (event in result.events) {
+            when (event) {
+                is GameEvent.GemPlaced -> {
+                    feedback.gemPlaced(view)
+                    if (!reducedMotion && viewport.zoomDp >= CanvasZoom.FACET_MIN_DP) {
+                        effects.glint(event.cell, System.nanoTime())
+                        tick()
+                    }
+                }
+                is GameEvent.ColorFinished -> feedback.colorFinished(view)
+                // The picture-finished chime and haptic play on the completion screen, at their step of "lights down".
+                GameEvent.PictureFinished -> Unit
+            }
+        }
+        hints.onPlaced()
+    }
+
+    private fun animateTo(zoomDp: Float, centerX: Float, centerY: Float, then: () -> Unit = {}) {
+        animation?.cancel()
+        val fromZoom = viewport.zoomDp
+        val fromX = viewport.centerX
+        val fromY = viewport.centerY
+        animation = scope.launch {
+            animate(0f, 1f, animationSpec = tween(ZOOM_MS, easing = FastOutSlowInEasing)) { t, _ ->
+                viewport.set(fromZoom + (zoomDp - fromZoom) * t, fromX + (centerX - fromX) * t, fromY + (centerY - fromY) * t)
+            }
+            then()
+        }
+    }
+
+    private fun tick() {
+        if (ticker?.isActive == true) return
+        ticker = scope.launch {
+            while (effects.isActive(System.nanoTime())) withFrameNanos { frameNanos = it }
+            frameNanos = System.nanoTime()
+        }
+    }
+}
+
 @Composable
-private fun GemCanvas(session: PlaySession, feedback: Feedback, modifier: Modifier) {
+private fun GemCanvas(session: PlaySession, controller: CanvasController, hints: CoachHints, modifier: Modifier) {
     val viewport = session.viewport
-    val view = LocalView.current
     val context = LocalContext.current
     val density = LocalDensity.current.density
-    val painter = remember(session.pattern) { CellPainter(context, session.pattern) }
-    val scope = rememberCoroutineScope()
+    val renderer = remember(session.pattern) { CanvasRenderer(context, session.pattern) }
 
-    fun onTap(at: Offset) {
-        val cell = viewport.cellAt(at.x, at.y) ?: return
-        if (viewport.zoomDp < CanvasViewport.PLACE_MIN_DP) {
-            // Below 16dp a tap never places: it zooms to 24dp cells centered on the tap.
-            val (toX, toY) = viewport.pointAt(at.x, at.y)
-            val fromZoom = viewport.zoomDp
-            val fromX = viewport.centerX
-            val fromY = viewport.centerY
-            scope.launch {
-                animate(0f, 1f, animationSpec = tween(TAP_ZOOM_MS, easing = FastOutSlowInEasing)) { t, _ ->
-                    viewport.set(
-                        fromZoom + (CanvasViewport.TAP_ZOOM_DP - fromZoom) * t,
-                        fromX + (toX - fromX) * t,
-                        fromY + (toY - fromY) * t,
-                    )
-                }
-            }
-            return
-        }
-        when (val result = session.place(cell)) {
-            is PlaceResult.Placed -> result.events.forEach { event -> play(event, feedback, view) }
-            is PlaceResult.Rejected -> if (result.reason == Rejection.WRONG_COLOR) feedback.wrongColor(view)
-        }
+    LaunchedEffect(session, hints) {
+        snapshotFlow { viewport.isLaidOut }.first { it }
+        hints.onOpened(viewport.zoomDp)
+        snapshotFlow { viewport.zoomDp }.collect { hints.onZoom(it) }
+    }
+    val hint = hints.current
+    LaunchedEffect(hint) {
+        if (hint == null) return@LaunchedEffect
+        delay(HINT_MS)
+        hints.expire(hint)
     }
 
-    Canvas(
-        modifier
-            .testTag("play-canvas")
-            .clipToBounds()
+    Box(modifier) {
+        Canvas(
+            Modifier
+                .fillMaxSize()
+                .testTag("play-canvas")
+                .clipToBounds()
+                .background(LocalFelt.current.deep)
+                .onSizeChanged { viewport.onLayout(it.width, it.height, density) }
+                .canvasInput(session, controller),
+        ) {
+            // Read so the canvas redraws on every placement, selection change and effect frame; zoom and pan are
+            // read inside draw().
+            session.placedCount
+            session.selectedSlot
+            val now = controller.frameNanos
+            drawIntoCanvas { renderer.draw(it.nativeCanvas, session, density, controller.effects, now) }
+        }
+        Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
+            if (shown != null) HintChip(shown.text)
+        }
+    }
+}
+
+/** A first-time hint (design D12): an inline bone label on a felt-deep chip over the canvas, read by TalkBack. */
+@Composable
+private fun HintChip(text: String) {
+    Text(
+        text,
+        style = GemType.label,
+        color = GemColors.Bone,
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(LocalFelt.current.deep)
-            .onSizeChanged { viewport.onLayout(it.width, it.height, density) }
-            .pointerInput(session) { detectTapGestures(onTap = ::onTap) }
-            .pointerInput(session) {
-                detectTransformGestures { centroid, pan, zoom, _ ->
-                    viewport.transform(centroid.x, centroid.y, pan.x, pan.y, zoom)
-                }
-            },
-    ) {
-        // Read so the canvas redraws on every placement and selection change; zoom and pan are read inside draw().
-        session.placedCount
-        val selected = session.selectedSlot
-        drawIntoCanvas { painter.draw(it.nativeCanvas, viewport, session, selected, density) }
-    }
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .testTag("coach-hint")
+            .semantics { liveRegion = LiveRegionMode.Polite },
+    )
 }
-
-/** The picture-finished chime and haptic play on the completion screen, at their step of "lights down". */
-private fun play(event: GameEvent, feedback: Feedback, view: View) = when (event) {
-    is GameEvent.GemPlaced -> feedback.gemPlaced(view)
-    is GameEvent.ColorFinished -> feedback.colorFinished(view)
-    GameEvent.PictureFinished -> Unit
-}
-
-/**
- * Draws the visible cells on the native canvas (design system zoom table): flat cells below 8dp, cushion-cut gems
- * from 8dp, numbers on unplaced cells from 16dp, facets on placed gems from 20dp. A placed gem is the exact grid
- * color; an unplaced cell is that color mixed 78% toward bone, its number in on-bone. Remaining cells of the selected
- * color use a stronger tint at every zoom (40% toward bone), their number in whichever of on-bone or bone reads better.
- */
-private class CellPainter(context: Context, private val pattern: Pattern) {
-    private val gem = IntArray(pattern.palette.size) { pattern.palette[it].argb or OPAQUE }
-    private val gemSeam = IntArray(gem.size) { shade(gem[it], 0.8f) }
-    private val tint = IntArray(gem.size) { mix(gem[it], BONE, 0.78f) }
-    private val tintSeam = IntArray(gem.size) { shade(tint[it], 0.92f) }
-    private val selectedTint = IntArray(gem.size) { mix(gem[it], BONE, SELECTED_TINT) }
-    private val selectedSeam = IntArray(gem.size) { shade(selectedTint[it], 0.92f) }
-    private val selectedNumber = IntArray(gem.size) { readableOn(selectedTint[it]) }
-    private val labels = Array(gem.size) { (it + 1).toString() }
-    private val flat = Paint()
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val light = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33FFFFFF }
-    private val dark = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x24000000 }
-    private val number = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ON_BONE
-        textAlign = Paint.Align.CENTER
-        val mono = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono) ?: Typeface.MONOSPACE
-        typeface = Typeface.create(mono, 700, false)
-    }
-    private val rect = RectF()
-    private val path = Path()
-
-    fun draw(
-        canvas: android.graphics.Canvas,
-        viewport: CanvasViewport,
-        session: PlaySession,
-        selectedSlot: Int,
-        density: Float,
-    ) {
-        val cell = viewport.cellPx
-        if (cell <= 0f) return
-        val ox = viewport.offsetX
-        val oy = viewport.offsetY
-        val zoomDp = viewport.zoomDp
-        // Only the cells on screen are visited; the full renderer (sprites, baked low-zoom bitmap) is #10.
-        val col0 = maxOf(0, floor(-ox / cell).toInt())
-        val col1 = minOf(pattern.width - 1, floor((viewport.width - ox) / cell).toInt())
-        val row0 = maxOf(0, floor(-oy / cell).toInt())
-        val row1 = minOf(pattern.height - 1, floor((viewport.height - oy) / cell).toInt())
-
-        val inset = minOf(GEM_INSET_DP * density, cell * 0.1f)
-        val size = cell - 2 * inset
-        val radius = size * GEM_RADIUS
-        val numbers = zoomDp >= CanvasViewport.PLACE_MIN_DP
-        val facets = zoomDp >= FACET_MIN_DP
-        number.textSize = cell * NUMBER_SCALE
-        val baseline = -(number.ascent() + number.descent()) / 2f
-
-        for (row in row0..row1) {
-            val top = oy + row * cell
-            for (col in col0..col1) {
-                val index = row * pattern.width + col
-                val slot = pattern.cells[index]
-                val placed = session.isPlaced(index)
-                val selected = !placed && slot == selectedSlot
-                val left = ox + col * cell
-                val face = when {
-                    placed -> gem[slot]
-                    selected -> selectedTint[slot]
-                    else -> tint[slot]
-                }
-                if (zoomDp < CUSHION_MIN_DP) {
-                    flat.color = face
-                    canvas.drawRect(left, top, left + cell, top + cell, flat)
-                    continue
-                }
-                // A seam in the cell's own darker color, so the grid reads without dark gaps.
-                flat.color = when {
-                    placed -> gemSeam[slot]
-                    selected -> selectedSeam[slot]
-                    else -> tintSeam[slot]
-                }
-                canvas.drawRect(left, top, left + cell, top + cell, flat)
-                rect.set(left + inset, top + inset, left + inset + size, top + inset + size)
-                fill.color = face
-                canvas.drawRoundRect(rect, radius, radius, fill)
-                if (placed && facets) drawFacets(canvas, size, radius)
-                if (!placed && numbers) {
-                    number.color = if (selected) selectedNumber[slot] else ON_BONE
-                    canvas.drawText(labels[slot], left + cell / 2f, top + cell / 2f + baseline, number)
-                }
-            }
-        }
-    }
-
-    /** Two-facet highlight: top-left triangle at 20% white, bottom-right at 14% black. */
-    private fun drawFacets(canvas: android.graphics.Canvas, size: Float, radius: Float) {
-        val l = rect.left
-        val t = rect.top
-        canvas.withSave {
-            path.reset()
-            path.addRoundRect(rect, radius, radius, Path.Direction.CW)
-            clipPath(path)
-            path.reset()
-            path.moveTo(l, t)
-            path.lineTo(l + size * 0.5f, t)
-            path.lineTo(l, t + size * 0.5f)
-            path.close()
-            drawPath(path, light)
-            path.reset()
-            path.moveTo(l + size, t + size)
-            path.lineTo(l + size, t + size * 0.5f)
-            path.lineTo(l + size * 0.5f, t + size)
-            path.close()
-            drawPath(path, dark)
-        }
-    }
-
-    private companion object {
-        const val OPAQUE = 0xFF shl 24
-        const val BONE = 0xFFE9E4D8.toInt()
-        const val ON_BONE = 0xFF2B322D.toInt()
-        const val SELECTED_TINT = 0.40f
-        const val GEM_INSET_DP = 0.6f
-        const val GEM_RADIUS = 0.18f
-        const val NUMBER_SCALE = 0.46f
-        const val CUSHION_MIN_DP = 8f
-        const val FACET_MIN_DP = 20f
-
-        fun shade(argb: Int, factor: Float): Int = mix(argb, OPAQUE, 1f - factor)
-
-        /** On-bone or bone, whichever has more contrast on [argb]. */
-        fun readableOn(argb: Int): Int =
-            if (ColorUtils.calculateContrast(ON_BONE, argb) >= ColorUtils.calculateContrast(BONE, argb)) ON_BONE else BONE
-
-        fun mix(from: Int, to: Int, amount: Float): Int {
-            fun channel(shift: Int): Int {
-                val a = (from shr shift) and 0xFF
-                val b = (to shr shift) and 0xFF
-                return (a + (b - a) * amount + 0.5f).toInt()
-            }
-            return OPAQUE or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
-        }
-    }
-}
-
 /**
  * The sorting tray: one trough per color in tray order (finished ones at the end), the selected one lifted with
  * a lamp outline and scrolled into view. A wrong-color tap nudges the selected trough 2dp sideways over 150ms.
+ * Find sits at the tray's start while the selected color has 20 or fewer cells left (design D24). As a [rail]
+ * (large screens, D22) the troughs stack in two columns with Find on top.
  */
 @Composable
-private fun Tray(session: PlaySession) {
+private fun Tray(session: PlaySession, controller: CanvasController, rail: Boolean) {
     session.placedCount // recompose on every placement: counts, heaps and order change
     val order = session.trayOrder().toList()
     // A finished picture has nothing left to select, so no trough wears the lamp outline.
     val selected = if (session.isFinished) -1 else session.selectedSlot
-    val listState = rememberLazyListState()
-    val density = LocalDensity.current
+    val showFind = !session.isFinished && session.findVisible
     val nudge = remember { Animatable(0f) }
+    val fontScale = LocalDensity.current.fontScale
+    // Font scale (design D20): troughs grow with the font up to 72dp; above 1.5× the count hides.
+    val troughWidth = (TROUGH_WIDTH * fontScale).coerceIn(TROUGH_WIDTH, TROUGH_MAX_WIDTH)
+    val showCount = fontScale <= LARGE_FONT_SCALE
 
     LaunchedEffect(session) {
         snapshotFlow { session.wrongTaps }.drop(1).collect {
@@ -443,34 +455,87 @@ private fun Tray(session: PlaySession) {
         }
     }
     val selectedIndex = order.indexOf(selected)
+    val trough: @Composable (Int, Modifier) -> Unit = { slot, modifier ->
+        val isSelected = slot == selected
+        Trough(
+            number = slot + 1,
+            color = Color(session.pattern.palette[slot].argb or (0xFF shl 24)),
+            remaining = session.remaining(slot),
+            selected = isSelected,
+            width = troughWidth,
+            showCount = showCount,
+            nudgeDp = if (isSelected) nudge.value else 0f,
+            onClick = { session.select(slot) },
+            modifier = modifier,
+        )
+    }
+    val deep = LocalFelt.current.deep
+
+    if (rail) {
+        val gridState = rememberLazyGridState()
+        LaunchedEffect(selected, selectedIndex) {
+            if (selectedIndex < 0) return@LaunchedEffect
+            val visible = gridState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == selectedIndex }
+            val end = gridState.layoutInfo.viewportEndOffset
+            if (visible == null || visible.offset.y < 0 || visible.offset.y + visible.size.height > end) {
+                gridState.animateScrollToItem(selectedIndex)
+            }
+        }
+        // Find stays pinned at the top of the rail, outside the scrolling troughs.
+        Column(Modifier.fillMaxHeight().width(troughWidth * 2 + 8.dp + 24.dp).background(deep).testTag("tray-rail")) {
+            if (showFind) FindButton(controller::find, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp))
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                state = gridState,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                gridItems(order, key = { it }) { slot -> trough(slot, Modifier.animateItem()) }
+            }
+        }
+        return
+    }
+
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
     LaunchedEffect(selected, selectedIndex) {
         val visible = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == selectedIndex }
         val viewportEnd = listState.layoutInfo.viewportEndOffset
         val fullyVisible = visible != null && visible.offset >= 0 && visible.offset + visible.size <= viewportEnd
         if (!fullyVisible && selectedIndex >= 0) {
-            val itemPx = with(density) { TROUGH_WIDTH.roundToPx() }
+            val itemPx = with(density) { troughWidth.roundToPx() }
             listState.animateScrollToItem(selectedIndex, -(viewportEnd - itemPx) / 2)
         }
     }
-
-    LazyRow(
-        state = listState,
-        modifier = Modifier.fillMaxWidth().background(LocalFelt.current.deep),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(order, key = { it }) { slot ->
-            val isSelected = slot == selected
-            Trough(
-                number = slot + 1,
-                color = Color(session.pattern.palette[slot].argb or (0xFF shl 24)),
-                remaining = session.remaining(slot),
-                selected = isSelected,
-                nudgeDp = if (isSelected) nudge.value else 0f,
-                onClick = { session.select(slot) },
-                modifier = Modifier.animateItem(),
-            )
+    Row(Modifier.fillMaxWidth().background(deep).testTag("tray"), verticalAlignment = Alignment.CenterVertically) {
+        if (showFind) FindButton(controller::find, Modifier.padding(start = 16.dp))
+        LazyRow(
+            state = listState,
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(start = if (showFind) 8.dp else 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(order, key = { it }) { slot -> trough(slot, Modifier.animateItem()) }
         }
+    }
+}
+
+/** Find (design D24): a 48dp quiet icon button labelled "Find". */
+@Composable
+private fun FindButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(LocalFelt.current.raised)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "Find" }
+            .testTag("find"),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(GemIcons.Find, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
     }
 }
 
@@ -480,6 +545,8 @@ private fun Trough(
     color: Color,
     remaining: Int,
     selected: Boolean,
+    width: Dp,
+    showCount: Boolean,
     nudgeDp: Float,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -490,7 +557,7 @@ private fun Trough(
     val format = remember { NumberFormat.getIntegerInstance() }
     Column(
         modifier
-            .width(TROUGH_WIDTH)
+            .width(width)
             .graphicsLayer {
                 translationY = lift.toPx()
                 translationX = nudgeDp * density
@@ -499,6 +566,11 @@ private fun Trough(
             .border(BorderStroke(2.dp, if (selected) GemColors.Lamp else Color.Transparent), shape)
             .clip(shape)
             .clickable(enabled = !finished, role = Role.Button, onClick = onClick)
+            // TalkBack still reads the count when it's hidden at large font (D20).
+            .semantics(mergeDescendants = true) {
+                contentDescription = if (finished) "Color $number, done" else "Color $number, ${format.format(remaining)} left"
+                this.selected = selected
+            }
             .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -508,14 +580,18 @@ private fun Trough(
             number.toString(),
             style = GemType.mono.copy(fontSize = 15.sp),
             color = GemColors.Bone,
+            maxLines = 1,
+            softWrap = false,
             textDecoration = if (finished) TextDecoration.LineThrough else null,
         )
-        Text(
-            if (finished) "" else format.format(remaining),
-            style = GemType.mono.copy(fontSize = 12.sp),
-            color = GemColors.TextMuted,
-            maxLines = 1,
-        )
+        if (showCount) {
+            Text(
+                if (finished) "" else format.format(remaining),
+                style = GemType.mono.copy(fontSize = 12.sp),
+                color = GemColors.TextMuted,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -570,8 +646,12 @@ private fun heapSize(remaining: Int): Int = if (remaining <= 0) 0 else ceil(rema
 
 private val HEAP_ROWS = intArrayOf(4, 3, 2)
 private val TROUGH_WIDTH = 52.dp
+private val TROUGH_MAX_WIDTH = 72.dp
+private const val LARGE_FONT_SCALE = 1.5f
+private val RAIL_MIN_WIDTH = 600.dp
+private const val HINT_MS = 6_000L
 private const val CELLS_PER_HEAP_GEM = 3.5
 private const val NUDGE_MS = 150
 private const val LIFT_MS = 150
-private const val TAP_ZOOM_MS = 250
+private const val ZOOM_MS = 250
 private const val CHROME_OUT_MS = 250

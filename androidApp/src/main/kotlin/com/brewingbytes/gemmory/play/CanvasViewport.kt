@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.save.ViewStateCodec
 import kotlin.math.floor
@@ -104,9 +105,9 @@ class CanvasViewport(val columns: Int, val rows: Int) {
         const val MAX_ZOOM_DP = ViewStateCodec.MAX_ZOOM_DP
 
         /** Numbers show and taps place from this cell size up; below it a tap zooms in (design system zoom table). */
-        const val PLACE_MIN_DP = 16f
+        const val PLACE_MIN_DP = CanvasZoom.PLACE_MIN_DP
 
         /** Where tap-to-zoom lands. */
-        const val TAP_ZOOM_DP = 24f
+        const val TAP_ZOOM_DP = CanvasZoom.TAP_ZOOM_DP
     }
 }

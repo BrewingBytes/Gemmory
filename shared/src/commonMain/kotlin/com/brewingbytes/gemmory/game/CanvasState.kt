@@ -45,6 +45,12 @@ class CanvasState private constructor(val pattern: Pattern) {
 
     fun isFinished(slot: Int): Boolean = remaining[slot] == 0
 
+    /** The [index]th placement, oldest first (0 until [placedCount]). */
+    fun placedAt(index: Int): Int {
+        require(index in 0 until placedCount) { "no placement $index of $placedCount" }
+        return log[index]
+    }
+
     /** A copy of the placement log, oldest first. */
     fun log(): IntArray = log.copyOf(placedCount)
 
