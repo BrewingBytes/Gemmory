@@ -7,6 +7,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
+import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.storage.StorageLayout
 import org.junit.After
@@ -31,6 +32,7 @@ class TalkBackStarterTest {
 
     @Before
     fun setUp() {
+        assumeDeviceChecks()
         assumeTrue("needs TalkBack on the device", A11yTestSupport.talkBackInstalled)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()

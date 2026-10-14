@@ -92,6 +92,8 @@ class FreshInstallTest {
         compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("completion-fresh")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Finished").assertExists()
         // Animations run on the test clock: 250 ms dim + 2.4 s sweep + 2 s hold + 400 ms fade.
+        // The picture loads in real time; the lights-down sequence starts only then.
+        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(6_000)
         compose.waitForIdle()
         compose.onNodeWithTag("completion-done").performClick()
