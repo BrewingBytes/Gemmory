@@ -19,6 +19,8 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
+        testInstrumentationRunnerArguments["notAnnotation"] = "com.brewingbytes.gemmory.PerfTest"
 
         // Google's sample AdMob app ID: only test ads until production IDs are set up (#7 scope).
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"

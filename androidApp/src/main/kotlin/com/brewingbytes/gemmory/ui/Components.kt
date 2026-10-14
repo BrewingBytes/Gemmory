@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -61,6 +62,18 @@ object GemIcons {
             horizontalLineTo(20f)
             close()
         }
+        .build()
+
+    /** Material "search" magnifier, for Find (design D24). */
+    val Find: ImageVector = ImageVector.Builder("Find", 24.dp, 24.dp, 24f, 24f)
+        .addPath(
+            addPathNodes(
+                "M15.5 14h-0.79l-0.28-0.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16" +
+                    "c1.61 0 3.09-0.59 4.23-1.57l0.27 0.28v0.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 " +
+                    "9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+            ),
+            fill = SolidColor(Color.White),
+        )
         .build()
 
     /** Material "settings" outline gear. */

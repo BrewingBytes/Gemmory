@@ -28,6 +28,9 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
     var ui by mutableStateOf<PlayUi>(PlayUi.Loading)
         private set
 
+    /** First-time hints (design D12); kept here so a rotation doesn't lose the one showing. */
+    val hints = CoachHints(application)
+
     /** Opens [ref] unless it's already open (a recreated screen after rotation calls this again). */
     fun open(ref: CanvasRef) {
         if (ref == this.ref) return
@@ -55,6 +58,7 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         (ui as? PlayUi.Ready)?.session?.close()
         ui = PlayUi.Loading
         ref = null
+        hints.reset()
     }
 
     override fun onCleared() = close()
