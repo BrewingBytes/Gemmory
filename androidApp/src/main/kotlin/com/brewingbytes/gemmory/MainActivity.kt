@@ -28,6 +28,7 @@ import com.brewingbytes.gemmory.completion.CompletionScreen
 import com.brewingbytes.gemmory.completion.CompletionViewModel
 import com.brewingbytes.gemmory.gallery.GalleryScreen
 import com.brewingbytes.gemmory.gallery.GalleryViewModel
+import com.brewingbytes.gemmory.gallery.tileTag
 import com.brewingbytes.gemmory.nav.BackStack
 import com.brewingbytes.gemmory.nav.Route
 import com.brewingbytes.gemmory.photo.CropScreen
@@ -193,6 +194,11 @@ class MainActivity : ComponentActivity() {
                 // VIP is #8: the VIP texts are shown and open nothing until then.
                 onVip = {},
                 onDismiss = rewarded::dismiss,
+                // TalkBack focus goes back to the locked tile or Preview's "Watch a video" (design D19).
+                returnFocusTo = when (val target = ui.target) {
+                    is RewardTarget.Picture -> tileTag(CanvasRef(CanvasKind.BUNDLED, target.id))
+                    RewardTarget.PhotoCanvas -> "preview-primary"
+                },
             )
         }
     }

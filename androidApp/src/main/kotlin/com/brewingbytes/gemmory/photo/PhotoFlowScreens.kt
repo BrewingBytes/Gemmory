@@ -180,7 +180,7 @@ fun SizeScreen(state: PhotoFlowState, onSize: (CanvasSize) -> Unit, onNext: () -
         val hint = rules.hint
         when {
             state.faceCheck == FaceCheck.RUNNING ->
-                Text("Checking for faces…", style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.padding(bottom = 12.dp))
+                Text("Checking for faces…", style = GemType.label, color = GemColors.Bone, modifier = Modifier.padding(bottom = 12.dp))
             hint != null ->
                 Text(hintText(hint), style = GemType.body, color = GemColors.Lamp, modifier = Modifier.padding(bottom = 12.dp))
         }
@@ -321,7 +321,7 @@ fun PreviewScreen(
                     Text(
                         "Checking for faces…",
                         style = GemType.label,
-                        color = GemColors.TextMuted,
+                        color = GemColors.Bone,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -329,7 +329,7 @@ fun PreviewScreen(
                     Text(
                         "Couldn't save this canvas on the phone. Try again.",
                         style = GemType.label,
-                        color = GemColors.TextMuted,
+                        color = GemColors.Bone,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
@@ -337,7 +337,7 @@ fun PreviewScreen(
                     Text(
                         it,
                         style = GemType.label,
-                        color = GemColors.TextMuted,
+                        color = GemColors.Bone,
                         modifier = Modifier.padding(top = 4.dp).testTag("allowance-line"),
                     )
                 }

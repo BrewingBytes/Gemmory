@@ -128,12 +128,12 @@ Token roles:
 | Token | felt | felt-deep / sheets | felt-raised | Rule |
 |---|---|---|---|---|
 | `bone` | 5.68 | 7.58 | 4.60 | valid everywhere |
-| `text-muted` | 4.72 | 6.30 | **3.82** | never on `felt-raised`; use `bone` there |
+| `text-muted` | 4.72 (flat) / **4.09** (grained) | 6.30 | **3.82** | only on felt-deep, sheets, the dark felts or the completion's dimmed room; on the grained felt ground and on `felt-raised` use `bone` (#14) |
 | `lamp` (face hint text) | 5.65 | 7.55 | n/a | felt and felt-deep only |
 | `patina-text` | 4.52 | 6.04 | **~3.7** | only on felt-deep, sheets or the dark felts |
 | `fault` | **3.82** | 5.10 | **3.09** | only on felt-deep, sheets or the dark felts. On plain felt, offline copy is `bone` with a 6dp `fault` square marker before it |
 
-QA checks every new string against this table.
+QA checks every new string against this table. The ground's 9% grain counts: the Accessibility Test Framework samples the grained felt at about #59635C, which is why `text-muted` moved off plain felt in #14. `AccessibilityChecksTest` runs the framework (the Accessibility Scanner's engine) on every main screen and sheet.
 
 **Canvas cell colors:** a placed gem is the exact grid color. An unplaced cell is that color mixed 78% toward `bone`, with its number in `on-bone`. A remaining cell of the selected color is its color mixed only 40% toward `bone`, with its number in `on-bone` or `bone`, whichever has more contrast. Gem colors are never re-tinted by the theme.
 
@@ -155,7 +155,7 @@ Scale: 34 / 30 / 22 / 16 / 13 sp. Adjacent levels differ by size *and* role, nev
 - **Size picker:** the face hint sits on top, followed by three option rows, each with a mini gem preview, gem count and color count.
 - **Paywall:** a full screen with close visible immediately (top-left), plain perk lines, two plan rows, one primary button and a quiet "Just remove ads" row.
 - Touch targets are at least 48dp, text buttons included. **Documented exception:** canvas cells can be placed from 16dp. The accessible alternatives are zoom up to 48dp cells, the Find button and the TalkBack canvas actions (Phase 5 D16).
-- Sheets have a 16dp top radius, a grab handle and 20dp padding.
+- Sheets have a 16dp top radius, a grab handle and 20dp padding. Their content scrolls, so nothing clips at 200% font. The grab handle is a 32×4dp bar in a 48dp square labelled "Drag handle" (Material puts expand and close actions on it).
 
 **Navigation map** (Phase 5 D3). System back always goes one step up.
 
@@ -294,7 +294,7 @@ Sound and Haptics each get a Settings toggle. Both default to on.
   - Body: "Turn a photo of your own into a canvas you can finish. It never leaves this phone."
   - An inline primary "New from photo". The floating button is hidden on this empty tab.
 - The "New from photo" floating button shows on both tabs. The grid gets 88dp of bottom padding so the button never covers a tile's %.
-- **Allowance note** (Phase 5 D5): when today's free photo canvas is used, one muted line sits beside the floating button. The line has the same copy as the Preview allowance line.
+- **Allowance note** (Phase 5 D5, layout #14): when today's free photo canvas is used, a `bone` line on a `felt-deep` chip (`sm` radius, 12/8dp padding) sits beside the floating button, right-aligned with it, at most 280dp wide. When less than 160dp is left beside the button (200% font on a phone), the chip goes on its own line above the button. The grid's bottom padding follows their height. The line has the same copy as the Preview allowance line.
 
 **Photo flow states** (Phase 5 D4).
 
@@ -407,12 +407,16 @@ A finished picture reopened from the gallery shows the **completion still**:
 - **Contrast:** follow the valid-grounds table in Colors. New UI color needs a decision-log entry.
 - **TalkBack** (Phase 5 D19):
   - **Canvas:** one node: "Canvas. 4,812 of 8,112 placed. Color 7 selected, 312 left." Custom actions: Place next gem, Find next gem, Zoom in, Zoom out, Whole picture.
+    - **Place next gem** places the cell Find last showed while it's still empty, else the next remaining cell of the selected color in reading order, through the same rule as a tap (the log and time-lapse can't tell). It announces the count left ("311 left"; founder call #14), or "Color 7 done. Color 8 selected." when the color finishes.
+    - **Find next gem** is the Find button's logic. Find and Place next gem share one cursor, which starts over at the top when the selected color changes.
+    - **Zoom in / Zoom out** step through fit → 8 → 16 → 24 → 48dp, the levels of the zoom table. **Whole picture** goes back to fit.
+    - Announcements go through one polite live region (not `announceForAccessibility`), cleared 3s after it speaks; the same words twice in a row are still spoken twice.
   - **Wrong tap:** announces "Not color 7". This is an announcement only, with no state change (eng D4).
   - **Color finished:** announces "Color 7 done. Color 8 selected."
-  - **Trough:** "Color 7, 312 left, selected" or "Color 7, done".
-  - **Gallery tile:** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock", with its ⋮ actions as custom actions.
+  - **Trough:** "Color 7, 312 left, selected" or "Color 7, done". The description is "Color 7, 312 left" and "selected" comes from the selected state, so TalkBack doesn't say it twice.
+  - **Gallery tile:** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock" ("…, can't open" when damaged), with its ⋮ actions as custom actions. The tile is one node: its title, % and ⋮ button are folded into it, so it reads only that line.
   - Every icon button has a label: Settings, Find, close.
-  - **Sheets:** focus moves to the sheet title on open and returns to the trigger on close.
+  - **Sheets:** focus moves to the sheet title on open and returns to the trigger on close. TalkBack moves its focus on its own when a sheet's window closes, so the trigger keeps asking for it for 1.2s after.
 - **Font scale:** see the tray and top bar rules. Sheets, paywall rows and size options wrap, with no fixed heights. QA at 200% on a 360dp-wide phone.
 - **Touch targets:** 48dp, with the documented canvas exception.
 - **Reduced motion:** see Motion.
@@ -438,9 +442,10 @@ A finished picture reopened from the gallery shows the **completion still**:
 - **Placement glint:** a 180ms specular pass across the placed gem at 20dp and up. No particles.
 - **The one authored moment:** completion "lights down" (see Components).
 - Reduced motion (`ANIMATOR_DURATION_SCALE == 0` or the accessibility setting) skips the glint and the sweep. The 2s hold remains.
+- That setting also makes Compose finish every animation at once, so the reduced-motion fades and the blink run at their real duration on purpose (#14).
 - Under reduced motion, movement becomes fades (Phase 5 D21):
   - The wrong-tap trough nudge becomes the haptic plus a 120ms lamp-outline blink.
-  - Sheets, chrome and screen transitions become 150ms fades.
+  - Sheets, chrome and screen transitions become 150ms fades. Sheets and their scrim fade in; a sheet that closes leaves at once, as it does without reduced motion. Screens have no transition, so they switch at once.
   - The trough lift is instant.
   - The Find cell pulse is skipped.
   - The lights-down dim (a fade) stays.
@@ -465,3 +470,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-14 | Rewarded sheet "video ready" copy: locked picture "Watch to unlock" / "Watch a short video to unlock this picture for good."; extra canvas "Another photo canvas" / "Watch a short video for one more photo canvas today."; primary "Watch video". Extra-canvas grace text "Or get VIP: unlimited photo canvases". Interstitial only after a fresh finish (not the completion still). A UMP form that couldn't show on the first launch shows before the first rewarded ad instead | Founder answers during #7 (the Rewarded states table had no ready-state copy) |
 | 2026-10-14 | Share enabled (#4): progress sheet, PNG fallback with "Before"/"After" labels, failure and disk-full messages inside the sheet, killed-encode line under Share | Implements the Share progress sheet and D8 edge states; the labels and in-sheet messages fill details the spec left open |
 | 2026-10-14 | Double-tap never delays a placing tap: it zooms only when neither tap places (a second tap that would place is a normal tap). Coach-hint flags may be backed up. Find in the large-screen rail is pinned at the top | Founder answers during #10. Standard double-tap detection would delay every placement by ~300ms |
+| 2026-10-14 | `text-muted` only on felt-deep, sheets and the dark felts: on the grained felt ground it measures 4.09:1, so the unselected tab, tile %, My Photos empty body, Settings version, top-bar progress, "Checking for faces…" and Preview's lines are `bone`. Allowance note on a `felt-deep` chip beside the button, stacked above it when narrow. "Place next gem" announces "311 left". Accessibility Scanner signal = the Accessibility Test Framework in instrumented tests (no Play Store on the emulator). Reduced-motion sheet fades run at their real 150ms | Founder answers during #14. The note floated over tile art and broke at 200% font |

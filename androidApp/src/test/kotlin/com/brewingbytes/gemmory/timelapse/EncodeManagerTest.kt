@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -47,6 +46,9 @@ class EncodeManagerTest {
     private var gate: CountDownLatch? = null
     private var atGate: CountDownLatch? = null
 
+    /** Runs on the encode thread after each reported frame, once the manager has posted its progress. */
+    private var afterFrame: (() -> Unit)? = null
+
     private val pattern = Pattern(
         width = 4,
         height = 3,
@@ -73,6 +75,7 @@ class EncodeManagerTest {
                     throw EncodeFailure(EncodeStage.ENCODE, if (diskFull) Exception("write failed: ENOSPC") else IllegalStateException())
                 }
                 onFrame(frame, FramePlan.TOTAL_FRAMES)
+                afterFrame?.invoke()
             }
             out.writeText("mp4 $target")
         }
@@ -287,10 +290,11 @@ class EncodeManagerTest {
         failing = setOf(EncodeTarget.FULL_HD)
         failAtFrame = 300
         val m = manager()
+        // Read on the encode thread after every frame: a flow collector on another thread can miss every step (the
+        // state flow keeps only the latest value), which failed on fast CI runners.
         val seen = java.util.Collections.synchronizedList(mutableListOf<Int>())
-        val watcher = scope.launch { m.state(ref).collect { if (it is EncodeState.Running) seen += it.percent } }
+        afterFrame = { (m.state(ref).value as? EncodeState.Running)?.let { seen += it.percent } }
         assertIs<EncodeState.Video>(m.shareAndWait(request()))
-        watcher.cancel()
         assertTrue(seen.isNotEmpty())
         assertEquals(seen.sorted(), seen.toList(), "percent only goes up: $seen")
         assertTrue(seen.last() >= 66)

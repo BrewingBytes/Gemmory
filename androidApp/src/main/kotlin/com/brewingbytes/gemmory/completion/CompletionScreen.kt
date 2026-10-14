@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,10 +19,13 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -72,6 +76,7 @@ import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
+import com.brewingbytes.gemmory.ui.withFullMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -271,11 +276,12 @@ fun CompletionScreen(
     LaunchedEffect(finished != null) {
         if (finished == null || !sequence) return@LaunchedEffect
         vm.markPlayed(ref)
-        dim.animateTo(DIM, tween(DIM_MS, easing = FastOutSlowInEasing))
+        // Reduced motion (D21) skips the sweep; the dim and the text are fades and stay, at their real duration.
+        withFullMotion { dim.animateTo(DIM, tween(DIM_MS, easing = FastOutSlowInEasing)) }
         if (!reducedMotion) sweep.animateTo(1f, tween(SWEEP_MS, easing = LinearEasing))
         feedback.pictureFinished()
         delay(HOLD_MS)
-        text.animateTo(1f, tween(TEXT_MS))
+        withFullMotion { text.animateTo(1f, tween(TEXT_MS)) }
     }
 
     Box(
@@ -286,55 +292,59 @@ fun CompletionScreen(
     ) {
         // Lights down: the room dims, the picture stays lit.
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dim.value)))
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                when {
-                    finished != null -> Picture(finished, sweep.value)
-                    vm.damaged -> Text(
-                        "This canvas's file is damaged, so it can't be opened.",
-                        style = GemType.body,
-                        color = GemColors.Bone,
-                    )
-                }
-            }
-            Box(Modifier.fillMaxWidth()) {
-            Column(Modifier.fillMaxWidth().alpha(text.value).padding(top = 16.dp)) {
-                Text("Finished", style = GemType.displayLarge, color = GemColors.Bone)
-                Text(finished?.meta.orEmpty(), style = GemType.label, color = GemColors.TextMuted)
-                Spacer(Modifier.height(16.dp))
-                PrimaryButton(
-                    "Share",
-                    onClick = { vm.share(ref) },
-                    enabled = finished != null,
-                    held = encode is EncodeState.Running,
-                    modifier = Modifier.fillMaxWidth().testTag("completion-share"),
-                )
-                if (vm.killedNotice) {
-                    Text(
-                        "The video stopped when the app closed. Tap Share to try again.",
-                        style = GemType.label,
-                        color = GemColors.TextMuted,
-                        modifier = Modifier.padding(top = 4.dp).testTag("share-killed"),
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                QuietButton("Done", onDone, Modifier.fillMaxWidth().testTag("completion-done"))
-                if (!fresh) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        GemTextButton("Play again", { confirmPlayAgain = true })
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)) {
+            // At 200% font the text and buttons may need more than they get: they scroll, the picture keeps the rest.
+            val textMax = maxHeight * TEXT_MAX_SHARE
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    when {
+                        finished != null -> Picture(finished, sweep.value)
+                        vm.damaged -> Text(
+                            "This canvas's file is damaged, so it can't be opened.",
+                            style = GemType.body,
+                            color = GemColors.Bone,
+                        )
                     }
                 }
-            }
-            // Until they have faded in, the buttons can't be pressed unseen; system back still works.
-            if (text.value < 1f) {
-                Box(
-                    Modifier.matchParentSize().pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            while (true) awaitPointerEvent().changes.forEach { it.consume() }
+                Box(Modifier.fillMaxWidth().heightIn(max = textMax)) {
+                    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).alpha(text.value).padding(top = 16.dp)) {
+                        Text("Finished", style = GemType.displayLarge, color = GemColors.Bone)
+                        Text(finished?.meta.orEmpty(), style = GemType.label, color = GemColors.TextMuted)
+                        Spacer(Modifier.height(16.dp))
+                        PrimaryButton(
+                            "Share",
+                            onClick = { vm.share(ref) },
+                            enabled = finished != null,
+                            held = encode is EncodeState.Running,
+                            modifier = Modifier.fillMaxWidth().testTag(SHARE_TAG),
+                        )
+                        if (vm.killedNotice) {
+                            Text(
+                                "The video stopped when the app closed. Tap Share to try again.",
+                                style = GemType.label,
+                                color = GemColors.TextMuted,
+                                modifier = Modifier.padding(top = 4.dp).testTag("share-killed"),
+                            )
                         }
-                    },
-                )
-            }
+                        Spacer(Modifier.height(8.dp))
+                        QuietButton("Done", onDone, Modifier.fillMaxWidth().testTag("completion-done"))
+                        if (!fresh) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                                GemTextButton("Play again", { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
+                            }
+                        }
+                    }
+                    // Until they have faded in, the buttons can't be pressed unseen; system back still works.
+                    if (text.value < 1f) {
+                        Box(
+                            Modifier.matchParentSize().pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) awaitPointerEvent().changes.forEach { it.consume() }
+                                }
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -355,6 +365,7 @@ fun CompletionScreen(
             vm.share(ref)
         },
         onClose = { vm.shareHandled(ref) },
+        returnFocusTo = SHARE_TAG,
     )
     if (confirmPlayAgain) {
         ConfirmSheet(
@@ -366,6 +377,7 @@ fun CompletionScreen(
                 vm.playAgain(ref, onPlayAgain)
             },
             onDismiss = { confirmPlayAgain = false },
+            returnFocusTo = PLAY_AGAIN_TAG,
         )
     }
 }
@@ -405,3 +417,6 @@ private const val DIM_MS = 250
 private const val SWEEP_MS = 2_400
 private const val HOLD_MS = 2_000L
 private const val TEXT_MS = 400
+private const val TEXT_MAX_SHARE = 0.6f
+private const val SHARE_TAG = "completion-share"
+private const val PLAY_AGAIN_TAG = "completion-play-again"

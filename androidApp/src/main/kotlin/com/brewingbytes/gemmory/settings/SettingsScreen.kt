@@ -89,7 +89,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                     .fillMaxWidth()
                     .heightIn(min = 56.dp)
                     .clickable(role = Role.Button) { confirmDelete = true }
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .testTag(DELETE_ALL_TAG),
                 verticalAlignment = Alignment.CenterVertically,
             ) { Text("Delete all photo canvases", style = GemType.body, color = GemColors.Bone) }
             Row(
@@ -110,7 +111,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Version", style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
-                Text(version, style = GemType.mono.copy(fontSize = 14.sp), color = GemColors.TextMuted)
+                Text(version, style = GemType.mono.copy(fontSize = 14.sp), color = GemColors.Bone)
             }
         }
     }
@@ -125,9 +126,12 @@ fun SettingsScreen(onBack: () -> Unit) {
                 app.store.deleteAllPhotosInBackground()
             },
             onDismiss = { confirmDelete = false },
+            returnFocusTo = DELETE_ALL_TAG,
         )
     }
 }
+
+private const val DELETE_ALL_TAG = "settings-delete-all"
 
 @Composable
 private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {

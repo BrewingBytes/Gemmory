@@ -1,0 +1,65 @@
+package com.brewingbytes.gemmory.ui
+
+import java.text.NumberFormat
+import java.util.Locale
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class A11yTextTest {
+    private val us = NumberFormat.getIntegerInstance(Locale.US)
+
+    @Test
+    fun canvasNodeReadsProgressAndTheSelectedColor() {
+        assertEquals("Canvas. 4,812 of 8,112 placed. Color 7 selected, 312 left.", A11yText.canvas(4812, 8112, 7, 312, us))
+        assertEquals("Canvas. 0 of 768 placed. Color 1 selected, 40 left.", A11yText.canvas(0, 768, 1, 40, us))
+        assertEquals("Canvas. 768 of 768 placed.", A11yText.canvas(768, 768, 3, 0, us), "a finished picture has no selection")
+    }
+
+    @Test
+    fun announcements() {
+        assertEquals("Not color 7", A11yText.notColor(7))
+        assertEquals("Color 7 done. Color 8 selected.", A11yText.colorDone(7, 8))
+        assertEquals("Color 7 done.", A11yText.colorDone(7, null))
+        assertEquals("1,311 left", A11yText.left(1311, us))
+    }
+
+    @Test
+    fun troughs() {
+        assertEquals("Color 7, 312 left", A11yText.trough(7, 312, us))
+        assertEquals("Color 7, 1,312 left", A11yText.trough(7, 1312, us))
+        assertEquals("Color 7, done", A11yText.trough(7, 0, us))
+    }
+
+    @Test
+    fun tiles() {
+        assertEquals("Sunflowers, 42% done", A11yText.tile("Sunflowers", 42, done = false, locked = false, damaged = false))
+        assertEquals("Sunflowers, done", A11yText.tile("Sunflowers", 100, done = true, locked = false, damaged = false))
+        assertEquals(
+            "Sunflowers, locked, watch a video to unlock",
+            A11yText.tile("Sunflowers", 0, done = false, locked = true, damaged = false),
+        )
+        assertEquals("My photo · 13 Oct, can't open", A11yText.tile("My photo · 13 Oct", 10, done = false, locked = false, damaged = true))
+    }
+
+    @Test
+    fun galleryColumnsFollowTheWidthClasses() {
+        assertEquals(2, galleryColumns(360f))
+        assertEquals(2, galleryColumns(599.9f))
+        assertEquals(3, galleryColumns(600f))
+        assertEquals(3, galleryColumns(839f))
+        assertEquals(4, galleryColumns(840f))
+        assertEquals(4, galleryColumns(1280f))
+    }
+
+    @Test
+    fun theAllowanceChipStaysBesideTheButtonUntilItWouldBeTooNarrow() {
+        // 411dp phone at 100%: 379dp row, ~170dp button.
+        assertTrue(noteFitsBeside(379f, 170f, 12f))
+        // 360dp phone at 200%: 328dp row, ~250dp button.
+        assertFalse(noteFitsBeside(328f, 250f, 12f))
+        assertTrue(noteFitsBeside(172f + 160f, 160f, 12f), "exactly the minimum fits")
+        assertFalse(noteFitsBeside(171f + 160f, 160f, 12f))
+    }
+}

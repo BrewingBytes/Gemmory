@@ -52,9 +52,10 @@ fun ShareSheet(
     onSharePicture: () -> Unit,
     onTryAgain: () -> Unit,
     onClose: () -> Unit,
+    returnFocusTo: String? = null,
 ) {
     when (state) {
-        is EncodeState.Running -> GemSheet("Making your video", onCancel) {
+        is EncodeState.Running -> GemSheet("Making your video", onCancel, returnFocusTo) {
             Text("About 15 seconds of sparkle. Keep the app open.", style = GemType.body, color = GemColors.Bone)
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -71,7 +72,7 @@ fun ShareSheet(
                 GemTextButton("Cancel", onCancel, Modifier.testTag("share-cancel"))
             }
         }
-        is EncodeState.Picture -> GemSheet("Here's a picture instead", onClose) {
+        is EncodeState.Picture -> GemSheet("Here's a picture instead", onClose, returnFocusTo) {
             Text(
                 "Video isn't supported on this phone, so here's a before/after picture instead.",
                 style = GemType.body,
@@ -85,12 +86,12 @@ fun ShareSheet(
             Spacer(Modifier.height(20.dp))
             PrimaryButton("Share picture", onSharePicture, Modifier.fillMaxWidth().testTag("share-picture"))
         }
-        EncodeState.Failed -> GemSheet("Making your video", onClose) {
+        EncodeState.Failed -> GemSheet("Making your video", onClose, returnFocusTo) {
             Text("Couldn't make the video. Try again.", style = GemType.body, color = GemColors.Bone)
             Spacer(Modifier.height(20.dp))
             QuietButton("Try again", onTryAgain, Modifier.fillMaxWidth().testTag("share-try-again"))
         }
-        EncodeState.DiskFull -> GemSheet("Making your video", onClose) {
+        EncodeState.DiskFull -> GemSheet("Making your video", onClose, returnFocusTo) {
             Text("Not enough space on this phone to make the video.", style = GemType.body, color = GemColors.Bone)
         }
         EncodeState.Idle, is EncodeState.Video -> Unit
