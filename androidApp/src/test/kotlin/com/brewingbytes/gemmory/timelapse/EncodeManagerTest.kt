@@ -109,9 +109,15 @@ class EncodeManagerTest {
     private fun EncodeManager.await(r: CanvasRef = ref, until: (EncodeState) -> Boolean): EncodeState =
         runBlocking { withTimeout(10_000) { state(r).first(until) } }
 
+    /**
+     * Shares and waits for the result and for the job to end: a share while the last job is still finishing is
+     * single-flight and ignored, so a test's next share must come after it.
+     */
     private fun EncodeManager.shareAndWait(request: EncodeRequest): EncodeState {
         share(request)
-        return await(request.ref) { it !is EncodeState.Idle && it !is EncodeState.Running }
+        val result = await(request.ref) { it !is EncodeState.Idle && it !is EncodeState.Running }
+        awaitStopped(request.ref)
+        return result
     }
 
     private fun EncodeManager.awaitStopped(r: CanvasRef = ref) =
