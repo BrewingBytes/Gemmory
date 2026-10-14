@@ -1,23 +1,29 @@
 package com.brewingbytes.gemmory.ui
 
 import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
@@ -25,19 +31,24 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -46,7 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 
 object GemIcons {
     val Back: ImageVector = ImageVector.Builder("Back", 24.dp, 24.dp, 24f, 24f, autoMirror = true)
@@ -170,7 +181,7 @@ fun IconAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: 
 @Composable
 fun AppTopBar(title: String, onBack: (() -> Unit)?, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
     Row(
-        modifier.fillMaxWidth().height(56.dp).padding(start = if (onBack == null) 16.dp else 0.dp, end = 8.dp),
+        modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = if (onBack == null) 16.dp else 0.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
@@ -231,41 +242,94 @@ fun GemSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier:
 
 /**
  * Bottom sheet (design system, Layout): felt-deep, 16dp top radius, grab handle, 20dp padding, 55% scrim, at most
- * 560dp wide. Focus moves to the title on open (Accessibility, Sheets).
+ * 560dp wide and centered on large screens (D22). The content scrolls, so at 200% font nothing clips (D20).
+ *
+ * TalkBack focus (D19) moves to the title on open and back to the node tagged [returnFocusTo] (the trigger) on close.
+ * Under reduced motion (D21) the sheet and its scrim fade in over 150ms instead of sliding.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GemSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+fun GemSheet(title: String, onDismiss: () -> Unit, returnFocusTo: String? = null, content: @Composable ColumnScope.() -> Unit) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val focus = remember { FocusRequester() }
+    val reducedMotion = rememberReducedMotion()
+    val fade = remember { Animatable(if (reducedMotion) 0f else 1f) }
+    LaunchedEffect(Unit) { if (reducedMotion) withFullMotion { fade.animateTo(1f, tween(SHEET_FADE_MS)) } }
+    // The trigger lives in the screen's window, not the sheet's.
+    val screen = LocalView.current
+    val returnTo by rememberUpdatedState(returnFocusTo)
+    DisposableEffect(Unit) {
+        openSheets++
+        onDispose {
+            openSheets--
+            // When this sheet is replaced by another (Share progress → its result), the new title keeps the focus.
+            returnTo?.let { screen.returnAccessibilityFocus(it, cancelled = { openSheets > 0 }) }
+        }
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = state,
+        modifier = Modifier.graphicsLayer { alpha = fade.value },
         sheetMaxWidth = 560.dp,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         containerColor = LocalFelt.current.deep,
         contentColor = GemColors.Bone,
-        scrimColor = GemColors.Scrim.copy(alpha = 0.55f),
-        dragHandle = { BottomSheetDefaults.DragHandle(color = GemColors.TextMuted) },
+        scrimColor = GemColors.Scrim.copy(alpha = 0.55f * fade.value),
+        dragHandle = { GrabHandle() },
     ) {
-        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 20.dp).navigationBarsPadding()) {
+        val sheet = LocalView.current
+        LaunchedEffect(Unit) {
+            // After the sheet's window is up and TalkBack has looked at it.
+            delay(OPEN_FOCUS_DELAY_MS)
+            sheet.moveAccessibilityFocus(SHEET_TITLE_TAG)
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
+                .navigationBarsPadding(),
+        ) {
             Text(
                 title,
                 style = GemType.display,
                 color = GemColors.Bone,
-                modifier = Modifier.focusRequester(focus).semantics { heading() },
+                modifier = Modifier.testTag(SHEET_TITLE_TAG).semantics { heading() },
             )
             Spacer(Modifier.height(12.dp))
             content()
         }
     }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }
+
+/**
+ * The grab handle: a 32×4dp bar in a 48dp square, so the handle's expand and close actions (Material puts them on
+ * it) get a full touch target and a label (Accessibility, Touch targets).
+ */
+@Composable
+private fun GrabHandle() {
+    Box(Modifier.size(48.dp).semantics { contentDescription = "Drag handle" }, contentAlignment = Alignment.Center) {
+        Box(Modifier.size(width = 32.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(GemColors.TextMuted))
+    }
+}
+
+const val SHEET_TITLE_TAG = "sheet-title"
+private const val SHEET_FADE_MS = 150
+private const val OPEN_FOCUS_DELAY_MS = 400L
+
+/** Sheets on screen now (main thread only). */
+private var openSheets = 0
 
 /** A confirm sheet: body text, a primary action and a "Keep" text button (design system, Navigation map). */
 @Composable
-fun ConfirmSheet(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    GemSheet(title, onDismiss) {
+fun ConfirmSheet(
+    title: String,
+    body: String,
+    confirm: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    returnFocusTo: String? = null,
+) {
+    GemSheet(title, onDismiss, returnFocusTo) {
         Text(body, style = GemType.body, color = GemColors.Bone)
         Spacer(Modifier.height(20.dp))
         PrimaryButton(confirm, onConfirm, Modifier.fillMaxWidth())

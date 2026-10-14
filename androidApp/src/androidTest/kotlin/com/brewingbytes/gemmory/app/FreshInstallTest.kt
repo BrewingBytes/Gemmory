@@ -66,7 +66,7 @@ class FreshInstallTest {
     @Test
     fun starterTileFirstThenPlayToCompletionThenStillOnReopen() {
         compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("The Starry Night").assertExists()
+        compose.onNode(hasContentDescription("The Starry Night, 0% done")).assertExists()
         compose.onNodeWithTag("tile-bundled-starter").performClick()
 
         compose.waitUntil(5_000) { session() != null && session()!!.viewport.isLaidOut }

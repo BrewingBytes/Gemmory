@@ -24,7 +24,22 @@ object CanvasZoom {
     fun doubleTapTarget(zoomDp: Float, fitDp: Float): Float =
         if (zoomDp > fitDp * ZOOMED_IN_MARGIN) fitDp else maxOf(TAP_ZOOM_DP, fitDp).coerceAtMost(MAX_DP)
 
+    /**
+     * TalkBack "Zoom in" / "Zoom out" (design D19): one step along fit → 8 → 16 → 24 → 48dp, the levels of the zoom
+     * table, so each step changes what the canvas shows. Null when there is no further step that way.
+     */
+    fun step(zoomDp: Float, fitDp: Float, zoomIn: Boolean): Float? {
+        val fit = fitDp.coerceAtMost(MAX_DP)
+        val ladder = (listOf(fit) + STEPS.filter { it > fit * ZOOMED_IN_MARGIN }).sorted()
+        return if (zoomIn) {
+            ladder.firstOrNull { it > zoomDp * ZOOMED_IN_MARGIN }
+        } else {
+            ladder.lastOrNull { it * ZOOMED_IN_MARGIN < zoomDp }
+        }
+    }
+
     private const val ZOOMED_IN_MARGIN = 1.05f
+    private val STEPS = listOf(RAISED_MIN_DP, PLACE_MIN_DP, TAP_ZOOM_DP, MAX_DP)
 }
 
 /** What a single tap does (design system zoom table). */

@@ -118,3 +118,33 @@ class CanvasGesturesTest {
         assertNull(chain.second(downAt = 3_100, x = 100f, y = 100f, wouldPlace = false))
     }
 }
+
+class ZoomStepTest {
+    @Test
+    fun zoomInWalksTheZoomTableFromFit() {
+        assertEquals(8f, CanvasZoom.step(3f, fitDp = 3f, zoomIn = true))
+        assertEquals(16f, CanvasZoom.step(8f, fitDp = 3f, zoomIn = true))
+        assertEquals(24f, CanvasZoom.step(16f, fitDp = 3f, zoomIn = true))
+        assertEquals(48f, CanvasZoom.step(24f, fitDp = 3f, zoomIn = true))
+        assertNull(CanvasZoom.step(48f, fitDp = 3f, zoomIn = true), "max zoom")
+        assertEquals(16f, CanvasZoom.step(12f, fitDp = 3f, zoomIn = true), "between levels goes to the next one")
+    }
+
+    @Test
+    fun zoomOutWalksBackToFitAndStops() {
+        assertEquals(24f, CanvasZoom.step(48f, fitDp = 3f, zoomIn = false))
+        assertEquals(8f, CanvasZoom.step(12f, fitDp = 3f, zoomIn = false))
+        assertEquals(3f, CanvasZoom.step(8f, fitDp = 3f, zoomIn = false))
+        assertNull(CanvasZoom.step(3f, fitDp = 3f, zoomIn = false), "already the whole picture")
+    }
+
+    @Test
+    fun aLargeFitSkipsTheLevelsBelowIt() {
+        // The 24×32 starter fits at ~14dp on a phone: the first step in is 16dp, the last step out is fit.
+        assertEquals(16f, CanvasZoom.step(14f, fitDp = 14f, zoomIn = true))
+        assertEquals(14f, CanvasZoom.step(16f, fitDp = 14f, zoomIn = false))
+        assertNull(CanvasZoom.step(14f, fitDp = 14f, zoomIn = false))
+        // A fit within 5% of a level doesn't make a near-empty step.
+        assertEquals(24f, CanvasZoom.step(15.5f, fitDp = 15.5f, zoomIn = true))
+    }
+}

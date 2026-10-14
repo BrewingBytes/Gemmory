@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -209,9 +210,17 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
 
 /** The rewarded sheet, every Rewarded-states row with its exact copy (design system). VIP texts open nothing until #8. */
 @Composable
-fun RewardedSheet(ui: RewardedUi, onWatch: () -> Unit, onGrace: () -> Unit, onTryAgain: () -> Unit, onVip: () -> Unit, onDismiss: () -> Unit) {
+fun RewardedSheet(
+    ui: RewardedUi,
+    onWatch: () -> Unit,
+    onGrace: () -> Unit,
+    onTryAgain: () -> Unit,
+    onVip: () -> Unit,
+    onDismiss: () -> Unit,
+    returnFocusTo: String? = null,
+) {
     val picture = ui.target is RewardTarget.Picture
-    GemSheet(if (picture) "Watch to unlock" else "Another photo canvas", onDismiss) {
+    GemSheet(if (picture) "Watch to unlock" else "Another photo canvas", onDismiss, returnFocusTo) {
         val phase = ui.phase
         when (phase) {
             RewardPhase.Unlocked -> {
@@ -247,8 +256,10 @@ fun RewardedSheet(ui: RewardedUi, onWatch: () -> Unit, onGrace: () -> Unit, onTr
         when (phase) {
             RewardPhase.Loading -> {
                 PrimaryButton("Loading video…", {}, Modifier.fillMaxWidth().testTag("rewarded-primary"), enabled = false)
+                // Decoration: the button already says "Loading video…", and the line's own 48dp-tall semantics bounds
+                // would overlap the button's touch target.
                 LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(2.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(2.dp).clearAndSetSemantics {},
                     color = GemColors.Bone,
                     trackColor = Color.Transparent,
                 )

@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,12 +45,20 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,6 +72,7 @@ import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.AppTopBar
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
@@ -74,6 +84,9 @@ import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.feltGround
+import com.brewingbytes.gemmory.ui.NOTE_MAX_WIDTH
+import com.brewingbytes.gemmory.ui.galleryColumns
+import com.brewingbytes.gemmory.ui.noteFitsBeside
 
 /** Which sheet the gallery shows; saved as a string so it survives rotation. */
 private sealed interface GallerySheet {
@@ -115,6 +128,9 @@ private sealed interface GallerySheet {
     }
 }
 
+/** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
+fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.id}"
+
 /** Whether [this] tile is a locked picture the player hasn't unlocked (design D14). */
 internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements): Boolean =
     ref.kind == CanvasKind.BUNDLED && BundledPictures.byId(ref.id)?.let { isLocked(it, unlocked, entitlements, started) } == true
@@ -139,6 +155,9 @@ fun GalleryScreen(
     LaunchedEffect(Unit) { vm.refresh() }
     val tab = vm.tab
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
+    // The floating button (and the allowance chip) never cover a tile's %: the grid scrolls clear of them (D10).
+    var overlayHeight by remember { mutableIntStateOf(0) }
+    val gridBottom = with(LocalDensity.current) { overlayHeight.toDp() } + 8.dp
 
     Box(
         Modifier
@@ -163,6 +182,7 @@ fun GalleryScreen(
             } else {
                 TileGrid(
                     tiles = tiles,
+                    bottomPadding = gridBottom,
                     isLocked = { it.locked(unlocked, entitlements) },
                     onOpen = { tile ->
                         when {
@@ -178,35 +198,35 @@ fun GalleryScreen(
             }
         }
         if (!(tab == 1 && state.loaded && state.photos.isEmpty())) {
-            Row(
-                Modifier.align(Alignment.BottomEnd).fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End,
-            ) {
-                // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
-                val note = allowanceLine(allowance).takeIf { allowance != Allowance.Free }
-                if (note != null) {
-                    Text(
-                        note,
-                        style = GemType.label,
-                        color = GemColors.TextMuted,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp).testTag("gallery-allowance-note"),
-                    )
-                }
-                PrimaryButton("New from photo", onNewFromPhoto)
-            }
+            // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
+            val note = allowanceLine(allowance).takeIf { allowance != Allowance.Free }
+            NoteAndButton(
+                note = note?.let { { AllowanceChip(it) } },
+                button = { PrimaryButton("New from photo", onNewFromPhoto) },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .onSizeChanged { overlayHeight = it.height },
+            )
         }
     }
 
     when (val s = sheet) {
         null -> Unit
-        is GallerySheet.Rename -> RenameSheet(s.title, onSave = { vm.rename(s.ref, it); sheet = null }, onDismiss = { sheet = null })
+        is GallerySheet.Rename -> RenameSheet(
+            s.title,
+            onSave = { vm.rename(s.ref, it); sheet = null },
+            onDismiss = { sheet = null },
+            returnFocusTo = tileTag(s.ref),
+        )
         is GallerySheet.Delete -> ConfirmSheet(
             title = "Delete this photo canvas?",
             body = "The photo, grid and progress are removed from this phone.",
             confirm = "Delete",
             onConfirm = { vm.delete(s.ref); sheet = null },
             onDismiss = { sheet = null },
+            returnFocusTo = tileTag(s.ref),
         )
         is GallerySheet.StartOver -> ConfirmSheet(
             title = "Start this picture over?",
@@ -214,6 +234,7 @@ fun GalleryScreen(
             confirm = "Start over",
             onConfirm = { vm.startOver(s.ref); sheet = null },
             onDismiss = { sheet = null },
+            returnFocusTo = tileTag(s.ref),
         )
         is GallerySheet.Damaged -> {
             val photo = s.ref.kind == CanvasKind.PHOTO
@@ -226,7 +247,64 @@ fun GalleryScreen(
                     sheet = null
                 },
                 onDismiss = { sheet = null },
+                returnFocusTo = tileTag(s.ref),
             )
+        }
+    }
+}
+
+/**
+ * The allowance note on a felt-deep chip, so tile art scrolling underneath never meets its text (founder call #14;
+ * the hint chip and locked label use the same ground).
+ */
+@Composable
+private fun AllowanceChip(note: String) {
+    Text(
+        note,
+        style = GemType.label,
+        color = GemColors.Bone,
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(LocalFelt.current.deep)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .testTag("gallery-allowance-note"),
+    )
+}
+
+/**
+ * The floating button with the allowance chip beside it, right-aligned (design D5). The chip takes what the button
+ * leaves, up to [NOTE_MAX_WIDTH]; when that's under [NOTE_MIN_WIDTH] (200% font on a phone) it goes on its own line
+ * above the button.
+ */
+@Composable
+private fun NoteAndButton(note: (@Composable () -> Unit)?, button: @Composable () -> Unit, modifier: Modifier = Modifier) {
+    Layout(contents = listOfNotNull(button, note), modifier = modifier) { measurables, constraints ->
+        val gap = 12.dp.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val buttonPlaceable = measurables[0].first().measure(loose)
+        val chip = measurables.getOrNull(1)?.firstOrNull()
+        val width = constraints.maxWidth
+        if (chip == null) {
+            return@Layout layout(width, buttonPlaceable.height) { buttonPlaceable.place(width - buttonPlaceable.width, 0) }
+        }
+        val beside = noteFitsBeside(width.toDp().value, buttonPlaceable.width.toDp().value, gap.toDp().value)
+        val chipMax = if (beside) {
+            minOf(NOTE_MAX_WIDTH.roundToPx(), width - buttonPlaceable.width - gap)
+        } else {
+            minOf(NOTE_MAX_WIDTH.roundToPx().coerceAtLeast(width * 3 / 4), width)
+        }
+        val chipPlaceable = chip.measure(loose.copy(maxWidth = chipMax))
+        if (beside) {
+            val height = maxOf(chipPlaceable.height, buttonPlaceable.height)
+            layout(width, height) {
+                buttonPlaceable.place(width - buttonPlaceable.width, (height - buttonPlaceable.height) / 2)
+                chipPlaceable.place(width - buttonPlaceable.width - gap - chipPlaceable.width, (height - chipPlaceable.height) / 2)
+            }
+        } else {
+            layout(width, chipPlaceable.height + gap + buttonPlaceable.height) {
+                chipPlaceable.place(width - chipPlaceable.width, 0)
+                buttonPlaceable.place(width - buttonPlaceable.width, chipPlaceable.height + gap)
+            }
         }
     }
 }
@@ -250,7 +328,8 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit) {
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, style = GemType.button, color = if (isSelected) GemColors.Bone else GemColors.TextMuted)
+                // Bone on both: text-muted fails 4.5:1 on the grained felt (valid grounds, #14).
+                Text(label, style = GemType.button, color = GemColors.Bone)
             }
         }
     }
@@ -259,17 +338,20 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit) {
 @Composable
 private fun TileGrid(
     tiles: List<Tile>,
+    bottomPadding: Dp,
     isLocked: (Tile) -> Boolean,
     onOpen: (Tile) -> Unit,
     onRename: (Tile) -> Unit,
     onDelete: (Tile) -> Unit,
     onStartOver: (Tile) -> Unit,
 ) {
+    // Large screens (design D22): 2 columns under 600dp, 3 from 600dp, 4 from 840dp.
+    val widthDp = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp().value }
     LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Fixed(2),
+        columns = StaggeredGridCells.Fixed(galleryColumns(widthDp)),
         modifier = Modifier.fillMaxSize().testTag("gallery-grid"),
-        // 88dp at the bottom so the floating button never covers a tile's % (design D10).
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
+        // Room at the bottom so the floating button never covers a tile's % (design D10).
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = maxOf(bottomPadding, 88.dp)),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalItemSpacing = 10.dp,
     ) {
@@ -290,17 +372,31 @@ private fun TileView(
     onStartOver: (Tile) -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
-    val description = when {
-        tile.damaged -> "${tile.title}, can't open"
-        locked -> "${tile.title}, locked, watch a video to unlock"
-        tile.done -> "${tile.title}, done"
-        else -> "${tile.title}, ${tile.percent}% done"
+    val photo = tile.ref.kind == CanvasKind.PHOTO
+    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged)
+    // TalkBack (design D19): one node per tile that reads exactly its state, with the ⋮ menu's items as its custom
+    // actions (the ⋮ button itself is folded into them).
+    val actions = when {
+        locked -> emptyList()
+        photo -> listOf(
+            CustomAccessibilityAction("Rename") { onRename(tile); true },
+            CustomAccessibilityAction("Delete") { onDelete(tile); true },
+        )
+        else -> listOf(CustomAccessibilityAction("Start over") { onStartOver(tile); true })
     }
     Column(
         Modifier
-            .testTag("tile-${tile.ref.kind.name.lowercase()}-${tile.ref.id}")
-            .semantics(mergeDescendants = true) { contentDescription = description }
-            .combinedClickable(onClick = { onOpen(tile) }, onLongClick = { if (!locked) menu = true }),
+            .testTag(tileTag(tile.ref))
+            .combinedClickable(
+                onClick = { onOpen(tile) },
+                onLongClickLabel = if (locked) null else "More options",
+                onLongClick = if (locked) null else ({ menu = true }),
+            )
+            // After the clickable: semantics set further in replace what follows, and the click must stay.
+            .clearAndSetSemantics {
+                contentDescription = description
+                customActions = actions
+            },
     ) {
         Box(
             Modifier
@@ -354,7 +450,7 @@ private fun TileView(
             Column(Modifier.weight(1f).padding(top = 6.dp)) {
                 Text(tile.title, style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (!tile.damaged) {
-                    Text(tile.progressLabel, style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.TextMuted)
+                    Text(tile.progressLabel, style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.Bone)
                 }
             }
             // A locked picture has nothing to start over.
@@ -362,7 +458,7 @@ private fun TileView(
                 IconAction(GemIcons.More, "More for ${tile.title}", onClick = { menu = true })
                 TileMenu(
                     expanded = menu,
-                    photo = tile.ref.kind == CanvasKind.PHOTO,
+                    photo = photo,
                     onDismiss = { menu = false },
                     onRename = { menu = false; onRename(tile) },
                     onDelete = { menu = false; onDelete(tile) },
@@ -408,7 +504,7 @@ private fun MyPhotosEmpty(onNewFromPhoto: () -> Unit) {
         Text(
             "Turn a photo of your own into a canvas you can finish. It never leaves this phone.",
             style = GemType.body,
-            color = GemColors.TextMuted,
+            color = GemColors.Bone,
         )
         Spacer(Modifier.height(24.dp))
         PrimaryButton("New from photo", onNewFromPhoto)
@@ -417,9 +513,9 @@ private fun MyPhotosEmpty(onNewFromPhoto: () -> Unit) {
 
 /** Rename edits the title (design D26). A blank name keeps the old title. */
 @Composable
-private fun RenameSheet(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+private fun RenameSheet(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit, returnFocusTo: String) {
     var text by rememberSaveable { mutableStateOf(current) }
-    GemSheet("Rename", onDismiss) {
+    GemSheet("Rename", onDismiss, returnFocusTo) {
         OutlinedTextField(
             value = text,
             onValueChange = { text = com.brewingbytes.gemmory.photo.PhotoTitles.capped(it) },
