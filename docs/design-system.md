@@ -318,9 +318,8 @@ Sound and Haptics each get a Settings toggle. Both default to on.
 | Situation | Line | Start |
 |---|---|---|
 | Free one available | "Uses today's free photo canvas." | Start |
-| Free one used, extras left | "Today's free one is used. Watch a video for another (2 left today)." | primary becomes "Watch a video" (rewarded states) |
+| Free one used | "Today's free one is used. Watch a video for another." | primary becomes "Watch a video" (rewarded states) |
 | Bonus earned from a video | "Uses a bonus canvas from a video." | Start |
-| All 3 extras used | "That's all the photo canvases for today. More at midnight, or get VIP for unlimited." | disabled; text "Get VIP" |
 | VIP | no line | Start |
 
 **Completion: "lights down", the one authored moment.**
@@ -356,7 +355,8 @@ A finished picture reopened from the gallery shows the **completion still**:
 | State | Copy | Actions |
 |---|---|---|
 | Loading (≤ 5s) | primary button disabled: "Loading video…", plus a 2dp indeterminate line | none |
-| Online no-fill, grace available | "No video right now. This one's on us today." | primary "Unlock picture" / "Start canvas"; text "Or get VIP: every picture unlocked" |
+| Video ready (#7) | sheet title "Watch to unlock" / "Another photo canvas"; body "Watch a short video to unlock this picture for good." / "Watch a short video for one more photo canvas today." | primary "Watch video" |
+| Online no-fill, grace available | "No video right now. This one's on us today." | primary "Unlock picture" / "Start canvas"; text "Or get VIP: every picture unlocked" / "Or get VIP: unlimited photo canvases" |
 | Online no-fill, grace used | "No video right now. Try again in a bit." | quiet "Try again"; text "Get VIP: no videos needed" |
 | Offline | "You're offline, connect to watch a video" (in `fault`) | quiet "Try again"; text "Get VIP: no videos needed". No grace. |
 | Reward granted (Phase 5 D11) | locked picture: the sheet shows "Unlocked" for 600ms, then the canvas opens. Extra canvas: back to Preview with "Uses a bonus canvas from a video." | none |
@@ -459,4 +459,6 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-13 | Phase 5 design plan review (/plan-design-review): D3-D27 applied above (nav map, all missing states, gestures, two-tone ring, raised placed gems, Find, TalkBack, font scale, reduced motion, large screens, valid-ground contrast rule, 48dp text buttons, starter picture, time-lapse intro/timing) | Ledger in docs/designs/gemmory.md "Design Review (Phase 5)" |
 | 2026-10-13 | Selected color shown as a stronger own tint (40% toward bone) at every zoom; replaces the D17 two-tone ring | Founder call while playing #18 on the emulator: the outline looked busy. Chosen from five HTML mockups (ring, dim the rest, lamp fill, stronger own tint, dim + tint). Weak on light colors, so #19 adds a player setting with the ring and dimming as options |
 | 2026-10-13 | Starter picture = The Starry Night (van Gogh, public domain), cypress-and-swirl crop; Share disabled with "Video sharing is coming soon." until #4; Rename sheet copy; face photos at faceMinSize = Medium disable Quick | Founder answers during #13. Provenance in tools/bundled/PROVENANCE.md |
+| 2026-10-14 | No daily cap on extra photo canvases: every rewarded video gives one more, so the "All 3 extras used" row and the "(N left today)" count are gone | Founder call during #7 ("we don't need a max video ad unlock, you can watch as many"). Grace stays 1/day per reward type |
+| 2026-10-14 | Rewarded sheet "video ready" copy: locked picture "Watch to unlock" / "Watch a short video to unlock this picture for good."; extra canvas "Another photo canvas" / "Watch a short video for one more photo canvas today."; primary "Watch video". Extra-canvas grace text "Or get VIP: unlimited photo canvases". Interstitial only after a fresh finish (not the completion still). A UMP form that couldn't show on the first launch shows before the first rewarded ad instead | Founder answers during #7 (the Rewarded states table had no ready-state copy) |
 | 2026-10-14 | Share enabled (#4): progress sheet, PNG fallback with "Before"/"After" labels, failure and disk-full messages inside the sheet, killed-encode line under Share | Implements the Share progress sheet and D8 edge states; the labels and in-sheet messages fill details the spec left open |

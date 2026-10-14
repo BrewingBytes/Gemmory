@@ -147,7 +147,7 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
 |---|---|---|---|
 | Interstitial after finishing a picture | Yes (capped) | No | No |
 | Gallery banner | Deferred to v1.1 (CUT-1) | — | — |
-| Photo canvases per day | 1 free + 1 per rewarded ad (max 3 extra) | same as Free | Unlimited |
+| Photo canvases per day | 1 free + 1 per rewarded ad (no cap; founder call #7, 2026-10-14) | same as Free | Unlimited |
 | Bundled pictures | ~20 free, ~10 locked (unlock with a rewarded ad each) | same as Free | All unlocked |
 | Time-lapse watermark | Yes | Yes | No |
 | Rewarded ads | Opt-in | Opt-in | Not shown (nothing to unlock) |

@@ -124,7 +124,7 @@ Labels: P2, ads
 
 **Scope**
 - `AdPolicy(clock, tz, store)` (commonMain): leave-completion only; not in the first session (ends after ≥30 min in background or a later cold start); not before the 2nd finish; ≥10 min gap; ≤4/day; not within 2 min of a rewarded ad; never for VIP/remove-ads
-- `DailyLedger`: allowance (1 free photo canvas/day + up to 3 via rewarded), idempotent `consume(draftId)`, grace 1/day/reward type, reset on local date change
+- `DailyLedger`: allowance (1 free photo canvas/day + 1 per rewarded video, no cap since #7), idempotent `consume(draftId)`, grace 1/day/reward type, reset on local date change
 - Grace only when online (validated network) + MobileAds initialized + load ended in no-fill/timeout; offline → "You're offline, connect to watch a video" + VIP offer, no grace
 - Picture unlocks are permanent (DataStore, backup OK)
 - AdMobGateway (preload, 5 s "Loading video…"), ConsentManager (UMP + Consent Mode v2)

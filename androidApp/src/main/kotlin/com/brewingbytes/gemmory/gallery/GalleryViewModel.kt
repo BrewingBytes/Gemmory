@@ -34,6 +34,8 @@ data class Tile(
     val percent: Int,
     val done: Boolean,
     val damaged: Boolean,
+    /** At least one gem placed: a started picture never locks again (eng E4c). */
+    val started: Boolean = false,
 ) {
     /** Mono "42%" or "Done"; never "100%" before the last gem. */
     val progressLabel: String get() = if (done) "Done" else "$percent%"
@@ -121,6 +123,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 percent = (state.placedCount * 100L / state.cellCount).toInt(),
                 done = state.isFinished,
                 damaged = false,
+                started = state.placedCount > 0,
             )
         }
     }

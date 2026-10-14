@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,8 +45,9 @@ import com.brewingbytes.gemmory.ui.feltGround
 const val PRIVACY_POLICY_URL = "https://github.com/BrewingBytes/Gemmory/blob/main/docs/privacy-policy.md"
 
 /**
- * Settings (design system, Settings): Sound, Haptics, Delete all photo canvases, Privacy policy, Version.
- * Membership, Manage subscription, Restore purchases and Privacy choices come with billing and UMP (#7, #8).
+ * Settings (design system, Settings): Sound, Haptics, Privacy choices (only when UMP says privacy options are
+ * required, design D3), Delete all photo canvases, Privacy policy, Version. Membership, Manage subscription and
+ * Restore purchases come with billing (#8).
  */
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -52,6 +55,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     val app = context.applicationContext as GemmoryApp
     val sound by app.settings.sound.collectAsStateWithLifecycle()
     val haptics by app.settings.haptics.collectAsStateWithLifecycle()
+    val privacyChoices by app.consent.privacyOptionsRequired.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
@@ -67,6 +72,17 @@ fun SettingsScreen(onBack: () -> Unit) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             ToggleRow("Sound", sound, app.settings::setSound)
             ToggleRow("Haptics", haptics, app.settings::setHaptics)
+            if (privacyChoices && activity != null) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .clickable(role = Role.Button) { app.consent.showPrivacyOptions(activity) }
+                        .padding(horizontal = 16.dp)
+                        .testTag("settings-privacy-choices"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) { Text("Privacy choices", style = GemType.body, color = GemColors.Bone) }
+            }
             // A plain bone row, not a red button (design D27).
             Row(
                 Modifier

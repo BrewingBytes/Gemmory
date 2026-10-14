@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.click
@@ -43,6 +44,8 @@ class FreshInstallTest {
     @Before
     fun freshInstall() {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
+        // The UMP form belongs to a real first launch (ConsentManager); in the EEA it would cover the canvas here.
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         scenario = ActivityScenario.launch(MainActivity::class.java)
     }
 
