@@ -47,11 +47,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
+import com.brewingbytes.gemmory.share.ShareIntents
+import com.brewingbytes.gemmory.share.ShareSheet
+import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.timelapse.EncodeRequest
+import com.brewingbytes.gemmory.timelapse.EncodeState
+import com.brewingbytes.gemmory.timelapse.FrameArt
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemRenderer
@@ -62,7 +71,11 @@ import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 
@@ -84,11 +97,22 @@ class LightsDownTracker {
     }
 }
 
-/** The finished picture and its meta line. */
-class Finished(val ref: CanvasRef, val image: ImageBitmap, val aspect: Float, val meta: String)
+/**
+ * The finished picture and its meta line. [before] is the cropped photo (or the empty tint grid of a bundled
+ * picture) for the before/after fallback sheet; [request] is what Share encodes.
+ */
+class Finished(
+    val ref: CanvasRef,
+    val image: ImageBitmap,
+    val before: ImageBitmap,
+    val aspect: Float,
+    val meta: String,
+    val request: EncodeRequest,
+)
 
 class CompletionViewModel(application: Application) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
+    private val encodes = application.let { it as GemmoryApp }.encodes
 
     var finished by mutableStateOf<Finished?>(null)
         private set
@@ -96,7 +120,18 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     var damaged by mutableStateOf(false)
         private set
 
+    /** "The video stopped when the app closed." Shown for this visit, once per killed encode (design D8). */
+    var killedNotice by mutableStateOf(false)
+        private set
+
     private val played = LightsDownTracker()
+
+    fun encodeState(ref: CanvasRef): StateFlow<EncodeState> = encodes.state(ref)
+
+    /** The completion screen was left: the killed-encode notice belonged to that visit. Kept across rotation. */
+    fun onLeft() {
+        killedNotice = false
+    }
 
     fun hasPlayed(ref: CanvasRef) = played.hasPlayed(ref)
 
@@ -110,21 +145,44 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
 
     /** Always re-reads, so a rename or a new play time since the last visit shows. The old picture stays until then. */
     fun load(ref: CanvasRef) {
-        if (finished?.ref != ref) finished = null
+        if (finished?.ref != ref) {
+            finished = null
+            killedNotice = false
+        }
         damaged = false
         viewModelScope.launch {
+            if (encodes.takeKilledNotice(ref)) killedNotice = true
             when (val opened = store.open(ref)) {
                 is CanvasStore.Opened.Damaged -> damaged = true
-                is CanvasStore.Opened.Ready -> {
-                    val pattern = opened.grid.pattern
-                    val bitmap = GemRenderer.render(pattern, cellPx = (720 / pattern.width).coerceIn(4, 24))
-                    val gems = NumberFormat.getIntegerInstance().format(pattern.cells.size)
-                    val meta = "${opened.title} · $gems gems · ${playTime(opened.record?.playMillis ?: 0L)}"
-                    finished = Finished(ref, bitmap.asImageBitmap(), pattern.width / pattern.height.toFloat(), meta)
-                }
+                is CanvasStore.Opened.Ready -> finished = withContext(Dispatchers.Default) { finishedOf(ref, opened) }
             }
         }
     }
+
+    private fun finishedOf(ref: CanvasRef, opened: CanvasStore.Opened.Ready): Finished {
+        val pattern = opened.grid.pattern
+        val cellPx = (720 / pattern.width).coerceIn(4, 24)
+        val bitmap = GemRenderer.render(pattern, cellPx)
+        val source = store.repository.sourceFile(ref).takeIf { ref.kind == CanvasKind.PHOTO && it.isFile }
+        val before = source?.let { FrameArt.decodeSource(it, bitmap.width, bitmap.height) }
+            ?: GemRenderer.render(pattern, cellPx) { false }
+        val gems = NumberFormat.getIntegerInstance().format(pattern.cells.size)
+        val meta = "${opened.title} · $gems gems · ${playTime(opened.record?.playMillis ?: 0L)}"
+        val request = EncodeRequest(ref, pattern, opened.state.log(), opened.title, source)
+        return Finished(ref, bitmap.asImageBitmap(), before.asImageBitmap(), pattern.width / pattern.height.toFloat(), meta, request)
+    }
+
+    /** Share tap (eng D2): starts the encode, or reuses the cached MP4. */
+    fun share(ref: CanvasRef) {
+        val request = finished?.takeIf { it.ref == ref }?.request ?: return
+        killedNotice = false
+        encodes.share(request)
+    }
+
+    fun cancelShare(ref: CanvasRef) = encodes.cancel(ref)
+
+    /** The share sheet was opened for the result, or the player closed the message. */
+    fun shareHandled(ref: CanvasRef) = encodes.acknowledge(ref)
 
     /** Play again (design D3): the Start over confirm, then progress, view and play time are cleared. */
     fun playAgain(ref: CanvasRef, then: () -> Unit) {
@@ -149,7 +207,8 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
  * Completion (design system, Completion: "lights down"). Fresh: the screen dims ~30% around the picture, one specular
  * sweep crosses it over 2.4s (skipped under reduced motion), then one low chime and the finish haptic, a 2s still
  * hold, then "Finished", the meta line, Share and Done fade in. Reopened from the gallery it's the completion still:
- * no sweep, plus "Play again". Share waits for the time-lapse (#4), so it shows disabled with a note.
+ * no sweep, plus "Play again". Share makes the time-lapse (or reuses it) behind the progress sheet, then opens the
+ * Android share sheet; a cancelled or dismissed share comes back here with no message (design D8).
  */
 @Composable
 fun CompletionScreen(
@@ -170,6 +229,19 @@ fun CompletionScreen(
     val sweep = remember { Animatable(0f) }
     val text = remember { Animatable(if (sequence) 0f else 1f) }
     var confirmPlayAgain by rememberSaveable { mutableStateOf(false) }
+    val encode by remember(ref) { vm.encodeState(ref) }.collectAsStateWithLifecycle()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    // A finished video goes to the share sheet once the app is in front again (it may have finished in the background)
+    // and the canvas is loaded (a recreated activity loads it again).
+    val loaded = vm.finished?.ref == ref
+    LaunchedEffect(encode, loaded) {
+        val video = encode as? EncodeState.Video ?: return@LaunchedEffect
+        if (!loaded) return@LaunchedEffect
+        lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+        val request = vm.finished?.takeIf { it.ref == ref }?.request ?: return@LaunchedEffect
+        context.startActivity(ShareIntents.chooser(context, video.file, request.medium))
+        vm.shareHandled(ref)
+    }
 
     val finished = vm.finished?.takeIf { it.ref == ref }
     LaunchedEffect(finished != null) {
@@ -206,13 +278,21 @@ fun CompletionScreen(
                 Text("Finished", style = GemType.displayLarge, color = GemColors.Bone)
                 Text(finished?.meta.orEmpty(), style = GemType.label, color = GemColors.TextMuted)
                 Spacer(Modifier.height(16.dp))
-                PrimaryButton("Share", onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth())
-                Text(
-                    "Video sharing is coming soon.",
-                    style = GemType.label,
-                    color = GemColors.TextMuted,
-                    modifier = Modifier.padding(top = 4.dp),
+                PrimaryButton(
+                    "Share",
+                    onClick = { vm.share(ref) },
+                    enabled = finished != null,
+                    held = encode is EncodeState.Running,
+                    modifier = Modifier.fillMaxWidth().testTag("completion-share"),
                 )
+                if (vm.killedNotice) {
+                    Text(
+                        "The video stopped when the app closed. Tap Share to try again.",
+                        style = GemType.label,
+                        color = GemColors.TextMuted,
+                        modifier = Modifier.padding(top = 4.dp).testTag("share-killed"),
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 QuietButton("Done", onDone, Modifier.fillMaxWidth().testTag("completion-done"))
                 if (!fresh) {
@@ -234,6 +314,24 @@ fun CompletionScreen(
             }
         }
     }
+    ShareSheet(
+        state = encode,
+        before = finished?.before,
+        after = finished?.image,
+        aspect = finished?.aspect ?: 1f,
+        onCancel = { vm.cancelShare(ref) },
+        onSharePicture = {
+            val picture = encode as? EncodeState.Picture
+            val request = finished?.request
+            if (picture != null && request != null) context.startActivity(ShareIntents.chooser(context, picture.file, request.medium))
+            vm.shareHandled(ref)
+        },
+        onTryAgain = {
+            vm.shareHandled(ref)
+            vm.share(ref)
+        },
+        onClose = { vm.shareHandled(ref) },
+    )
     if (confirmPlayAgain) {
         ConfirmSheet(
             title = "Start this picture over?",

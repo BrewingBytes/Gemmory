@@ -1419,11 +1419,12 @@ targets = [1080x1920@30, 720x1280@30]
 for t in targets:
    probe areSizeAndRateSupported + alignment ── no ──► next t
    configure ── CodecException/ISE ──► delete partial, non-fatal ──► next t
-   render frames (incremental bitmap → lockHardwareCanvas) → MediaMuxer
+   render frames (incremental bitmap → EGL surface + eglPresentationTimeANDROID; #4) → MediaMuxer
        ── error / cancel ──► delete partial (cancel: stop, no fallback)
    success ──► rename into cache if canvas still exists (E4d) ──► share sheet + utm text (D14)
 all failed ──► before/after PNG + "Video isn't supported on this phone…" ──► share sheet
 ```
+- **Implementation note (#4, 2026-10-14):** frames go to the encoder's input surface through EGL, not `lockHardwareCanvas`. On the gemmory_pixel emulator `lockHardwareCanvas` dropped 1-6 of 450 frames (its producer runs at swap interval 0, so a frame posted before the encoder took the last one replaces it) and stamped frames with wall-clock time. An EGL window surface blocks instead, and `eglPresentationTimeANDROID` gives each frame its FramePlan time. The incremental canvas bitmap (finding 12) is unchanged; it is uploaded as a texture on frames that placed gems. Before each video target the chain checks free space against that target's need (bitrate × 15 s × 1.5): 1080 is skipped silently when only 720 fits, and when even 720 doesn't fit it's out of space. A real ENOSPC stops the chain at once (no smaller try, no picture), and a partial file that vanishes (the system clears cacheDir under storage pressure) counts as out of space.
 Save load path (E2, D3, D4, D11):
 ```
 read file ─► magic ok? ─► version ≤ current? ─► CRC ok? ─► migrate(v→current) ─► grid CRC matches? ─► indices valid (no dup / in range)?

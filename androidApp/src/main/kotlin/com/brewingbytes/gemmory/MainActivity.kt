@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
         // System back always goes one step up (design D3); on the Gallery it leaves the app. The canvas handles
         // its own back so it can close its session first.
         BackHandler(enabled = top != Route.Gallery && top !is Route.Canvas) { stack.pop() }
+        LaunchedEffect(top is Route.Completion) { if (top !is Route.Completion) completion.onLeft() }
 
         when (top) {
             Route.Gallery -> {
