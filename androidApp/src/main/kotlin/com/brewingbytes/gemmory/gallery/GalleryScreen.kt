@@ -156,8 +156,9 @@ fun GalleryScreen(
     val tab = vm.tab
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
     // The floating button (and the allowance chip) never cover a tile's %: the grid scrolls clear of them (D10).
+    // The measured height excludes the overlay's 16dp padding; another 16dp keeps a gap (56dp button → 88dp).
     var overlayHeight by remember { mutableIntStateOf(0) }
-    val gridBottom = with(LocalDensity.current) { overlayHeight.toDp() } + 8.dp
+    val gridBottom = with(LocalDensity.current) { overlayHeight.toDp() } + 32.dp
 
     Box(
         Modifier
@@ -351,7 +352,7 @@ private fun TileGrid(
         columns = StaggeredGridCells.Fixed(galleryColumns(widthDp)),
         modifier = Modifier.fillMaxSize().testTag("gallery-grid"),
         // Room at the bottom so the floating button never covers a tile's % (design D10).
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = maxOf(bottomPadding, 88.dp)),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalItemSpacing = 10.dp,
     ) {
