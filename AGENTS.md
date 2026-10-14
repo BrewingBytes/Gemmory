@@ -12,6 +12,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 - **`shared/src/commonMain` is pure Kotlin.** No `android.*` or `java.awt` imports.
 - **A wrong-color tap is rejected with no state change.** The save log is an ordered list of placed cell indices.
 - **UI follows `docs/design-system.md`.** Ask the user before departing from it. When reviewing or QA-ing UI, flag code that doesn't match it.
+- **Every long-running command has a hard time limit.** Wrap emulator and device work (`connectedDebugAndroidTest`, `am instrument`, adb wait loops) in `timeout` (about 5-8 minutes; a full instrumented run normally takes 3-4) and never wait on one without a bound. When it times out, kill it, check the emulator's load (`adb shell cat /proc/loadavg`), and report what happened instead of retrying blindly.
 
 ## Docs index
 

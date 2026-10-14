@@ -27,9 +27,9 @@ import java.nio.FloatBuffer
  * and, for the photo intro, the source photo drawn over the canvas with its opacity.
  */
 class GlFrameWriter(surface: Surface, private val width: Int, private val height: Int) {
-    private val display: EGLDisplay
-    private val context: EGLContext
-    private val eglSurface: EGLSurface
+    private var display: EGLDisplay = EGL14.EGL_NO_DISPLAY
+    private var context: EGLContext = EGL14.EGL_NO_CONTEXT
+    private var eglSurface: EGLSurface = EGL14.EGL_NO_SURFACE
     private var program = 0
     private val textures = IntArray(3)
     private val quad: FloatBuffer = ByteBuffer.allocateDirect(4 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
@@ -38,28 +38,35 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
     private var uAlpha = 0
 
     init {
-        display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
-        check(display != EGL14.EGL_NO_DISPLAY) { "no EGL display" }
-        val version = IntArray(2)
-        check(EGL14.eglInitialize(display, version, 0, version, 1)) { "eglInitialize: ${EGL14.eglGetError()}" }
-        val attribs = intArrayOf(
-            EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_ALPHA_SIZE, 8,
-            EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-            EGL_RECORDABLE_ANDROID, 1,
-            EGL14.EGL_NONE,
-        )
-        val configs = arrayOfNulls<EGLConfig>(1)
-        val count = IntArray(1)
-        check(EGL14.eglChooseConfig(display, attribs, 0, configs, 0, 1, count, 0) && count[0] > 0) { "no recordable EGL config" }
-        val config = configs[0]!!
-        context = EGL14.eglCreateContext(
-            display, config, EGL14.EGL_NO_CONTEXT, intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE), 0,
-        )
-        check(context != EGL14.EGL_NO_CONTEXT) { "eglCreateContext: ${EGL14.eglGetError()}" }
-        eglSurface = EGL14.eglCreateWindowSurface(display, config, surface, intArrayOf(EGL14.EGL_NONE), 0)
-        check(eglSurface != EGL14.EGL_NO_SURFACE) { "eglCreateWindowSurface: ${EGL14.eglGetError()}" }
-        check(EGL14.eglMakeCurrent(display, eglSurface, eglSurface, context)) { "eglMakeCurrent: ${EGL14.eglGetError()}" }
-        setUpProgram()
+        // A failure partway (no config, no window surface, a shader that won't link) releases what was made so far:
+        // the fallback's next attempt must not start with this one's EGL context still current on the IO thread.
+        try {
+            display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+            check(display != EGL14.EGL_NO_DISPLAY) { "no EGL display" }
+            val version = IntArray(2)
+            check(EGL14.eglInitialize(display, version, 0, version, 1)) { "eglInitialize: ${EGL14.eglGetError()}" }
+            val attribs = intArrayOf(
+                EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_ALPHA_SIZE, 8,
+                EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+                EGL_RECORDABLE_ANDROID, 1,
+                EGL14.EGL_NONE,
+            )
+            val configs = arrayOfNulls<EGLConfig>(1)
+            val count = IntArray(1)
+            check(EGL14.eglChooseConfig(display, attribs, 0, configs, 0, 1, count, 0) && count[0] > 0) { "no recordable EGL config" }
+            val config = configs[0]!!
+            context = EGL14.eglCreateContext(
+                display, config, EGL14.EGL_NO_CONTEXT, intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE), 0,
+            )
+            check(context != EGL14.EGL_NO_CONTEXT) { "eglCreateContext: ${EGL14.eglGetError()}" }
+            eglSurface = EGL14.eglCreateWindowSurface(display, config, surface, intArrayOf(EGL14.EGL_NONE), 0)
+            check(eglSurface != EGL14.EGL_NO_SURFACE) { "eglCreateWindowSurface: ${EGL14.eglGetError()}" }
+            check(EGL14.eglMakeCurrent(display, eglSurface, eglSurface, context)) { "eglMakeCurrent: ${EGL14.eglGetError()}" }
+            setUpProgram()
+        } catch (e: Throwable) {
+            release()
+            throw e
+        }
     }
 
     /** Uploads the layers that don't change during the video. */
@@ -90,16 +97,23 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
         check(EGL14.eglSwapBuffers(display, eglSurface)) { "eglSwapBuffers: ${EGL14.eglGetError()}" }
     }
 
+    /** Safe after a partial init and safe to call twice. */
     fun release() {
-        runCatching {
-            GLES20.glDeleteTextures(3, textures, 0)
-            GLES20.glDeleteProgram(program)
+        if (display == EGL14.EGL_NO_DISPLAY) return
+        if (context != EGL14.EGL_NO_CONTEXT) {
+            runCatching {
+                GLES20.glDeleteTextures(3, textures, 0)
+                if (program != 0) GLES20.glDeleteProgram(program)
+            }
         }
         EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
-        EGL14.eglDestroySurface(display, eglSurface)
-        EGL14.eglDestroyContext(display, context)
+        if (eglSurface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, eglSurface)
+        if (context != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, context)
         EGL14.eglReleaseThread()
         EGL14.eglTerminate(display)
+        eglSurface = EGL14.EGL_NO_SURFACE
+        context = EGL14.EGL_NO_CONTEXT
+        display = EGL14.EGL_NO_DISPLAY
     }
 
     private fun load(slot: Int, bitmap: Bitmap) {

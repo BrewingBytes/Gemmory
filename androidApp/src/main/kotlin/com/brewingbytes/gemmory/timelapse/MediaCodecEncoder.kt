@@ -79,6 +79,13 @@ class MediaCodecEncoder(
                 throw EncodeFailure(EncodeStage.CONFIGURE, e)
             }
             mediaCodec = c
+            // Open before the callbacks go live: some encoders send their output format right after start(), before
+            // the first frame, and the mux thread must find the muxer there.
+            try {
+                sink.open()
+            } catch (e: IOException) {
+                throw EncodeFailure(EncodeStage.MUX, e)
+            }
             try {
                 c.setCallback(sink, Handler(thread.looper))
                 c.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -87,14 +94,15 @@ class MediaCodecEncoder(
             } catch (e: Exception) {
                 throw EncodeFailure(EncodeStage.CONFIGURE, e)
             }
-            try {
-                sink.open()
-            } catch (e: IOException) {
-                throw EncodeFailure(EncodeStage.MUX, e)
-            }
             art = FrameArt(context, request, target.width, target.height)
-            writer = try {
-                GlFrameWriter(surface, target.width, target.height).also { it.upload(art.background, art.canvas, art.source) }
+            // Held before the upload, so `finally` releases its context and textures when an upload fails.
+            val gl = try {
+                GlFrameWriter(surface, target.width, target.height).also { writer = it }
+            } catch (e: Exception) {
+                throw EncodeFailure(EncodeStage.CONFIGURE, e)
+            }
+            try {
+                gl.upload(art.background, art.canvas, art.source)
             } catch (e: Exception) {
                 throw EncodeFailure(EncodeStage.CONFIGURE, e)
             }
@@ -103,7 +111,7 @@ class MediaCodecEncoder(
                 sink.rethrow()
                 try {
                     val (changed, photoAlpha) = art.apply(plan.frame(i))
-                    writer.write(art.canvas, changed, art.boardRect, photoAlpha, plan.presentationTimeUs(i))
+                    gl.write(art.canvas, changed, art.boardRect, photoAlpha, plan.presentationTimeUs(i))
                 } catch (e: Exception) {
                     throw EncodeFailure(EncodeStage.ENCODE, e)
                 }
@@ -162,6 +170,7 @@ class MediaCodecEncoder(
 
     /** Encoder callbacks on the mux thread: the muxer starts on the output format and gets each sample. */
     private class MuxSink(private val output: File) : MediaCodec.Callback() {
+        @Volatile
         private var muxer: MediaMuxer? = null
         private var track = -1
         private val error = AtomicReference<Throwable?>()
