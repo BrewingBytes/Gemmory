@@ -8,6 +8,7 @@ import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.PlaceResult
+import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.WriteResult
@@ -53,7 +54,10 @@ class KillAndResumeTest {
     /** A fresh "process": its own scope and single writer, sweeping at start like the app does. */
     private fun newStore(): Pair<CanvasStore, CoroutineScope> {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default).also { scopes += it }
-        return CanvasStore(root, scope, Dispatchers.IO.limitedParallelism(1)) to scope
+        val noEncodes = object : EncodeCanceller {
+            override suspend fun cancelAndClear(ref: CanvasRef) = Unit
+        }
+        return CanvasStore(root, scope, Dispatchers.IO.limitedParallelism(1), encodes = noEncodes) to scope
     }
 
     private fun open(store: CanvasStore): PlaySession = runBlocking {

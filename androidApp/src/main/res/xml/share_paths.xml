@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The share sheet can read only the time-lapse cache (MP4s and before/after PNGs): nothing under filesDir, so the
+     photo canvases themselves are never exposed. -->
+<paths>
+    <cache-path name="timelapse" path="timelapse/" />
+</paths>

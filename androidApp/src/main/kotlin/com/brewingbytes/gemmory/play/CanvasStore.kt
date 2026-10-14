@@ -62,7 +62,7 @@ class CanvasStore(
     private val nowMillis: () -> Long = SystemClock::elapsedRealtime,
     /** A bundled picture's frozen grid asset, read as is. */
     private val bundledGrid: (BundledPicture) -> ByteArray = { error("no bundled grids") },
-    private val encodes: EncodeCanceller = EncodeCanceller.NONE_UNTIL_TIMELAPSE,
+    private val encodes: EncodeCanceller,
     reporter: NonFatalReporter = NonFatalReporter.Logcat,
 ) {
     val repository = CanvasRepository(filesDir, reporter)
@@ -180,12 +180,15 @@ class CanvasStore(
         }
     }
 
+    /** The title is drawn into the time-lapse band, so the canvas's cached videos and pictures go with the old one. */
     suspend fun rename(ref: CanvasRef, title: String): WriteResult {
         settle(ref)
-        return withContext(writer) {
+        val written = withContext(writer) {
             val record = repository.readRecord(ref) ?: CanvasRecord("", 0L, 0L)
             repository.writeRecord(ref, record.copy(title = title))
         }
+        encodes.cancelAndClear(ref)
+        return written
     }
 
     /**

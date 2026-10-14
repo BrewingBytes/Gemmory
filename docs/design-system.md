@@ -332,7 +332,7 @@ Sound and Haptics each get a Settings toggle. Both default to on.
 
 Reduced motion skips the sweep. The interstitial (if allowed) can appear only after leaving this screen.
 
-**Until the time-lapse ships (#4)** (founder decision 2026-10-13, #13): Share stays the primary button but is disabled, with a muted line under it: "Video sharing is coming soon." The lights-down dim is on the room around the picture; the picture itself stays lit. The meta line's time is active play time ("5 min", "1 h 12 min").
+**Share and the meta line** (#13, #4): Share is the primary button; it opens the Share progress sheet below. A killed encode's message ("The video stopped when the app closed. Tap Share to try again.") is a muted line under Share for that visit. The lights-down dim is on the room around the picture; the picture itself stays lit. The meta line's time is active play time ("5 min", "1 h 12 min").
 
 A finished picture reopened from the gallery shows the **completion still**:
 - the picture at rest with no sweep;
@@ -342,7 +342,8 @@ A finished picture reopened from the gallery shows the **completion still**:
 **Share progress sheet.**
 - Title "Making your video", the line "About 15 seconds of sparkle. Keep the app open.", a 6dp bone progress bar, a mono %, and a Cancel text button.
 - A drop to 720p is silent.
-- **PNG fallback:** the sheet title becomes "Here's a picture instead", with the body "Video isn't supported on this phone, so here's a before/after picture instead." It shows both thumbnails and a primary "Share picture" button.
+- **PNG fallback:** the sheet title becomes "Here's a picture instead", with the body "Video isn't supported on this phone, so here's a before/after picture instead." It shows both thumbnails (labelled "Before" and "After" in muted 13sp) and a primary "Share picture" button. The PNG itself is 1080×1920: "Before" (the cropped photo, or the empty tint grid for a bundled picture) above "After", on the same band with the same title, app line and watermark row as the video.
+- Dismissing the sheet while it runs is a Cancel. The failure and disk-full messages keep the sheet's "Making your video" title; swipe, back or the scrim closes them.
 - **Edge states** (Phase 5 D8):
   - **Background:** encoding continues while the process lives. There is no foreground service.
   - **Process killed mid-encode:** on the next visit to that completion screen: "The video stopped when the app closed. Tap Share to try again."
@@ -458,3 +459,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-13 | Phase 5 design plan review (/plan-design-review): D3-D27 applied above (nav map, all missing states, gestures, two-tone ring, raised placed gems, Find, TalkBack, font scale, reduced motion, large screens, valid-ground contrast rule, 48dp text buttons, starter picture, time-lapse intro/timing) | Ledger in docs/designs/gemmory.md "Design Review (Phase 5)" |
 | 2026-10-13 | Selected color shown as a stronger own tint (40% toward bone) at every zoom; replaces the D17 two-tone ring | Founder call while playing #18 on the emulator: the outline looked busy. Chosen from five HTML mockups (ring, dim the rest, lamp fill, stronger own tint, dim + tint). Weak on light colors, so #19 adds a player setting with the ring and dimming as options |
 | 2026-10-13 | Starter picture = The Starry Night (van Gogh, public domain), cypress-and-swirl crop; Share disabled with "Video sharing is coming soon." until #4; Rename sheet copy; face photos at faceMinSize = Medium disable Quick | Founder answers during #13. Provenance in tools/bundled/PROVENANCE.md |
+| 2026-10-14 | Share enabled (#4): progress sheet, PNG fallback with "Before"/"After" labels, failure and disk-full messages inside the sheet, killed-encode line under Share | Implements the Share progress sheet and D8 edge states; the labels and in-sheet messages fill details the spec left open |

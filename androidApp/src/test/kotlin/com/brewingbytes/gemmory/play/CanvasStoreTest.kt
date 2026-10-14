@@ -59,7 +59,11 @@ class CanvasStoreTest {
             writer = Dispatchers.IO.limitedParallelism(1),
             nowMillis = { now },
             bundledGrid = { _: BundledPicture -> bundledGrid },
-            encodes = EncodeCanceller { cancelled += it },
+            encodes = object : EncodeCanceller {
+                override suspend fun cancelAndClear(ref: CanvasRef) {
+                    cancelled += ref
+                }
+            },
             reporter = NonFatalReporter { },
         )
     }
@@ -121,6 +125,14 @@ class CanvasStoreTest {
         assertEquals("Beach", reopened.title)
         assertTrue(reopened.state.isFinished)
         assertEquals(60_000, reopened.record?.playMillis)
+    }
+
+    /** The title is in the video's band, so a rename clears the cached video (review on #4). */
+    @Test
+    fun renameClearsTheCachedTimelapse() = runBlocking<Unit> {
+        createPhoto()
+        store.rename(photo, "Grandma")
+        assertEquals(listOf(photo), cancelled)
     }
 
     @Test
