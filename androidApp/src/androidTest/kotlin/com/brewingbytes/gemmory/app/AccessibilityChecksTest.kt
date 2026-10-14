@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
@@ -242,6 +243,8 @@ class AccessibilityChecksTest {
         scan()
         instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
         waitForTag("completion-fresh")
+        // The picture loads in real time; the lights-down sequence starts only then.
+        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(6_000)
         scan()
         compose.onNodeWithTag("completion-done").performClick()

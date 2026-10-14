@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.app
 
 import android.content.Context
 import android.os.SystemClock
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -15,6 +16,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
+import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.play.CoachHint
@@ -64,6 +66,7 @@ class ScreenSizesWalkthrough {
 
     @Before
     fun setUp() {
+        assumeDeviceChecks()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
@@ -182,6 +185,8 @@ class ScreenSizesWalkthrough {
         shot("font2-canvas")
         instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("completion-fresh")).fetchSemanticsNodes().isNotEmpty() }
+        // The picture loads in real time; the lights-down sequence starts only then.
+        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(6_000)
         shot("font2-completion")
         compose.onNodeWithTag("completion-done").performClick()
