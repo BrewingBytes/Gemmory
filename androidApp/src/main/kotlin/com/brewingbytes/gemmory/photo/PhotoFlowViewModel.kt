@@ -18,6 +18,7 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.converter.PhotoFlowRules
 import com.brewingbytes.gemmory.converter.SizeRules
 import com.brewingbytes.gemmory.converter.convert
+import com.brewingbytes.gemmory.policy.ConsumeResult
 import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -150,7 +151,11 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         _state.update { it.copy(size = size, pickedByPlayer = true) }
     }
 
-    /** Start (design D4, eng E4a): single-flight, and the canvas id is the draft's, so a repeat makes one canvas. */
+    /**
+     * Start (design D4, eng E4a): single-flight, and the canvas id is the draft's, so a repeat makes one canvas and
+     * uses one allowance (`DailyLedger.consume(draftId)` is idempotent). A canvas that can't be written gives the
+     * allowance back.
+     */
     fun start() {
         val s = _state.value
         val ready = s.conversions[s.size] as? Conversion.Ready ?: return
@@ -159,6 +164,10 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         if (!s.canStart || s.starting) return
         _state.update { it.copy(starting = true, startFailed = false) }
         viewModelScope.launch {
+            if (app.monetization.consume(id) == ConsumeResult.NoneLeft) {
+                _state.update { it.copy(starting = false) }
+                return@launch
+            }
             val ref = CanvasRef(CanvasKind.PHOTO, id)
             val now = System.currentTimeMillis()
             val jpeg = withContext(Dispatchers.Default) { photo.toJpeg() }
@@ -168,6 +177,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
                 clearDraft()
                 _state.value = PhotoFlowState(nav = PhotoNav.Started(ref))
             } else {
+                app.monetization.release(id)
                 _state.update { it.copy(starting = false, startFailed = true) }
             }
         }

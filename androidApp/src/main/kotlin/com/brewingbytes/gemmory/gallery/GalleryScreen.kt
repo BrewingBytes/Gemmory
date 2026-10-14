@@ -53,6 +53,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.ColorFilter
+import com.brewingbytes.gemmory.ads.isLocked
+import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.photo.allowanceLine
+import com.brewingbytes.gemmory.policy.Allowance
+import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.ui.AppTopBar
@@ -107,6 +115,10 @@ private sealed interface GallerySheet {
     }
 }
 
+/** Whether [this] tile is a locked picture the player hasn't unlocked (design D14). */
+internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements): Boolean =
+    ref.kind == CanvasKind.BUNDLED && BundledPictures.byId(ref.id)?.let { isLocked(it, unlocked, entitlements, started) } == true
+
 /**
  * Gallery (design system, Layout and Gallery tile): tabs Pictures / My Photos, a 2-column staggered grid of tiles
  * showing real progress, and the "New from photo" button floating bottom-right on both tabs.
@@ -115,8 +127,12 @@ private sealed interface GallerySheet {
 fun GalleryScreen(
     vm: GalleryViewModel,
     decodeFailed: Boolean,
+    allowance: Allowance,
+    unlocked: Set<String>,
+    entitlements: Entitlements,
     onNewFromPhoto: () -> Unit,
     onOpen: (Tile) -> Unit,
+    onLocked: (Tile) -> Unit,
     onSettings: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -147,7 +163,14 @@ fun GalleryScreen(
             } else {
                 TileGrid(
                     tiles = tiles,
-                    onOpen = { tile -> if (tile.damaged) sheet = GallerySheet.Damaged(tile.ref) else onOpen(tile) },
+                    isLocked = { it.locked(unlocked, entitlements) },
+                    onOpen = { tile ->
+                        when {
+                            tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
+                            tile.locked(unlocked, entitlements) -> onLocked(tile)
+                            else -> onOpen(tile)
+                        }
+                    },
                     onRename = { sheet = GallerySheet.Rename(it.ref, it.title) },
                     onDelete = { sheet = GallerySheet.Delete(it.ref) },
                     onStartOver = { sheet = GallerySheet.StartOver(it.ref) },
@@ -155,11 +178,23 @@ fun GalleryScreen(
             }
         }
         if (!(tab == 1 && state.loaded && state.photos.isEmpty())) {
-            PrimaryButton(
-                "New from photo",
-                onNewFromPhoto,
-                Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            )
+            Row(
+                Modifier.align(Alignment.BottomEnd).fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
+            ) {
+                // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
+                val note = allowanceLine(allowance).takeIf { allowance != Allowance.Free }
+                if (note != null) {
+                    Text(
+                        note,
+                        style = GemType.label,
+                        color = GemColors.TextMuted,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp).testTag("gallery-allowance-note"),
+                    )
+                }
+                PrimaryButton("New from photo", onNewFromPhoto)
+            }
         }
     }
 
@@ -224,6 +259,7 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit) {
 @Composable
 private fun TileGrid(
     tiles: List<Tile>,
+    isLocked: (Tile) -> Boolean,
     onOpen: (Tile) -> Unit,
     onRename: (Tile) -> Unit,
     onDelete: (Tile) -> Unit,
@@ -238,7 +274,7 @@ private fun TileGrid(
         verticalItemSpacing = 10.dp,
     ) {
         items(tiles, key = { "${it.ref.kind}/${it.ref.id}" }) { tile ->
-            TileView(tile, onOpen, onRename, onDelete, onStartOver)
+            TileView(tile, isLocked(tile), onOpen, onRename, onDelete, onStartOver)
         }
     }
 }
@@ -247,6 +283,7 @@ private fun TileGrid(
 @Composable
 private fun TileView(
     tile: Tile,
+    locked: Boolean,
     onOpen: (Tile) -> Unit,
     onRename: (Tile) -> Unit,
     onDelete: (Tile) -> Unit,
@@ -255,6 +292,7 @@ private fun TileView(
     var menu by remember { mutableStateOf(false) }
     val description = when {
         tile.damaged -> "${tile.title}, can't open"
+        locked -> "${tile.title}, locked, watch a video to unlock"
         tile.done -> "${tile.title}, done"
         else -> "${tile.title}, ${tile.percent}% done"
     }
@@ -262,7 +300,7 @@ private fun TileView(
         Modifier
             .testTag("tile-${tile.ref.kind.name.lowercase()}-${tile.ref.id}")
             .semantics(mergeDescendants = true) { contentDescription = description }
-            .combinedClickable(onClick = { onOpen(tile) }, onLongClick = { menu = true }),
+            .combinedClickable(onClick = { onOpen(tile) }, onLongClick = { if (!locked) menu = true }),
     ) {
         Box(
             Modifier
@@ -280,6 +318,23 @@ private fun TileView(
                     filterQuality = FilterQuality.None,
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+            if (locked) {
+                // Locked art stays fully visible: a small label, never a padlock or a dim (design D14).
+                Row(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(LocalFelt.current.deep)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .testTag("locked-label"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(GemIcons.Play, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Watch to unlock", style = GemType.label, color = GemColors.Bone)
+                }
             }
             if (tile.damaged) {
                 Text(
@@ -302,7 +357,8 @@ private fun TileView(
                     Text(tile.progressLabel, style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.TextMuted)
                 }
             }
-            Box {
+            // A locked picture has nothing to start over.
+            if (!locked) Box {
                 IconAction(GemIcons.More, "More for ${tile.title}", onClick = { menu = true })
                 TileMenu(
                     expanded = menu,

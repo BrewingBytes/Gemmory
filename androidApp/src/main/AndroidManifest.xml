@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- User photos never leave the phone (AGENTS.md): nothing in the app uploads them, and the Photo Picker needs no
-     media permission. INTERNET and ACCESS_NETWORK_STATE arrive through ML Kit's merged manifest (its datatransport
-     sends ML Kit diagnostics, never images; design doc R3-6, declared in Data safety). AdMob (#7) needs them too. -->
+     media permission. INTERNET and ACCESS_NETWORK_STATE are for AdMob + UMP (#7): ads, the consent form and the
+     validated-network check that decides offline vs no-fill (eng D15). ML Kit's datatransport also uses them for its
+     diagnostics, never images (design doc R3-6). AdMob merges AD_ID (adults only; declared in Data safety, #5). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- The one 400ms soft vibration when a picture is finished (design system, Haptics and sound). -->
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -18,6 +22,11 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Gemmory">
+        <!-- Google's sample app ID until production IDs exist (build.gradle.kts). -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${admobAppId}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

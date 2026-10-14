@@ -115,6 +115,16 @@ object GemIcons {
         }
         .build()
 
+    /** Play triangle for the "Watch to unlock" label (design D14): a vector, never the ▶ glyph some fonts draw as emoji. */
+    val Play: ImageVector = ImageVector.Builder("Play", 12.dp, 12.dp, 24f, 24f, autoMirror = true)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(6f, 3.5f)
+            lineTo(20f, 12f)
+            lineTo(6f, 20.5f)
+            close()
+        }
+        .build()
+
     /** Three vertical dots (⋮), drawn as a vector so no font renders it as an emoji. */
     val More: ImageVector = ImageVector.Builder("More", 24.dp, 24.dp, 24f, 24f)
         .path(fill = SolidColor(Color.White)) {

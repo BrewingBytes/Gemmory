@@ -94,3 +94,10 @@ internal class ByteReader(private val data: ByteArray, from: Int = 0, private va
         }
     }
 }
+
+internal fun ByteWriter.i64(v: Long) {
+    u32((v ushr 32).toInt())
+    u32(v.toInt())
+}
+
+internal fun ByteReader.i64(): Long = (u32().toLong() shl 32) or (u32().toLong() and 0xFFFFFFFFL)

@@ -15,6 +15,12 @@ object StorageLayout {
     /** Bundled-picture progress. No user content, so it may be backed up. */
     const val BUNDLED_CANVASES = "$CANVASES/bundled"
 
-    /** Reserved for the daily allowance + grace counters (DailyLedger). Never backed up. */
+    /** The daily allowance + grace counters (DailyLedger) and the interstitial caps (AdPolicy). Never backed up. */
     const val LEDGER = "ledger"
+
+    /** DailyLedger, "GMRL". */
+    const val LEDGER_DAILY = "$LEDGER/daily"
+
+    /** AdPolicy, "GMRA". */
+    const val LEDGER_ADS = "$LEDGER/ads"
 }

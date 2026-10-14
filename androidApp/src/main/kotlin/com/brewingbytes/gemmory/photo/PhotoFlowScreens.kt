@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -57,6 +58,7 @@ import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.converter.FaceCheck
 import com.brewingbytes.gemmory.converter.FaceHint
 import com.brewingbytes.gemmory.converter.GridSpec
+import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.ui.AppTopBar
 import com.brewingbytes.gemmory.ui.Chip
 import com.brewingbytes.gemmory.ui.GemColors
@@ -251,12 +253,28 @@ private fun GemImage(bitmap: ImageBitmap, description: String, modifier: Modifie
     )
 }
 
+/** The allowance line on Preview and the gallery note (design D5); null when there is none (VIP). */
+internal fun allowanceLine(allowance: Allowance): String? = when (allowance) {
+    Allowance.Unlimited -> null
+    Allowance.Free -> "Uses today's free photo canvas."
+    Allowance.Bonus -> "Uses a bonus canvas from a video."
+    Allowance.WatchVideo -> "Today's free one is used. Watch a video for another."
+}
+
 /**
- * Preview + Start (design D4): a flat-cushion preview of the whole canvas, the size line and Start. The allowance
- * line is #7/#8's.
+ * Preview + Start (design D4, D5): a flat-cushion preview of the whole canvas, the size line, the allowance line and
+ * Start. With today's free canvas used, the primary becomes "Watch a video" (rewarded sheet); every video watched
+ * gives one more canvas, with no daily cap (founder call #7).
  */
 @Composable
-fun PreviewScreen(state: PhotoFlowState, onStart: () -> Unit, onChooseAnother: () -> Unit, onBack: () -> Unit) {
+fun PreviewScreen(
+    state: PhotoFlowState,
+    allowance: Allowance,
+    onStart: () -> Unit,
+    onWatchVideo: () -> Unit,
+    onChooseAnother: () -> Unit,
+    onBack: () -> Unit,
+) {
     val conversion = state.conversions[state.size]
     val rules = state.rules
     FlowScaffold("Preview", onBack) {
@@ -315,14 +333,26 @@ fun PreviewScreen(state: PhotoFlowState, onStart: () -> Unit, onChooseAnother: (
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
+                allowanceLine(allowance)?.let {
+                    Text(
+                        it,
+                        style = GemType.label,
+                        color = GemColors.TextMuted,
+                        modifier = Modifier.padding(top = 4.dp).testTag("allowance-line"),
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
-                PrimaryButton(
-                    "Start",
-                    onStart,
-                    enabled = state.canStart,
-                    held = state.starting,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                )
+                if (allowance == Allowance.WatchVideo) {
+                    PrimaryButton("Watch a video", onWatchVideo, Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("preview-primary"))
+                } else {
+                    PrimaryButton(
+                        "Start",
+                        onStart,
+                        enabled = state.canStart && allowance.canStart,
+                        held = state.starting,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("preview-primary"),
+                    )
+                }
             }
         }
     }

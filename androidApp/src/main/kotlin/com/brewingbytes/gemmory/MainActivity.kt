@@ -13,6 +13,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.brewingbytes.gemmory.ads.RewardTarget
+import com.brewingbytes.gemmory.ads.RewardedEvent
+import com.brewingbytes.gemmory.ads.RewardedSheet
+import com.brewingbytes.gemmory.ads.RewardedViewModel
+import com.brewingbytes.gemmory.policy.Allowance
+import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.CanvasRef
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.brewingbytes.gemmory.completion.CompletionScreen
 import com.brewingbytes.gemmory.completion.CompletionViewModel
@@ -33,10 +43,14 @@ class MainActivity : ComponentActivity() {
     private val photoFlow: PhotoFlowViewModel by viewModels()
     private val gallery: GalleryViewModel by viewModels()
     private val completion: CompletionViewModel by viewModels()
+    private val rewarded: RewardedViewModel by viewModels()
+    private val app: GemmoryApp get() = application as GemmoryApp
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // UMP on the first launch (EEA only, before any ad request); later launches only refresh the status.
+        if (savedInstanceState == null) app.consent.onLaunch(this)
         setContent {
             GemmoryTheme {
                 // Saved state, so the screen survives rotation and the process being killed in the background.
@@ -72,7 +86,38 @@ class MainActivity : ComponentActivity() {
             photoFlow.onNavHandled()
         }
 
+        val allowance by app.monetization.allowance.collectAsStateWithLifecycle()
+        val unlocked by app.monetization.unlocks.unlocked.collectAsStateWithLifecycle()
+        val entitlements by app.monetization.entitlements.collectAsStateWithLifecycle()
+
         val top = stack.top
+        // The interstitial check runs only once the player has left a just-finished picture's completion screen
+        // (design doc Ad rules): never on the canvas, never before or during Share.
+        var previous by remember { mutableStateOf<Route?>(null) }
+        LaunchedEffect(top) {
+            val left = previous
+            previous = top
+            if (top is Route.Completion && completion.fresh.isFresh(top)) app.interstitials.onFreshCompletion()
+            // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
+            if (left is Route.Completion && left != top && completion.fresh.left(left) && top == Route.Gallery) {
+                app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
+            }
+        }
+        // Ads are preloaded: the extra-canvas video starts loading as soon as Preview offers it.
+        LaunchedEffect(top == Route.Preview && allowance == Allowance.WatchVideo) {
+            if (top == Route.Preview && allowance == Allowance.WatchVideo) {
+                app.ads.start()
+                app.ads.preloadRewarded()
+            }
+        }
+        LaunchedEffect(rewarded.event) {
+            when (val event = rewarded.event) {
+                null -> return@LaunchedEffect
+                is RewardedEvent.OpenPicture -> stack.openTile(CanvasRef(CanvasKind.BUNDLED, event.id), finished = false)
+                RewardedEvent.StartPhotoCanvas -> photoFlow.start()
+            }
+            rewarded.onEventHandled()
+        }
         val inPhotoFlow = top == Route.Crop || top == Route.Size || top == Route.Preview
         LaunchedEffect(inPhotoFlow) {
             if (inPhotoFlow && !photoFlow.hasDraft) stack.dropPhotoFlow()
@@ -88,8 +133,12 @@ class MainActivity : ComponentActivity() {
                 GalleryScreen(
                     vm = gallery,
                     decodeFailed = flow.decodeFailed,
+                    allowance = allowance,
+                    unlocked = unlocked,
+                    entitlements = entitlements,
                     onNewFromPhoto = pickPhoto,
                     onOpen = { tile -> stack.openTile(tile.ref, tile.done) },
+                    onLocked = { tile -> rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity) },
                     onSettings = { stack.push(Route.Settings) },
                 )
             }
@@ -107,7 +156,9 @@ class MainActivity : ComponentActivity() {
             Route.Size -> SizeScreen(flow, photoFlow::onSize, onNext = { stack.push(Route.Preview) }, onBack = { stack.pop() })
             Route.Preview -> PreviewScreen(
                 state = flow,
+                allowance = allowance,
                 onStart = photoFlow::start,
+                onWatchVideo = { rewarded.open(RewardTarget.PhotoCanvas, this@MainActivity) },
                 onChooseAnother = {
                     stack.popToGallery()
                     pickPhoto()
@@ -118,16 +169,30 @@ class MainActivity : ComponentActivity() {
                 ref = top.ref,
                 onBack = { stack.pop() },
                 onFinished = {
+                    app.monetization.onPictureFinished()
                     completion.onFinished(top.ref)
                     stack.finished(top.ref)
                 },
             )
             is Route.Completion -> CompletionScreen(
                 ref = top.ref,
-                fresh = top.fresh,
+                // Still fresh after a rotation (no "Play again", leaving checks the interstitial).
+                fresh = completion.fresh.isFresh(top),
                 vm = completion,
                 onDone = { stack.popToGallery() },
                 onPlayAgain = { stack.playAgain(top.ref) },
+            )
+        }
+
+        rewarded.ui?.let { ui ->
+            RewardedSheet(
+                ui = ui,
+                onWatch = { rewarded.watch(this@MainActivity) },
+                onGrace = rewarded::useGrace,
+                onTryAgain = { rewarded.tryAgain(this@MainActivity) },
+                // VIP is #8: the VIP texts are shown and open nothing until then.
+                onVip = {},
+                onDismiss = rewarded::dismiss,
             )
         }
     }

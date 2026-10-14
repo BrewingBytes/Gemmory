@@ -19,6 +19,10 @@ kotlin {
     jvm()
 
     sourceSets {
+        // Local dates and time zones for the daily ledger and ad caps (midnight, DST). Pure Kotlin.
+        commonMain.dependencies {
+            api(libs.kotlinx.datetime)
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

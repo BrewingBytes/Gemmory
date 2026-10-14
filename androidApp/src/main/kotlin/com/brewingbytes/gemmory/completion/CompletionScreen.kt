@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.nav.Route
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.share.ShareIntents
@@ -98,6 +99,25 @@ class LightsDownTracker {
 }
 
 /**
+ * The canvas finished just now in this process, so its completion stays "fresh" (lights down, the interstitial check
+ * on leaving) across a rotation: the back stack restores every completion as a still, which is right only after
+ * process death, where this tracker is gone too. Cleared once the player has left that completion.
+ */
+class FreshFinishTracker {
+    private var ref: CanvasRef? = null
+
+    fun finished(ref: CanvasRef) {
+        this.ref = ref
+    }
+
+    /** [route] as the player sees it: fresh if the stack says so or [ref] was just finished. */
+    fun isFresh(route: Route.Completion): Boolean = route.fresh || route.ref == ref
+
+    /** The player left [route]: true if it was fresh, and it is a still from now on. */
+    fun left(route: Route.Completion): Boolean = isFresh(route).also { if (route.ref == ref) ref = null }
+}
+
+/**
  * The finished picture and its meta line. [before] is the cropped photo (or the empty tint grid of a bundled
  * picture) for the before/after fallback sheet; [request] is what Share encodes.
  */
@@ -126,6 +146,9 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
 
     private val played = LightsDownTracker()
 
+    /** Survives rotation, not process death (see [FreshFinishTracker]). */
+    val fresh = FreshFinishTracker()
+
     fun encodeState(ref: CanvasRef): StateFlow<EncodeState> = encodes.state(ref)
 
     /** The completion screen was left: the killed-encode notice belonged to that visit. Kept across rotation. */
@@ -139,6 +162,7 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
 
     /** A canvas was just finished: its lights-down moment plays again, whatever ran for it before. */
     fun onFinished(ref: CanvasRef) {
+        fresh.finished(ref)
         played.forget(ref)
         if (finished?.ref == ref) finished = null
     }
