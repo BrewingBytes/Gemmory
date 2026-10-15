@@ -236,7 +236,7 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
     - The lineup test uses at least 30 trials per size (e.g. 5 testers × 6 face photos). The 80% figure is pooled across all trials at that size (Medium; Big on a re-test).
     - **GO** requires Medium to pass for faces AND the "I'd play this" rating to pass.
     - Quick failing on faces doesn't block GO; it triggers the face size rule.
-- **Closed test:** (D18: the percentages below are informational, about 6-10 consented people each. Production is blocked only by crash-free users <99% or any unrecovered save-load failure in Crashlytics.)
+- **Closed test:** (D18: the percentages below are informational, about 6-10 consented people each. Production is blocked only by crash-free users <99% or any unrecovered save-load failure in Crashlytics. How each is checked: [docs/play-compliance.md](../play-compliance.md) → Production gate.)
   - At least 12 testers active for 14 days.
   - At least 50% finish at least 1 Quick canvas.
   - At least 30% use a photo canvas.
@@ -994,7 +994,7 @@ On user request ("use claude for review"), an in-host Claude Plan subagent ran t
 ### R-O1: Compliance work before the closed-test clock (outside finding 1, Critical)
 Finding: O1, Critical, 8/10, gemmory.md:248-250 (`Wk 3-5 ... Data safety + privacy policy`) vs :248 (`CLOSED TEST CLOCK STARTS`), reviewer Claude subagent (in-host)
 Plan baseline: CEO D9 "Start clock on playable build"; Data safety + privacy policy scheduled Wk 3-5
-Runtime evidence: Play Console requires the app-content declarations (privacy policy, ads, content rating, target audience, Data safety) before publishing to closed testing; only internal testing is exempt [vendor policy, verify in Console]. **Checked in the Console 2026-10-15 (#8): internal testing is NOT exempt.** The first internal rollout was blocked by "complete the Dashboard steps" (privacy policy, app access, ads, content rating, target audience, Data safety, government apps, category + contact, store listing incl. full description). Uploading the AAB alone did unlock product creation.
+Runtime evidence: Play Console requires the app-content declarations (privacy policy, ads, content rating, target audience, Data safety) before publishing to closed testing; only internal testing is exempt [vendor policy, verify in Console]. **Checked in the Console 2026-10-15 (#8): internal testing is NOT exempt.** The #5 answers for every declaration are in [docs/play-compliance.md](../play-compliance.md). The first internal rollout was blocked by "complete the Dashboard steps" (privacy policy, app access, ads, content rating, target audience, Data safety, government apps, category + contact, store listing incl. full description). Uploading the AAB alone did unlock product creation.
 Comparison grid:
 | Choice | Current | A Apply | B Keep | C Investigate | D Defer |
 |---|---|---|---|---|---|
