@@ -28,23 +28,43 @@ object BillingCopy {
     const val RESTORE_NONE = "No purchases found on this account"
     const val RESTORE_FAILED = "Couldn't reach Google Play. Try again."
 
-    fun yearly(yearly: Price, locale: Locale = Locale.getDefault()) = "${yearly.formatted} / year (${perWeek(yearly, locale)} a week)"
+    fun yearly(yearly: Price) = "${yearly.formatted} / year (${perWeek(yearly)} a week)"
 
     fun weekly(weekly: Price) = "${weekly.formatted} / week"
 
     fun removeAds(price: Price) = "Just remove ads · ${price.formatted} once"
 
-    /** The yearly price over 52 weeks, rounded half up in the currency's own decimals. */
-    fun perWeek(yearly: Price, locale: Locale = Locale.getDefault()): String {
+    /**
+     * The yearly price over 52 weeks, rounded half up, written the way Play wrote the yearly price: Play formats for
+     * the account's country, not the phone's language, so its own string is the pattern ("129,99 RON" → "2,50 RON",
+     * "$29.99" → "$0.58", "¥3,000" → "¥58"). The decimals are the ones Play showed (none for "¥3,000").
+     */
+    fun perWeek(yearly: Price): String {
+        val number = NUMBER.find(yearly.formatted) ?: return fallbackPerWeek(yearly)
+        val text = number.value
+        val lastSep = text.indexOfLast { it == ',' || it == '.' }
+        val decimals = if (lastSep >= 0 && text.length - lastSep - 1 in 1..2) text.length - lastSep - 1 else 0
+        val decimalSep = if (decimals > 0) text[lastSep] else null
+        val grouping = text.firstOrNull { !it.isDigit() && it != decimalSep }
+        val amount = BigDecimal.valueOf(yearly.micros).divide(BigDecimal.valueOf(52_000_000L), decimals, RoundingMode.HALF_UP)
+        val (whole, fraction) = amount.toPlainString().split('.').let { it[0] to it.getOrNull(1) }
+        val grouped = if (grouping == null) whole else whole.reversed().chunked(3).joinToString(grouping.toString()).reversed()
+        val plain = if (fraction == null || decimalSep == null) grouped else "$grouped$decimalSep$fraction"
+        return yearly.formatted.replaceRange(number.range, plain)
+    }
+
+    /** A price string with no figures in it (never seen from Play): the currency's own format. */
+    private fun fallbackPerWeek(yearly: Price): String {
         val currency = runCatching { Currency.getInstance(yearly.currency) }.getOrNull()
         val digits = currency?.defaultFractionDigits?.coerceAtLeast(0) ?: 2
-        val amount = BigDecimal.valueOf(yearly.micros).divide(BigDecimal.valueOf(52_000_000L), digits, RoundingMode.HALF_UP)
-        val format = NumberFormat.getCurrencyInstance(locale)
+        val format = NumberFormat.getCurrencyInstance(Locale.getDefault())
         if (currency != null) format.currency = currency
         format.minimumFractionDigits = digits
         format.maximumFractionDigits = digits
-        return format.format(amount)
+        return format.format(BigDecimal.valueOf(yearly.micros).divide(BigDecimal.valueOf(52_000_000L), digits, RoundingMode.HALF_UP))
     }
+
+    private val NUMBER = Regex("""\d(?:[\d.,\u00A0\u202F ]*\d)?""")
 
     fun membership(m: Membership): String = when (m) {
         Membership.VIP_YEARLY -> "VIP · yearly"
