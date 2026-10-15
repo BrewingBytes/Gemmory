@@ -17,8 +17,18 @@ object BundledPictures {
         gridCrc32 = 0x099b53e8,
     )
 
-    /** Gallery order. Sources and licenses: tools/bundled/PROVENANCE.md. */
-    val ALL: List<BundledPicture> = listOf(STARTER)
+    /** Free Big pictures (122×122, 36 colors), frozen from AI-generated photos (#8; PROVENANCE.md). */
+    private val PHOTOS = listOf(
+        BundledPicture("puppy", "Golden Puppy", "pictures/puppy.gmrg", 0x4855ef0e),
+        BundledPicture("cat", "Ginger Cat", "pictures/cat.gmrg", 0xa07064d5.toInt()),
+        BundledPicture("couple", "Golden Hour", "pictures/couple.gmrg", 0x5dbac3b8),
+        BundledPicture("sunflowers", "Sunflowers", "pictures/sunflowers.gmrg", 0x8f4f01c2.toInt()),
+        BundledPicture("sunset", "Sail at Sunset", "pictures/sunset.gmrg", 0xd24e22ab.toInt()),
+        BundledPicture("cottage", "Meadow Cottage", "pictures/cottage.gmrg", 0xf983e40c.toInt()),
+    )
+
+    /** Gallery order: the starter first. Sources and licenses: tools/bundled/PROVENANCE.md. */
+    val ALL: List<BundledPicture> = listOf(STARTER) + PHOTOS
 
     fun byId(id: String): BundledPicture? = ALL.firstOrNull { it.id == id }
 }
