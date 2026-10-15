@@ -171,8 +171,15 @@ class BillingRepository(
 
     /** Worker only. */
     private fun publish() {
-        _entitlements.value = cache.entitlements()
+        val held = cache.entitlements()
+        _entitlements.value = held
         _membership.value = cache.membership()
+        // A purchase Play took back before the gallery showed its line (revoked, or cancelled unacknowledged): the
+        // line would contradict Membership, so it goes.
+        val notice = _notice.value
+        if ((notice == Notice.VIP_STARTED && !held.vip) || (notice == Notice.ADS_OFF && !held.adsRemoved)) {
+            _notice.compareAndSet(notice, null)
+        }
         if (_notice.value == null && cache.lapseNoticeDue()) _notice.value = Notice.VIP_LAPSED
     }
 

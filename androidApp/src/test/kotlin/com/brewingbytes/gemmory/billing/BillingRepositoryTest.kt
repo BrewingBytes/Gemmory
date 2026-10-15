@@ -220,6 +220,42 @@ class BillingRepositoryTest {
     }
 
     @Test
+    fun aPurchasePlayTookBackLosesItsGalleryLine() = runTest(UnconfinedTestDispatcher()) {
+        // Play's sheet stayed open past a test account's acknowledge deadline: Play cancelled it before the app heard.
+        val r = repository()
+        r.buy(ACTIVITY, Products.VIP_YEARLY)
+        client.ackCode = BillingCode.ERROR
+        client.updates.emit(PurchaseUpdate(BillingCode.OK, listOf(purchase(Products.VIP_YEARLY, acknowledged = false))))
+        assertEquals(Membership.FREE, r.membership.value, "the follow-up query holds nothing")
+        assertNull(r.notice.value, "no \"You're VIP\" over a Free membership")
+        assertEquals(1, reports.size)
+
+        // Bought, then refunded and revoked before the gallery showed the line.
+        r.purchaseHandled()
+        client.ackCode = BillingCode.OK
+        r.buy(ACTIVITY, Products.REMOVE_ADS)
+        client.owned = listOf(purchase(Products.REMOVE_ADS))
+        client.updates.emit(PurchaseUpdate(BillingCode.OK, client.owned))
+        assertEquals(Notice.ADS_OFF, r.notice.value)
+        client.owned = emptyList()
+        r.onForeground()
+        assertNull(r.notice.value)
+    }
+
+    @Test
+    fun aVipKeepsTheAdsOffLineWhenOnlyRemoveAdsIsTakenBack() = runTest(UnconfinedTestDispatcher()) {
+        val r = repository()
+        client.owned = listOf(purchase(Products.VIP_WEEKLY))
+        r.refresh()
+        r.buy(ACTIVITY, Products.REMOVE_ADS)
+        client.owned = listOf(purchase(Products.VIP_WEEKLY), purchase(Products.REMOVE_ADS))
+        client.updates.emit(PurchaseUpdate(BillingCode.OK, listOf(purchase(Products.REMOVE_ADS))))
+        client.owned = listOf(purchase(Products.VIP_WEEKLY))
+        r.refresh()
+        assertEquals(Notice.ADS_OFF, r.notice.value, "ads are still off: VIP")
+    }
+
+    @Test
     fun removeAdsSucceedsWithItsOwnLine() = runTest(UnconfinedTestDispatcher()) {
         val r = repository()
         r.buy(ACTIVITY, Products.REMOVE_ADS)

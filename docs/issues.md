@@ -3,7 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19).
 
 ---
 
@@ -320,5 +320,28 @@ Labels: P2, game, ui
 **Done when:** the tool set is decided and specified, and the chosen tools work on a Big canvas, with log order, time-lapse replay and kill-and-resume covered by tests.
 
 Builds on #18 (game core and play canvas) and #10 (gestures). Effort: design ~2h; build depends on the chosen tools.
+
+---
+
+## T18: More colors: a color-count choice for photo canvases, richer bundled palettes
+Labels: P2, converter, ui
+
+**Why:** founder feedback (2026-10-15, during #19): photo canvases are capped at 16 / 24 / 36 colors (Quick / Medium / Big, `CanvasSize.paletteCap`), the starter picture has 8 and the six Big bundled pictures 36. Players should be able to pick more colors for their own photos, and the bundled pictures should use more distinct colors so they look good, instead of sitting at the same fixed caps.
+
+**Step 1: decide (design, before code)**
+- Photo canvases: a color-count choice in the photo flow (on the size picker or Preview), for example "Fewer / Standard / More colors" or a slider with a live Preview, per size. Which ranges per size (for example Big up to 48-60)? Free, or VIP for the top range (it has to fit the tiers in `docs/designs/gemmory.md`)?
+- Bundled pictures: re-convert them with more colors (each picture gets its own count, chosen by eye), or keep the frozen grids and add new pictures.
+- Record the copy, states and decision in `docs/design-system.md` (Size picker / Preview, decisions log) and `docs/designs/gemmory.md`.
+
+**Things to check**
+- Converter: k-means with a higher cap, while keeping colors distinct (a minimum Lab distance between palette colors, so two near-identical shades don't become two numbers) and finish times reasonable.
+- Tray and canvas at more colors: tray scrolling and the large-screen rail, 2-digit numbers on 16dp cells (the number font is 0.46 × cell), sprite atlas size (one sprite per color × kind per zoom bucket, #10/#19), frame time (CanvasFrameTimingTest, @PerfTest), and the tint/dim readability rules (Colors, #19).
+- The save format: `GridCodec` stores the palette size as u16 and cells by slot, so check the cell encoding for more than 255 colors only if that range is ever allowed.
+- Re-converted bundled pictures change their pinned CRCs and the starter's pinned grid CRC; the converter goldens change only if the converter's defaults change. Replace them on purpose in the same PR and note why.
+- Existing saves stay valid: a canvas keeps the palette it was made with.
+
+**Done when:** the player can choose a color count for a photo canvas (within the decided ranges), the bundled pictures ship with their new palettes and updated pinned CRCs, and tray, canvas, perf and accessibility checks pass on a high-color Big canvas.
+
+Builds on #2 (converter), #13 (photo flow) and #10/#19 (renderer). Effort: design ~1h; build human ~1-2d / CC ~1h.
 
 ---

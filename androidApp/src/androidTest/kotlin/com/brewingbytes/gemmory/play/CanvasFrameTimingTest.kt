@@ -39,7 +39,8 @@ import kotlin.math.sin
  * Frame timing of a Big canvas panned and zoomed across every zoom level (#10). Two-finger gestures only, so it
  * navigates the same way on every renderer. Logs per-phase frame durations under [TAG]; it asserts nothing, since an
  * emulator's numbers only compare builds. Left out of connectedDebugAndroidTest; run it with
- * `am instrument -w -e class com.brewingbytes.gemmory.play.CanvasFrameTimingTest ...`.
+ * `am instrument -w -e class com.brewingbytes.gemmory.play.CanvasFrameTimingTest ...`; `-e highlight outline|dim`
+ * times another Selected color style (#19, default tint).
  */
 @PerfTest
 @RunWith(AndroidJUnit4::class)
@@ -56,7 +57,11 @@ class CanvasFrameTimingTest {
     fun setUp() {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
-        val store = (context.applicationContext as GemmoryApp).store
+        val app = context.applicationContext as GemmoryApp
+        val style = HighlightStyle.fromKey(InstrumentationRegistry.getArguments().getString("highlight"))
+        instrumentation.runOnMainSync { app.settings.setHighlight(style) }
+        Log.i(TAG, "style ${style.key}")
+        val store = app.store
         runBlocking { store.create(ref, bigPattern()) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
     }
@@ -64,6 +69,7 @@ class CanvasFrameTimingTest {
     @After
     fun tearDown() {
         if (::scenario.isInitialized) scenario.close()
+        instrumentation.runOnMainSync { (context.applicationContext as GemmoryApp).settings.setHighlight(HighlightStyle.DEFAULT) }
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
     }
 

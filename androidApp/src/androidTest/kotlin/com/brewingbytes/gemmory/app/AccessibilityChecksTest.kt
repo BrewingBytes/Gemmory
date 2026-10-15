@@ -181,6 +181,12 @@ class AccessibilityChecksTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         waitForTag("settings-delete-all")
         scan()
+        // The Selected color sheet (#19).
+        compose.onNodeWithTag("settings-highlight").performClick()
+        waitForTag("highlight-dim")
+        scan()
+        compose.onNodeWithTag("highlight-tint").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("highlight-tint")).fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("settings-delete-all").performClick()
         waitForText("Delete all photo canvases?")
         scan()

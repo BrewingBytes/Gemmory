@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.billing
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClient.BillingResponseCode
@@ -103,8 +104,12 @@ class PlayBillingBackend(context: Context) : BillingBackend {
         return Outcome.Ok(Prices(weekly, yearly, removeAds))
     }
 
-    override suspend fun acknowledge(token: String): BillingCode =
-        code(client.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build()))
+    override suspend fun acknowledge(token: String): BillingCode {
+        val result = client.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build())
+        // The code alone says little ("ERROR"); Play's own words go with it.
+        if (result.responseCode != BillingResponseCode.OK) Log.w(TAG, "acknowledge: ${result.responseCode} ${result.debugMessage}")
+        return code(result)
+    }
 
     override fun launchPurchase(activity: Activity, product: String): BillingCode {
         val d = details[product] ?: return BillingCode.ERROR
@@ -126,6 +131,7 @@ class PlayBillingBackend(context: Context) : BillingBackend {
         }
 
     private companion object {
+        const val TAG = "Gemmory"
         const val CONNECT_TIMEOUT_MS = 10_000L
 
         fun toStore(p: PlayPurchase) = StorePurchase(
