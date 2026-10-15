@@ -53,7 +53,7 @@ import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
 
-/** Hosted by #5 (docs/privacy-policy.md); replace with the published URL when it's live. */
+/** docs/privacy-policy.md on main (interim policy from #8; #5 completes it). */
 const val PRIVACY_POLICY_URL = "https://github.com/BrewingBytes/Gemmory/blob/main/docs/privacy-policy.md"
 
 /**
