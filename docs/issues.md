@@ -3,7 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19).
 
 ---
 
@@ -343,5 +343,138 @@ Labels: P2, converter, ui
 **Done when:** the player can choose a color count for a photo canvas (within the decided ranges), the bundled pictures ship with their new palettes and updated pinned CRCs, and tray, canvas, perf and accessibility checks pass on a high-color Big canvas.
 
 Builds on #2 (converter), #13 (photo flow) and #10/#19 (renderer). Effort: design ~1h; build human ~1-2d / CC ~1h.
+
+---
+
+## T19: More bundled pictures: a Quick/Medium ramp after the starter, ~30 in total
+Labels: P1, game
+
+**Why:** the gallery has the 24×32 starter (768 gems, ~5 min) and then six Big pictures (122×122, ~15k gems, 36 colors) with nothing in between (`bundled/BundledPictures.kt`). A new player who finishes the starter faces a ~20× jump, and the closed-test metric "≥50% finish at least 1 Quick canvas" (`docs/designs/gemmory.md` → Success Criteria) can only be met with photo canvases, which are 1 free a day. The plan calls for about 30 bundled pictures; there are 7.
+
+**Scope**
+- A difficulty ramp after the starter: several Quick (~3k gems, 16 colors) and Medium (~8k, 24 colors) pictures before the Big ones, in all three ratios (1:1, 3:4, 4:3).
+- Grow the catalog toward ~30 pictures, ~10 of them to be locked by #32 (prefer licensed stock for those, per CONTENT-1: AI-art copyright is unsettled).
+- Gallery order: starter, then Quick, Medium, Big (or decide a different order in `docs/design-system.md` → Gallery first).
+- Every picture goes through `./gradlew :shared:freezeBundledGrid`, with a pinned CRC in `BundledPictures` and a provenance row in `tools/bundled/PROVENANCE.md` (source, license or model, terms URL, date).
+- Check APK size growth and the gallery's first-load time with ~30 summaries (each one decodes its grid).
+
+**Done when:** at least 4 Quick and 4 Medium pictures ship before the Big ones, the catalog is at ~30 with provenance for each, `BundledPicturesTest` and `CanvasStoreTest` cover the new list, and the gallery still opens fast on the emulator.
+
+Must land before the closed-test clock starts (content ready by week 2-3, `docs/designs/gemmory.md`). Effort: content sourcing ~1d; code human ~2h / CC ~15min.
+
+
+---
+
+## T20: Lock ~10 bundled pictures behind a rewarded video or VIP
+Labels: P1, ads, billing
+
+**Why:** the paywall's first VIP perk is "Every picture unlocked" and the purchase line says "You're VIP. Every picture is unlocked." (`billing/BillingCopy.kt`), but no bundled picture has `locked = true`, so the perk sells nothing. That is a Play subscriptions-policy risk (benefits must be accurate), and the locked-picture rewarded video, half of the planned rewarded-ad revenue, never runs.
+
+The unlock path already exists: `isLocked()` in `ads/Monetization.kt` (VIP bypass, permanent unlock after a rewarded video, a started picture stays open), the gallery's locked label (D14) and the rewarded sheet with grace and no-fill handling (#7).
+
+**Scope**
+- Mark ~10 of the ~30 bundled pictures `locked` (tier table in `docs/designs/gemmory.md`: ~20 free, ~10 locked, unlock with one rewarded ad each, VIP unlocks all). Never the starter, and keep enough free Quick/Medium pictures that a free player never runs out of something to play.
+- Check the whole flow end to end with real locked pictures: locked label and TalkBack text, rewarded video → "Unlocked" → canvas opens, offline and no-fill copy, the daily grace unlock, VIP showing all unlocked, VIP lapsing (unlocked-by-video ones stay unlocked, VIP-only ones lock again unless started).
+- Decide whether unlocks survive a reinstall: today they live under `ledger/`, which is excluded from backup. Record the answer in the design doc.
+- Keep the paywall copy true: if VIP doesn't unlock something, the perk text changes.
+
+**Done when:** ~10 pictures are locked, each opens through a rewarded video or VIP, the flow is covered by instrumented tests, and the paywall perks match what VIP gives.
+
+Depends on #31 (needs more pictures first). Effort: human ~3h / CC ~20min.
+
+
+---
+
+## T21: Daily play streak
+Labels: P2, game, ui
+
+**Why:** early-production targets are day-1 retention ≥35% and day-7 ≥12% (`docs/designs/gemmory.md` → Success Criteria). Nothing gives a player a reason to open the app tomorrow. A streak is a cheap, backend-free daily pull.
+
+**Step 1: decide (design, before code)**
+- What counts as a day: at least one gem placed (proposed), local midnight like the allowance.
+- Where it shows: the gallery (a small chip near the tabs?) and the completion screen. Never on the play canvas (no chrome there).
+- Forgiveness: a missed day resets, or one "streak freeze" a week, or one restored by a rewarded video / always for VIP (has to fit the ad rules and tiers).
+- Rewards, if any: milestone days (3, 7, 30) could grant a fill power-up (#20) or a picture unlock (#32). Keep it calm: no guilt copy or loss-aversion pressure (the app sells relaxation).
+- Record copy, states, TalkBack text and the decision in `docs/design-system.md`.
+
+**Rules**
+- Stored on the phone. Decide whether it lives in `ledger/` (not backed up, like the allowance) or may be backed up (it's no photo data). A clock change can bend it: accepted risk, same as the allowance.
+- Analytics event for streak length if Firebase lands (#12).
+
+**Done when:** the streak counts days played, shows where specified, resets per the decided rule, survives app restarts, and is covered by unit tests (pure counter in `commonMain`, day boundaries, clock going backwards).
+
+Effort: design ~1h; build human ~4h / CC ~20min.
+
+
+---
+
+## T22: Today's picture
+Labels: P2, game, ui
+
+**Why:** a "Today's picture" gives players something new every day, a reason to come back (day-1/day-7 retention targets, `docs/designs/gemmory.md`) and a soft taste of locked content. It works offline with no backend.
+
+**Step 1: decide (design, before code)**
+- Pick rule: one locked bundled picture a day chosen on the phone (for example, a date-seeded rotation over pictures the player hasn't unlocked or started), so it needs no server.
+- What "today's" means: free to start today only, and once started it stays open forever (like `isLocked()`'s started rule), or unlocked permanently.
+- Where it shows: a highlighted first tile or a card at the top of Pictures; copy, TalkBack label, what VIP sees (everything is unlocked for VIP, so maybe "Today's pick" with no unlock).
+- Interaction with #33 (today's picture as the streak's daily goal?).
+- Record copy, states and the decision in `docs/design-system.md` and `docs/designs/gemmory.md`.
+
+**Rules**
+- Picking runs in pure Kotlin (`commonMain`), testable with a fixed date.
+- Local midnight like the allowance; changing the clock can show another picture: accepted risk.
+- Needs enough locked pictures to rotate through.
+
+**Done when:** a different picture is offered each day, starting it works without an ad, the rule is unit-tested across day boundaries, and the gallery shows it as specified.
+
+Depends on #31 and #32. Effort: design ~1h; build human ~4h / CC ~20min.
+
+
+---
+
+## T23: Progress milestones and a peek at the finished picture
+Labels: P2, game, ui
+
+**Why:** on a Big canvas (~15k gems, hours of play) the only reward moments are a finished color and the finished picture. Players need small wins along the way, and a reason to keep going when the end is far.
+
+**Candidates (decide in design first)**
+- **Progress milestones:** a short sparkle on the top bar's progress at 25 / 50 / 75%, with a soft chime and haptic (both follow their Settings toggles; reduced motion: no sparkle, the chime stays).
+- **Peek:** press and hold (or a button in the top bar) to see the finished picture, fading back on release. Motivation, and helps players see where a color goes.
+- Possibly a "best session" or "gems today" line on the completion screen.
+
+**Rules**
+- The design system allows no other chrome on the play canvas: a peek control must live in the existing top bar or be a gesture that doesn't conflict with D23 (paint vs pan) and the pinch/zoom table.
+- Milestones are derived from the placement count, so they change nothing in the save log or the time-lapse.
+- TalkBack: milestones announced through the existing polite live region; peek reachable as a canvas action.
+- Record motion, copy and the decision in `docs/design-system.md` (Play canvas, Motion).
+
+**Done when:** the chosen milestones and peek work on a Big canvas, respect reduced motion and the Sound/Haptics toggles, and have unit tests for the milestone thresholds (including a canvas reopened past a milestone, which must not replay it).
+
+Effort: design ~1h; build human ~4h / CC ~20min.
+
+
+---
+
+## T24: Share a progress time-lapse before the picture is finished
+Labels: P2, timelapse, ui
+
+**Why:** sharing is the growth loop (`utm_source=share`, ≥10% of finished photo canvases shared), but today a time-lapse exists only after a picture is finished, which on a Big canvas takes hours or days. Most players stop before that and never share. A progress share lets them post "look what I'm making" much earlier.
+
+**Step 1: decide (design, before code)**
+- Entry point: the top bar overflow on the play canvas (no new chrome on the canvas), and/or the gallery tile's long-press menu.
+- Content: the same 9:16 time-lapse (#4) replaying the log so far and ending on the unfinished canvas, with a "47% done" line in the band; or a still before/after.
+- Minimum progress before it's offered (for example 10%), so a blank canvas isn't shared.
+- Watermark, title band and share text as for finished time-lapses; VIP without watermark.
+- Ads: never before or during share (ad rules), and a progress share doesn't count as a finished canvas for the interstitial rule.
+- Record copy, states and the decision in `docs/design-system.md` (Share) and `docs/designs/gemmory.md`.
+
+**Rules**
+- Reuses `EncodeManager` and the fallback chain; the encode is cancelled when the player places more, deletes or starts over (eng E4d).
+- Encoded files stay in `cacheDir/timelapse/` (FileProvider `share_paths`); photo data never leaves the phone except through the share sheet the player opens.
+- Analytics `share_tapped` / `share_completed` get a `progress` vs `finished` parameter once #12 lands.
+
+**Done when:** a player can share a progress time-lapse from a half-done canvas, it ends on the current state with its percentage, and replay order matches the save log (unit test on the frame source).
+
+Builds on #4 (time-lapse) and #18 (play canvas). Effort: design ~1h; build human ~4h / CC ~30min.
 
 ---
