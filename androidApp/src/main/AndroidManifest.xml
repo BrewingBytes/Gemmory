@@ -27,6 +27,28 @@
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="${admobAppId}" />
 
+        <!-- Firebase (#12). Crashlytics: crash + non-fatal diagnostics for everyone in release builds, under legitimate
+             interest (design D17), no user ids. Analytics: off and every consent type denied until the UMP result says
+             analytics storage is granted (Consent Mode v2, R3-7); GemmoryApp applies it. -->
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="${firebaseEnabled}" />
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_analytics_storage"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_storage"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_user_data"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_personalization_signals"
+            android:value="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -46,5 +68,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/share_paths" />
         </provider>
+
+        <!-- The share sheet says which app the player picked; only that it happened is counted (share_completed). -->
+        <receiver
+            android:name=".share.ShareCompletedReceiver"
+            android:exported="false" />
     </application>
 </manifest>

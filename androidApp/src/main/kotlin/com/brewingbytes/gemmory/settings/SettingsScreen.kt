@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.settings
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.activity.compose.LocalActivity
@@ -44,6 +46,8 @@ import com.brewingbytes.gemmory.billing.BillingCopy
 import com.brewingbytes.gemmory.billing.RestoreUi
 import com.brewingbytes.gemmory.billing.subscriptionPage
 import com.brewingbytes.gemmory.policy.Membership
+import com.brewingbytes.gemmory.telemetry.TapStreak
+import com.brewingbytes.gemmory.telemetry.TelemetryCheck
 import com.brewingbytes.gemmory.ui.AppTopBar
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
@@ -77,6 +81,8 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
     val activity = LocalActivity.current
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var pickHighlight by rememberSaveable { mutableStateOf(false) }
+    var telemetryCheck by rememberSaveable { mutableStateOf(false) }
+    val checkTaps = remember { TapStreak(TelemetryCheck.TAPS, TelemetryCheck.WINDOW_MS) }
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
     }
@@ -203,7 +209,20 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) { Text("Privacy policy", style = GemType.body, color = GemColors.Bone) }
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    // The hidden telemetry check (#12, removed by its follow-up issue): plain taps, no semantics, so
+                    // TalkBack offers no action here.
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            if (checkTaps.tap(System.currentTimeMillis())) {
+                                TelemetryCheck.armEncoderFailure()
+                                telemetryCheck = true
+                            }
+                        }
+                    }
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Version", style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
@@ -221,6 +240,16 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
             },
             onDismiss = { pickHighlight = false },
             returnFocusTo = HIGHLIGHT_TAG,
+        )
+    }
+
+    if (telemetryCheck) {
+        ConfirmSheet(
+            title = "Telemetry check",
+            body = "The next video fails at 1080p once and is made at 720p instead. Crash the app now?",
+            confirm = "Crash now",
+            onConfirm = { TelemetryCheck.crash() },
+            onDismiss = { telemetryCheck = false },
         )
     }
 

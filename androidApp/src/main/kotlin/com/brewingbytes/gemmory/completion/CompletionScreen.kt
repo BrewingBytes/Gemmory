@@ -60,6 +60,7 @@ import com.brewingbytes.gemmory.nav.Route
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.share.ShareIntents
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.share.ShareSheet
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -139,6 +140,7 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     private val store = (application as GemmoryApp).store
     private val encodes = application.let { it as GemmoryApp }.encodes
     private val billing = (application as GemmoryApp).billing
+    private val analytics = (application as GemmoryApp).analytics
 
     var finished by mutableStateOf<Finished?>(null)
         private set
@@ -209,6 +211,7 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     fun share(ref: CanvasRef) {
         val request = finished?.takeIf { it.ref == ref }?.request?.withWatermark(!billing.entitlements.value.vip) ?: return
         killedNotice = false
+        analytics.log(AnalyticsEvent.shareTapped(ref, request.pattern.width, request.pattern.height))
         encodes.share(request)
     }
 
@@ -272,7 +275,7 @@ fun CompletionScreen(
         if (!loaded) return@LaunchedEffect
         lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
         val request = vm.finished?.takeIf { it.ref == ref }?.request ?: return@LaunchedEffect
-        context.startActivity(ShareIntents.chooser(context, video.file, request.medium))
+        context.startActivity(ShareIntents.chooser(context, video.file, request))
         vm.shareHandled(ref)
     }
 
@@ -361,7 +364,7 @@ fun CompletionScreen(
         onSharePicture = {
             val picture = encode as? EncodeState.Picture
             val request = finished?.request
-            if (picture != null && request != null) context.startActivity(ShareIntents.chooser(context, picture.file, request.medium))
+            if (picture != null && request != null) context.startActivity(ShareIntents.chooser(context, picture.file, request))
             vm.shareHandled(ref)
         },
         onTryAgain = {

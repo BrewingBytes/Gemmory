@@ -24,6 +24,7 @@ import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.WriteResult
 import com.brewingbytes.gemmory.ui.GemRenderer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -115,7 +116,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
                 _state.value = PhotoFlowState(decodeFailed = true)
                 return@launch
             }
-            FaceDetector.warmUp()
+            FaceDetector.warmUp(app.reporter)
             val ratio = PhotoFlowRules.defaultRatio(bitmap.width, bitmap.height)
             handle[KEY_DRAFT] = id
             handle[KEY_RATIO] = ratio.name
@@ -214,7 +215,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         }
         val ratio = _state.value.ratio
         val faceJob = viewModelScope.launch {
-            val check = FaceDetector.check(cropped)
+            val check = FaceDetector.check(cropped, app.reporter)
             _state.update {
                 val rules = PhotoFlowRules.sizeRules(check)
                 val selected = PhotoFlowRules.selectionAfterCheck(it.size, it.pickedByPlayer, rules)
@@ -230,7 +231,11 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
                         cropped.getPixels(pixels, 0, cropped.width, 0, 0, cropped.width, cropped.height)
                         val pattern = convert(pixels, cropped.width, cropped.height, GridSpec.of(s, ratio), SEED)
                         Conversion.Ready(pattern, GemRenderer.render(pattern, cellPx = PREVIEW_CELL_PX))
-                    }.getOrElse { Conversion.Failed }
+                    }.getOrElse {
+                        if (it is CancellationException) throw it
+                        app.reporter.report(ConverterException(s, ratio, cropped.width, cropped.height, it))
+                        Conversion.Failed
+                    }
                 }
                 _state.update { it.copy(conversions = it.conversions + (s to result)) }
             }
@@ -248,7 +253,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
                 _state.update { it.copy(nav = PhotoNav.Lost) }
                 return@launch
             }
-            FaceDetector.warmUp()
+            FaceDetector.warmUp(app.reporter)
             val ratio = handle.get<String>(KEY_RATIO)?.let(AspectRatio::valueOf) ?: AspectRatio.SQUARE
             val crop = handle.get<FloatArray>(KEY_CROP_VIEW)?.let { CropView(it[0], it[1], it[2]) } ?: CropView()
             _state.value = PhotoFlowState(source = bitmap, ratio = ratio, crop = crop)
@@ -318,3 +323,7 @@ object PhotoTitles {
 
     const val MAX_CHARS = 60
 }
+
+/** The converter failed on a photo (#12): the size, ratio and crop dimensions only, never the photo. */
+class ConverterException(size: CanvasSize, ratio: AspectRatio, width: Int, height: Int, cause: Throwable) :
+    Exception("convert ${size.name.lowercase()} ${ratio.label} from ${width}x$height failed", cause)

@@ -20,14 +20,30 @@ import com.brewingbytes.gemmory.settings.AppSettings
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.timelapse.EncodeManager
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
+import com.brewingbytes.gemmory.telemetry.FirebaseAnalyticsLogger
+import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import com.brewingbytes.gemmory.telemetry.TelemetryCheck
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import java.io.File
 
 class GemmoryApp : Application() {
+    /** Crashlytics in release builds, Logcat in debug (#12). Kinds, codes and reasons only, scrubbed of paths. */
+    lateinit var reporter: NonFatalReporter
+        private set
+
+    /** Firebase Analytics under UMP consent in release builds, Logcat in debug (#12). */
+    lateinit var analytics: Analytics
+        private set
+
     /** App-scoped, so a canvas's last write finishes even after its screen and ViewModel are gone. */
     lateinit var store: CanvasStore
         private set
@@ -58,13 +74,19 @@ class GemmoryApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        reporter = NonFatalReporter.forBuild(BuildConfig.FIREBASE) {
+            CrashlyticsReporter.scrubCrashes()
+            CrashlyticsReporter(FirebaseCrashlytics.getInstance())
+        }
+        analytics = Analytics.forBuild(BuildConfig.FIREBASE) { FirebaseAnalyticsLogger(FirebaseAnalytics.getInstance(this)) }
         settings = AppSettings(this)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         encodes = EncodeManager(
             cacheDir = cacheDir,
             scope = scope,
-            backend = { request, partialOf -> MediaCodecEncoder(this, request, partialOf) },
+            backend = { request, partialOf -> TelemetryCheck.wrap(MediaCodecEncoder(this, request, partialOf)) },
             canvasExists = { ref -> store.repository.dirOf(ref).isDirectory },
+            reporter = reporter,
         )
         store = CanvasStore(
             filesDir = filesDir,
@@ -72,15 +94,18 @@ class GemmoryApp : Application() {
             writer = Dispatchers.IO.limitedParallelism(1),
             bundledGrid = { picture -> assets.open(picture.asset).use { it.readBytes() } },
             encodes = encodes,
+            reporter = reporter,
+            analytics = analytics,
         )
         billing = BillingRepository(
-            backend = BillingBackends.create(this),
+            backend = BillingBackends.create(this, reporter),
             cache = EntitlementCache(
                 System::currentTimeMillis,
-                FileStateStore(File(filesDir, StorageLayout.LEDGER_ENTITLEMENTS), EntitlementCodec::encode, EntitlementCodec::decode),
+                FileStateStore(File(filesDir, StorageLayout.LEDGER_ENTITLEMENTS), EntitlementCodec::encode, EntitlementCodec::decode, reporter),
             ),
             scope = scope,
             worker = Dispatchers.IO.limitedParallelism(1),
+            analytics = analytics,
         )
         monetization = Monetization(
             filesDir = filesDir,
@@ -89,10 +114,13 @@ class GemmoryApp : Application() {
             scope = scope,
             policy = Dispatchers.IO.limitedParallelism(1),
             entitlements = billing.entitlements,
+            reporter = reporter,
         )
         consent = ConsentManager(this)
+        // Consent Mode v2 from the UMP result, now and on every change (R3-7).
+        CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }
         ads = AdMobGateway(this, consent, CoroutineScope(SupervisorJob() + Dispatchers.Main))
-        interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value })
+        interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
         // The first session ends on the first foreground after ≥ 30 min in the background (eng D6). Billing asks Play
         // on every foreground, the first one being the cold start (eng E6).
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {

@@ -12,6 +12,8 @@ import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.WriteResult
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,7 @@ class CanvasStoreTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var now = 0L
     private val cancelled = mutableListOf<CanvasRef>()
+    private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
 
     private val pattern = Pattern(
         width = 4,
@@ -65,6 +68,11 @@ class CanvasStoreTest {
                 }
             },
             reporter = NonFatalReporter { },
+            analytics = object : Analytics {
+                override fun log(event: AnalyticsEvent) {
+                    events += event
+                }
+            },
         )
     }
 
@@ -86,6 +94,29 @@ class CanvasStoreTest {
         session.viewport.onLayout(400, 300, 1f)
         session.close()
         store.open(ref) // joins the closing write
+    }
+
+    @Test
+    fun startsAndFinishesAreCountedOnceWithSourceAndSize() = runBlocking<Unit> {
+        createPhoto()
+        createPhoto()
+        assertEquals(
+            listOf(
+                AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "other")),
+                AnalyticsEvent("photo_canvas_started"),
+            ),
+            events.toList(),
+            "a repeated Start makes one canvas, counted once",
+        )
+        events.clear()
+        play(starter, 0, 1)
+        assertEquals(listOf(AnalyticsEvent("canvas_started", mapOf("source" to "bundled", "size" to "starter"))), events.toList())
+        events.clear()
+        play(starter, *(2 until 12).toList().toIntArray())
+        assertEquals(listOf(AnalyticsEvent("canvas_finished", mapOf("source" to "bundled", "size" to "starter"))), events.toList())
+        events.clear()
+        play(starter)
+        assertTrue(events.isEmpty(), "reopening a finished canvas counts nothing")
     }
 
     @Test

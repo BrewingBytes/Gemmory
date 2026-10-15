@@ -31,6 +31,8 @@ class PlaySession internal constructor(
     private val saver: SaveLoop,
     private val clock: PlayClock,
     private val onStopped: (playMillis: Long) -> Unit,
+    /** The last gem was just placed (not a reopen of a finished canvas). */
+    private val onPictureFinished: () -> Unit = {},
     private val onClosed: (lastWrite: Job, playMillis: Long) -> Unit,
 ) {
     val viewport = CanvasViewport(pattern.width, pattern.height).apply { restore(view) }
@@ -138,7 +140,10 @@ class PlaySession internal constructor(
                             }
                             announce(A11yText.colorDone(event.slot + 1, event.next?.plus(1)))
                         }
-                        GameEvent.PictureFinished -> saver.writeNow()
+                        GameEvent.PictureFinished -> {
+                            saver.writeNow()
+                            onPictureFinished()
+                        }
                         is GameEvent.GemPlaced -> Unit
                     }
                 }

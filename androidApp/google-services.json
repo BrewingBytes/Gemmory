@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "121638784035",
+    "project_id": "gemmory-3e776",
+    "storage_bucket": "gemmory-3e776.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:121638784035:android:78e4fc6d7cfe5d9c04f596",
+        "android_client_info": {
+          "package_name": "com.brewingbytes.gemmory"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBa7vkf1feH0nKFZPGxinLaXVHSpXAF4Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
