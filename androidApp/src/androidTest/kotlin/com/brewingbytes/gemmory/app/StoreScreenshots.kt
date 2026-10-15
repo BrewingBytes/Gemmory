@@ -40,8 +40,9 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Play Store phone screenshots (#8, for the store listing): 1080×1920, because Play rejects a long side more than twice
- * the short one, with a clean demo-mode status bar. Saved to /data/local/tmp/store-N-name.png. Fake billing prices.
+ * Play Store screenshots (#8, for the store listing): phone 1080×1920, because Play rejects a long side more than twice
+ * the short one, or tablet 2560×1440 with `-e storeDisplay tablet`; a clean demo-mode status bar. Saved to
+ * /data/local/tmp/store-[t-]name.png. Fake billing prices.
  */
 @DeviceCheck
 @RunWith(AndroidJUnit4::class)
@@ -54,6 +55,9 @@ class StoreScreenshots {
     private val app get() = context.applicationContext as GemmoryApp
     private lateinit var scenario: ActivityScenario<MainActivity>
 
+    /** `-e storeDisplay tablet`: a 16:9 landscape tablet (2560x1440 at 320dpi, 1280x720dp) for the tablet listing. */
+    private val tablet = InstrumentationRegistry.getArguments().getString("storeDisplay") == "tablet"
+
     @Before
     fun setUp() {
         assumeDeviceChecks()
@@ -64,7 +68,12 @@ class StoreScreenshots {
         hints.commit()
         BillingBackends.fake.reset()
         runBlocking { app.billing.refresh() }
-        A11yTestSupport.shell("wm size 1080x1920")
+        if (tablet) {
+            A11yTestSupport.shell("wm size 2560x1440")
+            A11yTestSupport.shell("wm density 320")
+        } else {
+            A11yTestSupport.shell("wm size 1080x1920")
+        }
         A11yTestSupport.shell("settings put global sysui_demo_allowed 1")
         for (cmd in listOf(
             "-e command enter",
@@ -83,6 +92,7 @@ class StoreScreenshots {
         if (::scenario.isInitialized) scenario.close()
         A11yTestSupport.shell("am broadcast -a com.android.systemui.demo -e command exit")
         A11yTestSupport.shell("wm size reset")
+        A11yTestSupport.shell("wm density reset")
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
     }
@@ -90,7 +100,7 @@ class StoreScreenshots {
     private fun shot(name: String) {
         SystemClock.sleep(1_500)
         compose.waitForIdle()
-        A11yTestSupport.shell("screencap -p /data/local/tmp/store-$name.png")
+        A11yTestSupport.shell("screencap -p /data/local/tmp/store-${if (tablet) "t-" else ""}$name.png")
     }
 
     private fun session(): PlaySession? {
