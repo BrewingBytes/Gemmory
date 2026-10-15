@@ -135,7 +135,7 @@ Token roles:
 
 QA checks every new string against this table. The ground's 9% grain counts: the Accessibility Test Framework samples the grained felt at about #59635C, which is why `text-muted` moved off plain felt in #14. `AccessibilityChecksTest` runs the framework (the Accessibility Scanner's engine) on every main screen and sheet.
 
-**Canvas cell colors:** a placed gem is the exact grid color. An unplaced cell is that color mixed 78% toward `bone`, with its number in `on-bone`. A remaining cell of the selected color is its color mixed only 40% toward `bone`, with its number in `on-bone` or `bone`, whichever has more contrast. Gem colors are never re-tinted by the theme.
+**Canvas cell colors:** a placed gem is the exact grid color. An unplaced cell is that color mixed 78% toward `bone`, with its number in `on-bone`. How the selected color's remaining cells stand out is the player's **Selected color** setting (#19, see Play canvas): by default they are their color mixed only 40% toward `bone`, with their number in `on-bone` or `bone`, whichever has more contrast. Under "Dim the rest", every other unplaced cell is its pale tint mixed a further 35% toward `felt-deep` (#3E4741, also under system dark mode), number again in `on-bone` or `bone`, whichever has more contrast. Gem colors are never re-tinted by the theme.
 
 ## Typography
 
@@ -232,17 +232,19 @@ There are no zero-offset colored halos and no frosted glass anywhere.
 
 | On-screen cell | Renders | Tap does |
 |---|---|---|
-| < 8dp | flat cushions; unplaced cells as pale tints, the selected color's in a stronger tint | zooms to 24dp cells centered on the tap |
+| < 8dp | flat cushions; unplaced cells as pale tints, the selected color shown per the Selected color setting (Outline uses the stronger tint here) | zooms to 24dp cells centered on the tap |
 | 8-15dp | + placed gems raised | zooms to 24dp cells centered on the tap |
 | 16-19dp | + numbers on unplaced cells | places a gem; drag places along the path |
 | ≥ 20dp | + facets, placement glint | places a gem |
 
 - Max zoom is 48dp cells, and min zoom fits the whole canvas.
 - Placement needs at least 16dp cells, so a gem is never placed where its number can't be read.
-- **Selected-color tint** (founder decision 2026-10-13, replaces the Phase 5 D17 ring): the remaining cells of the selected color use their own gem color mixed 40% toward `bone` instead of 78%, at every zoom. Their number is `on-bone` or `bone`, whichever reads better.
-  - It reads as a preview of the gem and stays visible at fit zoom, where the ring wasn't drawn.
-  - It's weak for light colors (cream, skin tones), whose stronger tint lands near the other pale tints. #19 lets the player switch to the D17 outline ring (1.5dp `on-bone` outer + 1dp `lamp` inner, from 8dp) or to dimming the other cells.
-  - QA it on dark, white and skin-tone colors.
+- **Selected color** (founder decision 2026-10-13 for the default, #19 for the choice): how the remaining cells of the selected color stand out is a Settings choice with three styles. Placed gems look the same in all three.
+  - **Stronger tint** (default): the selected color's remaining cells use their gem color mixed 40% toward `bone` instead of 78%, at every zoom; their number is `on-bone` or `bone`, whichever reads better. It previews the gem and shows at fit zoom. It's weak for light colors (cream, skin tones), whose stronger tint lands near the other pale tints.
+  - **Outline** (the Phase 5 D17 two-tone ring): from 8dp, each remaining cell of the selected color keeps its pale tint and gets a 1.5dp `on-bone` outer ring along the cushion edge plus a 1dp `lamp` inner ring, following the 18% corner radius. Below 8dp, where a ring can't be drawn, it falls back to the stronger tint, so the selection still shows at fit zoom. The rings sit inside the cushion's edge and the number is centered in the opening, so they never cover it (at 16dp the opening is ~9.8dp, the widest number "36" ~9dp).
+  - **Dim the rest**: the selected color's remaining cells keep their pale tint; every other unplaced cell is darkened 35% toward `felt-deep`, at every zoom. Numbers on dimmed cells are `on-bone` or `bone`, whichever reads better: at worst 3.9:1 (pale tints of near-black), above the stronger tint's own worst case (3.2:1, a mid violet), at least 5.5:1 on cream and skin tones.
+  - The style applies at once, including on a canvas that's already open, and changes nothing else: not the TalkBack canvas node, not the log, not the time-lapse (which never shows a selection).
+  - QA each style on a dark, a cream and a skin-tone color, at fit, 8, 16 and 24dp, and under reduced motion.
 - **Placed vs unplaced** (Phase 5 D18): from 8dp up, a placed gem gets a 1dp bottom-right edge at 18% black and a 1dp top-left edge at 12% white. Unplaced cells stay flat.
   - This makes white, cream and skin-tone gems readable, where the tint vs gem contrast is only 1.1-1.2:1.
   - Bake the edges into the per-color sprite (T10).
@@ -383,7 +385,17 @@ A finished picture reopened from the gallery shows the **completion still**:
 | Already VIP | the paywall isn't reachable; "VIP" and the Membership row open Play's subscription page |
 
 **Settings.**
-- Sound, Haptics, Membership (shows `VIP · yearly` / `Ads removed` / `Free`), Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (UMP, shown only when UMP says privacy options are required), Delete all photo canvases, Privacy policy, and Version (mono).
+- Sound, Haptics, Selected color, Membership (shows `VIP · yearly` / `Ads removed` / `Free`), Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (UMP, shown only when UMP says privacy options are required), Delete all photo canvases, Privacy policy, and Version (mono).
+- **Selected color** (#19): a row right after Haptics, built like Membership: "Selected color" at the start, the current style's name at the end (both `bone` body). Tapping it opens the **Selected color sheet**:
+  - Title "Selected color" (display 22sp), then three radio rows, each at least 56dp tall: a 20dp radio mark at the start, the option name in `bone` body, and a one-line description under it in `text-muted` 13sp (valid on sheets).
+  - Options and descriptions:
+    - "Stronger tint" / "Its cells turn a deeper shade" (selected by default)
+    - "Outline" / "A ring around its cells when zoomed in"
+    - "Dim the rest" / "Every other color steps back"
+  - Radio mark: unselected is a 1.5dp `bone` ring; selected is a 2dp `lamp` ring with an 8dp `lamp` dot (`lamp` = "this is the selected one"). The whole row is the target.
+  - Tapping an option saves it and closes the sheet. Swipe, back or the scrim close it without a change. Focus goes to the title on open and back to the row on close, like every sheet.
+  - TalkBack: the row reads "Selected color, Stronger tint"; the three sheet rows form one radio group, each one node: "Stronger tint, Its cells turn a deeper shade, selected" (selected state from the radio semantics).
+  - Stored with Sound and Haptics (no photo data, may be backed up).
 - **VIP not confirmed** (Phase 5 D7): after the 7-day offline fallback (eng D5), Membership reads "VIP · connect to Google Play to confirm". The gallery shows one line, once: "We couldn't confirm VIP for a week. Connect to the internet to restore it."
 - **Delete all photo canvases** (Phase 5 D27):
   - It's a plain bone row, not a red button.
@@ -450,6 +462,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - The Find cell pulse is skipped.
   - The lights-down dim (a fade) stays.
 - Haptics also follow the system touch-feedback setting.
+- The Selected color styles have no motion of their own; switching style redraws the canvas at once, with or without reduced motion.
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -472,3 +485,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-14 | Double-tap never delays a placing tap: it zooms only when neither tap places (a second tap that would place is a normal tap). Coach-hint flags may be backed up. Find in the large-screen rail is pinned at the top | Founder answers during #10. Standard double-tap detection would delay every placement by ~300ms |
 | 2026-10-14 | `text-muted` only on felt-deep, sheets and the dark felts: on the grained felt ground it measures 4.09:1, so the unselected tab, tile %, My Photos empty body, Settings version, top-bar progress, "Checking for faces…" and Preview's lines are `bone`. Allowance note on a `felt-deep` chip beside the button, stacked above it when narrow. "Place next gem" announces "311 left". Accessibility Scanner signal = the Accessibility Test Framework in instrumented tests (no Play Store on the emulator). Reduced-motion sheet fades run at their real 150ms | Founder answers during #14. The note floated over tile art and broke at 200% font |
 | 2026-10-15 | Billing (#8): the copy for the plan rows, "Just remove ads · $X once", the fine print "VIP renews automatically until you cancel. Cancel anytime in Google Play.", remove-ads pending, and Restore's weekly / Ads removed lines. Membership is a row with its value at the end; tapping it opens the paywall (Free, Ads removed) or Play's subscription page (VIP, and VIP not confirmed). Manage subscription also shows for VIP not confirmed. "Prices couldn't load" uses bone with the `fault` square on felt. Loading placeholders read "Loading prices" to TalkBack. Start VIP is disabled while a VIP payment is pending, the remove-ads row while its own is. The gallery line and the Restore result are polite live regions | Founder answers during #8 for the copy; the rest filled details the spec left open, confirmed by the founder on PR #28 (VIP not confirmed handling, "Loading prices") |
+| 2026-10-15 | Selected color setting (#19): Stronger tint (default), Outline (the D17 ring, from 8dp; stronger tint below 8dp so fit zoom still shows the selection) and Dim the rest (others 35% toward `felt-deep`, numbers on-bone/bone by contrast). A Settings row after Haptics opens a sheet with three radio rows and one-line descriptions; a pick saves and closes. Applies at once on an open canvas; no new entry point on the canvas | Founder call during #18 that the tint is weak on light colors; issue #19. Founder answers during #19: row + sheet over an inline group, Outline falls back to the stronger tint below 8dp, keep 35% dimming (numbers at worst 3.9:1), no Settings entry on the canvas |

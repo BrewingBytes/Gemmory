@@ -3,13 +3,14 @@ package com.brewingbytes.gemmory.settings
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.brewingbytes.gemmory.play.HighlightStyle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Settings toggles (design system, Settings): Sound and Haptics, both on by default. Kept in shared preferences,
- * which hold no user content and may be backed up.
+ * Settings (design system, Settings): Sound and Haptics, both on by default, and the Selected color style (#19),
+ * Stronger tint by default. Kept in shared preferences, which hold no user content and may be backed up.
  */
 class AppSettings(private val prefs: SharedPreferences) {
     constructor(context: Context) : this(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))
@@ -18,6 +19,8 @@ class AppSettings(private val prefs: SharedPreferences) {
     private val _haptics = MutableStateFlow(prefs.getBoolean(HAPTICS, true))
     val sound: StateFlow<Boolean> = _sound.asStateFlow()
     val haptics: StateFlow<Boolean> = _haptics.asStateFlow()
+    private val _highlight = MutableStateFlow(HighlightStyle.fromKey(prefs.getString(HIGHLIGHT, null)))
+    val highlight: StateFlow<HighlightStyle> = _highlight.asStateFlow()
 
     fun setSound(on: Boolean) {
         _sound.value = on
@@ -29,9 +32,15 @@ class AppSettings(private val prefs: SharedPreferences) {
         prefs.edit { putBoolean(HAPTICS, on) }
     }
 
+    fun setHighlight(style: HighlightStyle) {
+        _highlight.value = style
+        prefs.edit { putString(HIGHLIGHT, style.key) }
+    }
+
     private companion object {
         const val FILE = "settings"
         const val SOUND = "sound"
         const val HAPTICS = "haptics"
+        const val HIGHLIGHT = "highlight"
     }
 }

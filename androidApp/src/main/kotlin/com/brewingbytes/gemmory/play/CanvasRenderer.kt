@@ -25,8 +25,9 @@ import kotlin.math.sin
  * The play canvas renderer (eng finding 13, design system Play canvas). Below 8dp cells it draws one baked
  * 1 px-per-cell bitmap of the whole canvas, kept current one pixel per placement. From 8dp it visits only the
  * cells on screen and draws each as its color's cached sprite for the current zoom bucket, with raised edges on
- * placed gems from 8dp (D18), numbers on unplaced cells from 16dp and facets from 20dp. On top: the placement glint
- * (180ms, from 20dp) and the Find pulse (400ms). Main thread only.
+ * placed gems from 8dp (D18), numbers on unplaced cells from 16dp and facets from 20dp. The selected color stands
+ * out per the player's [HighlightStyle] (#19): stronger tint, the D17 ring from 8dp, or the other colors dimmed. On
+ * top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). Main thread only.
  */
 class CanvasRenderer(context: Context, private val pattern: Pattern) {
     private val colors = CellColors(pattern)
@@ -34,6 +35,7 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
     private val bakeBitmap = createBitmap(pattern.width, pattern.height)
     private val bake = CanvasBake(pattern, colors, BitmapSink(bakeBitmap, pattern.width))
     private var density = 0f
+    private var style = HighlightStyle.DEFAULT
     private val sprites = SpriteCache<Atlas, Int>(
         pattern.palette.size,
         newBucket = { spec, recycled -> Atlas.of(spec.px, pattern.palette.size, recycled) },
@@ -52,12 +54,21 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
     private val dark = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x24000000 }
     private val edgeLight = Paint().apply { color = 0x1FFFFFFF }
     private val edgeDark = Paint().apply { color = 0x2E000000 }
+    private val ringOuter = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = CellColors.ON_BONE
+    }
+    private val ringInner = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = LAMP
+    }
     private val number = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         val mono = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono) ?: Typeface.MONOSPACE
         typeface = Typeface.create(mono, 700, false)
     }
     private val rect = RectF()
+    private val ringRect = RectF()
     private val path = Path()
 
     // Glint: a soft white band swept diagonally across the gem.
@@ -70,14 +81,22 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
     private val glintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = glintShader }
     private val glintMatrix = Matrix()
 
-    fun draw(canvas: Canvas, session: PlaySession, density: Float, effects: CanvasEffects, nowNanos: Long) {
+    fun draw(
+        canvas: Canvas,
+        session: PlaySession,
+        density: Float,
+        style: HighlightStyle,
+        effects: CanvasEffects,
+        nowNanos: Long,
+    ) {
         val selectedSlot = session.selectedSlot
-        bake.sync(session.placedCount, session::placedAt, session::isPlaced, selectedSlot)
+        bake.sync(session.placedCount, session::placedAt, session::isPlaced, selectedSlot, style)
         val viewport = session.viewport
         val cell = viewport.cellPx
         if (cell <= 0f) return
-        if (density != this.density) {
+        if (density != this.density || style != this.style) {
             this.density = density
+            this.style = style
             sprites.clear()
         }
         val ox = viewport.offsetX
@@ -177,7 +196,9 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
         val canvas = atlas.canvas
         val px = spec.px.toFloat()
         atlas.source(index, src)
-        seam.color = colors.seam(slot, kind)
+        val ringed = CellColors.ringed(kind, style, spec)
+        val look = CellColors.look(kind, style, ringed)
+        seam.color = colors.seam(slot, look)
         canvas.drawRect(src.left - 1f, src.top - 1f, src.right + 1f, src.bottom + 1f, seam)
         canvas.withSave {
             translate(src.left.toFloat(), src.top.toFloat())
@@ -185,19 +206,37 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
             val size = px - 2 * inset
             val radius = size * GEM_RADIUS
             rect.set(inset, inset, inset + size, inset + size)
-            fill.color = colors.face(slot, kind)
+            fill.color = colors.face(slot, look)
             drawRoundRect(rect, radius, radius, fill)
+            if (ringed) drawRing(this, radius)
             if (kind == SpriteKind.PLACED) {
                 if (spec.raised) drawRaisedEdges(this, size, radius)
                 if (spec.facets) drawFacets(this, size, radius)
             } else if (spec.numbers) {
-                number.color = colors.number(slot, kind)
+                number.color = colors.number(slot, look)
                 number.textSize = px * NUMBER_SCALE
                 val baseline = -(number.ascent() + number.descent()) / 2f
                 drawText(labels[slot], px / 2f, px / 2f + baseline, number)
             }
         }
         return index
+    }
+
+    /**
+     * D17's two-tone ring: a 1.5dp on-bone outer ring along the cushion's edge and a 1dp lamp ring inside it, both
+     * following the corner radius. It stays inside the cushion, so the centered number is never covered.
+     */
+    private fun drawRing(canvas: Canvas, radius: Float) {
+        val outer = RING_OUTER_DP * density
+        val inner = RING_INNER_DP * density
+        ringOuter.strokeWidth = outer
+        ringInner.strokeWidth = inner
+        val o = outer / 2f
+        ringRect.set(rect.left + o, rect.top + o, rect.right - o, rect.bottom - o)
+        canvas.drawRoundRect(ringRect, maxOf(0f, radius - o), maxOf(0f, radius - o), ringOuter)
+        val i = outer + inner / 2f
+        ringRect.set(rect.left + i, rect.top + i, rect.right - i, rect.bottom - i)
+        canvas.drawRoundRect(ringRect, maxOf(0f, radius - i), maxOf(0f, radius - i), ringInner)
     }
 
     /** D18: a 1dp top-left edge at 12% white and a 1dp bottom-right edge at 18% black, inside the cushion. */
@@ -284,6 +323,9 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
         const val NUMBER_SCALE = 0.46f
         const val EDGE_DP = 1f
         const val PULSE_GROW = 0.3f
+        const val RING_OUTER_DP = 1.5f
+        const val RING_INNER_DP = 1f
+        const val LAMP = 0xFFF4E3B1.toInt()
     }
 }
 

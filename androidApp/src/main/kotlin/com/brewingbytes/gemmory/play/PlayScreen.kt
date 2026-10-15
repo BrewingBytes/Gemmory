@@ -407,6 +407,8 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
     val context = LocalContext.current
     val density = LocalDensity.current.density
     val renderer = remember(session.pattern) { CanvasRenderer(context, session.pattern) }
+    // Read in the draw block, so a change in Settings redraws an open canvas at once (#19).
+    val highlight by (context.applicationContext as GemmoryApp).settings.highlight.collectAsStateWithLifecycle()
 
     LaunchedEffect(session, hints) {
         snapshotFlow { viewport.isLaidOut }.first { it }
@@ -454,7 +456,8 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
             session.placedCount
             session.selectedSlot
             val now = controller.frameNanos
-            drawIntoCanvas { renderer.draw(it.nativeCanvas, session, density, controller.effects, now) }
+            val style = highlight
+            drawIntoCanvas { renderer.draw(it.nativeCanvas, session, density, style, controller.effects, now) }
         }
         Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
             if (shown != null) HintChip(shown.text)

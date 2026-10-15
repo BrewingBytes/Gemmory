@@ -7,10 +7,36 @@ import kotlin.math.log2
 import kotlin.math.pow
 
 /**
+ * How the selected color's remaining cells stand out (design system, Play canvas → Selected color, #19). [key] is
+ * what the settings store.
+ */
+enum class HighlightStyle(val key: String) {
+    /** Selected cells in the stronger tint (the default). */
+    TINT("tint"),
+
+    /** The D17 two-tone ring from 8dp; the stronger tint below 8dp, where no ring is drawn. */
+    OUTLINE("outline"),
+
+    /** Selected cells keep the pale tint; every other unplaced cell is dimmed toward felt-deep. */
+    DIM("dim"),
+    ;
+
+    companion object {
+        val DEFAULT = TINT
+
+        fun fromKey(key: String?): HighlightStyle = entries.firstOrNull { it.key == key } ?: DEFAULT
+    }
+}
+
+/** What a cell's face looks like: a placed gem, the pale tint, the selected color's stronger tint, or a dimmed tint. */
+enum class CellLook { GEM, TINT, STRONG, DIMMED }
+
+/**
  * Canvas cell colors (design system, Canvas cell colors): a placed gem is the exact grid color; an unplaced cell is
- * that color mixed 78% toward bone with its number in on-bone; a remaining cell of the selected color is mixed only
- * 40% toward bone, its number in on-bone or bone, whichever has more contrast. Seams are each face slightly darker,
- * so the grid reads without dark gaps.
+ * that color mixed 78% toward bone with its number in on-bone; the stronger tint of a selected color is mixed only
+ * 40% toward bone, and a dimmed cell (Dim the rest) is the pale tint mixed 35% toward felt-deep, each with its number
+ * in on-bone or bone, whichever has more contrast. Seams are each face slightly darker, so the grid reads without
+ * dark gaps.
  */
 class CellColors(pattern: Pattern) {
     val gem = IntArray(pattern.palette.size) { pattern.palette[it].argb or OPAQUE }
@@ -20,20 +46,29 @@ class CellColors(pattern: Pattern) {
     val selectedTint = IntArray(gem.size) { mix(gem[it], BONE, SELECTED_TINT) }
     val selectedSeam = IntArray(gem.size) { shade(selectedTint[it], 0.92f) }
     val selectedNumber = IntArray(gem.size) { readableOn(selectedTint[it]) }
+    val dimmed = IntArray(gem.size) { mix(tint[it], FELT_DEEP, DIM) }
+    val dimmedSeam = IntArray(gem.size) { shade(dimmed[it], 0.92f) }
+    val dimmedNumber = IntArray(gem.size) { readableOn(dimmed[it]) }
 
-    fun face(slot: Int, kind: SpriteKind): Int = when (kind) {
-        SpriteKind.PLACED -> gem[slot]
-        SpriteKind.UNPLACED -> tint[slot]
-        SpriteKind.SELECTED -> selectedTint[slot]
+    fun face(slot: Int, look: CellLook): Int = when (look) {
+        CellLook.GEM -> gem[slot]
+        CellLook.TINT -> tint[slot]
+        CellLook.STRONG -> selectedTint[slot]
+        CellLook.DIMMED -> dimmed[slot]
     }
 
-    fun seam(slot: Int, kind: SpriteKind): Int = when (kind) {
-        SpriteKind.PLACED -> gemSeam[slot]
-        SpriteKind.UNPLACED -> tintSeam[slot]
-        SpriteKind.SELECTED -> selectedSeam[slot]
+    fun seam(slot: Int, look: CellLook): Int = when (look) {
+        CellLook.GEM -> gemSeam[slot]
+        CellLook.TINT -> tintSeam[slot]
+        CellLook.STRONG -> selectedSeam[slot]
+        CellLook.DIMMED -> dimmedSeam[slot]
     }
 
-    fun number(slot: Int, kind: SpriteKind): Int = if (kind == SpriteKind.SELECTED) selectedNumber[slot] else ON_BONE
+    fun number(slot: Int, look: CellLook): Int = when (look) {
+        CellLook.STRONG -> selectedNumber[slot]
+        CellLook.DIMMED -> dimmedNumber[slot]
+        else -> ON_BONE
+    }
 
     companion object {
         const val OPAQUE = 0xFF shl 24
@@ -41,6 +76,26 @@ class CellColors(pattern: Pattern) {
         const val ON_BONE = 0xFF2B322D.toInt()
         const val UNPLACED_TINT = 0.78f
         const val SELECTED_TINT = 0.40f
+        const val FELT_DEEP = 0xFF3E4741.toInt()
+        const val DIM = 0.35f
+
+        /**
+         * The look of a cell of [kind] under [style]. [ringed]: the Outline ring is drawn (sprites from 8dp); the
+         * bake below 8dp has no ring, so Outline shows the stronger tint there.
+         */
+        fun look(kind: SpriteKind, style: HighlightStyle, ringed: Boolean): CellLook = when (kind) {
+            SpriteKind.PLACED -> CellLook.GEM
+            SpriteKind.SELECTED -> when (style) {
+                HighlightStyle.TINT -> CellLook.STRONG
+                HighlightStyle.OUTLINE -> if (ringed) CellLook.TINT else CellLook.STRONG
+                HighlightStyle.DIM -> CellLook.TINT
+            }
+            SpriteKind.UNPLACED -> if (style == HighlightStyle.DIM) CellLook.DIMMED else CellLook.TINT
+        }
+
+        /** Whether a [kind] sprite at [spec] under [style] gets the D17 ring: Outline, the selected color, from 8dp. */
+        fun ringed(kind: SpriteKind, style: HighlightStyle, spec: SpriteSpec): Boolean =
+            kind == SpriteKind.SELECTED && style == HighlightStyle.OUTLINE && spec.raised
 
         fun shade(argb: Int, factor: Float): Int = mix(argb, OPAQUE, 1f - factor)
 
@@ -73,7 +128,10 @@ class CellColors(pattern: Pattern) {
     }
 }
 
-/** Which look of a color a sprite has: a placed gem, an unplaced tint, or the selected color's stronger tint. */
+/**
+ * Which role a cell has: placed, unplaced, or a remaining cell of the selected color. Its look also depends on the
+ * [HighlightStyle] ([CellColors.look]).
+ */
 enum class SpriteKind { PLACED, UNPLACED, SELECTED }
 
 /**
@@ -103,7 +161,8 @@ data class SpriteSpec(val px: Int, val raised: Boolean, val numbers: Boolean, va
 /**
  * One cached gem sprite per palette color per zoom bucket (eng finding 13), made on first use. Each bucket has a
  * payload [B] (on the device, the atlas bitmap its sprites are drawn into, so the GPU draws a whole frame from one
- * texture). Selection never invalidates a sprite: the selected look is its own [SpriteKind]. Moving to a new bucket
+ * texture). Selection never invalidates a sprite: the selected look is its own [SpriteKind]. A style change does
+ * ([clear]), since a style switch is rare and keeping every style's sprites would grow each atlas. Moving to a new bucket
  * keeps the last one, so a pinch that wobbles across a bucket edge doesn't remake anything; the bucket before that
  * is dropped and its payload handed to the next new bucket for reuse.
  */
@@ -139,7 +198,7 @@ class SpriteCache<B : Any, T : Any>(
         return make(bucket.payload, spec, slot, kind).also { bucket.sprites[index] = it }
     }
 
-    /** Drops every sprite (the screen's density changed). */
+    /** Drops every sprite (the screen's density or the highlight style changed). */
     fun clear() {
         current = null
         previous = null
@@ -170,12 +229,13 @@ interface PixelSink {
 /**
  * The baked full canvas used below 8dp cells, where cells are flat (eng finding 13): one pixel per cell in the cell's
  * current face color, scaled up with nearest-neighbour sampling so every cell stays a crisp flat square. Baked whole
- * once per open; after that a placement writes one pixel and a selection change rewrites only the two colors'
- * unplaced cells, never the whole canvas.
+ * once per open; after that a placement writes one pixel, a selection change rewrites only the two colors'
+ * unplaced cells, and a style change writes only the cells whose color it changes, never the whole canvas.
  */
 class CanvasBake(private val pattern: Pattern, private val colors: CellColors, private val sink: PixelSink) {
     private val pixels = IntArray(pattern.cells.size)
     private var selected = -1
+    private var style = HighlightStyle.DEFAULT
     private var bakedCount = -1
 
     /** Full bakes so far: one per open. */
@@ -184,10 +244,17 @@ class CanvasBake(private val pattern: Pattern, private val colors: CellColors, p
 
     /**
      * Brings the bake up to date with the game: the first call bakes everything; later calls apply only the
-     * placements after the last one seen ([placedAt] in log order) and a changed selection.
+     * placements after the last one seen ([placedAt] in log order), a changed selection and a changed [style].
      */
-    fun sync(placedCount: Int, placedAt: (Int) -> Int, isPlaced: (Int) -> Boolean, selectedSlot: Int) {
+    fun sync(
+        placedCount: Int,
+        placedAt: (Int) -> Int,
+        isPlaced: (Int) -> Boolean,
+        selectedSlot: Int,
+        style: HighlightStyle = HighlightStyle.DEFAULT,
+    ) {
         if (bakedCount < 0) {
+            this.style = style
             bakeAll(isPlaced, selectedSlot)
             bakedCount = placedCount
             return
@@ -196,7 +263,15 @@ class CanvasBake(private val pattern: Pattern, private val colors: CellColors, p
             val cell = placedAt(bakedCount++)
             write(cell, colors.gem[pattern.cells[cell]])
         }
+        if (style != this.style) restyle(style, selectedSlot, isPlaced)
         if (selectedSlot != selected) reselect(selectedSlot, isPlaced)
+    }
+
+    /** Every unplaced cell may change with the style; [write] skips the ones whose color stays (Tint ↔ Outline: none). */
+    private fun restyle(style: HighlightStyle, selectedSlot: Int, isPlaced: (Int) -> Boolean) {
+        this.style = style
+        selected = selectedSlot
+        for (cell in pixels.indices) if (!isPlaced(cell)) write(cell, colorOf(cell, false))
     }
 
     private fun bakeAll(isPlaced: (Int) -> Boolean, selectedSlot: Int) {
@@ -224,10 +299,11 @@ class CanvasBake(private val pattern: Pattern, private val colors: CellColors, p
 
     private fun colorOf(cell: Int, placed: Boolean): Int {
         val slot = pattern.cells[cell]
-        return when {
-            placed -> colors.gem[slot]
-            slot == selected -> colors.selectedTint[slot]
-            else -> colors.tint[slot]
+        val kind = when {
+            placed -> SpriteKind.PLACED
+            slot == selected -> SpriteKind.SELECTED
+            else -> SpriteKind.UNPLACED
         }
+        return colors.face(slot, CellColors.look(kind, style, ringed = false))
     }
 }

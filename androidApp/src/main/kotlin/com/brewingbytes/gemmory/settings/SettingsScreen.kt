@@ -57,7 +57,7 @@ import com.brewingbytes.gemmory.ui.feltGround
 const val PRIVACY_POLICY_URL = "https://github.com/BrewingBytes/Gemmory/blob/main/docs/privacy-policy.md"
 
 /**
- * Settings (design system, Settings): Sound, Haptics, Membership, Manage subscription (VIP only, opens Play), Restore
+ * Settings (design system, Settings): Sound, Haptics, Selected color (#19, opens its sheet), Membership, Manage subscription (VIP only, opens Play), Restore
  * purchases, Privacy choices (only when UMP says privacy options are required, design D3), Delete all photo canvases,
  * Privacy policy, Version. [onMembership] opens the paywall, or Play's subscription page for VIP.
  */
@@ -67,6 +67,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
     val app = context.applicationContext as GemmoryApp
     val sound by app.settings.sound.collectAsStateWithLifecycle()
     val haptics by app.settings.haptics.collectAsStateWithLifecycle()
+    val highlight by app.settings.highlight.collectAsStateWithLifecycle()
     val privacyChoices by app.consent.privacyOptionsRequired.collectAsStateWithLifecycle()
     val membership by app.billing.membership.collectAsStateWithLifecycle()
     val entitlements by app.billing.entitlements.collectAsStateWithLifecycle()
@@ -75,6 +76,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
     DisposableEffect(Unit) { onDispose { app.billing.restoreHandled() } }
     val activity = LocalActivity.current
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var pickHighlight by rememberSaveable { mutableStateOf(false) }
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
     }
@@ -89,6 +91,25 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             ToggleRow("Sound", sound, app.settings::setSound)
             ToggleRow("Haptics", haptics, app.settings::setHaptics)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .clickable(role = Role.Button) { pickHighlight = true }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag(HIGHLIGHT_TAG),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(HighlightCopy.TITLE, style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    HighlightCopy.name(highlight),
+                    style = GemType.body,
+                    color = GemColors.Bone,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.weight(1f).testTag("settings-highlight-value"),
+                )
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -191,6 +212,18 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
         }
     }
 
+    if (pickHighlight) {
+        HighlightSheet(
+            current = highlight,
+            onPick = {
+                app.settings.setHighlight(it)
+                pickHighlight = false
+            },
+            onDismiss = { pickHighlight = false },
+            returnFocusTo = HIGHLIGHT_TAG,
+        )
+    }
+
     if (confirmDelete) {
         ConfirmSheet(
             title = "Delete all photo canvases?",
@@ -207,6 +240,9 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
 }
 
 private const val DELETE_ALL_TAG = "settings-delete-all"
+
+/** The Selected color row, where focus returns when its sheet closes. */
+const val HIGHLIGHT_TAG = "settings-highlight"
 
 /** Where TalkBack focus returns when the paywall opened from Membership closes. */
 const val MEMBERSHIP_TAG = "settings-membership"
