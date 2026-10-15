@@ -6,7 +6,8 @@ import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.Membership
 import com.brewingbytes.gemmory.policy.Products
 import com.brewingbytes.gemmory.policy.PurchaseState
-import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.IOException
 
 /** The paywall's price rows (design D6). */
 sealed interface PricesUi {
@@ -73,7 +73,7 @@ class BillingRepository(
     private val cache: EntitlementCache,
     private val scope: CoroutineScope,
     private val worker: CoroutineDispatcher,
-    private val reporter: NonFatalReporter = NonFatalReporter.Logcat,
+    private val analytics: Analytics = Analytics.None,
 ) {
     // Read once here, before the first frame, so a VIP never sees a locked tile flash at launch.
     private val _entitlements = MutableStateFlow(cache.entitlements())
@@ -138,11 +138,11 @@ class BillingRepository(
     private suspend fun acknowledge(purchases: List<StorePurchase>) {
         for (p in purchases) {
             if (p.state != PurchaseState.PURCHASED || p.acknowledged) continue
-            val code = backend.acknowledge(p.token).let {
-                if (it == BillingCode.DISCONNECTED && backend.connect() == BillingCode.OK) backend.acknowledge(p.token) else it
+            // Not acknowledged now: the next query tries again, well inside Play's 3 days. The backend reports it with
+            // Play's own words.
+            backend.acknowledge(p).let {
+                if (it == BillingCode.DISCONNECTED && backend.connect() == BillingCode.OK) backend.acknowledge(p)
             }
-            // Not acknowledged now: the next query tries again, well inside Play's 3 days.
-            if (code != BillingCode.OK) reporter.report(IOException("acknowledge ${p.products}: $code"))
         }
     }
 
@@ -154,6 +154,7 @@ class BillingRepository(
                 matching.any { it.state == PurchaseState.PURCHASED } -> {
                     pending -= product
                     succeeded(product)
+                    purchased(product)
                 }
                 matching.none { it.state == PurchaseState.PENDING } -> {
                     pending -= product
@@ -161,6 +162,18 @@ class BillingRepository(
                 }
             }
         }
+    }
+
+    /** A purchase that went through just now (not one restored or already owned): vip_purchased / remove_ads_purchased. */
+    private fun purchased(product: String) {
+        analytics.log(
+            when (product) {
+                Products.REMOVE_ADS -> AnalyticsEvent.removeAdsPurchased
+                Products.VIP_WEEKLY -> AnalyticsEvent.vipPurchased("weekly")
+                Products.VIP_YEARLY -> AnalyticsEvent.vipPurchased("yearly")
+                else -> return
+            },
+        )
     }
 
     /** Worker only. */
@@ -222,6 +235,7 @@ class BillingRepository(
                                 PurchaseState.PURCHASED -> {
                                     pending -= product
                                     succeeded(product)
+                                    purchased(product)
                                 }
                                 PurchaseState.PENDING -> {
                                     pending += product

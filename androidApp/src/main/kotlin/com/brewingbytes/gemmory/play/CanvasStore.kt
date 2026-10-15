@@ -17,6 +17,8 @@ import com.brewingbytes.gemmory.storage.CanvasRepository
 import com.brewingbytes.gemmory.storage.LoadProblem
 import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.WriteResult
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -64,6 +66,7 @@ class CanvasStore(
     private val bundledGrid: (BundledPicture) -> ByteArray = { error("no bundled grids") },
     private val encodes: EncodeCanceller,
     reporter: NonFatalReporter = NonFatalReporter.Logcat,
+    private val analytics: Analytics = Analytics.None,
 ) {
     val repository = CanvasRepository(filesDir, reporter)
     private val swept: Job = scope.launch(writer) { repository.sweep() }
@@ -87,12 +90,13 @@ class CanvasStore(
     suspend fun open(ref: CanvasRef): Opened {
         settle(ref)
         return withContext(writer) {
-            ensureBundled(ref)
+            val started = ensureBundled(ref)
             val (grid, log) = when (val r = repository.load(ref)) {
                 is LoadResult.Loaded -> r.grid to r.log
                 is LoadResult.RecoveredFromLastGood -> r.grid to r.log
                 is LoadResult.Damaged -> return@withContext Opened.Damaged(r.problem)
             }
+            if (started) analytics.log(AnalyticsEvent.canvasStarted(ref, grid.pattern.width, grid.pattern.height))
             // The codec already refused duplicate and out-of-range logs, so a replay can't fail here.
             val state = CanvasState.restore(grid.pattern, log) ?: return@withContext Opened.Damaged(null)
             val record = repository.readRecord(ref)
@@ -121,6 +125,9 @@ class CanvasStore(
             saver = saver,
             clock = clock,
             onStopped = { played -> scope.launch(writer) { writePlayTime(ref, opened.record, played) } },
+            onPictureFinished = {
+                analytics.log(AnalyticsEvent.canvasFinished(ref, opened.grid.pattern.width, opened.grid.pattern.height))
+            },
             onClosed = { lastWrite, played ->
                 val done = scope.launch(writer) {
                     lastWrite.join()
@@ -146,7 +153,12 @@ class CanvasStore(
         swept.join()
         return withContext(writer) {
             if (repository.dirOf(ref).isDirectory) return@withContext WriteResult.Written
-            repository.create(ref, GridCodec.encode(pattern), record, sourceJpeg)
+            repository.create(ref, GridCodec.encode(pattern), record, sourceJpeg).also {
+                if (it == WriteResult.Written) {
+                    analytics.log(AnalyticsEvent.canvasStarted(ref, pattern.width, pattern.height))
+                    analytics.log(AnalyticsEvent.photoCanvasStarted)
+                }
+            }
         }
     }
 
@@ -234,10 +246,11 @@ class CanvasStore(
         closing[ref]?.join()
     }
 
-    private fun ensureBundled(ref: CanvasRef) {
-        if (ref.kind != CanvasKind.BUNDLED || repository.dirOf(ref).isDirectory) return
-        val picture = BundledPictures.byId(ref.id) ?: return
-        repository.create(ref, bundledGrid(picture), CanvasRecord("", System.currentTimeMillis(), 0L))
+    /** True when this call copied the picture in, i.e. the player just started it. */
+    private fun ensureBundled(ref: CanvasRef): Boolean {
+        if (ref.kind != CanvasKind.BUNDLED || repository.dirOf(ref).isDirectory) return false
+        val picture = BundledPictures.byId(ref.id) ?: return false
+        return repository.create(ref, bundledGrid(picture), CanvasRecord("", System.currentTimeMillis(), 0L)) == WriteResult.Written
     }
 
     private fun summarize(ref: CanvasRef): CanvasSummary {

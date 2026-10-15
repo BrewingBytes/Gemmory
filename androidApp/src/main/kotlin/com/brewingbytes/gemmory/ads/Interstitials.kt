@@ -5,6 +5,8 @@ import android.util.Log
 import com.brewingbytes.gemmory.policy.AdMoment
 import com.brewingbytes.gemmory.policy.InterstitialContext
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.timelapse.EncodeState
 
 /**
@@ -16,6 +18,7 @@ class Interstitials(
     private val monetization: Monetization,
     private val gateway: AdGateway,
     private val encodeState: (CanvasRef) -> EncodeState,
+    private val analytics: Analytics = Analytics.None,
     private val log: (String) -> Unit = { Log.i(TAG, it) },
 ) {
     private fun context(sharing: Boolean) =
@@ -40,7 +43,10 @@ class Interstitials(
             log("interstitial blocked: $block")
             return
         }
-        val shown = gateway.showInterstitial(activity) { monetization.onInterstitialShown() }
+        val shown = gateway.showInterstitial(activity) {
+            monetization.onInterstitialShown()
+            analytics.log(AnalyticsEvent.interstitialShown)
+        }
         log(if (shown) "interstitial shown" else "interstitial allowed, none loaded")
     }
 

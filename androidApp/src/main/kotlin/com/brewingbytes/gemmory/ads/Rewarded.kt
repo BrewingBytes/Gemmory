@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.ads
 
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.UnavailableReason
 import android.app.Activity
 import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
@@ -97,6 +99,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
     fun open(target: RewardTarget, activity: Activity) {
         if (ui != null) return
         ui = RewardedUi(target, RewardPhase.Loading)
+        app.analytics.log(AnalyticsEvent.rewardedOffered(target.type))
         load(activity)
     }
 
@@ -125,14 +128,18 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
             val result = if (allowed) gateway.loadRewarded() else RewardedLoad.Failed(LoadFailure.OTHER)
             val phase = when (result) {
                 RewardedLoad.Loaded -> RewardPhase.Ready
-                is RewardedLoad.Failed -> RewardPhase.NotAvailable(
-                    RewardedRules.unavailable(
-                        failure = result.failure,
-                        online = gateway.online(),
-                        sdkReady = gateway.sdkReady,
-                        graceAvailable = monetization.graceAvailable(current.target.type),
-                    ),
-                )
+                is RewardedLoad.Failed -> {
+                    val online = gateway.online()
+                    app.analytics.log(AnalyticsEvent.rewardedUnavailable(current.target.type, UnavailableReason.of(result.failure, online)))
+                    RewardPhase.NotAvailable(
+                        RewardedRules.unavailable(
+                            failure = result.failure,
+                            online = online,
+                            sdkReady = gateway.sdkReady,
+                            graceAvailable = monetization.graceAvailable(current.target.type),
+                        ),
+                    )
+                }
             }
             ui = ui?.copy(phase = phase)
         }
@@ -152,6 +159,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                 }
                 monetization.onRewardedShown()
                 if (earned) {
+                    app.analytics.log(AnalyticsEvent.rewardedWatched(current.target.type))
                     grant(current.target)
                 } else {
                     // Closed early: no reward, no grace, no penalty; a fresh video loads for another go.
@@ -185,6 +193,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                 ui = ui?.copy(phase = RewardPhase.NotAvailable(Unavailable.NO_VIDEO))
                 return@launch
             }
+            app.analytics.log(AnalyticsEvent.graceUnlockGranted(current.target.type))
             when (val target = current.target) {
                 is RewardTarget.Picture -> unlocked(target.id)
                 RewardTarget.PhotoCanvas -> {

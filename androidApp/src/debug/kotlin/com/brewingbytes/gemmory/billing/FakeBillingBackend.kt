@@ -108,8 +108,9 @@ class FakeBillingBackend : BillingBackend {
         return Outcome.Ok(if (offerRemoveAds) prices else prices.copy(removeAds = null))
     }
 
-    override suspend fun acknowledge(token: String): BillingCode {
+    override suspend fun acknowledge(purchase: StorePurchase): BillingCode {
         if (!reachable) return BillingCode.NETWORK
+        val token = purchase.token
         synchronized(this) {
             val i = owned.indexOfFirst { it.token == token }
             if (i >= 0) owned[i] = owned[i].copy(acknowledged = true)

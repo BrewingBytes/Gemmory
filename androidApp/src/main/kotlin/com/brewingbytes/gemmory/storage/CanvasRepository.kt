@@ -11,6 +11,7 @@ import com.brewingbytes.gemmory.save.SaveCodec
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.save.ViewStateCodec
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import com.brewingbytes.gemmory.telemetry.reportLabel
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -141,7 +142,7 @@ class CanvasRepository internal constructor(
         // Newer progress than this app can read: falling back would let the next write overwrite it.
         val newer = problem is LoadProblem.Refused && problem.refusal is Refusal.NewerVersion
         if (!newer && lastGood is Attempt.Ok) {
-            reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: recovered from last good save, $problem"))
+            reporter.report(CanvasStorageException("${ref.reportLabel}: recovered from last good save, $problem"))
             return LoadResult.RecoveredFromLastGood(grid, lastGood.value, problem)
         }
         return damaged(ref, problem)
@@ -155,7 +156,7 @@ class CanvasRepository internal constructor(
         val bytes = try {
             codec.encode(grid, log)
         } catch (e: IllegalArgumentException) {
-            reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: refused to encode save", e))
+            reporter.report(CanvasStorageException("${ref.reportLabel}: refused to encode save", e))
             return WriteResult.WriteFailed(diskFull = false)
         }
         val save = File(dir, SAVE)
@@ -172,7 +173,7 @@ class CanvasRepository internal constructor(
                 if (current is Decoded.Ok) {
                     files.write(File(dir, LAST_GOOD), currentBytes)
                 } else if ((current as? Decoded.Refused)?.reason is Refusal.NewerVersion) {
-                    reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: won't overwrite a newer save"))
+                    reporter.report(CanvasStorageException("${ref.reportLabel}: won't overwrite a newer save"))
                     return WriteResult.WriteFailed(diskFull = false)
                 }
             }
@@ -253,7 +254,7 @@ class CanvasRepository internal constructor(
         for (name in listOf(LAST_GOOD, SAVE, VIEW, THUMB)) {
             val f = File(dir, name)
             if (f.exists() && !f.delete()) {
-                reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: clearing $name failed"))
+                reporter.report(CanvasStorageException("${ref.reportLabel}: clearing $name failed"))
                 return false
             }
         }
@@ -278,7 +279,7 @@ class CanvasRepository internal constructor(
             doomed.deleteRecursively()
             true
         } catch (e: IOException) {
-            reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: delete failed", e))
+            reporter.report(CanvasStorageException("${ref.reportLabel}: delete failed", e))
             false
         }
     }
@@ -317,14 +318,14 @@ class CanvasRepository internal constructor(
 
     private fun damaged(ref: CanvasRef, problem: LoadProblem): LoadResult.Damaged {
         val cause = (problem as? LoadProblem.Unreadable)?.error
-        reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: damaged, $problem", cause))
+        reporter.report(CanvasStorageException("${ref.reportLabel}: damaged, $problem", cause))
         return LoadResult.Damaged(problem)
     }
 
     /** A full disk is the player's to fix and is shown on the canvas, so only other failures are reported. */
     private fun writeFailed(ref: CanvasRef, what: String, e: IOException): WriteResult.WriteFailed {
         val diskFull = AtomicFiles.isDiskFull(e)
-        if (!diskFull) reporter.report(CanvasStorageException("${ref.kind}/${ref.id}: $what write failed", e))
+        if (!diskFull) reporter.report(CanvasStorageException("${ref.reportLabel}: $what write failed", e))
         return WriteResult.WriteFailed(diskFull)
     }
 

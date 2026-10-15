@@ -60,7 +60,7 @@ interface BillingBackend {
 
     suspend fun queryPrices(): Outcome<Prices>
 
-    suspend fun acknowledge(token: String): BillingCode
+    suspend fun acknowledge(purchase: StorePurchase): BillingCode
 
     /** Opens Play's purchase sheet for [product] (a base plan for subscriptions). The result arrives on [updates]. */
     fun launchPurchase(activity: Activity, product: String): BillingCode

@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.billing
 
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import android.app.Activity
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
@@ -57,7 +59,8 @@ class BillingRepositoryTest {
             return prices
         }
 
-        override suspend fun acknowledge(token: String): BillingCode {
+        override suspend fun acknowledge(purchase: StorePurchase): BillingCode {
+            val token = purchase.token
             calls += "ack $token"
             if (ackCode == BillingCode.OK) {
                 acknowledged += token
@@ -84,14 +87,18 @@ class BillingRepositoryTest {
 
     private val client = FakeClient()
     private val store = MemoryStore()
-    private val reports = mutableListOf<Throwable>()
+    private val events = mutableListOf<AnalyticsEvent>()
 
     private fun TestScope.repository() = BillingRepository(
         backend = client,
         cache = EntitlementCache({ now }, store),
         scope = backgroundScope,
         worker = UnconfinedTestDispatcher(testScheduler),
-        reporter = { reports += it },
+        analytics = object : Analytics {
+            override fun log(event: AnalyticsEvent) {
+                events += event
+            }
+        },
     )
 
     private fun purchase(product: String, state: PurchaseState = PurchaseState.PURCHASED, acknowledged: Boolean = true, token: String = "t-$product") =
@@ -147,7 +154,6 @@ class BillingRepositoryTest {
         )
         client.ackCode = BillingCode.NETWORK
         r.refresh()
-        assertEquals(1, reports.size, "a failed acknowledge is reported")
         assertTrue(client.acknowledged.isEmpty())
         client.ackCode = BillingCode.OK
         r.refresh()
@@ -204,6 +210,7 @@ class BillingRepositoryTest {
         assertEquals(PurchaseUi.Succeeded(Products.VIP_YEARLY), r.purchase.value)
         assertEquals(Notice.VIP_STARTED, r.notice.value)
         assertEquals(Entitlements(VipPlan.YEARLY), r.entitlements.value)
+        assertEquals(listOf(AnalyticsEvent.vipPurchased("yearly")), events)
         r.purchaseHandled()
         assertEquals(PurchaseUi.Idle, r.purchase.value)
     }
@@ -217,6 +224,7 @@ class BillingRepositoryTest {
         client.queryCodes += BillingCode.NETWORK
         client.updates.emit(PurchaseUpdate(BillingCode.OK, listOf(purchase(Products.VIP_WEEKLY))))
         assertEquals(Entitlements(VipPlan.WEEKLY, removeAds = true), r.entitlements.value)
+        assertEquals(listOf(AnalyticsEvent.vipPurchased("weekly")), events)
     }
 
     @Test
@@ -228,7 +236,6 @@ class BillingRepositoryTest {
         client.updates.emit(PurchaseUpdate(BillingCode.OK, listOf(purchase(Products.VIP_YEARLY, acknowledged = false))))
         assertEquals(Membership.FREE, r.membership.value, "the follow-up query holds nothing")
         assertNull(r.notice.value, "no \"You're VIP\" over a Free membership")
-        assertEquals(1, reports.size)
 
         // Bought, then refunded and revoked before the gallery showed the line.
         r.purchaseHandled()
@@ -263,6 +270,7 @@ class BillingRepositoryTest {
         client.updates.emit(PurchaseUpdate(BillingCode.OK, client.owned))
         assertEquals(Notice.ADS_OFF, r.notice.value)
         assertEquals(Membership.ADS_REMOVED, r.membership.value)
+        assertEquals(listOf(AnalyticsEvent.removeAdsPurchased), events)
     }
 
     @Test
@@ -302,6 +310,7 @@ class BillingRepositoryTest {
         assertEquals(PurchaseUi.Pending(Products.REMOVE_ADS), r.purchase.value)
         assertEquals(Entitlements.FREE, r.entitlements.value)
         assertTrue(client.acknowledged.isEmpty())
+        assertTrue(events.isEmpty(), "a pending payment isn't a purchase yet")
         r.purchaseHandled()
         assertEquals(PurchaseUi.Pending(Products.REMOVE_ADS), r.purchase.value, "still pending when the paywall reopens")
 
@@ -312,6 +321,7 @@ class BillingRepositoryTest {
         assertEquals(listOf("t-remove_ads"), client.acknowledged)
         assertEquals(Notice.ADS_OFF, r.notice.value)
         assertEquals(PurchaseUi.Succeeded(Products.REMOVE_ADS), r.purchase.value)
+        assertEquals(listOf(AnalyticsEvent.removeAdsPurchased), events, "counted once Play confirms it")
     }
 
     @Test
@@ -342,6 +352,7 @@ class BillingRepositoryTest {
         r.buy(ACTIVITY, Products.REMOVE_ADS)
         client.updates.emit(PurchaseUpdate(BillingCode.ALREADY_OWNED, emptyList()))
         assertEquals(PurchaseUi.Failed, r.purchase.value, "Play doesn't actually list it")
+        assertTrue(events.isEmpty(), "already owned isn't a new purchase")
     }
 
     @Test

@@ -3,7 +3,10 @@ package com.brewingbytes.gemmory.timelapse
 import android.util.Log
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import com.brewingbytes.gemmory.telemetry.reportLabel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -48,11 +51,14 @@ sealed interface EncodeState {
     data object DiskFull : EncodeState
 }
 
-/** Non-fatal for one failed attempt (eng E1): ids, target, codec, stage and error class only. */
+/** Non-fatal for one failed attempt (eng E1): canvas kind, target, codec, stage and the error, never paths or titles. */
 class TimelapseAttemptException(ref: CanvasRef, failure: AttemptFailure) : Exception(
-    "time-lapse ${ref.kind}/${ref.id} target=${failure.target ?: "picture"} codec=${failure.codec} stage=${failure.stage}",
+    "time-lapse ${ref.reportLabel} target=${failure.target ?: "picture"} codec=${failure.codec} stage=${failure.stage}",
     failure.error,
 )
+
+/** Non-fatal for an encode that failed outside the fallback chain. */
+class TimelapseException(ref: CanvasRef, cause: Throwable) : Exception("time-lapse ${ref.reportLabel} failed", cause)
 
 /**
  * App-scoped time-lapse encodes (eng D2, E4d, E7, re-check R-X1 and finding 3). An encode starts on Share tap, runs
@@ -69,6 +75,7 @@ class EncodeManager(
     private val backend: (EncodeRequest, (EncodeTarget?) -> File) -> EncodeBackend,
     private val canvasExists: (CanvasRef) -> Boolean,
     private val reporter: NonFatalReporter = NonFatalReporter.Logcat,
+    private val analytics: Analytics = Analytics.None,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val log: (String) -> Unit = { Log.i("Gemmory", it) },
     private val nowNanos: () -> Long = System::nanoTime,
@@ -180,7 +187,13 @@ class EncodeManager(
                 ChainOutcome.Failed -> EncodeState.Failed
                 ChainOutcome.DiskFull -> EncodeState.DiskFull
             }
-            log("time-lapse ${ref.id}: $outcome in ${(nowNanos() - started) / 1_000_000} ms")
+            val wallMs = (nowNanos() - started) / 1_000_000
+            log("time-lapse ${ref.id}: $outcome in $wallMs ms")
+            // Eng finding 16: how long encodes really take. Analytics measures it across phones (consented players);
+            // the Crashlytics keys only ride along with reports recorded later in this process.
+            analytics.log(AnalyticsEvent.timelapseMade(ref, request.pattern.width, request.pattern.height, outcomeName(outcome), wallMs))
+            reporter.setKey(KEY_WALL_MS, wallMs.toString())
+            reporter.setKey(KEY_OUTCOME, outcomeName(outcome))
             marker.delete()
             // Null: the canvas was deleted meanwhile, so there's nothing to show.
             post(ref, job, result ?: EncodeState.Idle)
@@ -188,7 +201,7 @@ class EncodeManager(
             marker.delete()
             throw e
         } catch (e: Exception) {
-            reporter.report(e)
+            reporter.report(TimelapseException(ref, e))
             partialsOf(ref).forEach { it.delete() }
             marker.delete()
             post(ref, job, EncodeState.Failed)
@@ -234,6 +247,17 @@ class EncodeManager(
 
     companion object {
         const val DIR = "timelapse"
+
+        /** Crashlytics custom keys: the last encode's wall time in ms and how it ended. */
+        const val KEY_WALL_MS = "encode_wall_ms"
+        const val KEY_OUTCOME = "encode_outcome"
+
+        fun outcomeName(outcome: ChainOutcome): String = when (outcome) {
+            is ChainOutcome.Video -> "video_${outcome.target.height}"
+            ChainOutcome.Picture -> "picture"
+            ChainOutcome.Failed -> "failed"
+            ChainOutcome.DiskFull -> "disk_full"
+        }
         private const val PARTIAL = ".partial"
     }
 }

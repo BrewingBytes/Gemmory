@@ -5,6 +5,10 @@ import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import com.brewingbytes.gemmory.telemetry.TelemetryCheck
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,7 +37,19 @@ class EncodeManagerTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val ref = CanvasRef(CanvasKind.BUNDLED, "starter")
     private val photo = CanvasRef(CanvasKind.PHOTO, "photo-1")
-    private val reports = mutableListOf<Throwable>()
+    private val reports = java.util.Collections.synchronizedList(mutableListOf<Throwable>())
+    private val keys = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val reporter = object : NonFatalReporter {
+        override fun report(error: Throwable) {
+            reports += error
+        }
+
+        override fun setKey(key: String, value: String) {
+            keys[key] = value
+        }
+    }
+    private var clock: () -> Long = System::nanoTime
+    private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
     private val existing = mutableSetOf(ref, photo)
     private val backends = AtomicInteger()
 
@@ -94,16 +110,22 @@ class EncodeManagerTest {
         override fun freeBytes(): Long = Long.MAX_VALUE
     }
 
-    private fun manager() = EncodeManager(
+    private fun manager(wrap: (EncodeBackend) -> EncodeBackend = { it }) = EncodeManager(
         cacheDir = tmp.root,
         scope = scope,
         backend = { _, partialOf ->
             backends.incrementAndGet()
-            Scripted(partialOf)
+            wrap(Scripted(partialOf))
         },
         canvasExists = { it in existing },
-        reporter = { reports += it },
+        reporter = reporter,
+        analytics = object : Analytics {
+            override fun log(event: AnalyticsEvent) {
+                events += event
+            }
+        },
         log = {},
+        nowNanos = { clock() },
     )
 
     private fun request(r: CanvasRef = ref, logSize: Int = 12, watermark: Boolean = true) =
@@ -282,6 +304,68 @@ class EncodeManagerTest {
         assertEquals(listOf("starter.12.wm.mp4"), files())
         assertIs<TimelapseAttemptException>(reports.single())
         assertTrue("target=1080x1920@30" in reports.single().message!!)
+    }
+
+    @Test
+    fun anAttemptReportNamesCodecTargetStageAndErrorButNoIdPathOrTitle() {
+        failing = setOf(EncodeTarget.FULL_HD)
+        val m = manager()
+        assertIs<EncodeState.Video>(m.shareAndWait(request(photo)))
+        val report = assertIs<TimelapseAttemptException>(reports.single())
+        assertEquals("time-lapse photo target=1080x1920@30 codec=c2.fake stage=ENCODE", report.message)
+        assertIs<EncodeFailure>(report.cause)
+        val text = generateSequence<Throwable>(report) { it.cause }.joinToString { it.toString() }
+        for (secret in listOf(photo.id, "The Starry Night", tmp.root.path)) assertFalse(secret in text, secret)
+    }
+
+    @Test
+    fun aBundledReportNamesThePicture() {
+        failing = setOf(EncodeTarget.FULL_HD)
+        manager().shareAndWait(request())
+        assertTrue(reports.single().message!!.startsWith("time-lapse bundled/starter "))
+    }
+
+    @Test
+    fun everyEncodeSetsItsWallTimeAndOutcomeKeys() {
+        val ticks = java.util.concurrent.ConcurrentLinkedQueue(listOf(1_000_000_000L, 3_345_000_000L))
+        clock = { ticks.poll() ?: 0L }
+        val m = manager()
+        m.shareAndWait(request())
+        assertEquals(mapOf(EncodeManager.KEY_WALL_MS to "2345", EncodeManager.KEY_OUTCOME to "video_1920"), keys.toMap())
+        assertEquals(
+            listOf(AnalyticsEvent("timelapse_made", mapOf("source" to "bundled", "size" to "starter", "outcome" to "video_1920", "wall_ms" to 2345L))),
+            events.toList(),
+        )
+
+        m.acknowledge(ref)
+        ticks += listOf(0L, 10_000_000L)
+        supported = emptySet()
+        m.shareAndWait(request(logSize = 11))
+        assertEquals(mapOf(EncodeManager.KEY_WALL_MS to "10", EncodeManager.KEY_OUTCOME to "picture"), keys.toMap())
+    }
+
+    @Test
+    fun aCachedReshareSetsNoKeys() {
+        val m = manager()
+        m.shareAndWait(request())
+        m.acknowledge(ref)
+        keys.clear()
+        events.clear()
+        m.shareAndWait(request())
+        assertTrue(keys.isEmpty())
+        assertTrue(events.isEmpty(), "a cached re-share encodes nothing")
+    }
+
+    @Test
+    fun theTelemetryCheckFailsOneFullHdAttemptAtConfigureThenDropsTo720() {
+        TelemetryCheck.armEncoderFailure()
+        val m = manager(TelemetryCheck::wrap)
+        assertEquals("mp4 720x1280@30", assertIs<EncodeState.Video>(m.shareAndWait(request())).file.readText())
+        assertEquals("time-lapse bundled/starter target=1080x1920@30 codec=c2.fake stage=CONFIGURE", reports.single().message)
+        m.acknowledge(ref)
+        val second = assertIs<EncodeState.Video>(m.shareAndWait(request(logSize = 11)))
+        assertEquals("mp4 1080x1920@30", second.file.readText(), "armed once only")
+        assertEquals(1, reports.size)
     }
 
     @Test

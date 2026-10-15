@@ -3,6 +3,10 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // Firebase (#12): google-services.json (committed; it names the project, it isn't a secret) and Crashlytics,
+    // which also uploads the release R8 mapping file so Console stack traces are readable.
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 // Release signing reads the upload key from local.properties (git-ignored); the keystore lives outside the repo.
@@ -25,8 +29,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 4
-        versionName = "0.2.2"
+        versionCode = 6
+        versionName = "0.2.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
@@ -40,6 +44,9 @@ android {
         buildConfigField("boolean", "UMP_DEBUG_EEA", "false")
         buildConfigField("String", "UMP_TEST_DEVICE", "\"\"")
         buildConfigField("boolean", "FAKE_BILLING", "false")
+        // Crashlytics and Analytics send from release builds only (#12). The manifest reads the same switch.
+        buildConfigField("boolean", "FIREBASE", "true")
+        manifestPlaceholders["firebaseEnabled"] = "true"
     }
 
     signingConfigs {
@@ -60,6 +67,10 @@ android {
             // Debug builds use the fake billing backend (src/debug) unless `-Pgemmory.fakeBilling=false`, which the
             // license-tester run on a Play Store emulator needs (#8). Release builds always use Google Play.
             buildConfigField("boolean", "FAKE_BILLING", providers.gradleProperty("gemmory.fakeBilling").getOrElse("true"))
+            // Debug builds keep crashes, non-fatals and events on the phone (Logcat) unless `-Pgemmory.firebaseInDebug=true`.
+            val firebaseInDebug = providers.gradleProperty("gemmory.firebaseInDebug").getOrElse("false")
+            buildConfigField("boolean", "FIREBASE", firebaseInDebug)
+            manifestPlaceholders["firebaseEnabled"] = firebaseInDebug
         }
         release {
             // R8: the mapping file goes into the App Bundle, so Play Console shows readable stack traces for crashes
@@ -105,6 +116,10 @@ dependencies {
     implementation(libs.play.billing.ktx)
     // Bundled (on-device) model: the face check never sends the photo anywhere (design doc, photo privacy).
     implementation(libs.mlkit.face.detection)
+    // Crash + non-fatal reports (always on, D17) and Analytics events under UMP consent (Consent Mode v2, R3-7).
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.kotlin.test.junit)
@@ -119,3 +134,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4.accessibility)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// The Crashlytics plugin makes the mapping upload task but doesn't hang it on the App Bundle: every release AAB
+// uploads its R8 mapping, so the Crashlytics Console shows readable stack traces (#12). Needs network.
+tasks.matching { it.name == "bundleRelease" }.configureEach { finalizedBy("uploadCrashlyticsMappingFileRelease") }
