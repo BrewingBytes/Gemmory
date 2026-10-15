@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 /**
  * A scriptable Play for debug builds and device checks: prices that load, hang or fail, purchases that succeed,
  * go pending, get cancelled or fail, restore results, and a Play that can't be reached (for the 7-day fallback).
- * The prices are made up and exist only here; release builds read them from Play.
+ * The prices mirror the Console and exist only here; release builds read them from Play.
  */
 class FakeBillingBackend : BillingBackend {
     /** What a purchase does when Play's sheet would close. */
@@ -48,10 +48,11 @@ class FakeBillingBackend : BillingBackend {
     private val _updates = MutableSharedFlow<PurchaseUpdate>(extraBufferCapacity = 8)
     override val updates: Flow<PurchaseUpdate> = _updates.asSharedFlow()
 
+    /** The Console's base prices (EUR, founder call #8), so debug builds and store screenshots match Play. */
     val prices = Prices(
-        weekly = Price("$2.99", 2_990_000, "USD"),
-        yearly = Price("$29.99", 29_990_000, "USD"),
-        removeAds = Price("$4.99", 4_990_000, "USD"),
+        weekly = Price("€0.99", 990_000, "EUR"),
+        yearly = Price("€19.99", 19_990_000, "EUR"),
+        removeAds = Price("€2.99", 2_990_000, "EUR"),
     )
 
     /** Back to a fresh account that owns nothing, with Play reachable. */
