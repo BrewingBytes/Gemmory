@@ -43,18 +43,3 @@ interface StateStore<T> {
 
     fun save(value: T)
 }
-
-/** What the player has bought. Billing (#8) fills it in; until then everyone is [FREE]. */
-enum class Tier { FREE, REMOVE_ADS, VIP }
-
-data class Entitlements(val tier: Tier) {
-    /** No interstitials (VIP or remove-ads). */
-    val adsRemoved: Boolean get() = tier != Tier.FREE
-
-    /** Unlimited photo canvases and every picture unlocked; rewarded ads are never offered. */
-    val vip: Boolean get() = tier == Tier.VIP
-
-    companion object {
-        val FREE = Entitlements(Tier.FREE)
-    }
-}

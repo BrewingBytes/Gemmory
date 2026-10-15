@@ -45,7 +45,7 @@ class EncodeCancelTest {
     private val request: EncodeRequest by lazy {
         val bytes = context.assets.open(BundledPictures.STARTER.asset).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
-        EncodeRequest(ref, pattern, pattern.cells.indices.toList().toIntArray(), "The Starry Night", source = null)
+        EncodeRequest(ref, pattern, pattern.cells.indices.toList().toIntArray(), "The Starry Night", source = null, watermark = true)
     }
 
     @After

@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Release signing reads the upload key from local.properties (git-ignored); the keystore lives outside the repo.
+// Keys: gemmory.upload.storeFile, gemmory.upload.storePassword, gemmory.upload.keyAlias, gemmory.upload.keyPassword.
+// Without them the release build is unsigned and Play rejects it.
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val uploadStoreFile: String? = localProps.getProperty("gemmory.upload.storeFile")
 
 kotlin {
     jvmToolchain(17)
@@ -15,8 +25,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
@@ -29,15 +39,31 @@ android {
         // `-Pgemmory.umpTestDevice=<hashed id from logcat>` marks the device as a test device. Debug builds only.
         buildConfigField("boolean", "UMP_DEBUG_EEA", "false")
         buildConfigField("String", "UMP_TEST_DEVICE", "\"\"")
+        buildConfigField("boolean", "FAKE_BILLING", "false")
+    }
+
+    signingConfigs {
+        if (uploadStoreFile != null) {
+            create("upload") {
+                storeFile = file(uploadStoreFile)
+                storePassword = localProps.getProperty("gemmory.upload.storePassword")
+                keyAlias = localProps.getProperty("gemmory.upload.keyAlias")
+                keyPassword = localProps.getProperty("gemmory.upload.keyPassword")
+            }
+        }
     }
 
     buildTypes {
         debug {
             buildConfigField("boolean", "UMP_DEBUG_EEA", providers.gradleProperty("gemmory.umpDebugEea").getOrElse("false"))
             buildConfigField("String", "UMP_TEST_DEVICE", "\"${providers.gradleProperty("gemmory.umpTestDevice").getOrElse("")}\"")
+            // Debug builds use the fake billing backend (src/debug) unless `-Pgemmory.fakeBilling=false`, which the
+            // license-tester run on a Play Store emulator needs (#8). Release builds always use Google Play.
+            buildConfigField("boolean", "FAKE_BILLING", providers.gradleProperty("gemmory.fakeBilling").getOrElse("true"))
         }
         release {
             isMinifyEnabled = false
+            if (uploadStoreFile != null) signingConfig = signingConfigs.getByName("upload")
         }
     }
 
@@ -70,6 +96,8 @@ dependencies {
     // Rewarded + interstitial ads and the UMP consent form (#7). Test ad units only for now (ads/AdUnits.kt).
     implementation(libs.play.services.ads)
     implementation(libs.ump)
+    // Play Billing (#8): VIP subscriptions and remove_ads. Its manifest adds com.android.vending.BILLING.
+    implementation(libs.play.billing.ktx)
     // Bundled (on-device) model: the face check never sends the photo anywhere (design doc, photo privacy).
     implementation(libs.mlkit.face.detection)
     debugImplementation(libs.androidx.compose.ui.tooling)

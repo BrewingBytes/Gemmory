@@ -48,6 +48,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -128,6 +130,9 @@ private sealed interface GallerySheet {
     }
 }
 
+/** The gallery's "VIP" action, also where TalkBack focus returns when the paywall closes. */
+const val VIP_ACTION_TAG = "gallery-vip"
+
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
 fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.id}"
 
@@ -150,6 +155,9 @@ fun GalleryScreen(
     onOpen: (Tile) -> Unit,
     onLocked: (Tile) -> Unit,
     onSettings: () -> Unit,
+    showVip: Boolean = false,
+    onVip: () -> Unit = {},
+    notice: String? = null,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
@@ -167,8 +175,24 @@ fun GalleryScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         Column(Modifier.fillMaxSize()) {
-            AppTopBar("Gemmory", onBack = null) { IconAction(GemIcons.Settings, "Settings", onSettings) }
+            AppTopBar("Gemmory", onBack = null) {
+                // Quiet, from the 2nd session on (design D3): never on the first launch.
+                if (showVip) GemTextButton("VIP", onVip, Modifier.testTag(VIP_ACTION_TAG))
+                IconAction(GemIcons.Settings, "Settings", onSettings)
+            }
             Tabs(tab, onTab = vm::selectTab)
+            if (notice != null) {
+                // Billing's one-time line (design D6, D7), read out when it appears.
+                Text(
+                    notice,
+                    style = GemType.body,
+                    color = GemColors.Bone,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .testTag("gallery-notice")
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
             if (decodeFailed) {
                 Text(
                     "This photo couldn't be opened. Try another one.",

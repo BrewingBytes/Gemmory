@@ -6,11 +6,14 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 
-/** Screens of the navigation map (design D3). Out of #13's scope: UMP consent, Paywall, rewarded sheets. */
+/** Screens of the navigation map (design D3). UMP consent and the rewarded sheet aren't routes. */
 sealed interface Route {
     data object Gallery : Route
 
     data object Settings : Route
+
+    /** VIP and remove-ads (#8): from the gallery's "VIP", Settings' Membership row or a rewarded sheet's VIP text. */
+    data object Paywall : Route
 
     /** Photo flow: the Photo Picker itself is a system screen, so the flow starts at Crop. */
     data object Crop : Route
@@ -32,6 +35,7 @@ sealed interface Route {
         fun encode(route: Route): String = when (route) {
             Gallery -> "gallery"
             Settings -> "settings"
+            Paywall -> "paywall"
             Crop -> "crop"
             Size -> "size"
             Preview -> "preview"
@@ -45,6 +49,7 @@ sealed interface Route {
             return when (parts[0]) {
                 "gallery" -> Gallery
                 "settings" -> Settings
+                "paywall" -> Paywall
                 "crop" -> Crop
                 "size" -> Size
                 "preview" -> Preview

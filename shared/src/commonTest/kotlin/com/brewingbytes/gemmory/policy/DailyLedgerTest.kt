@@ -13,7 +13,7 @@ class DailyLedgerTest {
     private val clock = FakeClock()
     private val store = CodecStore(LedgerCodec::encode) { (LedgerCodec.decode(it) as? Decoded.Ok)?.value }
     private val free = Entitlements.FREE
-    private val vip = Entitlements(Tier.VIP)
+    private val vip = Entitlements(VipPlan.YEARLY)
 
     private fun ledger() = DailyLedger(clock.day, store)
 
@@ -83,8 +83,8 @@ class DailyLedgerTest {
         assertEquals(Allowance.Unlimited, l.allowance(vip))
         repeat(5) { assertEquals(ConsumeResult.Ok(null, repeat = false), l.consume("photo-$it", vip)) }
         assertEquals(Allowance.Free, l.allowance(free), "a lapsed VIP still has today's free one")
-        assertEquals(Allowance.Unlimited, l.allowance(Entitlements(Tier.VIP)))
-        assertEquals(Allowance.Free, l.allowance(Entitlements(Tier.REMOVE_ADS)), "remove-ads doesn't add canvases")
+        assertEquals(Allowance.Unlimited, l.allowance(Entitlements(VipPlan.YEARLY)))
+        assertEquals(Allowance.Free, l.allowance(Entitlements(removeAds = true)), "remove-ads doesn't add canvases")
     }
 
     /** Local date changes, each row: (setup time, check time, whether the day reset). */

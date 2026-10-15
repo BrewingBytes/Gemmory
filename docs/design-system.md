@@ -366,7 +366,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 
 **Paywall.**
 - "Gemmory VIP" title, then four perk lines with patina square bullets: Every picture unlocked, Unlimited photo canvases, No ads ever, No watermark on your videos.
-- Yearly (pre-selected, lamp outline, shows the per-week equivalent) and Weekly plan rows. Prices are in mono.
+- Yearly (pre-selected, lamp outline, shows the per-week equivalent) and Weekly plan rows. Prices are in mono. Rows read "Yearly · $X / year ($Y a week)" and "Weekly · $X / week"; $Y is the yearly price over 52 weeks, rounded half up in the currency's own decimals. Base plans only, no trials or offers.
 - One primary "Start VIP" button, then a "Just remove ads" one-time row, then the renewal fine print.
 - No countdowns, no fake strike-through prices, no delayed close button. Prices come from Play Billing `ProductDetails`, never hard-coded.
 - **States** (Phase 5 D6):
@@ -375,7 +375,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 |---|---|
 | Prices loading | plan rows as `felt-raised` placeholders; Start VIP disabled |
 | Prices fail / offline | "Prices couldn't load. Connect and try again." + quiet "Try again" |
-| Purchase pending | "Payment pending. VIP starts when Google Play confirms it." |
+| Purchase pending | "Payment pending. VIP starts when Google Play confirms it." (remove-ads: "Payment pending. Ads turn off when Google Play confirms it.") |
 | User cancels | back to the paywall, no message |
 | Purchase error | "Google Play couldn't finish the purchase. You weren't charged." |
 | Success | the paywall closes; one gallery line: "You're VIP. Every picture is unlocked." (or "Ads are off for good." for remove-ads) |
@@ -389,7 +389,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - It's a plain bone row, not a red button.
   - Confirm: "Delete all photo canvases? Every photo, grid and its progress is removed from this phone. Pictures and purchases stay." Buttons: Delete (primary), Keep (text).
   - It cancels any running encode first (eng E4d).
-- Restore purchases is a quiet button. While running it shows "Checking Google Play…". Results appear inline: "Purchases restored: VIP (yearly)", "No purchases found on this account", or "Couldn't reach Google Play. Try again."
+- Restore purchases is a quiet button. While running it shows "Checking Google Play…". Results appear inline, in a polite live region, for that visit only: "Purchases restored: VIP (yearly)" / "Purchases restored: VIP (weekly)" / "Purchases restored: Ads removed", "No purchases found on this account", or "Couldn't reach Google Play. Try again."
 
 **9:16 time-lapse frame** (1080×1920).
 - The canvas spans the full 1080px width, top-aligned with a 36px margin.
@@ -471,3 +471,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-14 | Share enabled (#4): progress sheet, PNG fallback with "Before"/"After" labels, failure and disk-full messages inside the sheet, killed-encode line under Share | Implements the Share progress sheet and D8 edge states; the labels and in-sheet messages fill details the spec left open |
 | 2026-10-14 | Double-tap never delays a placing tap: it zooms only when neither tap places (a second tap that would place is a normal tap). Coach-hint flags may be backed up. Find in the large-screen rail is pinned at the top | Founder answers during #10. Standard double-tap detection would delay every placement by ~300ms |
 | 2026-10-14 | `text-muted` only on felt-deep, sheets and the dark felts: on the grained felt ground it measures 4.09:1, so the unselected tab, tile %, My Photos empty body, Settings version, top-bar progress, "Checking for faces…" and Preview's lines are `bone`. Allowance note on a `felt-deep` chip beside the button, stacked above it when narrow. "Place next gem" announces "311 left". Accessibility Scanner signal = the Accessibility Test Framework in instrumented tests (no Play Store on the emulator). Reduced-motion sheet fades run at their real 150ms | Founder answers during #14. The note floated over tile art and broke at 200% font |
+| 2026-10-15 | Billing (#8): the copy for the plan rows, "Just remove ads · $X once", the fine print "VIP renews automatically until you cancel. Cancel anytime in Google Play.", remove-ads pending, and Restore's weekly / Ads removed lines. Membership is a row with its value at the end; tapping it opens the paywall (Free, Ads removed) or Play's subscription page (VIP, and VIP not confirmed). Manage subscription also shows for VIP not confirmed. "Prices couldn't load" uses bone with the `fault` square on felt. Loading placeholders read "Loading prices" to TalkBack. Start VIP is disabled while a VIP payment is pending, the remove-ads row while its own is. The gallery line and the Restore result are polite live regions | Founder answers during #8 for the copy; the rest filled details the spec left open, confirmed by the founder on PR #28 (VIP not confirmed handling, "Loading prices") |

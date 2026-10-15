@@ -15,7 +15,11 @@ object StorageLayout {
     /** Bundled-picture progress. No user content, so it may be backed up. */
     const val BUNDLED_CANVASES = "$CANVASES/bundled"
 
-    /** The daily allowance + grace counters (DailyLedger) and the interstitial caps (AdPolicy). Never backed up. */
+    /**
+     * The daily allowance + grace counters (DailyLedger), the interstitial caps (AdPolicy) and the entitlement cache
+     * (EntitlementCache). Never backed up or transferred: a restored cache would carry VIP to a phone Play hasn't
+     * confirmed it on.
+     */
     const val LEDGER = "ledger"
 
     /** DailyLedger, "GMRL". */
@@ -23,4 +27,7 @@ object StorageLayout {
 
     /** AdPolicy, "GMRA". */
     const val LEDGER_ADS = "$LEDGER/ads"
+
+    /** EntitlementCache, "GMRE" (#8). */
+    const val LEDGER_ENTITLEMENTS = "$LEDGER/entitlements"
 }

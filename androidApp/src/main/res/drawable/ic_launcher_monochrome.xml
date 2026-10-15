@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon silhouette of ic_launcher_foreground: the gems filled, the empty cell outlined. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M34.13,31.75h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M48.27,31.75h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M62.4,31.75h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M34.13,45.88h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M48.27,45.88h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M62.4,45.88h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M34.13,60.02h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M48.27,60.02h8.47a2.38,2.38 0,0 1,2.38,2.38v8.47a2.38,2.38 0,0 1,-2.38,2.38h-8.47a2.38,2.38 0,0 1,-2.38,-2.38v-8.47a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M62.8,60.42h7.67a2.38,2.38 0,0 1,2.38,2.38v7.67a2.38,2.38 0,0 1,-2.38,2.38h-7.67a2.38,2.38 0,0 1,-2.38,-2.38v-7.67a2.38,2.38 0,0 1,2.38,-2.38z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M68.49,66.63h6.61a1.86,1.86 0,0 1,1.86,1.86v6.61a1.86,1.86 0,0 1,-1.86,1.86h-6.61a1.86,1.86 0,0 1,-1.86,-1.86v-6.61a1.86,1.86 0,0 1,1.86,-1.86z" />
+</vector>

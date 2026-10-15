@@ -215,7 +215,7 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
 ## Open Questions
 - Are faces recognizable at Quick, Medium and Big? Answered by the spike.
 - Do square or round gem visuals feel better on a phone? Design phase.
-- VIP price points for the weekly and yearly periods (the periods are committed). Is about $3.49/week and $29.99/year normal for this genre?
+- ~~VIP price points for the weekly and yearly periods (the periods are committed). Is about $3.49/week and $29.99/year normal for this genre?~~ **Decided (founder, #8, 2026-10-15):** base prices in EUR, Play converting other countries: `vip_weekly` €0.99/week, `vip_yearly` €19.99/year (shown as about €0.38 a week, ~60% under weekly), `remove_ads` €2.99 once (above one week of VIP, below the yearly plan). Genre check at the time: weekly $3.49-7.99, yearly $29.99-59.99, so Gemmory sits at the low end on purpose (no trial, no pressure tactics). Raising a price later goes through Play's subscriber notice and opt-in. The app reads every price from Play, so changes need no release.
 - ~~Where do the bundled pictures come from?~~ **Decided (CEO review CONTENT-1):** a mix of licensed stock photos run through Gemmory's own converter, plus AI-generated art from an image model whose terms grant commercial use.
   - Keep a provenance sheet per picture: source, license or model, terms URL, date.
   - AI art copyright is unsettled, so prefer stock for the ~10 rewarded-unlock pictures.
@@ -706,6 +706,11 @@ Plan baseline: user args item 5 (on-device verification accepted for MVP; confir
 State: approved (offline policy pending D5)
 Actual answer: user args item 5
 Accepted scope: pure `shared/policy/Entitlements.from(purchases)`: VIP = any `vip_weekly`/`vip_yearly` in PURCHASED state; adsRemoved = `remove_ads` PURCHASED or VIP; PENDING grants nothing. androidApp `BillingRepository` (PBL 8, auto-reconnect, `enablePendingPurchases(PendingPurchasesParams)`) calls `queryPurchasesAsync` on cold start + resume + after `onPurchasesUpdated`, acknowledges every unacknowledged PURCHASED item (Play refunds anything not acknowledged within 3 days), and Settings has a "Restore purchases" button running the same query. Proof: commonTest table for `Entitlements.from`.
+Implementation notes (#8, 2026-10-15):
+- **Play Billing Library 9.1.0, not 8.** 9.0.0 shipped 2026-05-19 and 9.1.0 on 2026-06-18; Play has required 8 or later since 2026-08-31. Auto-reconnect uses `enableAutoServiceReconnection()`, and the repository also reconnects and retries once on `SERVICE_DISCONNECTED`.
+- **Entitlement cache = `FileStateStore` + a pure "GMRE" codec, not DataStore** (D5's text says DataStore). It is the same envelope and CRC trailer as the GMRL/GMRA ledger files, in `filesDir/ledger/entitlements`, so the existing backup exclusion covers it, and the codec stays in pure commonMain. The 7-day window counts wall time only while the clock moves forward: a clock moved back adds nothing, while one moved forward shortens the window. A move made while the app isn't running can still stretch the window by the time since the app last looked (accepted, like the allowance clock risk).
+- A finished purchase counts at once (`EntitlementCache.onPurchased`), even if the follow-up query fails offline. Buying remove_ads never revives a lapsed VIP.
+- Debug builds use a fake billing backend (`src/debug`, `-Pgemmory.fakeBilling=false` turns it off); release builds always use Play.
 
 ### E7: Encode progress UI
 Plan baseline: user args item 6.
@@ -989,7 +994,7 @@ On user request ("use claude for review"), an in-host Claude Plan subagent ran t
 ### R-O1: Compliance work before the closed-test clock (outside finding 1, Critical)
 Finding: O1, Critical, 8/10, gemmory.md:248-250 (`Wk 3-5 ... Data safety + privacy policy`) vs :248 (`CLOSED TEST CLOCK STARTS`), reviewer Claude subagent (in-host)
 Plan baseline: CEO D9 "Start clock on playable build"; Data safety + privacy policy scheduled Wk 3-5
-Runtime evidence: Play Console requires the app-content declarations (privacy policy, ads, content rating, target audience, Data safety) before publishing to closed testing; only internal testing is exempt [vendor policy, verify in Console]
+Runtime evidence: Play Console requires the app-content declarations (privacy policy, ads, content rating, target audience, Data safety) before publishing to closed testing; only internal testing is exempt [vendor policy, verify in Console]. **Checked in the Console 2026-10-15 (#8): internal testing is NOT exempt.** The first internal rollout was blocked by "complete the Dashboard steps" (privacy policy, app access, ads, content rating, target audience, Data safety, government apps, category + contact, store listing incl. full description). Uploading the AAB alone did unlock product creation.
 Comparison grid:
 | Choice | Current | A Apply | B Keep | C Investigate | D Defer |
 |---|---|---|---|---|---|

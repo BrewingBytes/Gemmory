@@ -37,6 +37,7 @@ import com.brewingbytes.gemmory.ads.RewardPhase
 import com.brewingbytes.gemmory.ads.RewardTarget
 import com.brewingbytes.gemmory.ads.RewardedSheet
 import com.brewingbytes.gemmory.ads.RewardedUi
+import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
 import com.brewingbytes.gemmory.play.PlaySession
@@ -183,6 +184,31 @@ class AccessibilityChecksTest {
         compose.onNodeWithTag("settings-delete-all").performClick()
         waitForText("Delete all photo canvases?")
         scan()
+    }
+
+    @Test
+    fun paywallAndSettingsAsVipWithARestoreResult() {
+        val app = context.applicationContext as GemmoryApp
+        val fake = BillingBackends.fake
+        try {
+            scenario = ActivityScenario.launch(MainActivity::class.java)
+            waitForTag("tile-bundled-starter")
+            compose.onNodeWithContentDescription("Settings").performClick()
+            waitForTag("settings-membership")
+            compose.onNodeWithTag("settings-membership").performClick()
+            waitForTag("plan-yearly")
+            scan()
+            compose.onNodeWithTag("paywall-start").performClick()
+            waitForTag("settings-manage-subscription")
+            compose.onNodeWithTag("settings-restore").performClick()
+            waitForText("Purchases restored: VIP (yearly)")
+            scan()
+        } finally {
+            fake.reset()
+            runBlocking { app.billing.refresh() }
+            app.billing.purchaseHandled()
+            app.billing.notice.value?.let(app.billing::noticeShown)
+        }
     }
 
     @Test

@@ -131,5 +131,19 @@ class AccessibilityScreensTest {
             compose.waitForIdle()
             A11yTestSupport.accessibilityFocusText() == "Delete all photo canvases"
         }
+
+        // The paywall (#8) is a screen, not a sheet: the same both ways, from the Membership row.
+        compose.onNodeWithTag("settings-membership").performSemanticsAction(SemanticsActions.OnClick)
+        // The screen's own coroutines run on the test clock (a sheet has its own window and real time).
+        compose.mainClock.advanceTimeBy(500)
+        A11yTestSupport.waitFor(5_000, "focus on the paywall title") {
+            compose.waitForIdle()
+            A11yTestSupport.accessibilityFocusText() == "Gemmory VIP"
+        }
+        compose.onNodeWithContentDescription("Close").performSemanticsAction(SemanticsActions.OnClick)
+        A11yTestSupport.waitFor(5_000, "focus back on Membership") {
+            compose.waitForIdle()
+            A11yTestSupport.accessibilityFocusText()?.startsWith("Membership") == true
+        }
     }
 }
