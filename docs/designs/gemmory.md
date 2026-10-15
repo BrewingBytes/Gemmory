@@ -215,7 +215,7 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
 ## Open Questions
 - Are faces recognizable at Quick, Medium and Big? Answered by the spike.
 - Do square or round gem visuals feel better on a phone? Design phase.
-- VIP price points for the weekly and yearly periods (the periods are committed). Is about $3.49/week and $29.99/year normal for this genre?
+- ~~VIP price points for the weekly and yearly periods (the periods are committed). Is about $3.49/week and $29.99/year normal for this genre?~~ **Decided (founder, #8, 2026-10-15):** base prices in EUR, Play converting other countries: `vip_weekly` €0.99/week, `vip_yearly` €19.99/year (shown as about €0.38 a week, ~60% under weekly), `remove_ads` €2.99 once (above one week of VIP, below the yearly plan). Genre check at the time: weekly $3.49-7.99, yearly $29.99-59.99, so Gemmory sits at the low end on purpose (no trial, no pressure tactics). Raising a price later goes through Play's subscriber notice and opt-in. The app reads every price from Play, so changes need no release.
 - ~~Where do the bundled pictures come from?~~ **Decided (CEO review CONTENT-1):** a mix of licensed stock photos run through Gemmory's own converter, plus AI-generated art from an image model whose terms grant commercial use.
   - Keep a provenance sheet per picture: source, license or model, terms URL, date.
   - AI art copyright is unsettled, so prefer stock for the ~10 rewarded-unlock pictures.
