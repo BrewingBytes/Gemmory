@@ -11,8 +11,9 @@
     <!-- The one 400ms soft vibration when a picture is finished (design system, Haptics and sound). -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- Backup is on except for photo canvases and the allowance counter, which the rules exclude from cloud backup
-         and device transfer (see res/xml). Bundled-picture progress and settings may be backed up. -->
+    <!-- Backup is on except for photo canvases, the allowance counter and Firebase's identifiers, which the rules
+         exclude from cloud backup and device transfer (see res/xml). Bundled-picture progress and settings may be
+         backed up. -->
     <application
         android:name=".GemmoryApp"
         android:allowBackup="true"

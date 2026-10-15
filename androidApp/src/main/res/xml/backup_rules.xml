@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 11 and lower (auto backup). User photos never leave the phone (AGENTS.md): photo canvases
      (grid, progress, view state, source) stay out, and so does the ledger (the daily allowance counter, the ad caps
-     and the entitlement cache). Anything else may be backed up.
-     Paths must match storage/StorageLayout.kt (checked by BackupRulesTest). -->
+     and the entitlement cache), and so do Firebase's identifiers. Anything else may be backed up.
+     Paths must match storage/StorageLayout.kt and the files Firebase writes (checked by BackupRulesTest). -->
 <full-backup-content>
     <exclude domain="file" path="canvases/photo/" />
     <exclude domain="file" path="ledger/" />
+    <!-- Firebase's own state (#5): the Crashlytics installation UUID, the Analytics app instance id and
+         their pending reports and event queues. A restored phone starts as a new install, so no identifier crosses
+         devices. (The Firebase installation id already lives in no_backup/.) -->
+    <exclude domain="sharedpref" path="com.google.firebase.crashlytics.xml" />
+    <exclude domain="sharedpref" path="com.google.android.gms.measurement.prefs.xml" />
+    <exclude domain="file" path=".crashlytics.v3/" />
+    <exclude domain="file" path="datastore/firebaseSessions/" />
+    <exclude domain="database" path="google_app_measurement.db" />
+    <exclude domain="database" path="google_app_measurement_local.db" />
+    <exclude domain="database" path="com.google.android.datatransport.events" />
 </full-backup-content>

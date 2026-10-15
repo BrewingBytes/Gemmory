@@ -3,7 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5).
 
 ---
 
@@ -478,3 +478,75 @@ Labels: P2, timelapse, ui
 Builds on #4 (time-lapse) and #18 (play canvas). Effort: design ~1h; build human ~4h / CC ~30min.
 
 ---
+
+## T25: Inventory: earn, buy and keep bonus canvases, fills and other items
+Labels: P2, ads, billing, game, ui
+
+**Why:** founder request (2026-10-15). Today every extra is a one-off: a rewarded video buys one more photo canvas today (`DailyLedger.grantReward`), and #32 will add one video per locked picture. There is no place where a player holds things they earned or bought, so there is nothing to save up, nothing to come back for, and no way to buy a small boost without the full VIP. An inventory turns ads and small purchases into items players keep and spend when they want.
+
+**Step 1: decide (design, before code)**
+- **What items exist.** Candidates:
+  - Bonus photo canvases: kept instead of expiring at midnight.
+  - Fills: the #20 placement tools (region fill, color fill, bigger brush) as consumable charges.
+  - Bigger canvases: a size above Big, or unlocking Big for a photo when the face rule or a tier limits it (check against the size rules in `docs/designs/gemmory.md` first).
+  - Others to weigh: hints (Find), picture unlocks (#32), palette/tray cosmetics.
+- **How players get them:** a rewarded video (cap? D15 grace), a one-time in-app pack (new Play products, consumable), daily login/streak (#33), milestones (#35), included with VIP (an amount per week, or unlimited).
+- **Where it lives:** an inventory screen or sheet, and where its items are spent (Preview, the play canvas tray without new chrome on the canvas, the gallery). Copy, states and empty state go into `docs/design-system.md`, with a navigation-map entry.
+- **Economy check:** how this interacts with the free daily canvas, VIP perks (the paywall copy must stay true, as in #32) and the ad caps and "no ads on the play canvas" rule.
+
+**Rules**
+- Stored on the device only, like the ledger (excluded from cloud backup and device transfer unless decided otherwise and recorded), with a codec and corruption handling like `FileStateStore`. A pure-Kotlin policy in commonMain with an injected clock, as with DailyLedger.
+- Consumable purchases go through `BillingRepository` (acknowledge or consume, pending handling, restore rules); Play policy on consumables and loot boxes respected (no random rewards).
+- Spending is idempotent (a double tap spends one item), like `consume(draftId)`.
+- Any fill item keeps the #20 rules: a batch of ordinary placements, and the save log stays an ordered list of placed cell indices.
+
+**Done when:** the item set, sources, prices and UI are decided and recorded; the inventory stores, earns and spends items with unit tests (ledger-style rows: earn, spend, double spend, midnight, corrupt file) and instrumented tests for the earn → hold → spend flow; and paywall/VIP copy matches what VIP gives.
+
+Related: #20 (fill tools), #32 (locked pictures), #33 (streak), #35 (milestones), #8 (billing). Effort: design ~half a day; build depends on the chosen items.
+
+---
+
+## T26: Remove the hidden Settings telemetry check
+Labels: P2, telemetry
+
+**Why:** #12 added a hidden trigger so a Play-installed release build could prove that a forced crash and a forced encoder non-fatal reach the Crashlytics Console. It isn't in docs/design-system.md, and any player who taps Version 7 times can crash the app. Founder call during #12: ship it for the check, then remove it.
+
+**Scope**
+- Remove `telemetry/TelemetryCheck.kt` (TelemetryCheck, TapStreak, TelemetryCheckCrash) and its use in `GemmoryApp` (`TelemetryCheck.wrap` around `MediaCodecEncoder`)
+- Remove the Version row's `pointerInput` tap streak and the "Telemetry check" ConfirmSheet from `settings/SettingsScreen.kt`
+- Remove the tests that cover it (`EncodeManagerTest.theTelemetryCheckFailsOneFullHdAttemptAtConfigureThenDropsTo720`, `TelemetryTest.sevenQuickTapsOpenTheCheckAndSlowTapsStartOver`)
+
+**Done when:** 7 taps on Version do nothing on a release build, and unit + instrumented tests are green.
+Effort: human ~20 min / CC ~5 min
+
+---
+
+## T27: Remote pictures: add new pictures without a Play release, fetched once a day from GitHub
+Labels: P2, persistence, game
+
+**Why:** every new picture today means a new AAB and a Play review (`bundled/BundledPictures.kt`, frozen grids with pinned CRCs). The founder wants to publish pictures on their own schedule: the app checks once a day for new ones and downloads them. This also gives #34 (Today's picture) and #32 (locked pictures) a steady supply without app updates.
+
+**Step 1: decide (before code)**
+- **Hosting on GitHub.** Recommended: a separate public repo (e.g. `BrewingBytes/Gemmory-pictures`) served from `raw.githubusercontent.com` or GitHub Pages. It holds a `catalog.json` plus one grid file per picture. A separate repo keeps content pushes out of the app repo's protected `main` and CI.
+- **What is downloaded: data, never code.** Only finished grids in the existing GMRY grid format, made by `./gradlew :shared:freezeBundledGrid`. Play's Device and Network Abuse policy forbids downloading executable code outside Play; data files are allowed.
+- **Integrity.** Sign `catalog.json` (Ed25519), with the public key in the app and the private key outside every repo (never committed). For each picture the catalog lists id, title, ratio, size (quick/medium/big), width × height, color count, grid URL, SHA-256 and grid CRC, `locked`, `minAppVersion` and `addedAt`. The app refuses anything whose signature, hash or CRC doesn't match.
+- **Grids are immutable.** Saves are bound to the grid CRC (GMRY, eng D-ledger), so a published grid never changes. A fix is a new id; the old one can be withdrawn.
+- **Withdraw / kill switch.** A picture removed from the catalog disappears from the gallery unless the player has started it (same rule as `isLocked()`'s started rule).
+- **Gallery.** Where remote pictures sit relative to bundled ones, and whether there's a "New" mark. Copy, TalkBack label and states go in `docs/design-system.md` → Gallery first. Ask the founder before any departure.
+- **Backup.** Remote grids can be downloaded again. Choose whether to exclude `canvases/remote/*/grid` from backup and keep only progress, and what happens when a restored save's picture is gone from the catalog.
+
+**Scope**
+- **Fetch once a day:** when the app starts, if the last successful check was more than 24 h ago (or a WorkManager periodic job with a network constraint). Use conditional GET (ETag / If-Modified-Since). Never during play and no UI blocking; a failed check retries the next day.
+- **Offline:** the cached catalog and already-downloaded pictures keep working offline. New pictures appear only after a successful check, and grids download only for pictures in the catalog.
+- **Pure `commonMain`:** catalog parsing, signature + hash + CRC checks, `minAppVersion` filtering and the merge with bundled pictures, unit-tested. The network and files stay in `:androidApp` (no new HTTP dependency unless one is already on the classpath).
+- **Storage:** e.g. `files/canvases/remote/<id>/`, with progress saved exactly like bundled pictures (`CanvasRepository`, `CanvasRef`). Update `StorageLayout` and `BackupRulesTest` to match the backup decision.
+- **Telemetry:** `canvas_started`/`canvas_finished` get `source = remote`; catalog fetch and verify failures go to Crashlytics as non-fatals (no URLs with user data, since none exist).
+- **Publishing tool:** a script or Gradle task that freezes the grid, computes the CRC and SHA-256, adds the catalog entry, signs the catalog and checks it against the app's verifier. Add a provenance row per picture (source, license or model, terms URL, date, like `tools/bundled/PROVENANCE.md`) and a content check: nothing above the current IARC rating (PEGI 3 / Everyone), nothing aimed at children (AGENTS.md: adults only).
+- **Privacy and Play:**
+  - GitHub (Microsoft) receives the device's IP address and user agent on each check, so update `docs/privacy-policy.md` ("Who receives data" currently says only Google) and `docs/play-compliance.md`.
+  - Re-check the Data safety answers, though no new data type is expected: no identifiers, cookies or user data in the request.
+  - Photos still never leave the phone.
+
+**Done when:** a picture pushed to the content repo shows up in the gallery within a day without an app update, plays and saves like a bundled picture, and survives offline. A tampered catalog or grid is refused. The rules are unit-tested (signature, hash, CRC, minAppVersion, withdraw, 24 h cadence with a fixed clock), and the privacy policy names GitHub.
+
+Related: #31 (bundled ramp stays in the APK so a new install has pictures offline), #32 (`locked` per remote picture), #34 (Today's picture can draw from remote pictures). Effort: design ~1h; build human ~1.5d / CC ~45min; publishing tool ~2h.

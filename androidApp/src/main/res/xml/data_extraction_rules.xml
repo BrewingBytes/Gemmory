@@ -1,15 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 12+. Same exclusions for cloud backup and device-to-device transfer: photo canvases (grid, progress,
-     view state, source) and the ledger (the allowance counter, the ad caps and the entitlement cache). Anything else
-     may be backed up or transferred.
-     Paths must match storage/StorageLayout.kt (checked by BackupRulesTest). -->
+     view state, source), the ledger (the allowance counter, the ad caps and the entitlement cache) and Firebase's
+     identifiers. Anything else may be backed up or transferred.
+     Paths must match storage/StorageLayout.kt and the files Firebase writes (checked by BackupRulesTest). -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="canvases/photo/" />
         <exclude domain="file" path="ledger/" />
+        <!-- Firebase's own state (#5): the Crashlytics installation UUID, the Analytics app instance id and
+             their pending reports and event queues. A restored phone starts as a new install, so no identifier crosses
+             devices. (The Firebase installation id already lives in no_backup/.) -->
+        <exclude domain="sharedpref" path="com.google.firebase.crashlytics.xml" />
+        <exclude domain="sharedpref" path="com.google.android.gms.measurement.prefs.xml" />
+        <exclude domain="file" path=".crashlytics.v3/" />
+        <exclude domain="file" path="datastore/firebaseSessions/" />
+        <exclude domain="database" path="google_app_measurement.db" />
+        <exclude domain="database" path="google_app_measurement_local.db" />
+        <exclude domain="database" path="com.google.android.datatransport.events" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="canvases/photo/" />
         <exclude domain="file" path="ledger/" />
+        <!-- Firebase's own state (#5): the Crashlytics installation UUID, the Analytics app instance id and
+             their pending reports and event queues. A restored phone starts as a new install, so no identifier crosses
+             devices. (The Firebase installation id already lives in no_backup/.) -->
+        <exclude domain="sharedpref" path="com.google.firebase.crashlytics.xml" />
+        <exclude domain="sharedpref" path="com.google.android.gms.measurement.prefs.xml" />
+        <exclude domain="file" path=".crashlytics.v3/" />
+        <exclude domain="file" path="datastore/firebaseSessions/" />
+        <exclude domain="database" path="google_app_measurement.db" />
+        <exclude domain="database" path="google_app_measurement_local.db" />
+        <exclude domain="database" path="com.google.android.datatransport.events" />
     </device-transfer>
 </data-extraction-rules>

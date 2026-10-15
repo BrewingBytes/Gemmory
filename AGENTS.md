@@ -21,6 +21,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 | [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, plus the CEO and eng review decision ledgers (E1-E7, D1-D20) |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, fonts, components, navigation map, canvas zoom/gesture/haptics rules, copy for every state, accessibility (TalkBack, font scale, reduced motion, large screens) (`DESIGN.md` at the root is a symlink to it) |
 | [docs/issues.md](docs/issues.md) | Snapshot of tasks T1-T14, created as GitHub issues #1-#14 (T*n* = #*n*) |
+| [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers (Data safety, content rating, target audience, ads), Firebase and API key settings, and how the production gate (D18) is checked; [docs/privacy-policy.md](docs/privacy-policy.md) is the published policy |
 | [docs/todos.md](docs/todos.md) | Deferred work with the conditions for picking it up (`TODOS.md` at the root is a symlink to it) |
 | [docs/agents/skill-routing.md](docs/agents/skill-routing.md) | Which gstack skill to use for which kind of request |
 
