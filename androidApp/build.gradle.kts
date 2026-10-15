@@ -25,8 +25,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = 4
+        versionName = "0.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
@@ -62,7 +62,12 @@ android {
             buildConfigField("boolean", "FAKE_BILLING", providers.gradleProperty("gemmory.fakeBilling").getOrElse("true"))
         }
         release {
-            isMinifyEnabled = false
+            // R8: the mapping file goes into the App Bundle, so Play Console shows readable stack traces for crashes
+            // and ANRs. No native debug symbols to add: the only .so files (ML Kit face detection, androidx graphics)
+            // ship already stripped, so Play's "no native debug symbols" note stays.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (uploadStoreFile != null) signingConfig = signingConfigs.getByName("upload")
         }
     }
