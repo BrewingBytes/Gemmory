@@ -75,6 +75,14 @@ object GemIcons {
         }
         .build()
 
+    /** Material "close" cross, for the paywall's close (design system, Paywall: visible immediately, top-left). */
+    val Close: ImageVector = ImageVector.Builder("Close", 24.dp, 24.dp, 24f, 24f)
+        .addPath(
+            addPathNodes("M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"),
+            fill = SolidColor(Color.White),
+        )
+        .build()
+
     /** Material "search" magnifier, for Find (design D24). */
     val Find: ImageVector = ImageVector.Builder("Find", 24.dp, 24.dp, 24f, 24f)
         .addPath(

@@ -38,6 +38,16 @@ class BackupRulesTest {
     }
 
     @Test
+    fun everyLedgerFileIsInsideTheExcludedDir() {
+        // The allowance counter, the ad caps and the entitlement cache (#8): a restored cache would carry VIP to a
+        // phone Play hasn't confirmed it on, so it never goes to cloud backup or device transfer.
+        for (path in listOf(StorageLayout.LEDGER_DAILY, StorageLayout.LEDGER_ADS, StorageLayout.LEDGER_ENTITLEMENTS)) {
+            assertTrue(path.startsWith("${StorageLayout.LEDGER}/"), path)
+        }
+        assertEquals("ledger/entitlements", StorageLayout.LEDGER_ENTITLEMENTS)
+    }
+
+    @Test
     fun backupIsOnInTheManifest() {
         val app = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }.newDocumentBuilder()
             .parse(File("src/main/AndroidManifest.xml")).getElementsByTagName("application").item(0) as Element

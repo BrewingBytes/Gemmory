@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
@@ -132,6 +133,16 @@ class ScreenSizesWalkthrough {
             display(d)
             gallery(d.name)
         }
+        // The paywall column stays at most 480dp wide (D22).
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithTag("settings-membership").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }
+        for (d in tablets) {
+            display(d)
+            shot("${d.name}-paywall")
+        }
+        compose.onNodeWithContentDescription("Close").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
 
         // The canvas: zoom, center and selection survive every rotation and fold.
         display(phone)
@@ -172,6 +183,12 @@ class ScreenSizesWalkthrough {
 
         compose.onNodeWithContentDescription("Settings").performClick()
         shot("font2-settings")
+        compose.onNodeWithTag("settings-membership").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }
+        shot("font2-paywall")
+        compose.onNodeWithTag("paywall-fine-print").performScrollTo()
+        shot("font2-paywall-bottom")
+        compose.onNodeWithContentDescription("Close").performClick()
         compose.onNodeWithTag("settings-delete-all").performClick()
         shot("font2-delete-all")
         compose.onNodeWithText("Keep").performClick()

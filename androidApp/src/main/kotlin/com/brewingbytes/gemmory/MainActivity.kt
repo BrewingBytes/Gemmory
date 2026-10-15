@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -20,6 +22,11 @@ import com.brewingbytes.gemmory.ads.RewardTarget
 import com.brewingbytes.gemmory.ads.RewardedEvent
 import com.brewingbytes.gemmory.ads.RewardedSheet
 import com.brewingbytes.gemmory.ads.RewardedViewModel
+import com.brewingbytes.gemmory.billing.BillingCopy
+import com.brewingbytes.gemmory.billing.PaywallScreen
+import com.brewingbytes.gemmory.billing.subscriptionPage
+import com.brewingbytes.gemmory.gallery.VIP_ACTION_TAG
+import com.brewingbytes.gemmory.policy.Membership
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -37,6 +44,7 @@ import com.brewingbytes.gemmory.photo.PhotoNav
 import com.brewingbytes.gemmory.photo.PreviewScreen
 import com.brewingbytes.gemmory.photo.SizeScreen
 import com.brewingbytes.gemmory.play.PlayScreen
+import com.brewingbytes.gemmory.settings.MEMBERSHIP_TAG
 import com.brewingbytes.gemmory.settings.SettingsScreen
 import com.brewingbytes.gemmory.ui.GemmoryTheme
 
@@ -90,6 +98,42 @@ class MainActivity : ComponentActivity() {
         val allowance by app.monetization.allowance.collectAsStateWithLifecycle()
         val unlocked by app.monetization.unlocks.unlocked.collectAsStateWithLifecycle()
         val entitlements by app.monetization.entitlements.collectAsStateWithLifecycle()
+        val membership by app.billing.membership.collectAsStateWithLifecycle()
+        val firstSessionOver by app.monetization.firstSessionOver.collectAsStateWithLifecycle()
+        val notice by app.billing.notice.collectAsStateWithLifecycle()
+
+        // Where TalkBack focus goes back to when the paywall closes: what opened it.
+        var paywallTrigger by rememberSaveable { mutableStateOf<String?>(null) }
+
+        /**
+         * "VIP", Membership and the rewarded sheet's VIP texts (design D3, D6): the paywall, or Play's subscription
+         * page for a VIP, whom the paywall never shows.
+         */
+        fun openVip(trigger: String?) {
+            if (entitlements.vip || membership == Membership.VIP_UNCONFIRMED) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, subscriptionPage(packageName, entitlements.plan)))
+                } catch (_: ActivityNotFoundException) {
+                }
+                return
+            }
+            paywallTrigger = trigger
+            app.billing.purchaseHandled()
+            app.billing.loadPrices()
+            stack.push(Route.Paywall)
+        }
+
+        // Billing's one-time gallery line: taken when the gallery is up, kept while it stays up.
+        var galleryNotice by rememberSaveable { mutableStateOf<String?>(null) }
+        LaunchedEffect(stack.top == Route.Gallery, notice) {
+            val n = notice
+            if (stack.top != Route.Gallery) {
+                galleryNotice = null
+            } else if (n != null) {
+                galleryNotice = BillingCopy.notice(n)
+                app.billing.noticeShown(n)
+            }
+        }
 
         val top = stack.top
         // The interstitial check runs only once the player has left a just-finished picture's completion screen
@@ -141,9 +185,28 @@ class MainActivity : ComponentActivity() {
                     onOpen = { tile -> stack.openTile(tile.ref, tile.done) },
                     onLocked = { tile -> rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity) },
                     onSettings = { stack.push(Route.Settings) },
+                    showVip = firstSessionOver,
+                    onVip = { openVip(VIP_ACTION_TAG) },
+                    notice = galleryNotice,
                 )
             }
-            Route.Settings -> SettingsScreen(onBack = { stack.pop() })
+            Route.Settings -> SettingsScreen(onBack = { stack.pop() }, onMembership = { openVip(MEMBERSHIP_TAG) })
+            Route.Paywall -> {
+                val prices by app.billing.prices.collectAsStateWithLifecycle()
+                val purchase by app.billing.purchase.collectAsStateWithLifecycle()
+                PaywallScreen(
+                    prices = prices,
+                    purchase = purchase,
+                    entitlements = entitlements,
+                    onBuy = { product -> app.billing.buy(this@MainActivity, product) },
+                    onRetryPrices = app.billing::loadPrices,
+                    onClose = {
+                        app.billing.purchaseHandled()
+                        stack.pop()
+                    },
+                    returnFocusTo = paywallTrigger,
+                )
+            }
             Route.Crop -> CropScreen(
                 state = flow,
                 onRatio = photoFlow::onRatio,
@@ -191,8 +254,16 @@ class MainActivity : ComponentActivity() {
                 onWatch = { rewarded.watch(this@MainActivity) },
                 onGrace = rewarded::useGrace,
                 onTryAgain = { rewarded.tryAgain(this@MainActivity) },
-                // VIP is #8: the VIP texts are shown and open nothing until then.
-                onVip = {},
+                // "Or get VIP…" / "Get VIP…": the sheet closes and the paywall opens over the same screen.
+                onVip = {
+                    rewarded.dismiss()
+                    openVip(
+                        when (val target = ui.target) {
+                            is RewardTarget.Picture -> tileTag(CanvasRef(CanvasKind.BUNDLED, target.id))
+                            RewardTarget.PhotoCanvas -> "preview-primary"
+                        },
+                    )
+                },
                 onDismiss = rewarded::dismiss,
                 // TalkBack focus goes back to the locked tile or Preview's "Watch a video" (design D19).
                 returnFocusTo = when (val target = ui.target) {

@@ -60,8 +60,8 @@ fun isLocked(picture: BundledPicture, unlocked: Set<String>, entitlements: Entit
 
 /**
  * App-scoped home of the pure policies (eng E5): [DailyLedger] and [AdPolicy] under `filesDir/ledger` (never backed up,
- * BackupRulesTest), the permanent picture unlocks, and the entitlements (always Free until #8). The policies aren't
- * thread-safe, so every call runs on [policy], one at a time.
+ * BackupRulesTest), the permanent picture unlocks, and [entitlements] from billing (#8), which the allowance follows.
+ * The policies aren't thread-safe, so every call runs on [policy], one at a time.
  */
 class Monetization(
     filesDir: File,
@@ -70,6 +70,7 @@ class Monetization(
     private val scope: CoroutineScope,
     private val policy: CoroutineDispatcher,
     reporter: NonFatalReporter = NonFatalReporter.Logcat,
+    val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE),
 ) {
     private val ledger by lazy {
         DailyLedger(clock, FileStateStore(File(filesDir, StorageLayout.LEDGER_DAILY), LedgerCodec::encode, LedgerCodec::decode, reporter))
@@ -78,20 +79,26 @@ class Monetization(
         AdPolicy(clock, FileStateStore(File(filesDir, StorageLayout.LEDGER_ADS), AdPolicyCodec::encode, AdPolicyCodec::decode, reporter))
     }
 
-    /** Billing (#8) replaces this with the real entitlement; until then everyone is Free. */
-    private val _entitlements = MutableStateFlow(Entitlements.FREE)
-    val entitlements: StateFlow<Entitlements> = _entitlements.asStateFlow()
-
     private val _allowance = MutableStateFlow<Allowance>(Allowance.Free)
 
     /** Drives the Preview allowance line and the gallery note (design D5). */
     val allowance: StateFlow<Allowance> = _allowance.asStateFlow()
 
+    private val _firstSessionOver = MutableStateFlow(false)
+
+    /** From the 2nd session on, the gallery offers its quiet "VIP" action (design D3; the session is eng D6's). */
+    val firstSessionOver: StateFlow<Boolean> = _firstSessionOver.asStateFlow()
+
     private var midnight: Job? = null
 
     init {
-        scope.launch(policy) { ads.onProcessStart() }
+        scope.launch(policy) {
+            ads.onProcessStart()
+            _firstSessionOver.value = ads.firstSessionOver
+        }
         armMidnight()
+        // VIP starting or lapsing changes the allowance at once (Unlimited, or back to today's free canvas).
+        scope.launch { entitlements.collect { withContext(policy) { refreshLocked() } } }
     }
 
     /**
@@ -139,7 +146,10 @@ class Monetization(
 
     /** Main thread (process lifecycle). */
     fun onForeground() {
-        scope.launch(policy) { ads.onForeground() }
+        scope.launch(policy) {
+            ads.onForeground()
+            _firstSessionOver.value = ads.firstSessionOver
+        }
         armMidnight()
     }
 

@@ -12,6 +12,7 @@ mlkit-face = "16.1.7"
 kotlinx-datetime = "0.8.0"
 play-services-ads = "25.5.0"
 ump = "4.0.0"
+play-billing = "9.1.0"
 android-compileSdk = "37"
 android-targetSdk = "37"
 android-minSdk = "29"
@@ -36,6 +37,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 play-services-ads = { module = "com.google.android.gms:play-services-ads", version.ref = "play-services-ads" }
 ump = { module = "com.google.android.ump:user-messaging-platform", version.ref = "ump" }
+play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "play-billing" }
 androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }

@@ -138,6 +138,7 @@ class Finished(
 class CompletionViewModel(application: Application) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
     private val encodes = application.let { it as GemmoryApp }.encodes
+    private val billing = (application as GemmoryApp).billing
 
     var finished by mutableStateOf<Finished?>(null)
         private set
@@ -197,13 +198,16 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
             ?: GemRenderer.render(pattern, cellPx) { false }
         val gems = NumberFormat.getIntegerInstance().format(pattern.cells.size)
         val meta = "${opened.title} · $gems gems · ${playTime(opened.record?.playMillis ?: 0L)}"
-        val request = EncodeRequest(ref, pattern, opened.state.log(), opened.title, source)
+        val request = EncodeRequest(ref, pattern, opened.state.log(), opened.title, source, watermark = true)
         return Finished(ref, bitmap.asImageBitmap(), before.asImageBitmap(), pattern.width / pattern.height.toFloat(), meta, request)
     }
 
-    /** Share tap (eng D2): starts the encode, or reuses the cached MP4. */
+    /**
+     * Share tap (eng D2): starts the encode, or reuses the cached MP4. VIP gets no watermark, and the cache key
+     * carries the flag, so a video made before VIP isn't reused.
+     */
     fun share(ref: CanvasRef) {
-        val request = finished?.takeIf { it.ref == ref }?.request ?: return
+        val request = finished?.takeIf { it.ref == ref }?.request?.withWatermark(!billing.entitlements.value.vip) ?: return
         killedNotice = false
         encodes.share(request)
     }

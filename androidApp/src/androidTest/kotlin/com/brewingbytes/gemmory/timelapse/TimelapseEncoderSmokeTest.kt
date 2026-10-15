@@ -44,7 +44,7 @@ class TimelapseEncoderSmokeTest {
         val bytes = context.assets.open(BundledPictures.STARTER.asset).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         val log = pattern.cells.indices.shuffled(Random(7)).toIntArray()
-        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, "starter"), pattern, log, "The Starry Night", source = null)
+        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, "starter"), pattern, log, "The Starry Night", source = null, watermark = true)
     }
 
     /** A ~3k-gem Quick-sized photo canvas (56×56) with a source photo, so the intro crossfade runs. */
@@ -56,7 +56,7 @@ class TimelapseEncoderSmokeTest {
         bitmap.eraseColor(0xFF7FB3A0.toInt())
         source.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
         val log = IntArray(pattern.cells.size) { it }
-        return EncodeRequest(CanvasRef(CanvasKind.PHOTO, "photo-smoke"), pattern, log, "My photo · 14 Oct", source)
+        return EncodeRequest(CanvasRef(CanvasKind.PHOTO, "photo-smoke"), pattern, log, "My photo · 14 Oct", source, watermark = true)
     }
 
     private fun encode(request: EncodeRequest, target: EncodeTarget): File {

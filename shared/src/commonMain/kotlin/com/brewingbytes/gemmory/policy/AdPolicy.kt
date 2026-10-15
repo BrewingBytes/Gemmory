@@ -70,6 +70,9 @@ class AdPolicy(private val clock: DayClock, private val store: StateStore<AdPoli
         store.save(next)
     }
 
+    /** The first session is over (D6): from now on the gallery offers its quiet "VIP" action (design D3). */
+    val firstSessionOver: Boolean get() = state.firstSessionOver
+
     /** Once per process. A cold start after the first one ends the first session (D6). */
     fun onProcessStart() {
         commit(if (state.launchedBefore) state.copy(firstSessionOver = true) else state.copy(launchedBefore = true))

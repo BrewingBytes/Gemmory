@@ -8,7 +8,8 @@ import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.policy.Spent
-import com.brewingbytes.gemmory.policy.Tier
+import com.brewingbytes.gemmory.policy.VipPlan
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
@@ -36,6 +37,8 @@ class MonetizationTest {
     private val reports = mutableListOf<Throwable>()
     private val prefs = FakePrefs()
 
+    private val entitlements = MutableStateFlow(Entitlements.FREE)
+
     private fun TestScope.monetization(): Monetization = Monetization(
         filesDir = tmp.root,
         clock = clock,
@@ -43,6 +46,7 @@ class MonetizationTest {
         scope = backgroundScope,
         policy = UnconfinedTestDispatcher(testScheduler),
         reporter = { reports += it },
+        entitlements = entitlements,
     )
 
     private class FakeGateway : AdGateway {
@@ -100,6 +104,24 @@ class MonetizationTest {
         second.refresh()
         assertEquals(Allowance.Bonus, second.allowance.value)
         assertEquals(ConsumeResult.Ok(Spent.FREE, repeat = true), second.consume("photo-1"), "idempotent across processes")
+    }
+
+    @Test
+    fun theAllowanceFollowsBillingAsVipStartsAndLapses() = runTest(UnconfinedTestDispatcher()) {
+        val m = monetization()
+        m.consume("photo-1")
+        assertEquals(Allowance.WatchVideo, m.allowance.value)
+        entitlements.value = Entitlements(VipPlan.YEARLY)
+        assertEquals(Allowance.Unlimited, m.allowance.value, "VIP started: no line, Start")
+        assertEquals(ConsumeResult.Ok(null, repeat = false), m.consume("photo-2"), "VIP uses nothing")
+        entitlements.value = Entitlements(removeAds = true)
+        assertEquals(Allowance.WatchVideo, m.allowance.value, "VIP lapsed: remove-ads adds no canvases")
+    }
+
+    @Test
+    fun theVipActionWaitsForTheSecondSession() = runTest(UnconfinedTestDispatcher()) {
+        assertFalse(monetization().firstSessionOver.value, "first launch")
+        assertTrue(monetization().firstSessionOver.value, "a later cold start")
     }
 
     @Test
@@ -162,16 +184,16 @@ class MonetizationTest {
     fun picturesUnlockForGoodAndVipSeesNoLocks() = runTest(UnconfinedTestDispatcher()) {
         val locked = BundledPicture("sunflowers", "Sunflowers", "pictures/x.gmrg", 0, locked = true)
         val free = BundledPicture("starter", "The Starry Night", "pictures/starter.gmrg", 0)
-        data class Row(val name: String, val picture: BundledPicture, val unlocked: Set<String>, val tier: Tier, val started: Boolean, val expected: Boolean)
+        data class Row(val name: String, val picture: BundledPicture, val unlocked: Set<String>, val entitlements: Entitlements, val started: Boolean, val expected: Boolean)
         val rows = listOf(
-            Row("locked, free player", locked, emptySet(), Tier.FREE, started = false, expected = true),
-            Row("remove-ads still watches", locked, emptySet(), Tier.REMOVE_ADS, started = false, expected = true),
-            Row("unlocked", locked, setOf("sunflowers"), Tier.FREE, started = false, expected = false),
-            Row("VIP", locked, emptySet(), Tier.VIP, started = false, expected = false),
-            Row("started under a lapsed VIP (E4c)", locked, emptySet(), Tier.FREE, started = true, expected = false),
-            Row("a free picture", free, emptySet(), Tier.FREE, started = false, expected = false),
+            Row("locked, free player", locked, emptySet(), Entitlements.FREE, started = false, expected = true),
+            Row("remove-ads still watches", locked, emptySet(), Entitlements(removeAds = true), started = false, expected = true),
+            Row("unlocked", locked, setOf("sunflowers"), Entitlements.FREE, started = false, expected = false),
+            Row("VIP", locked, emptySet(), Entitlements(VipPlan.WEEKLY), started = false, expected = false),
+            Row("started under a lapsed VIP (E4c)", locked, emptySet(), Entitlements.FREE, started = true, expected = false),
+            Row("a free picture", free, emptySet(), Entitlements.FREE, started = false, expected = false),
         )
-        for (r in rows) assertEquals(r.expected, isLocked(r.picture, r.unlocked, Entitlements(r.tier), r.started), r.name)
+        for (r in rows) assertEquals(r.expected, isLocked(r.picture, r.unlocked, r.entitlements, r.started), r.name)
 
         val m = monetization()
         assertTrue(m.useGrace(RewardType.PICTURE))
