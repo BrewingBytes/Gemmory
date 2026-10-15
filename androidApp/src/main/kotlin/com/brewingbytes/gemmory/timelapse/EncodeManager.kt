@@ -3,6 +3,8 @@ package com.brewingbytes.gemmory.timelapse
 import android.util.Log
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import com.brewingbytes.gemmory.telemetry.reportLabel
 import kotlinx.coroutines.CancellationException
@@ -73,6 +75,7 @@ class EncodeManager(
     private val backend: (EncodeRequest, (EncodeTarget?) -> File) -> EncodeBackend,
     private val canvasExists: (CanvasRef) -> Boolean,
     private val reporter: NonFatalReporter = NonFatalReporter.Logcat,
+    private val analytics: Analytics = Analytics.None,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val log: (String) -> Unit = { Log.i("Gemmory", it) },
     private val nowNanos: () -> Long = System::nanoTime,
@@ -186,7 +189,9 @@ class EncodeManager(
             }
             val wallMs = (nowNanos() - started) / 1_000_000
             log("time-lapse ${ref.id}: $outcome in $wallMs ms")
-            // Eng finding 16: how long encodes really take, on the phones that report.
+            // Eng finding 16: how long encodes really take. Analytics measures it across phones (consented players);
+            // the Crashlytics keys only ride along with reports recorded later in this process.
+            analytics.log(AnalyticsEvent.timelapseMade(ref, request.pattern.width, request.pattern.height, outcomeName(outcome), wallMs))
             reporter.setKey(KEY_WALL_MS, wallMs.toString())
             reporter.setKey(KEY_OUTCOME, outcomeName(outcome))
             marker.delete()

@@ -10,3 +10,7 @@
 # ML Kit's component registrars failed to load, so the face check would never run.
 -keep class * extends androidx.room.RoomDatabase { <init>(); }
 -keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }
+
+# Crashlytics titles an issue by the exception's class name, which the mapping file doesn't restore (#12: the first
+# forced crash showed as "w00"). Keep the names, not the code, of the app's own exceptions.
+-keepnames class com.brewingbytes.gemmory.** extends java.lang.Throwable

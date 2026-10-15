@@ -145,6 +145,10 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("vip_purchased", mapOf("period" to "weekly")), AnalyticsEvent.vipPurchased("weekly"))
         assertEquals(AnalyticsEvent("remove_ads_purchased"), AnalyticsEvent.removeAdsPurchased)
         assertEquals(AnalyticsEvent("photo_canvas_started"), AnalyticsEvent.photoCanvasStarted)
+        assertEquals(
+            AnalyticsEvent("timelapse_made", mapOf("source" to "photo", "size" to "big", "outcome" to "picture", "wall_ms" to 41_000L)),
+            AnalyticsEvent.timelapseMade(photo, 106, 142, "picture", 41_000),
+        )
     }
 
     @Test
@@ -163,7 +167,7 @@ class TelemetryTest {
             AnalyticsEvent.canvasFinished(puppy, 122, 122),
             AnalyticsEvent.shareTapped(photo, 56, 56),
         )
-        for (e in all) for (v in e.params.values) assertFalse(v == photo.id || v == puppy.id || v.contains("Puppy"), "${e.name}: $v")
+        for (e in all) for (v in e.params.values.map { it.toString() }) assertFalse(v == photo.id || v == puppy.id || "Puppy" in v, "${e.name}: $v")
     }
 
     @Test

@@ -8,8 +8,11 @@ import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 
-/** One Firebase Analytics event (design doc → Analytics). Params are kinds and sizes only: no titles, ids or photo data. */
-data class AnalyticsEvent(val name: String, val params: Map<String, String> = emptyMap()) {
+/**
+ * One Firebase Analytics event (design doc → Analytics). Params are kinds, sizes and counts only: no titles, ids or
+ * photo data. Values are strings, or numbers (Long) where Analytics should sum or average them.
+ */
+data class AnalyticsEvent(val name: String, val params: Map<String, Any> = emptyMap()) {
     companion object {
         fun canvasStarted(ref: CanvasRef, width: Int, height: Int) = AnalyticsEvent("canvas_started", canvas(ref, width, height))
 
@@ -37,6 +40,13 @@ data class AnalyticsEvent(val name: String, val params: Map<String, String> = em
         fun vipPurchased(period: String) = AnalyticsEvent("vip_purchased", mapOf("period" to period))
 
         val removeAdsPurchased = AnalyticsEvent("remove_ads_purchased")
+
+        /**
+         * A time-lapse was encoded (not a cached re-share): how long it took on this phone and how it ended (eng
+         * finding 16). [outcome] as in EncodeManager.outcomeName.
+         */
+        fun timelapseMade(ref: CanvasRef, width: Int, height: Int, outcome: String, wallMs: Long) =
+            AnalyticsEvent("timelapse_made", canvas(ref, width, height) + mapOf("outcome" to outcome, "wall_ms" to wallMs))
 
         const val SOURCE = "source"
         const val SIZE = "size"

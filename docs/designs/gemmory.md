@@ -137,7 +137,7 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
 
 **Analytics (in MVP):**
 - Firebase Analytics, gated by UMP consent where required.
-- Events: `canvas_started` (source = bundled | photo, size), `canvas_finished` (source, size), `photo_canvas_started`, `share_tapped` (source, size), `share_completed` (source, size), `rewarded_offered` (reward_type), `rewarded_watched` (reward_type), `rewarded_unavailable` (reward_type, reason = no_fill | offline | timeout), `grace_unlock_granted` (reward_type), `interstitial_shown`, `vip_purchased` (period), `remove_ads_purchased`.
+- Events: `canvas_started` (source = bundled | photo, size), `canvas_finished` (source, size), `photo_canvas_started`, `share_tapped` (source, size), `share_completed` (source, size), `rewarded_offered` (reward_type), `rewarded_watched` (reward_type), `rewarded_unavailable` (reward_type, reason = no_fill | offline | timeout), `grace_unlock_granted` (reward_type), `interstitial_shown`, `vip_purchased` (period), `remove_ads_purchased`, `timelapse_made` (source, size, outcome, wall_ms; eng finding 16, added in #12 because a Crashlytics key only reaches later reports). `size` is quick | medium | big | starter | other; `share_completed` fires when the player picks an app in the share sheet.
 - **Consent (R3-7):** Firebase Consent Mode v2 is wired from the UMP result (`analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization`). Every success-criteria metric covers consented users only. Report it as a rate within that population, not as an absolute count.
 - No photo content or derived image data is ever logged.
 

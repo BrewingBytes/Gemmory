@@ -5,6 +5,8 @@ import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import com.brewingbytes.gemmory.telemetry.TelemetryCheck
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +49,7 @@ class EncodeManagerTest {
         }
     }
     private var clock: () -> Long = System::nanoTime
+    private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
     private val existing = mutableSetOf(ref, photo)
     private val backends = AtomicInteger()
 
@@ -116,6 +119,11 @@ class EncodeManagerTest {
         },
         canvasExists = { it in existing },
         reporter = reporter,
+        analytics = object : Analytics {
+            override fun log(event: AnalyticsEvent) {
+                events += event
+            }
+        },
         log = {},
         nowNanos = { clock() },
     )
@@ -324,6 +332,10 @@ class EncodeManagerTest {
         val m = manager()
         m.shareAndWait(request())
         assertEquals(mapOf(EncodeManager.KEY_WALL_MS to "2345", EncodeManager.KEY_OUTCOME to "video_1920"), keys.toMap())
+        assertEquals(
+            listOf(AnalyticsEvent("timelapse_made", mapOf("source" to "bundled", "size" to "starter", "outcome" to "video_1920", "wall_ms" to 2345L))),
+            events.toList(),
+        )
 
         m.acknowledge(ref)
         ticks += listOf(0L, 10_000_000L)
@@ -338,8 +350,10 @@ class EncodeManagerTest {
         m.shareAndWait(request())
         m.acknowledge(ref)
         keys.clear()
+        events.clear()
         m.shareAndWait(request())
         assertTrue(keys.isEmpty())
+        assertTrue(events.isEmpty(), "a cached re-share encodes nothing")
     }
 
     @Test

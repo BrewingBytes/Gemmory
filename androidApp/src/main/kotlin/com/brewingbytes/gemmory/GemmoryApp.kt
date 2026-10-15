@@ -87,6 +87,7 @@ class GemmoryApp : Application() {
             backend = { request, partialOf -> TelemetryCheck.wrap(MediaCodecEncoder(this, request, partialOf)) },
             canvasExists = { ref -> store.repository.dirOf(ref).isDirectory },
             reporter = reporter,
+            analytics = analytics,
         )
         store = CanvasStore(
             filesDir = filesDir,

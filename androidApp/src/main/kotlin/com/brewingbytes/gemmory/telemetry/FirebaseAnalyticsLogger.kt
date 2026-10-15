@@ -13,7 +13,12 @@ import com.google.firebase.analytics.FirebaseAnalytics.ConsentType
  */
 class FirebaseAnalyticsLogger(private val analytics: FirebaseAnalytics) : Analytics {
     override fun log(event: AnalyticsEvent) {
-        analytics.logEvent(event.name, Bundle().apply { event.params.forEach { (k, v) -> putString(k, v) } })
+        analytics.logEvent(
+            event.name,
+            Bundle().apply {
+                event.params.forEach { (k, v) -> if (v is Long) putLong(k, v) else putString(k, v.toString()) }
+            },
+        )
     }
 
     override fun consent(mode: ConsentModeV2) {
