@@ -54,7 +54,7 @@ Declare only these. Everything else is **not collected**.
 
 **"Shared" vs "service provider":** Crashlytics, Analytics (with sharing settings off, see Firebase Console below) and ML Kit process data for us, so they are not "shared". AdMob's disclosure says it "collects and shares" its four types, so every type AdMob touches is marked shared.
 
-**Re-check this section when:** an SDK is added or updated (re-read its Play data disclosure page), Analytics is linked to AdMob or Google Ads, Google signals or data sharing is turned on, a user ID or account is added, or an event starts carrying new data.
+**Re-check this section when:** the app starts talking to a new server (#43 remote pictures will add GitHub, which sees the IP address and user agent), an SDK is added or updated (re-read its Play data disclosure page), Analytics is linked to AdMob or Google Ads, Google signals or data sharing is turned on, a user ID or account is added, or an event starts carrying new data.
 
 ## Other App content declarations
 
