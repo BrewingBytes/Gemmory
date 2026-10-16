@@ -19,7 +19,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 |---|---|
 | [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, decision ledgers |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, components, navigation, canvas gestures, copy, accessibility |
-| [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, the production gate |
+| [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, Test Lab CI credentials, the production gate |
 | [docs/privacy-policy.md](docs/privacy-policy.md) | The published privacy policy |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
 
@@ -43,9 +43,30 @@ Debug build switches (`-P…`):
 - `gemmory.umpDebugEea=true` and `gemmory.umpTestDevice=…` show the EEA consent form.
 - `android.testInstrumentationRunnerArguments.deviceChecks=true` runs the `@DeviceCheck` walkthroughs. `@PerfTest` classes (canvas frame timing, gallery load timing) run only on request via `am instrument -e class …`.
 
+## Encoder smoke on Firebase Test Lab
+
+`.github/workflows/testlab.yml` (#11, design doc D7) runs `TimelapseEncoderSmokeTest` and `EncodeCancelTest` on three real phones in Firebase Test Lab, because video encoders differ by chip family. It runs when a `v*` tag is pushed (a release candidate, see Release) and by hand: Actions → Test Lab → Run workflow.
+
+- **Phones** (one matrix, picked from `gcloud firebase test android models list` on DEVICES_DATE):
+
+  | Family | Model (`model,version`) | Why |
+  |---|---|---|
+  | Pixel / Tensor | PIXEL_ROW |
+  | Samsung | SAMSUNG_ROW |
+  | Low-end MediaTek | MEDIATEK_ROW |
+
+- **What passes:** each phone encodes through the app's fallback chain to an MP4 with 1 track, 14-16 s, 450 frames, at 1080×1920 or the 720×1280 fallback, and frames decode at that size; 720×1280 is also forced on its own; cancel and delete mid-encode leave no file. A fallback is logged (`smoke fallback:` in the logcat).
+- **Results:** the run's summary has the Test Lab console link and a pass/fail row per phone. The `test-lab-results` artifact has each phone's `video.mp4` and `logcat`. A failed or inconclusive phone fails the job.
+- **Quota:** the project is on the Spark plan: 5 physical-device runs a day at no cost, then Test Lab refuses runs (no bill). Each phone is one run, so one matrix uses 3, and there are no automatic retries. Re-run the job at most once a day.
+- **Catalog:** Run workflow with "Only print the physical-device catalog" ticked lists the phones without using quota; use it when a model above leaves the catalog.
+- **Credentials:** Workload Identity Federation, no key file. Setup: [docs/play-compliance.md](docs/play-compliance.md) → "Test Lab CI credentials".
+- **Test Lab shuts down on 2027-09-30** (Firebase deprecation notice); the move to Google Cloud's Developer Device Platform is #55.
+
 ## Release
 
 `./gradlew :androidApp:bundleRelease` builds an R8-shrunk AAB. It's signed with the upload key when `local.properties` (git-ignored) sets `gemmory.upload.storeFile`, `gemmory.upload.storePassword`, `gemmory.upload.keyAlias` and `gemmory.upload.keyPassword`. The keystore lives outside the repo, and keystores, passwords and service-account files are never committed. The Play Console answers and the production gate are in [docs/play-compliance.md](docs/play-compliance.md).
+
+A release candidate is the `main` commit with the version bump: tag it `v<versionName>` (`git tag v0.3.2 && git push origin v0.3.2`). The tag starts the Test Lab encoder smoke; upload the AAB to Play only after it passes.
 
 ## Adding a bundled picture
 

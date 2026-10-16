@@ -21,13 +21,15 @@ import org.junit.runner.RunWith
 import java.io.File
 import kotlin.random.Random
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * The real MediaCodec encoder on a device (eng E1, Section 3 test plan): both chain targets produce an MP4 that
- * decodes, at the target size, with 450 frames over ~15 s. Also the before/after picture. Not in CI (#11 runs it on
- * Firebase Test Lab); run with `./gradlew :androidApp:connectedDebugAndroidTest`.
+ * The real MediaCodec encoder on a device (eng E1, Section 3 test plan): the chain produces an MP4 that decodes, at
+ * the target size or the fallback's, with 450 frames over ~15 s; the 720 target is also forced on its own. Also the
+ * before/after picture. Runs on Firebase Test Lab phones from `.github/workflows/testlab.yml` (#11), and with
+ * `./gradlew :androidApp:connectedDebugAndroidTest`.
  */
 @RunWith(AndroidJUnit4::class)
 class TimelapseEncoderSmokeTest {
@@ -71,6 +73,24 @@ class TimelapseEncoderSmokeTest {
         return out
     }
 
+    /**
+     * Encodes through the app's [FallbackChain]: 1080×1920, or 720×1280 when this phone's encoders reject or fail the
+     * first. Either is a pass (#11: "target or fallback size"); a fallback is logged so the Test Lab logcat shows it.
+     */
+    private fun encodeByChain(request: EncodeRequest): Pair<File, EncodeTarget> {
+        val encoder = MediaCodecEncoder(context, request, { t -> File(dir, if (t == null) "picture.png" else "${t.width}.mp4") })
+        val failures = mutableListOf<AttemptFailure>()
+        val started = System.nanoTime()
+        var frames = 0
+        val outcome = FallbackChain(encoder, { failures += it }).run({ done, _ -> frames = done }, {})
+        failures.forEach { Log.w("Gemmory", "smoke fallback: ${it.target} on ${it.codec} failed at ${it.stage}", it.error) }
+        val target = assertIs<ChainOutcome.Video>(outcome, "no video target worked: $failures").target
+        val out = File(dir, "${target.width}.mp4")
+        Log.i("Gemmory", "smoke chain $target on ${encoder.probe(target)}: ${(System.nanoTime() - started) / 1_000_000} ms, ${out.length()} bytes")
+        assertEquals(FramePlan.TOTAL_FRAMES, frames)
+        return out to target
+    }
+
     private fun assertPlayable(file: File, target: EncodeTarget) {
         val extractor = MediaExtractor()
         try {
@@ -111,8 +131,9 @@ class TimelapseEncoderSmokeTest {
     }
 
     @Test
-    fun starterAtFullHd() {
-        assertPlayable(encode(starter(), EncodeTarget.FULL_HD), EncodeTarget.FULL_HD)
+    fun starterByChain() {
+        val (file, target) = encodeByChain(starter())
+        assertPlayable(file, target)
     }
 
     @Test
@@ -121,8 +142,9 @@ class TimelapseEncoderSmokeTest {
     }
 
     @Test
-    fun quickPhotoCanvasWithIntroAtFullHd() {
-        assertPlayable(encode(quickPhoto(), EncodeTarget.FULL_HD), EncodeTarget.FULL_HD)
+    fun quickPhotoCanvasWithIntroByChain() {
+        val (file, target) = encodeByChain(quickPhoto())
+        assertPlayable(file, target)
     }
 
     @Test

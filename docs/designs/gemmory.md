@@ -1531,6 +1531,7 @@ Synthesized from this review's findings. Each task comes from a specific finding
   - Surfaced by: D7
   - Files: .github/workflows/testlab.yml
   - Verify: workflow run shows 3 device results green
+  - Built in #11 (2026-10-16): runs on a pushed `v*` tag (the release candidate) and by hand, one Spark-quota matrix of 3 phones (3 of 5 free physical runs a day), Workload Identity Federation instead of a key. The 1080 smoke cases go through the fallback chain, so a phone that falls back to 720×1280 passes and logs it. The low-end 60 fps check moved to #54. Test Lab shuts down on 2027-09-30; the move is #55.
 - [ ] **T12 (P2, human: ~2h / CC: ~10min)** — telemetry — Crashlytics always on (no PII), non-fatals for converter/encoder/billing/ML Kit/save-load, encode wall-time key
   - Surfaced by: D17, finding 16, CEO OBS-1
   - Files: androidApp/.../telemetry/*

@@ -15,6 +15,12 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#40): for a by-hand check on the emulator, `adb shell monkey -p … -c android.intent.category.LAUNCHER 1` printed its args and launched nothing; `adb shell am start -W -n com.brewingbytes.gemmory/.MainActivity` works. `uiautomator dump` right after a launch or a screen change can return the previous screen ("null root node returned"); wait 2-3 s and dump again before reading it.
 - 2026-10-16 (#40): after a full per-class connected run, CanvasGesturesTest kept timing out in `open()` (5 s for the photo tile) even run alone at load ~3; logcat showed GC blocked ~2 s and class verification at ~60 bytecodes/s (host swap 14/15 GB). A cold reboot of the emulator made the class pass 12/12. When the same launch timeouts repeat after a long run, cold-reboot before re-running.
 
+## CI
+
+- 2026-10-16 (#11): Firebase Test Lab is deprecated and shuts down on 2027-09-30 (#55). Its pricing page gives Spark 5 physical-device runs a day but doesn't say how a multi-device matrix counts; until a real run shows otherwise, count each phone in the matrix as one run.
+- 2026-10-16 (#11): `gcloud` isn't installed on this Mac. The Test Lab catalog comes from the workflow itself: Actions → Test Lab → Run workflow with "Only print the physical-device catalog" (no quota used).
+- 2026-10-16 (#11): Gradle's `testInstrumentationRunnerArguments` (the `@PerfTest` exclusion) don't reach Test Lab, which runs the APKs directly. Pick classes with `--test-targets`, never a whole-package run.
+
 ## Bundled pictures
 
 - 2026-10-16 (#31): a grid's CRC32 is the last 4 bytes of its `.gmrg` file, big-endian (`tail -c 4 <file> | xxd -p`). `GridFile.crc32` returns the same value.

@@ -3,7 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11).
 
 ---
 
@@ -594,3 +594,31 @@ Labels: bug, P2
 **Done when:** the case passes 3 runs in a row on a quiet emulator with `-e deviceChecks true`, and the cause is written in the PR.
 
 Out of scope: any other ScreenSizesWalkthrough layout changes. Effort: human ~1-2h / CC ~20min.
+
+## T30: Prove 60 fps canvas panning on the low-end Test Lab phone
+Labels: P2, renderer, ci
+
+**Why:** #10's "Done when" asks for a Big canvas that pans and zooms at ~60 fps on the low-end Test Lab phone, and the design doc's T10 verify line says the same. #11 left it out on purpose (founder, 2026-10-16): `CanvasFrameTimingTest` (`@PerfTest`) only logs frame times and asserts nothing, so in CI it could never fail. Only emulator numbers exist today (1.4-2.2% missed frames on Big, design doc → #10 note).
+
+**Scope**
+- Pick the pass line for a low-end phone (for example: missed frames under 5% per phase, or a p90 frame time) and turn `CanvasFrameTimingTest`'s log into an assertion behind that line, or add a Macrobenchmark if that measures it better.
+- Run it on the low-end MediaTek phone from `.github/workflows/testlab.yml`: either a second `--device` matrix in the same job or a by-hand run (Actions → Test Lab). Each extra phone is one of Spark's 5 physical-device runs a day.
+- Record the measured numbers in the design doc next to the #10 note.
+
+**Done when:** the low-end Test Lab phone has a recorded frame-timing result for a Big canvas, and a regression past the agreed line fails a run.
+
+Out of scope: renderer changes, unless the numbers miss the line. Effort: human ~3h / CC ~30min.
+
+## T31: Move the encoder smoke job off Firebase Test Lab before its 2027-09-30 shutdown
+Labels: P2, ci
+
+**Why:** Firebase Test Lab is deprecated and shuts down on 2027-09-30 (Firebase docs, checked 2026-10-16). The encoder smoke job from #11 (`.github/workflows/testlab.yml`, D7) stops working then. Google's replacement is the Developer Device Platform on Google Cloud (`gcloud beta device-run sessions submit instrumentation`), in Preview when #11 was built, with no published pricing or free tier.
+
+**Scope**
+- Re-check the Developer Device Platform once it's GA: pricing, a free tier, physical Pixel/Samsung/MediaTek phones, and whether the Workload Identity setup from `docs/play-compliance.md` carries over.
+- Move the job to `gcloud … device-run` with the same phones (or the nearest ones) and the same tests, results link and video artifact.
+- Update README → "Encoder smoke on Firebase Test Lab", `docs/play-compliance.md` → "Test Lab CI credentials" and D7's note in the design doc.
+
+**Done when:** a release-candidate tag runs the encoder smoke on three chip families on the new service, before 2027-09-30. If it costs money, the founder approves the cost first.
+
+Not before the service is GA, and no later than mid-2027. Effort: human ~3h / CC ~30min.
