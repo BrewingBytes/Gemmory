@@ -8,7 +8,6 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
-import com.brewingbytes.gemmory.telemetry.TelemetryCheck
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -110,12 +109,12 @@ class EncodeManagerTest {
         override fun freeBytes(): Long = Long.MAX_VALUE
     }
 
-    private fun manager(wrap: (EncodeBackend) -> EncodeBackend = { it }) = EncodeManager(
+    private fun manager() = EncodeManager(
         cacheDir = tmp.root,
         scope = scope,
         backend = { _, partialOf ->
             backends.incrementAndGet()
-            wrap(Scripted(partialOf))
+            Scripted(partialOf)
         },
         canvasExists = { it in existing },
         reporter = reporter,
@@ -354,18 +353,6 @@ class EncodeManagerTest {
         m.shareAndWait(request())
         assertTrue(keys.isEmpty())
         assertTrue(events.isEmpty(), "a cached re-share encodes nothing")
-    }
-
-    @Test
-    fun theTelemetryCheckFailsOneFullHdAttemptAtConfigureThenDropsTo720() {
-        TelemetryCheck.armEncoderFailure()
-        val m = manager(TelemetryCheck::wrap)
-        assertEquals("mp4 720x1280@30", assertIs<EncodeState.Video>(m.shareAndWait(request())).file.readText())
-        assertEquals("time-lapse bundled/starter target=1080x1920@30 codec=c2.fake stage=CONFIGURE", reports.single().message)
-        m.acknowledge(ref)
-        val second = assertIs<EncodeState.Video>(m.shareAndWait(request(logSize = 11)))
-        assertEquals("mp4 1080x1920@30", second.file.readText(), "armed once only")
-        assertEquals(1, reports.size)
     }
 
     @Test

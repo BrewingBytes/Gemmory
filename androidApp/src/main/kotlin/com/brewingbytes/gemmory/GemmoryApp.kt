@@ -25,7 +25,6 @@ import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
 import com.brewingbytes.gemmory.telemetry.FirebaseAnalyticsLogger
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
-import com.brewingbytes.gemmory.telemetry.TelemetryCheck
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -113,7 +112,7 @@ class GemmoryApp : Application() {
         encodes = EncodeManager(
             cacheDir = cacheDir,
             scope = scope,
-            backend = { request, partialOf -> TelemetryCheck.wrap(MediaCodecEncoder(this, request, partialOf)) },
+            backend = { request, partialOf -> MediaCodecEncoder(this, request, partialOf) },
             canvasExists = { ref -> store.repository.dirOf(ref).isDirectory },
             reporter = reporter,
             analytics = analytics,
