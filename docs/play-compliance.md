@@ -109,7 +109,7 @@ Project `gemmory-3e776`.
 3. **Application restrictions** → **Android apps** → Add: package `com.brewingbytes.gemmory` + app-signing SHA-1; Add again: same package + upload SHA-1; Add again: same package + debug SHA-1 (optional).
 4. **API restrictions:** leave the list Firebase set (it is already limited to Firebase APIs). Don't remove entries: Crashlytics and Firebase Installations stop working silently.
 5. Save. Changes take up to 5 minutes.
-6. **Check it worked** (same day): on `gemmory_play`, install the current build from Play, open Settings → tap Version 7 times → "Crash now". Reopen the app; the crash must reach Crashlytics within a few minutes. If not, `adb logcat | grep -i -E "firebase|installations|403"` shows `API_KEY_ANDROID_APP_BLOCKED` or `PERMISSION_DENIED`: re-check the SHA-1s (the Play build is signed with the app-signing key, not the upload key). To roll back, set Application restrictions to None.
+6. **Check it worked** (same day): on `gemmory_play`, install the current build from Play, accept the consent form and open the app twice. Within a few minutes the version must show in Firebase Console → Crashlytics (crash-free statistics count its users) and in Analytics → Realtime. If not, `adb logcat | grep -i -E "firebase|installations|403"` shows `API_KEY_ANDROID_APP_BLOCKED` or `PERMISSION_DENIED`: re-check the SHA-1s (the Play build is signed with the app-signing key, not the upload key). To roll back, set Application restrictions to None.
 
 ## Production gate (D18)
 
@@ -117,7 +117,7 @@ Production opens only when both checks pass. Everything else from the closed tes
 
 Check on the build that will be promoted (filter by its version), over the last 7 days of the closed test:
 
-1. **Crash-free users ≥ 99%.** Firebase Console → Crashlytics → filter the version → "Crash-free statistics" → crash-free users. Leave out the forced test crash `TelemetryCheckCrash` (hidden Settings check, removed in #40): if it is the only crash, the build passes. With ~20 testers, one crashing tester is ~95%, so in practice the gate means no tester crashed on that build. Cross-check Play Console → Android vitals → user-perceived crash rate (it must not be flagged).
+1. **Crash-free users ≥ 99%.** Firebase Console → Crashlytics → filter the version → "Crash-free statistics" → crash-free users. With ~20 testers, one crashing tester is ~95%, so in practice the gate means no tester crashed on that build. Cross-check Play Console → Android vitals → user-perceived crash rate (it must not be flagged).
 2. **No unrecovered save-load failures.** Firebase Console → Crashlytics → filter the version → Event type **Non-fatals** → search `CanvasStorageException`, then `RedactedException` (a report whose message named a file path is sent as a `RedactedException` whose message starts with `com.brewingbytes.gemmory.storage.CanvasStorageException:`; an unreadable save file does this). Any of them whose message contains **`: damaged,`** blocks production (the canvas couldn't be loaded and there was no good last save). These are informational, not blocking: `recovered from last good save` (the player lost at most 5 s), `write failed` (disk errors other than full), `won't overwrite a newer save`, and FileStateStore `IOException`s (settings/ledger, not canvas progress). A spike in any of them still needs a look before promoting.
 
 Record each check (date, version, both numbers) in the PR or release notes that promotes the build.

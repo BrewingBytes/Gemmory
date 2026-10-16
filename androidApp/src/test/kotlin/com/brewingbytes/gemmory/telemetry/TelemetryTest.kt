@@ -178,14 +178,4 @@ class TelemetryTest {
         )
         assertTrue(Analytics.consentFlags(ConsentModeV2.GRANTED).values.all { it })
     }
-
-    @Test
-    fun sevenQuickTapsOpenTheCheckAndSlowTapsStartOver() {
-        val streak = TapStreak(TelemetryCheck.TAPS, TelemetryCheck.WINDOW_MS)
-        assertFalse((0 until 6).any { streak.tap(it * 100L) })
-        assertTrue(streak.tap(600))
-        assertFalse(streak.tap(700), "a completed streak starts again")
-        val slow = TapStreak(7, 3_000)
-        assertFalse((0 until 7).any { slow.tap(it * 600L) }, "the 7th tap at 3.6 s is outside the window")
-    }
 }
