@@ -111,6 +111,24 @@ Project `gemmory-3e776`.
 5. Save. Changes take up to 5 minutes.
 6. **Check it worked** (same day): on `gemmory_play`, install the current build from Play, accept the consent form and open the app twice. Within a few minutes the version must show in Firebase Console → Crashlytics (crash-free statistics count its users) and in Analytics → Realtime. If not, `adb logcat | grep -i -E "firebase|installations|403"` shows `API_KEY_ANDROID_APP_BLOCKED` or `PERMISSION_DENIED`: re-check the SHA-1s (the Play build is signed with the app-signing key, not the upload key). To roll back, set Application restrictions to None.
 
+## Test Lab CI credentials (Google Cloud Console)
+
+The encoder smoke job (`.github/workflows/testlab.yml`, #11; README → "Encoder smoke on Firebase Test Lab") logs in to project `gemmory-3e776` with Workload Identity Federation: GitHub's short-lived OIDC token is exchanged for the service account below, and only workflows in `BrewingBytes/Gemmory` can do it. No key is created, so there is nothing to leak or rotate. Test Lab gets the debug APKs and the tests' synthetic canvases only, never a player's photo, so the Data safety answers don't change.
+
+1. **APIs.** Google Cloud Console → project **gemmory-3e776** → APIs & Services → Library → search and **Enable** each: **Cloud Testing API**, **Cloud Tool Results API**, **IAM Service Account Credentials API**, **Security Token Service API**.
+2. **Service account.** IAM & Admin → Service Accounts → **Create service account**: name `test-lab-ci` (ID `test-lab-ci`) → Create and continue → role **Basic → Editor** → Done. Don't open its Keys tab. Editor is the role Firebase's Test Lab CI guide names; the job also reads videos from Test Lab's results bucket with it.
+3. **Pool.** IAM & Admin → **Workload Identity Federation** → Create pool: name `github`, pool ID `github` → Continue.
+4. **Provider** (same wizard): provider **OpenID Connect (OIDC)**, name `github-actions`, provider ID `github-actions`, issuer URL `https://token.actions.githubusercontent.com`, audiences **Default audience** → Continue → attribute mapping: `google.subject` = `assertion.sub`, add `attribute.repository` = `assertion.repository` → **Add condition**: `assertion.repository == 'BrewingBytes/Gemmory'` → Save.
+5. **Let the repo use the account.** Open the `github` pool → **Grant access** → "Grant access using service account impersonation" → service account `test-lab-ci` → principals: "Only identities matching the filter", attribute `repository`, value `BrewingBytes/Gemmory` → Save. Dismiss the "Configure your application" download: the job needs no config file.
+6. **Provider name.** Pool `github` → provider `github-actions`: copy the resource name `projects/<project number>/locations/global/workloadIdentityPools/github/providers/github-actions` (the "Default audience" URL minus `https://iam.googleapis.com/`).
+7. **GitHub secrets.** github.com/BrewingBytes/Gemmory → Settings → Secrets and variables → Actions → **New repository secret**, twice:
+   - `GCP_WORKLOAD_IDENTITY_PROVIDER` = the resource name from step 6.
+   - `GCP_TEST_LAB_SERVICE_ACCOUNT` = `test-lab-ci@gemmory-3e776.iam.gserviceaccount.com`.
+8. **Test Lab once.** Firebase Console → project → Run (or DevOps & Engage) → **Test Lab**: open it once so the project is set up for it. Stay on Spark: its 5 physical-device runs a day cost nothing; Blaze would bill past 30 free minutes a day ($5 per device-hour).
+9. **Check it worked:** GitHub → Actions → **Test Lab** → Run workflow → tick "Only print the physical-device catalog" → Run. It must go green with the device table in the run summary. `Permission 'iam.serviceAccounts.getAccessToken' denied` means step 5 is missing; `unauthorized_client` means the condition in step 4 doesn't match the repo name.
+
+To revoke: delete the provider (or the `test-lab-ci` account); the secrets are then useless.
+
 ## Production gate (D18)
 
 Production opens only when both checks pass. Everything else from the closed test (percentages, retention, share rate) is informational: about 6-10 consented people each, too few to decide anything.

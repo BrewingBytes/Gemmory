@@ -1,0 +1,134 @@
+# Encoder smoke on real phones (#11, design doc D7): TimelapseEncoderSmokeTest + EncodeCancelTest on Firebase Test
+# Lab, one matrix over three chip families. A release candidate is a pushed `v*` tag; it also runs by hand from the
+# Actions tab. Setup, quota and how to read the results: README → "Encoder smoke on Firebase Test Lab".
+name: Test Lab
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      phones:
+        description: Phones to run on (a tag runs all three; one phone re-checks a failure with the quota left today)
+        type: choice
+        options: [all, pixel, samsung, mediatek]
+        default: all
+      list_models:
+        description: Only print the physical-device catalog (no test run, no quota used)
+        type: boolean
+        default: false
+
+# Never cancel a matrix that is already on the phones: its device runs count against the daily quota either way.
+concurrency:
+  group: test-lab-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation: GitHub's OIDC token buys short-lived Google credentials, no key file.
+
+env:
+  # Picked from `gcloud firebase test android models list` (why each one: README). Spark gives 5 physical runs a day;
+  # each phone is one run, and a matrix that doesn't fit what's left is refused whole (TEST_QUOTA_EXCEEDED).
+  PIXEL: model=tokay,version=35
+  SAMSUNG: model=a52sxq,version=34
+  MEDIATEK: model=a06,version=35
+  TEST_TARGETS: >-
+    class com.brewingbytes.gemmory.timelapse.TimelapseEncoderSmokeTest,class com.brewingbytes.gemmory.timelapse.EncodeCancelTest
+
+jobs:
+  encoder-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_TEST_LAB_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: List physical devices
+        if: inputs.list_models
+        run: |
+          gcloud firebase test android models list --filter=form=PHYSICAL \
+            --format='table(id, brand, name, codename, supportedVersionIds.list(), tags.list())' | tee models.txt
+          { echo '### Test Lab physical devices'; echo '```'; cat models.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-java@v5
+        if: ${{ !inputs.list_models }}
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v5
+        if: ${{ !inputs.list_models }}
+
+      # Instrumentation needs an APK pair of one build type; the encoder code is the same in debug and release.
+      - name: Build the app and test APKs
+        if: ${{ !inputs.list_models }}
+        run: ./gradlew :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest
+
+      - name: Run on Test Lab
+        if: ${{ !inputs.list_models }}
+        run: |
+          # stdout is the per-device outcome (JSON); stderr is the progress, the console link and the bucket link.
+          # gcloud exits non-zero when any device fails (10) or is inconclusive (15), which fails the job.
+          case "${{ inputs.phones || 'all' }}" in
+            pixel) devices=(--device "$PIXEL") ;;
+            samsung) devices=(--device "$SAMSUNG") ;;
+            mediatek) devices=(--device "$MEDIATEK") ;;
+            *) devices=(--device "$PIXEL" --device "$SAMSUNG" --device "$MEDIATEK") ;;
+          esac
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app androidApp/build/outputs/apk/debug/androidApp-debug.apk \
+            --test androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk \
+            --test-targets "$TEST_TARGETS" \
+            "${devices[@]}" \
+            --timeout 15m \
+            --num-flaky-test-attempts 0 \
+            --results-history-name 'Gemmory encoder smoke' \
+            --results-dir "encoder-smoke/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --client-details "matrixLabel=$GITHUB_REF_NAME ${GITHUB_SHA::7}" \
+            --format json > outcome.json 2> >(tee testlab.log >&2)
+
+      - name: Summary and videos
+        if: ${{ !inputs.list_models && !cancelled() }}
+        run: |
+          console=$(grep -o 'https://console.firebase.google.com[^] ]*' testlab.log | head -1 || true)
+          bucket=$(grep -o 'https://console.developers.google.com/storage/browser/[^] ]*' testlab.log | head -1 || true)
+          {
+            echo '### Encoder smoke on Test Lab'
+            echo "Results, videos and logcat per device: ${console:-no console link, see the Run on Test Lab log}"
+            echo
+            echo '| Device | Outcome | Details |'
+            echo '|---|---|---|'
+            jq -r '.[]? | "| \(.axis_value) | \(.outcome) | \(.test_details) |"' outcome.json 2>/dev/null || true
+            if grep -q TEST_QUOTA_EXCEEDED testlab.log; then
+              echo
+              echo "**Not run: today's Test Lab quota is used up.** Spark allows 5 physical-device runs a day and this matrix didn't fit what was left, so it was refused whole and nothing ran. Re-run tomorrow, or pick one phone if only one needs a re-check and runs are left."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Copy each device's video and logcat next to the run, so they open without the Firebase Console.
+          if [ -n "$bucket" ]; then
+            gs="gs://${bucket#https://console.developers.google.com/storage/browser/}"
+            gs="${gs%/}"
+            for device in $(gcloud storage ls "$gs/" | grep '/$'); do
+              name=$(basename "$device")
+              mkdir -p "results/$name"
+              gcloud storage cp "${device}video.mp4" "${device}logcat" "results/$name/" || true
+            done
+          fi
+
+      - uses: actions/upload-artifact@v5
+        if: ${{ !inputs.list_models && !cancelled() }}
+        with:
+          name: test-lab-results
+          path: |
+            results/
+            testlab.log
+            outcome.json
+          if-no-files-found: warn

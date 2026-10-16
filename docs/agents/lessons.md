@@ -15,6 +15,13 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#40): for a by-hand check on the emulator, `adb shell monkey -p … -c android.intent.category.LAUNCHER 1` printed its args and launched nothing; `adb shell am start -W -n com.brewingbytes.gemmory/.MainActivity` works. `uiautomator dump` right after a launch or a screen change can return the previous screen ("null root node returned"); wait 2-3 s and dump again before reading it.
 - 2026-10-16 (#40): after a full per-class connected run, CanvasGesturesTest kept timing out in `open()` (5 s for the photo tile) even run alone at load ~3; logcat showed GC blocked ~2 s and class verification at ~60 bytecodes/s (host swap 14/15 GB). A cold reboot of the emulator made the class pass 12/12. When the same launch timeouts repeat after a long run, cold-reboot before re-running.
 
+## CI
+
+- 2026-10-16 (#11): Firebase Test Lab is deprecated and shuts down on 2027-09-30 (#55). Spark gives 5 physical-device runs a day and each phone in a matrix is one run (the pricing page doesn't say so). A second 3-phone matrix the same day was refused whole at validation with `TEST_QUOTA_EXCEEDED`: nothing ran, nothing was billed, and the project has no billing account. So it's one 3-phone run a day.
+- 2026-10-16 (#11): the Test Lab catalog doesn't name chipsets, and a Pixel isn't a separate encoder family: Pixel 9 (Tensor G4) logged `c2.exynos.h264.encoder`, the same as the Exynos Galaxy A35. The smoke log line names each phone's codec; check it before trusting a pick.
+- 2026-10-16 (#11): a workflow's "Run workflow" button (and `gh workflow run`) only exists once the file is on `main`. To try a new workflow from its branch, push a throwaway tag it triggers on (`v0.3.1-t11-smoke`) and delete it afterwards.
+- 2026-10-16 (#11): Gradle's `testInstrumentationRunnerArguments` (the `@PerfTest` exclusion) don't reach Test Lab, which runs the APKs directly. Pick classes with `--test-targets`, never a whole-package run.
+
 ## Bundled pictures
 
 - 2026-10-16 (#31): a grid's CRC32 is the last 4 bytes of its `.gmrg` file, big-endian (`tail -c 4 <file> | xxd -p`). `GridFile.crc32` returns the same value.
