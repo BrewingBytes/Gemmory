@@ -8,6 +8,8 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-15 (#5): `SheetAccessibilityChecksTest` is a second class inside `AccessibilityChecksTest.kt`, so a loop over test files misses it. List classes, not files.
 - 2026-10-16 (#31): `adb shell` reads stdin. In a `while read … done < classes.txt` loop it swallows the rest of the list and only the first class runs. Give every adb call `< /dev/null`.
 - 2026-10-16 (#31): at emulator load ~15-37, tests that wait for the gallery's starter tile (10 s) or for a canvas to open (5 s) time out, an instrumentation process can crash, and a cold launch can raise an ANR. CanvasAccessibilityTest, BillingFlowTest and HighlightStyleTest all passed once the load was below 3. Recheck on a quiet emulator before calling a timeout a regression.
+- 2026-10-16 (#32): the app reads the ledger (allowance, grace, ad caps) into memory at startup, so deleting `ledger/` files in a connected test's `@Before` doesn't reset it. Call `GemmoryApp.resetMonetizationForTest(fakeAds)` after clearing them, and `resetMonetizationForTest()` in `@After` to put AdMob back. A fake `AdGateway` also skips the UMP form (`ensureConsent`).
+- 2026-10-16 (#32): `ScreenSizesWalkthrough.twoHundredPercentFontOnA360dpPhone` (@DeviceCheck) fails on `main` too, at load ~3-4. After a photo canvas is finished, the finished picture or the reopened completion still doesn't appear within 10 s (lines 210/212). It's an existing failure, not load. To tell a regression from an existing failure, build `main` in a `git worktree` and run the same test against it.
 
 ## Bundled pictures
 
@@ -17,3 +19,4 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#31): thumbnail cost grows with the catalog. On gemmory_pixel, rendering all 50 gallery thumbnails took 183 ms (33 ms for the earlier 7), measured by `GalleryLoadTimingTest`.
 - 2026-10-16 (#31): an AI tile can carry a protected product shape without any logo (a Vespa-like scooter was dropped). Check AI tiles for recognizable designs, not just for text and brands.
 - 2026-10-16 (#31): `open(p, "w").write(open(p).read() + …)` truncates the file before reading it and wiped PROVENANCE.md once. Read first, then write. `BundledPicturesTest.everyPictureHasAProvenanceRow` now catches a lost row.
+- 2026-10-16 (#32): what's free is `BundledPictures.FREE`, and everything else is locked. A connected test or walkthrough that opens a picture outside that set must unlock it first (`app.monetization.unlocks.unlock(id)`) or run as VIP, or the tap opens the rewarded sheet instead of the canvas.

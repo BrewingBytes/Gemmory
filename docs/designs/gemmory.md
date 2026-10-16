@@ -148,9 +148,15 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
 | Interstitial after finishing a picture | Yes (capped) | No | No |
 | Gallery banner | Deferred to v1.1 (CUT-1) | — | — |
 | Photo canvases per day | 1 free + 1 per rewarded ad (no cap; founder call #7, 2026-10-14) | same as Free | Unlimited |
-| Bundled pictures | ~20 free, ~10 locked (unlock with a rewarded ad each) | same as Free | All unlocked |
+| Bundled pictures | The starter + 2 Quick, 2 Medium and 2 Big free; the rest locked (unlock with a rewarded ad each; founder 2026-10-16, #32) | same as Free | All unlocked |
 | Time-lapse watermark | Yes | Yes | No |
 | Rewarded ads | Opt-in | Opt-in | Not shown (nothing to unlock) |
+
+**Locked pictures (#32, founder 2026-10-16):**
+- Of the 49 bundled pictures after the starter, 6 are free: Lemons on Blue Tiles and Hot Air Balloon (Quick), Cherries and Milk Jug and Tuscan Hills (Medium), Golden Puppy and Ginger Cat (Big). The other 42 are locked, including all 21 CC0/public-domain ones (CONTENT-1). This replaces the earlier ~20 free / ~10 locked default.
+- The free set is one list, `BundledPictures.FREE`. Every other picture, including any added later, is locked. Editing that list changes no grid or CRC. `BundledPicturesTest` checks that every id exists, that the starter is never locked, and that each size keeps at least 2 free pictures, listed first within their size in the gallery.
+- A locked picture opens after one rewarded video (permanent), today's grace unlock on an online no-fill, or VIP. A picture with at least one gem placed stays open whatever the entitlement (eng E4c). When VIP lapses, pictures unlocked by a video or started stay open and the rest lock again. A "Start over" empties a picture, so after a lapse it locks again unless a video unlocked it.
+- **Unlocks survive a reinstall through Android backup (founder 2026-10-16, #32).** They live in the `unlocks` shared-preferences file, which holds picture ids only (no user content) and is not in the backup exclusions, unlike `ledger/`. A restored phone keeps the pictures its player watched videos for. `BackupRulesTest` checks that it stays backed up.
 
 **Photo canvas allowance rules:**
 - The allowance is used up only when the player taps **Start** on a photo canvas. Picking, cropping, changing size and previewing are free and unlimited.
@@ -1154,7 +1160,7 @@ Actual answer: A) Apply (D14, user answer 2026-10-12)
 Accepted scope: the share intent adds EXTRA_TEXT "Made with Gemmory: <Play URL with utm referrer>". Firebase reads the install referrer. A "share-attributed installs" metric is added to Success Criteria as informational. MVP time-lapse line amended.
 History: none
 
-Unlock storage (from O6, factual spec gap, necessary implementation of the approved locked-pictures feature, no question): a locked-picture unlock is permanent and stored in DataStore with bundled progress (backup allowed, no user content). Extra photo canvases from a reward or grace are consumed through DailyLedger, like the free one.
+Unlock storage (from O6, factual spec gap, necessary implementation of the approved locked-pictures feature, no question): a locked-picture unlock is permanent and stored in DataStore with bundled progress (backup allowed, no user content). (As built in #7 it's the `unlocks` shared-preferences file, backed up; confirmed for reinstalls in #32, see **Locked pictures**.) Extra photo canvases from a reward or grace are consumed through DailyLedger, like the free one.
 
 ### R-O6: Grace-unlock farming (outside finding 6, Medium)
 Finding: O6, Medium, 7/10, gemmory.md:167-168 (`On no fill, offline or timeout, show "No video right now"` / `Also grant 1 grace unlock per day per reward type`), reviewer Claude subagent (in-host)

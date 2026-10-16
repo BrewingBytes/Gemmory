@@ -4,11 +4,23 @@ package com.brewingbytes.gemmory.bundled
  * A bundled picture: a frozen grid asset made once by `./gradlew :shared:freezeBundledGrid` and copied as is into
  * `canvases/bundled/<id>/` when the player first opens it (design D13, eng D11). [gridCrc32] is the asset's CRC,
  * pinned so a re-frozen asset is caught by BundledPicturesTest before it orphans saves. A [locked] picture opens
- * after a rewarded video (or VIP); its unlock is permanent (design doc tier table, ~10 of ~30).
+ * after a rewarded video (or VIP); its unlock is permanent (design doc tier table). Whether a picture is locked comes
+ * from [BundledPictures.FREE], not from its row.
  */
 data class BundledPicture(val id: String, val title: String, val asset: String, val gridCrc32: Int, val locked: Boolean = false)
 
 object BundledPictures {
+    /**
+     * The pictures a free player can open without a video, besides the starter (#32, founder 2026-10-16): two of each
+     * size. Every other picture is locked, including any added later. Edit this set to change what's free;
+     * BundledPicturesTest checks the ids exist and that each size keeps at least two.
+     */
+    internal val FREE = setOf(
+        "lemons", "balloon", // Quick
+        "cherries", "tuscan-hills", // Medium
+        "puppy", "cat", // Big
+    )
+
     /** The free starter picture (design D13): 24×32, 8 colors, about 5 minutes. Always the first Pictures tile. */
     val STARTER = BundledPicture(
         id = "starter",
@@ -77,8 +89,13 @@ object BundledPictures {
         BundledPicture("misty-pier", "Misty Pier", "pictures/misty-pier.gmrg", 0x0215c44c),
     )
 
-    /** Gallery order: the starter, then Quick, Medium and Big (#31). Sources and licenses: tools/bundled/PROVENANCE.md. */
-    val ALL: List<BundledPicture> = listOf(STARTER) + QUICK + MEDIUM + BIG
+    /**
+     * Gallery order: the starter, then Quick, Medium and Big (#31), the free ones first in each size (#32). The starter
+     * is never locked. Sources and licenses: tools/bundled/PROVENANCE.md.
+     */
+    val ALL: List<BundledPicture> = listOf(STARTER) + listOf(QUICK, MEDIUM, BIG).flatMap { size ->
+        size.map { it.copy(locked = it.id !in FREE) }.sortedBy { it.locked }
+    }
 
     fun byId(id: String): BundledPicture? = ALL.firstOrNull { it.id == id }
 }

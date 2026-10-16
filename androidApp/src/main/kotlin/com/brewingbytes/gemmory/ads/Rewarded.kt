@@ -123,7 +123,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
         ui = current.copy(phase = RewardPhase.Loading)
         job = viewModelScope.launch {
             // Consent comes before any ad request; a player with no consent yet sees the form here (founder call #7).
-            val allowed = app.consent.ensureBeforeAd(activity)
+            val allowed = gateway.ensureConsent(activity)
             if (allowed) gateway.start()
             val result = if (allowed) gateway.loadRewarded() else RewardedLoad.Failed(LoadFailure.OTHER)
             val phase = when (result) {
