@@ -23,6 +23,11 @@ class A11yTextTest {
         assertEquals("Color 7 done. Color 8 selected.", A11yText.colorDone(7, 8))
         assertEquals("Color 7 done.", A11yText.colorDone(7, null))
         assertEquals("1,311 left", A11yText.left(1311, us))
+        assertEquals("A quarter done", A11yText.milestone(25))
+        assertEquals("Halfway there", A11yText.milestone(50))
+        assertEquals("Three quarters done", A11yText.milestone(75))
+        assertEquals("Showing the finished picture", A11yText.peek(true))
+        assertEquals("Back to canvas", A11yText.peek(false))
     }
 
     @Test

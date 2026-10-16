@@ -8,6 +8,7 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasGestures
 import com.brewingbytes.gemmory.game.CanvasState
 import com.brewingbytes.gemmory.game.GameEvent
+import com.brewingbytes.gemmory.game.Milestones
 import com.brewingbytes.gemmory.game.PlaceResult
 import com.brewingbytes.gemmory.game.Rejection
 import com.brewingbytes.gemmory.game.nextRemainingCell
@@ -52,6 +53,30 @@ class PlaySession internal constructor(
     var announcement by mutableStateOf<Announcement?>(null)
         private set
 
+    /**
+     * The latest progress milestone (#35) crossed by a placement in this session; its banner, chime and haptic play
+     * once per [Milestone.id]. Null on open, so a canvas reopened past a milestone never replays it.
+     */
+    var milestone by mutableStateOf<Milestone?>(null)
+        private set
+
+    /** The Milestones setting (#35), kept current by the play screen; off, a crossing plays and says nothing. */
+    var milestonesOn = true
+
+    /** The milestone a cue last started for; a rotation mid-banner doesn't start it again. */
+    var cuedMilestone = 0
+        private set
+
+    /** Marks [shown] as cued; false when it already was. */
+    fun cue(shown: Milestone): Boolean {
+        if (shown.id <= cuedMilestone) return false
+        cuedMilestone = shown.id
+        return true
+    }
+
+    /** The peek (#35) was turned on or off from its TalkBack canvas action. */
+    fun announcePeek(shown: Boolean) = announce(A11yText.peek(shown))
+
     val cellCount: Int get() = state.cellCount
     val isFinished: Boolean get() = state.isFinished
     val diskFull: StateFlow<Boolean> get() = saver.diskFull
@@ -84,10 +109,12 @@ class PlaySession internal constructor(
     fun placeNext(): PlaceResult? {
         val cell = nextRemainingCell(pattern, state::isPlaced, selectedSlot, findCursor - 1) ?: return null
         findCursor = cell
+        val before = placedCount
         val result = place(cell)
-        // A finished color already announced "Color 7 done. Color 8 selected."
+        // A finished color already announced "Color 7 done. Color 8 selected." (and any milestone after it).
         if (result is PlaceResult.Placed && result.events.none { it is GameEvent.ColorFinished }) {
-            announce(A11yText.left(remaining(selectedSlot)))
+            val crossed = crossedMilestone(before)
+            announce(listOfNotNull(A11yText.left(remaining(selectedSlot)), crossed?.let(A11yText::milestone)).joinToString(". "))
         }
         return result
     }
@@ -130,7 +157,10 @@ class PlaySession internal constructor(
             }
             is PlaceResult.Placed -> {
                 saver.onPlacement(cell)
+                val before = placedCount
                 placedCount = state.placedCount
+                val crossed = crossedMilestone(before)
+                if (crossed != null) milestone = Milestone(crossed, (milestone?.id ?: 0) + 1)
                 for (event in result.events) {
                     when (event) {
                         is GameEvent.ColorFinished -> {
@@ -138,7 +168,9 @@ class PlaySession internal constructor(
                                 selectedSlot = it
                                 findCursor = -1
                             }
-                            announce(A11yText.colorDone(event.slot + 1, event.next?.plus(1)))
+                            val done = A11yText.colorDone(event.slot + 1, event.next?.plus(1))
+                            // One line when the same gem finishes a color and crosses a milestone.
+                            announce(if (crossed == null) done else "$done ${A11yText.milestone(crossed)}.")
                         }
                         GameEvent.PictureFinished -> {
                             saver.writeNow()
@@ -147,10 +179,13 @@ class PlaySession internal constructor(
                         is GameEvent.GemPlaced -> Unit
                     }
                 }
+                if (crossed != null && result.events.none { it is GameEvent.ColorFinished }) announce(A11yText.milestone(crossed))
             }
         }
         return result
     }
+
+    private fun crossedMilestone(before: Int): Int? = if (milestonesOn) Milestones.crossed(before, placedCount, cellCount) else null
 
     /** Activity onStart: play time counts again. */
     fun onStart() = clock.resume()
@@ -170,6 +205,9 @@ class PlaySession internal constructor(
         const val FIND_MAX_LEFT = 20
     }
 }
+
+/** A progress milestone (#35): [percent] is 25, 50 or 75; [id] counts up, so each crossing is its own cue. */
+data class Milestone(val percent: Int, val id: Int)
 
 /** One announcement; [id] tells two identical texts apart, so "Not color 7" twice is spoken twice. */
 data class Announcement(val text: String, val id: Int)

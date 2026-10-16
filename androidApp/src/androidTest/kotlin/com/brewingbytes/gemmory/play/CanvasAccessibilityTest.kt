@@ -45,8 +45,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * TalkBack on the play canvas (design D19): the one canvas node and its five custom actions, the polite live-region
- * announcements, the trough semantics, and the reduced-motion blink (D21). Actions are invoked the way TalkBack
+ * TalkBack on the play canvas (design D19): the one canvas node and its six custom actions, the polite live-region
+ * announcements, the trough semantics, and the reduced-motion blink (D21). Also the progress milestones and the peek
+ * (#35), which TalkBack reaches through the same live region and a canvas action. Actions are invoked the way TalkBack
  * invokes them, through the semantics tree.
  */
 @OptIn(ExperimentalTestApi::class)
@@ -94,6 +95,7 @@ class CanvasAccessibilityTest {
         animatorScale?.let { shell("settings put global animator_duration_scale $it") }
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
+        (context.applicationContext as GemmoryApp).settings.setMilestones(true)
     }
 
     private fun shell(command: String): String =
@@ -103,6 +105,11 @@ class CanvasAccessibilityTest {
 
     private fun open(pattern: Pattern): PlaySession {
         runBlocking { (context.applicationContext as GemmoryApp).store.create(ref, pattern) }
+        return reopen()
+    }
+
+    /** Opens the canvas already on disk, as a player coming back to it from the gallery. */
+    private fun reopen(): PlaySession {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNode(androidx.compose.ui.test.hasText("My Photos")).performClick()
         compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-photo-a11y")).fetchSemanticsNodes().isNotEmpty() }
@@ -158,13 +165,31 @@ class CanvasAccessibilityTest {
         return node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
     }
 
+    private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
+
+    /** Runs [block] with the test clock held; [pass] then moves both it and real time (the peek's tap test is real time). */
+    private fun <T> heldClock(block: () -> T): T {
+        compose.mainClock.autoAdvance = false
+        try {
+            return block()
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    private fun pass(ms: Long) {
+        Thread.sleep(ms)
+        compose.mainClock.advanceTimeBy(ms)
+        compose.waitForIdle()
+    }
+
     private fun PlaySession.centerOf(cell: Int): Offset {
         val vp = viewport
         return Offset(vp.offsetX + (cell % pattern.width + 0.5f) * vp.cellPx, vp.offsetY + (cell / pattern.width + 0.5f) * vp.cellPx)
     }
 
     @Test
-    fun theCanvasIsOneNodeWithProgressSelectionAndFiveActions() {
+    fun theCanvasIsOneNodeWithProgressSelectionAndSixActions() {
         val s = open(large)
         val canvas = compose.onNodeWithTag("play-canvas")
         val left = s.remaining(s.selectedSlot)
@@ -172,7 +197,7 @@ class CanvasAccessibilityTest {
             "Canvas. 0 of ${numbers.format(4800)} placed. Color ${s.selectedSlot + 1} selected, ${numbers.format(left)} left.",
         )
         val labels = canvas.fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label }
-        assertEquals(listOf("Place next gem", "Find next gem", "Zoom in", "Zoom out", "Whole picture"), labels)
+        assertEquals(listOf("Place next gem", "Find next gem", "Zoom in", "Zoom out", "Whole picture", "Peek at picture"), labels)
 
         action("Place next gem")
         canvas.assertContentDescriptionEquals(
@@ -285,5 +310,98 @@ class CanvasAccessibilityTest {
         assertEquals(true, outlined(), "and back after 120ms")
         compose.onNodeWithTag("trough-1").assert(SemanticsMatcher.expectValue(LampOutline, true))
         assertEquals(0, s.placedCount)
+    }
+
+    @Test
+    fun aMilestoneIsAnnouncedWithItsBannerOnceAndNotReplayedOnReopen() {
+        // 48 gems: 25% is the 12th, 50% the 24th.
+        val s = open(small)
+        repeat(11) { action("Place next gem") }
+        assertTrue(s.milestone == null)
+        heldClock {
+            action("Place next gem")
+            compose.mainClock.advanceTimeByFrame()
+            assertEquals("4 left. A quarter done", announced()?.trim())
+            assertEquals(25, s.milestone?.percent)
+            pass(500)
+            assertTrue(exists("milestone-banner"))
+            pass(3_000)
+            assertTrue(!exists("milestone-banner"), "gone after 3s")
+        }
+        assertEquals("3 left", heard { action("Place next gem") }?.trim(), "the next gem crosses nothing")
+
+        // Back to the gallery and in again at 13 of 48: 25% doesn't play again.
+        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        scenario.close()
+        val again = reopen()
+        assertEquals(13, again.placedCount)
+        assertTrue(again.milestone == null)
+        assertTrue(!exists("milestone-banner"))
+        assertEquals("2 left", heard { action("Place next gem") }?.trim())
+        repeat(9) { action("Place next gem") }
+        assertEquals(23, again.placedCount)
+        // The 24th finishes nothing but crosses 50%; color 2 is selected after color 1 finished at the 16th.
+        assertEquals("${again.remaining(again.selectedSlot) - 1} left. Halfway there", heard { action("Place next gem") }?.trim())
+        assertEquals(50, again.milestone?.percent)
+    }
+
+    @Test
+    fun withMilestonesOffACrossingPlaysAndSaysNothing() {
+        (context.applicationContext as GemmoryApp).settings.setMilestones(false)
+        val s = open(small)
+        repeat(11) { action("Place next gem") }
+        assertEquals("4 left", heard { action("Place next gem") }?.trim())
+        assertTrue(s.milestone == null)
+        compose.waitForIdle()
+        assertTrue(!exists("milestone-banner"))
+    }
+
+    @Test
+    fun thePeekActionShowsTheFinishedPictureUntilBackToCanvas() {
+        val s = open(large)
+        assertTrue(!exists("peek-picture"))
+        assertEquals("Showing the finished picture", heard { action("Peek at picture") }?.trim())
+        compose.waitForIdle()
+        assertTrue(exists("peek-picture"))
+        val labels = compose.onNodeWithTag("play-canvas").fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label }
+        assertEquals("Back to canvas", labels.last())
+        // It stays until the action is used again, and changes nothing on the canvas.
+        heldClock { pass(2_000) }
+        assertTrue(exists("peek-picture"))
+        assertEquals("Back to canvas", heard { action("Back to canvas") }?.trim())
+        compose.waitForIdle()
+        assertTrue(!exists("peek-picture"))
+        assertEquals(0, s.log().size)
+    }
+
+    @Test
+    fun theEyeShowsThePictureWhileHeldAndForATap() {
+        val s = open(large)
+        compose.onNodeWithTag("peek").assertContentDescriptionEquals("Peek").assertHasClickAction()
+        heldClock {
+            // Hold: shown while the finger is down, gone once it lifts and the 150ms fade ends.
+            compose.onNodeWithTag("peek").performTouchInput { down(center) }
+            pass(400)
+            assertTrue(exists("peek-picture"))
+            pass(1_600)
+            assertTrue(exists("peek-picture"), "still held past 1.5s")
+            compose.onNodeWithTag("peek").performTouchInput { up() }
+            pass(400)
+            assertTrue(!exists("peek-picture"))
+            // Tap: shown for 1.5s.
+            compose.onNodeWithTag("peek").performTouchInput { click(center) }
+            pass(700)
+            assertTrue(exists("peek-picture"), "still within 1.5s")
+            pass(1_200)
+            assertTrue(!exists("peek-picture"))
+            // A touch on the picture hides it and places nothing.
+            compose.onNodeWithTag("peek").performTouchInput { click(center) }
+            pass(300)
+            compose.onNodeWithTag("peek-picture").performTouchInput { click(center) }
+            pass(400)
+            assertTrue(!exists("peek-picture"))
+        }
+        assertEquals(0, s.log().size)
     }
 }

@@ -3,7 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35).
 
 ---
 
@@ -622,3 +622,43 @@ Labels: P2, ci
 **Done when:** a release-candidate tag runs the encoder smoke on three chip families on the new service, before 2027-09-30. If it costs money, the founder approves the cost first.
 
 Not before the service is GA, and no later than mid-2027. Effort: human ~3h / CC ~30min.
+
+## T32: A bigger celebration when a picture is finished (confetti, fireworks or another idea)
+Labels: P2, game, ui
+
+**Why:** finishing a canvas, hours of play on a Big one, is the biggest moment in the game, and today it's the calm "lights down": a dim, one specular sweep, a chime, a 2s hold. The founder wants a bigger celebration on finish (2026-10-16, during #35). The design system currently rules it out ("Don't add confetti, coin bursts, glitter particles…, even for events"; "Motion confirms; it never celebrates loudly"), and the founder has said that rule can change for this.
+
+**Candidates (decide in design first, with HTML mockups like #35)**
+- **Gem confetti:** a short burst of square cushion-cut gems in the picture's own palette, falling over the dimmed room (not over the picture). On brand: the picture supplies the color.
+- **Fireworks:** two or three bursts behind the picture, in the picture's colors, before the sweep.
+- **Gem shower into the picture:** the remaining tray heaps fly up and "settle" into the picture as the sweep passes, then the room dims.
+- **Bigger sweep:** keep lights down, but the sweep becomes a slow sparkle pass across every gem (a facet glint per gem, staggered), with a fuller chime.
+- **Time-lapse preview:** the 15s build plays muted, small, behind "Finished" before Share appears (it's the thing players share).
+- **Haptic crescendo:** a rising vibration pattern under any of the above.
+
+**Rules**
+- Reduced motion: no particles or flying gems; the dim and the chime stay (design D21).
+- Sound and Haptics follow their Settings toggles. Consider a Settings toggle like #35's Milestones if the effect is big.
+- Must not change the save log, the time-lapse or the share frame, and must not delay Share/Done by more than ~1s over today.
+- The completion still (a finished picture reopened from the gallery) stays still.
+- Ads stay where they are: an interstitial only after leaving the completion screen.
+- Record the decision, motion and copy in `docs/design-system.md` (Completion, Motion, Do's and Don'ts, Decisions log), replacing the "no confetti" rule if it changes.
+
+**Done when:** the chosen celebration plays on a fresh finish on Quick, Medium and Big canvases at 60 fps on the emulator, respects reduced motion and the toggles, and has a connected test that the completion still doesn't play it.
+
+Effort: design ~1h; build human ~4h / CC ~30min.
+
+## T33: Gallery: show every picture the player can open first, then the locked ones
+Labels: P2, ui
+
+**Why:** the Pictures tab is ordered by size first (#31: starter, every Quick, then Medium, then Big), with the free pictures first *within* each size (#32). So a free player scrolls past locked Quick tiles before reaching the free Medium ones, and past locked Medium tiles before the free Big ones. The founder wants every picture the player can open shown first, then the locked ones (2026-10-16, during #35).
+
+**Scope**
+- Order of the Pictures tab: the starter, then every **open** picture (free, unlocked by a video or today's grace, or started), then every **locked** one. Within each group keep the #31 difficulty ramp (Quick, then Medium, then Big).
+- "Open" follows the same rule as a tap (`BundledPictures.FREE`, the `unlocks` file, a canvas with a gem placed, and VIP, for which nothing is locked, so VIP sees the plain #31 ramp).
+- A picture unlocked by a video moves up into the open group the next time the gallery refreshes. Decide in design whether it moves at once (on return from the reward) or on the next visit, so a tile doesn't jump under the player's finger.
+- Update `docs/design-system.md` → Layout (Gallery) and the decisions log, and `docs/designs/gemmory.md` → Locked pictures. Update `BundledPicturesTest` (it checks free pictures are listed first within their size).
+
+**Done when:** a free player sees the starter and the 6 free pictures as the first 7 tiles, then the locked ones by size; a video unlock and VIP order correctly; unit tests cover the order for Free, Free with unlocks, a started locked picture, and VIP.
+
+Out of scope: which pictures are free (#32). Effort: human ~1-2h / CC ~15min.

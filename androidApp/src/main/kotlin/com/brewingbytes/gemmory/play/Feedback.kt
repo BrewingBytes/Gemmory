@@ -36,6 +36,11 @@ class Feedback(context: Context, private val settings: AppSettings) {
     private val thump = sounds.load(appContext, R.raw.flap_thump, 1)
     private val chime = sounds.load(appContext, R.raw.finish_chime, 1)
     private var lastTickAt = 0L
+    private val confirm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        HapticFeedbackConstants.CONFIRM
+    } else {
+        HapticFeedbackConstants.CONTEXT_CLICK
+    }
 
     private val soundOn: Boolean get() = settings.sound.value
     private val hapticsOn: Boolean get() = settings.haptics.value
@@ -55,13 +60,14 @@ class Feedback(context: Context, private val settings: AppSettings) {
     fun wrongColor(view: View) = haptic(view, HapticFeedbackConstants.TEXT_HANDLE_MOVE)
 
     fun colorFinished(view: View) {
-        val confirm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            HapticFeedbackConstants.CONFIRM
-        } else {
-            HapticFeedbackConstants.CONTEXT_CLICK
-        }
         haptic(view, confirm)
         play(thump, THUMP_VOLUME)
+    }
+
+    /** A progress milestone (#35): the finish chime a fifth higher and softer, and the color-finished haptic. */
+    fun milestone(view: View) {
+        haptic(view, confirm)
+        play(chime, MILESTONE_VOLUME, rate = MILESTONE_RATE)
     }
 
     /** One 400ms soft vibration and one low chime. */
@@ -118,5 +124,7 @@ class Feedback(context: Context, private val settings: AppSettings) {
         const val CLICK_VOLUME = 0.35f
         const val THUMP_VOLUME = 0.6f
         const val CHIME_VOLUME = 0.7f
+        const val MILESTONE_VOLUME = 0.4f
+        const val MILESTONE_RATE = 1.5f
     }
 }

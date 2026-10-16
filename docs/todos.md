@@ -21,3 +21,15 @@
 - **Effort estimate:** human M / CC S
 - **Priority:** P3
 - **Depends on / blocked by:** MVP live; Play Console showing meaningful refund rate or fraud signals.
+
+## Game
+
+### "Gems today" / "best session" line on the completion screen
+- **What:** A mono line under the completion meta line, such as "2,140 gems today" or "Best session: 1 h 12 min".
+- **Why:** One more small win on long canvases, alongside the #35 milestones.
+- **Pros:** Cheap to show; motivating for players who come back daily.
+- **Cons:** Needs a new per-day counter (no photo data, may be backed up). It crowds the lights-down meta line, and a daily count edges toward a streak mechanic the calm design avoids.
+- **Context:** Left out of #35 by the founder on 2026-10-16 (milestones and peek shipped instead).
+- **Effort estimate:** human S / CC S
+- **Priority:** P3
+- **Depends on / blocked by:** closed-test feedback asking for session stats, or D7 retention data showing long canvases are abandoned.

@@ -47,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -89,6 +90,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -179,10 +181,18 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
             }
             is PlayUi.Ready -> {
                 val s = ui.session
+                val context = LocalContext.current
+                val view = LocalView.current
+                val scope = rememberCoroutineScope()
+                val settings = (context.applicationContext as GemmoryApp).settings
+                val milestonesOn by settings.milestones.collectAsStateWithLifecycle()
+                SideEffect { s.milestonesOn = milestonesOn }
+                val peek = remember(s) { Peek(scope) }
                 TopBar(
                     s.title,
                     progress = s.placedCount to s.cellCount,
                     onBack = leave,
+                    peek = peek,
                     modifier = Modifier.graphicsLayer {
                         alpha = chrome.value
                         translationY = -(1f - chrome.value) * size.height * slide
@@ -197,10 +207,7 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                     )
                 }
-                val context = LocalContext.current
-                val view = LocalView.current
-                val scope = rememberCoroutineScope()
-                val feedback = remember { Feedback(context, (context.applicationContext as GemmoryApp).settings) }
+                val feedback = remember { Feedback(context, settings) }
                 DisposableEffect(feedback) { onDispose { feedback.release() } }
                 val controller = remember(s) { CanvasController(s, scope, feedback, view, vm.hints, reducedMotion) }
                 val window = LocalWindowInfo.current.containerSize
@@ -208,7 +215,7 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
                 val rail = with(LocalDensity.current) { window.width.toDp() >= RAIL_MIN_WIDTH } && window.width > window.height
                 if (rail) {
                     Row(Modifier.weight(1f).fillMaxWidth()) {
-                        GemCanvas(s, controller, vm.hints, Modifier.weight(1f).fillMaxHeight())
+                        GemCanvas(s, controller, vm.hints, peek, Modifier.weight(1f).fillMaxHeight())
                         Box(
                             Modifier.fillMaxHeight().graphicsLayer {
                                 alpha = chrome.value
@@ -217,7 +224,7 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
                         ) { Tray(s, controller, rail = true, reducedMotion) }
                     }
                 } else {
-                    GemCanvas(s, controller, vm.hints, Modifier.weight(1f).fillMaxWidth())
+                    GemCanvas(s, controller, vm.hints, peek, Modifier.weight(1f).fillMaxWidth())
                     Box(
                         Modifier.graphicsLayer {
                             alpha = chrome.value
@@ -230,9 +237,12 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
     }
 }
 
-/** Top bar (design D20): the title ellipsizes to one line; above 1.5× font scale progress shows as a mono "59%". */
+/**
+ * Top bar (design D20): the title ellipsizes to one line; above 1.5× font scale progress shows as a mono "59%". The
+ * Peek eye (#35) sits between the title and the progress.
+ */
 @Composable
-private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit, modifier: Modifier = Modifier) {
+private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit, modifier: Modifier = Modifier, peek: Peek? = null) {
     val largeFont = LocalDensity.current.fontScale > LARGE_FONT_SCALE
     Row(modifier.fillMaxWidth().heightIn(min = 56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconAction(GemIcons.Back, "Back", onBack)
@@ -245,6 +255,7 @@ private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        if (peek != null) PeekButton(peek, Modifier.padding(start = 4.dp))
         if (progress != null) {
             val format = remember { NumberFormat.getIntegerInstance() }
             val (placed, total) = progress
@@ -267,10 +278,10 @@ private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit,
 private class CanvasController(
     private val session: PlaySession,
     private val scope: CoroutineScope,
-    private val feedback: Feedback,
-    private val view: View,
+    val feedback: Feedback,
+    val view: View,
     private val hints: CoachHints,
-    private val reducedMotion: Boolean,
+    val reducedMotion: Boolean,
 ) : CanvasInputHandler {
     val effects = CanvasEffects()
 
@@ -402,7 +413,7 @@ private class CanvasController(
 }
 
 @Composable
-private fun GemCanvas(session: PlaySession, controller: CanvasController, hints: CoachHints, modifier: Modifier) {
+private fun GemCanvas(session: PlaySession, controller: CanvasController, hints: CoachHints, peek: Peek, modifier: Modifier) {
     val viewport = session.viewport
     val context = LocalContext.current
     val density = LocalDensity.current.density
@@ -422,22 +433,28 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
         hints.expire(hint)
     }
 
-    // TalkBack (design D19): the canvas is one node with five actions instead of a node per cell. Its description
-    // changes at most once per placement.
+    // TalkBack (design D19): the canvas is one node with six actions instead of a node per cell. Its description
+    // changes at most once per placement. The peek action (#35) reads "Back to canvas" while the picture shows.
     val format = remember { NumberFormat.getIntegerInstance() }
     val slot = session.selectedSlot
     val description = A11yText.canvas(session.placedCount, session.cellCount, slot + 1, session.remaining(slot), format)
-    val actions = remember(controller) {
+    val peeking = peek.shown
+    val actions = remember(controller, peeking) {
         listOf(
             CustomAccessibilityAction("Place next gem") { controller.placeNext() },
             CustomAccessibilityAction("Find next gem") { controller.find() },
             CustomAccessibilityAction("Zoom in") { controller.zoomStep(zoomIn = true) },
             CustomAccessibilityAction("Zoom out") { controller.zoomStep(zoomIn = false) },
             CustomAccessibilityAction("Whole picture") { controller.wholePicture() },
+            CustomAccessibilityAction(if (peeking) "Back to canvas" else "Peek at picture") {
+                session.announcePeek(peek.toggle())
+                true
+            },
         )
     }
 
-    Box(modifier) {
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    Box(modifier.onSizeChanged { canvasSize = it }) {
         Canvas(
             Modifier
                 .fillMaxSize()
@@ -462,6 +479,9 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
         Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
             if (shown != null) HintChip(shown.text)
         }
+        // Over the hint chip, so the peek shows only the finished picture; under the banner, so a milestone still shows.
+        PeekOverlay(session.pattern, peek, canvasSize)
+        MilestoneBanner(session, controller.feedback, controller.view, controller.reducedMotion)
         Announcer(session)
     }
 }
