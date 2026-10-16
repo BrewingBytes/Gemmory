@@ -15,6 +15,9 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#40): for a by-hand check on the emulator, `adb shell monkey -p … -c android.intent.category.LAUNCHER 1` printed its args and launched nothing; `adb shell am start -W -n com.brewingbytes.gemmory/.MainActivity` works. `uiautomator dump` right after a launch or a screen change can return the previous screen ("null root node returned"); wait 2-3 s and dump again before reading it.
 - 2026-10-16 (#40): after a full per-class connected run, CanvasGesturesTest kept timing out in `open()` (5 s for the photo tile) even run alone at load ~3; logcat showed GC blocked ~2 s and class verification at ~60 bytecodes/s (host swap 14/15 GB). A cold reboot of the emulator made the class pass 12/12. When the same launch timeouts repeat after a long run, cold-reboot before re-running.
 
+- 2026-10-16 (#35): a monitor built as `tail -f log | awk '… exit'` doesn't end when awk exits: `tail` only notices on its next write, and a finished run writes nothing more. Stop it by hand (TaskStop, then `pkill -f "tail -n +1 -f <log>"`).
+- 2026-10-16 (#35): to see a milestone or any moment deep into a Big canvas by hand, seed the progress with a throwaway instrumented class that places gems through `PlaySession.place` and writes a 24dp `ViewState` centered on the next gem, then `adb shell input tap` the canvas center and `screenrecord` it (`ffmpeg -vf "fps=4,tile=6x2"` makes a frame sheet). Delete the class before the PR.
+
 ## CI
 
 - 2026-10-16 (#11): Firebase Test Lab is deprecated and shuts down on 2027-09-30 (#55). Spark gives 5 physical-device runs a day and each phone in a matrix is one run (the pricing page doesn't say so). A second 3-phone matrix the same day was refused whole at validation with `TEST_QUOTA_EXCEEDED`: nothing ran, nothing was billed, and the project has no billing account. So it's one 3-phone run a day.
@@ -35,3 +38,4 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 ## App code
 
 - 2026-10-16 (#50): the gallery's tiles are what it last read: `GalleryViewModel.refresh()` re-reads and re-renders every canvas asynchronously each time the Gallery shows, so for a moment after Done a just-finished canvas still looks unfinished. Anything that acts on a tap reads the canvas itself (`CanvasStore.isFinished`), not `Tile.done`.
+- 2026-10-16 (#35): `clearAndSetSemantics {}` also drops semantics set after it in the same modifier chain, a `testTag` included, so `onAllNodes(hasTestTag(…))` never finds the node. Put the `testTag` before the clear.

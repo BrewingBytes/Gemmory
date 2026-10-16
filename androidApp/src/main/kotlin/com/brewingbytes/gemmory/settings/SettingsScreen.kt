@@ -57,9 +57,9 @@ import com.brewingbytes.gemmory.ui.feltGround
 const val PRIVACY_POLICY_URL = "https://github.com/BrewingBytes/Gemmory/blob/main/docs/privacy-policy.md"
 
 /**
- * Settings (design system, Settings): Sound, Haptics, Selected color (#19, opens its sheet), Membership, Manage subscription (VIP only, opens Play), Restore
- * purchases, Privacy choices (only when UMP says privacy options are required, design D3), Delete all photo canvases,
- * Privacy policy, Version. [onMembership] opens the paywall, or Play's subscription page for VIP.
+ * Settings (design system, Settings): Sound, Haptics, Milestones (#35), Selected color (#19, opens its sheet),
+ * Membership, Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (only when UMP says
+ * privacy options are required, design D3), Delete all photo canvases, Privacy policy, Version. [onMembership] opens the paywall, or Play's subscription page for VIP.
  */
 @Composable
 fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
@@ -67,6 +67,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
     val app = context.applicationContext as GemmoryApp
     val sound by app.settings.sound.collectAsStateWithLifecycle()
     val haptics by app.settings.haptics.collectAsStateWithLifecycle()
+    val milestones by app.settings.milestones.collectAsStateWithLifecycle()
     val highlight by app.settings.highlight.collectAsStateWithLifecycle()
     val privacyChoices by app.consent.privacyOptionsRequired.collectAsStateWithLifecycle()
     val membership by app.billing.membership.collectAsStateWithLifecycle()
@@ -91,6 +92,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             ToggleRow("Sound", sound, app.settings::setSound)
             ToggleRow("Haptics", haptics, app.settings::setHaptics)
+            ToggleRow("Milestones", milestones, app.settings::setMilestones)
             Row(
                 Modifier
                     .fillMaxWidth()

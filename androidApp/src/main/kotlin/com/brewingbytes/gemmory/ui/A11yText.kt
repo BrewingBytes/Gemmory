@@ -23,6 +23,16 @@ object A11yText {
     /** After "Place next gem" (founder call #14): the selected color's remaining count. */
     fun left(left: Int, format: NumberFormat = NumberFormat.getIntegerInstance()): String = "${format.format(left)} left"
 
+    /** A progress milestone's headline (#35), shown on its banner and spoken by TalkBack. */
+    fun milestone(percent: Int): String = when (percent) {
+        25 -> "A quarter done"
+        50 -> "Halfway there"
+        else -> "Three quarters done"
+    }
+
+    /** The peek (#35), turned on or off by its TalkBack canvas action. */
+    fun peek(shown: Boolean): String = if (shown) "Showing the finished picture" else "Back to canvas"
+
     /** "Color 7, 312 left" / "Color 7, done"; TalkBack adds "selected" from the selected state. */
     fun trough(color: Int, left: Int, format: NumberFormat = NumberFormat.getIntegerInstance()): String =
         if (left == 0) "Color $color, done" else "Color $color, ${format.format(left)} left"

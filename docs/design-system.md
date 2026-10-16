@@ -151,7 +151,7 @@ Scale: 34 / 30 / 22 / 16 / 13 sp. Adjacent levels differ by size *and* role, nev
 
 - Material 3 structure (top app bar, bottom sheets, system back) so Android feels native, with 16dp side gutters and a 4dp base grid.
 - **Gallery:** a 2-column staggered grid (10dp gap) that honors 1:1 / 3:4 / 4:3 tiles. Tabs are "Pictures" and "My Photos". A "New from photo" primary button floats bottom-right. The first Pictures tile is the free starter picture (24×32, about 5 minutes; Phase 5 D13). The other bundled pictures follow as a difficulty ramp: every Quick picture, then Medium, then Big (#31). Within each size, the free pictures come before the locked ones (#32).
-- **Play canvas:** a top app bar (back, title, mono progress), then a full-bleed canvas on `felt-deep`, then the tray bar at the bottom. No ads and no other chrome.
+- **Play canvas:** a top app bar (back, title, the Peek eye, mono progress), then a full-bleed canvas on `felt-deep`, then the tray bar at the bottom. No ads and no other chrome; the milestone banner (#35) is a 3s moment over the canvas, not chrome.
 - **Size picker:** the face hint sits on top, followed by three option rows, each with a mini gem preview, gem count and color count.
 - **Paywall:** a full screen with close visible immediately (top-left), plain perk lines, two plan rows, one primary button and a quiet "Just remove ads" row.
 - Touch targets are at least 48dp, text buttons included. **Documented exception:** canvas cells can be placed from 16dp. The accessible alternatives are zoom up to 48dp cells, the Find button and the TalkBack canvas actions (Phase 5 D16).
@@ -263,6 +263,16 @@ There are no zero-offset colored halos and no frosted glass anywhere.
   2. First time cells reach 16dp: "Pick a color below, then tap or drag its numbers"
   3. First tap-to-zoom: "Zoomed in so you can see the numbers"
 - **Save failing** (Phase 5 D9): if a save fails because storage is full, a quiet line appears under the top bar: "Progress isn't saving: phone storage is full." It stays until a write succeeds.
+- **Progress milestones** (#35, founder picks 2026-10-16): at 25, 50 and 75% of the canvas's gems, on every size.
+  - Derived from the placement count only: nothing goes in the save log, the save format or the time-lapse. A milestone plays only when a placement in this session crosses it (the gem that reaches 25% rounded up: the 3,780th of 15,120), so a canvas reopened past one never replays it. The gem that finishes the picture is the completion's moment, not a milestone; on a tiny canvas where one gem crosses two, the higher one plays.
+  - **Banner ("Breaking News", mockup B3):** a full-width `felt-deep` band across the middle of the canvas, with 2dp `lamp` edges top and bottom and an 8dp shadow. At its start a `bone` tag with the percentage in mono 20sp `on-bone` ("50%"); beside it the headline in display 22sp `bone` and the count in mono 12sp `text-muted` ("7,560 / 15,120 gems"). Motion is in Motion below.
+  - Copy: 25% "A quarter done", 50% "Halfway there", 75% "Three quarters done".
+  - Touches pass through the band, so painting never stops, and TalkBack doesn't focus it.
+  - Chime and haptic as it starts (Haptics and sound). A **Milestones** toggle in Settings turns all of it off: no banner, sound, haptic or announcement.
+- **Peek** (#35, founder picks 2026-10-16): a 48dp eye icon button labelled "Peek" in the top bar, between the title and the progress (the title ellipsizes to make room).
+  - Holding it shows the **whole finished picture**, fitted (whole pixels per cell, centered) over the canvas on `felt-deep`; releasing fades back. A tap (released within 250ms) shows it for 1.5s.
+  - Fades are 150ms each way. A touch on the shown picture hides it and places nothing.
+  - No canvas gesture changes: long-press still selects a color and two fingers still pan and zoom (D23).
 - **Top bar at large font** (Phase 5 D20): the title ellipsizes to 1 line. Above 1.5× font scale, progress shows as a mono "59%".
 - **Wrong-color tap (eng D4, confirmed 2026-10-13):** rejected with **no state change**. Nothing goes in the log, no counter moves, no penalty applies. Feedback is one soft low haptic and the selected trough nudging 2dp sideways over 150ms. No red, no buzz, no toast.
 
@@ -274,6 +284,7 @@ There are no zero-offset colored halos and no frosted glass anywhere.
 | Wrong color | `TEXT_HANDLE_MOVE` (lighter than the tick) | none |
 | Color finished | `CONFIRM` (API 30+), else `CONTEXT_CLICK` | felt-flap thump |
 | Picture finished | one 400ms soft `VibrationEffect` composition | one low chime |
+| Progress milestone (#35) | `CONFIRM` (API 30+), else `CONTEXT_CLICK` | the finish chime a fifth higher (×1.5) at 40% volume |
 
 Sound and Haptics each get a Settings toggle. Both default to on.
 
@@ -385,7 +396,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 | Already VIP | the paywall isn't reachable; "VIP" and the Membership row open Play's subscription page |
 
 **Settings.**
-- Sound, Haptics, Selected color, Membership (shows `VIP · yearly` / `Ads removed` / `Free`), Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (UMP, shown only when UMP says privacy options are required), Delete all photo canvases, Privacy policy, and Version (mono).
+- Sound, Haptics, Milestones (#35, a toggle, on by default; stored with Sound and Haptics), Selected color, Membership (shows `VIP · yearly` / `Ads removed` / `Free`), Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (UMP, shown only when UMP says privacy options are required), Delete all photo canvases, Privacy policy, and Version (mono).
 - **Selected color** (#19): a row right after Haptics, built like Membership: "Selected color" at the start, the current style's name at the end (both `bone` body). Tapping it opens the **Selected color sheet**:
   - Title "Selected color" (display 22sp), then three radio rows, each at least 56dp tall: a 20dp radio mark at the start, the option name in `bone` body, and a one-line description under it in `text-muted` 13sp (valid on sheets).
   - Options and descriptions:
@@ -418,13 +429,15 @@ A finished picture reopened from the gallery shows the **completion still**:
 
 - **Contrast:** follow the valid-grounds table in Colors. New UI color needs a decision-log entry.
 - **TalkBack** (Phase 5 D19):
-  - **Canvas:** one node: "Canvas. 4,812 of 8,112 placed. Color 7 selected, 312 left." Custom actions: Place next gem, Find next gem, Zoom in, Zoom out, Whole picture.
+  - **Canvas:** one node: "Canvas. 4,812 of 8,112 placed. Color 7 selected, 312 left." Custom actions: Place next gem, Find next gem, Zoom in, Zoom out, Whole picture, Peek at picture.
     - **Place next gem** places the cell Find last showed while it's still empty, else the next remaining cell of the selected color in reading order, through the same rule as a tap (the log and time-lapse can't tell). It announces the count left ("311 left"; founder call #14), or "Color 7 done. Color 8 selected." when the color finishes.
     - **Find next gem** is the Find button's logic. Find and Place next gem share one cursor, which starts over at the top when the selected color changes.
+    - **Peek at picture** (#35) shows the peek until the same action, now labelled **Back to canvas**, hides it. They announce "Showing the finished picture" / "Back to canvas". The eye button itself reads "Peek, button"; a TalkBack double-tap shows the picture for 1.5s.
     - **Zoom in / Zoom out** step through fit → 8 → 16 → 24 → 48dp, the levels of the zoom table. **Whole picture** goes back to fit.
     - Announcements go through one polite live region (not `announceForAccessibility`), cleared 3s after it speaks; the same words twice in a row are still spoken twice.
   - **Wrong tap:** announces "Not color 7". This is an announcement only, with no state change (eng D4).
   - **Color finished:** announces "Color 7 done. Color 8 selected."
+  - **Milestone** (#35): announces the headline ("Halfway there"). After Place next gem it follows the count ("311 left. Halfway there"); when the same gem finishes a color, one line: "Color 7 done. Color 8 selected. Halfway there."
   - **Trough:** "Color 7, 312 left, selected" or "Color 7, done". The description is "Color 7, 312 left" and "selected" comes from the selected state, so TalkBack doesn't say it twice.
   - **Gallery tile:** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock" ("…, can't open" when damaged), with its ⋮ actions as custom actions. The tile is one node: its title, % and ⋮ button are folded into it, so it reads only that line.
   - Every icon button has a label: Settings, Find, close.
@@ -444,7 +457,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 - **Don't** signal a wrong tap with red, shake, buzz or a counter.
 - **Don't** put a padlock over locked art or blur it; locked pictures are shown in full.
 - **Don't** use pill buttons, cards inside cards, emoji, or gradient buttons.
-- **Don't** put ads, banners or VIP nags on the play canvas.
+- **Don't** put ads, ad banners or VIP nags on the play canvas. (The milestone banner, #35, is the game's own 3s moment, not an ad.)
 
 ## Motion
 
@@ -453,6 +466,8 @@ A finished picture reopened from the gallery shows the **completion still**:
 - **Duration:** micro 80ms (placement glint), short 150-250ms (trough lift and flap, sheet), medium 250-400ms (screen transitions, chrome slide), long 2.4s (completion sweep only).
 - **Placement glint:** a 180ms specular pass across the placed gem at 20dp and up. No particles.
 - **The one authored moment:** completion "lights down" (see Components).
+- **Milestone banner** (#35, a founder-approved exception to "never celebrates loudly"): the `bone` tag slides in from the left over 300ms (ease-out), the headline and count wipe open beside it from 300 to 660ms (`FastOutSlowIn`), the band holds and fades out over its last 300ms: 3s in all. No particles, glow or bounce. Under reduced motion the band fades in over 150ms, holds, and fades out over 150ms (2.5s in all) at its real duration; the chime and haptic stay.
+- **Peek:** a 150ms fade in and out; under reduced motion it switches at once.
 - Reduced motion (`ANIMATOR_DURATION_SCALE == 0` or the accessibility setting) skips the glint and the sweep. The 2s hold remains.
 - That setting also makes Compose finish every animation at once, so the reduced-motion fades and the blink run at their real duration on purpose (#14).
 - Under reduced motion, movement becomes fades (Phase 5 D21):
@@ -460,6 +475,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - Sheets, chrome and screen transitions become 150ms fades. Sheets and their scrim fade in; a sheet that closes leaves at once, as it does without reduced motion. Screens have no transition, so they switch at once.
   - The trough lift is instant.
   - The Find cell pulse is skipped.
+  - The milestone banner fades instead of sliding and wiping; the peek switches at once.
   - The lights-down dim (a fade) stays.
 - Haptics also follow the system touch-feedback setting.
 - The Selected color styles have no motion of their own; switching style redraws the canvas at once, with or without reduced motion.
@@ -488,3 +504,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-15 | Selected color setting (#19): Stronger tint (default), Outline (the D17 ring, from 8dp; stronger tint below 8dp so fit zoom still shows the selection) and Dim the rest (others 35% toward `felt-deep`, numbers on-bone/bone by contrast). A Settings row after Haptics opens a sheet with three radio rows and one-line descriptions; a pick saves and closes. Applies at once on an open canvas; no new entry point on the canvas | Founder call during #18 that the tint is weak on light colors; issue #19. Founder answers during #19: row + sheet over an inline group, Outline falls back to the stronger tint below 8dp, keep 35% dimming (numbers at worst 3.9:1), no Settings entry on the canvas |
 | 2026-10-16 | Gallery order after the starter: every Quick picture, then Medium, then Big (#31) | Closes the ~20× jump from the 768-gem starter to 15k-gem Big pictures, so a new player can finish a Quick canvas without a photo conversion (closed-test success criterion "≥50% finish at least 1 Quick canvas"). Order taken from the #31 scope |
 | 2026-10-16 | Locked pictures (#32): only the starter and 2 Quick, 2 Medium, 2 Big are free, and the rest show the D14 label. Free pictures come first within each size | Founder call during #32 ("leave only starter + 2 quick + 2 medium + 2 big unlocked"). The free ones first, so a free player finds what they can play without scrolling past locked tiles. The list and the reinstall answer are in docs/designs/gemmory.md, Locked pictures |
+| 2026-10-16 | Progress milestones and peek (#35): 25/50/75% on every size, each a "Breaking News" banner across the middle of the canvas (tag snaps in, headline wipes open, 3s; `lamp` edges), the finish chime ×1.5 at 40% and the `CONFIRM` haptic, with a Settings toggle to turn milestones off. Peek is a top-bar eye: hold to see the whole finished picture, or tap for 1.5s; TalkBack action "Peek at picture" / "Back to canvas". No "best session" / "gems today" line | Founder picks from the HTML mockups (`~/.gstack/projects/Gemmory/designs/t23-milestones-peek/`) during #35. The banner departs from "no other chrome" and "Motion confirms; it never celebrates loudly" on purpose: on a Big canvas the only reward moments were a finished color and the finish. `lamp` on the banner's edges is a second meaning ("this moment"), kept as mocked. Long-press is taken by color select (D23), so the peek can't be a canvas hold. The stats line is in docs/todos.md |

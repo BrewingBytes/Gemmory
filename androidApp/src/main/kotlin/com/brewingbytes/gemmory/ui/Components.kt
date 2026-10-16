@@ -95,6 +95,17 @@ object GemIcons {
         )
         .build()
 
+    /** Material "visibility" eye, for the canvas's Peek (#35). */
+    val Peek: ImageVector = ImageVector.Builder("Peek", 24.dp, 24.dp, 24f, 24f)
+        .addPath(
+            addPathNodes(
+                "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17" +
+                    "c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z",
+            ),
+            fill = SolidColor(Color.White),
+        )
+        .build()
+
     /** Material "settings" outline gear. */
     val Settings: ImageVector = ImageVector.Builder("Settings", 24.dp, 24.dp, 24f, 24f)
         .path(fill = SolidColor(Color.White)) {
