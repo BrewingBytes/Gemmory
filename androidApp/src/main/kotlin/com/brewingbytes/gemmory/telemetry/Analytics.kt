@@ -25,6 +25,9 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** The player picked an app in the share sheet. */
         fun shareCompleted(source: String, size: String) = AnalyticsEvent("share_completed", mapOf(SOURCE to source, SIZE to size))
 
+        /** The first gem of a new day (#33): the daily play streak is now [length] days. */
+        fun streakDay(length: Int) = AnalyticsEvent("streak_day", mapOf("length" to length.toLong()))
+
         fun rewardedOffered(type: RewardType) = AnalyticsEvent("rewarded_offered", reward(type))
 
         fun rewardedWatched(type: RewardType) = AnalyticsEvent("rewarded_watched", reward(type))

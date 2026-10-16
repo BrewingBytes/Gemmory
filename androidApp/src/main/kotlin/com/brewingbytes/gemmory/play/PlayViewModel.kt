@@ -4,11 +4,13 @@ import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.storage.CanvasRef
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
 sealed interface PlayUi {
@@ -22,6 +24,7 @@ sealed interface PlayUi {
 /** Holds the open canvas across rotation and fold changes. At most one session at a time. */
 class PlayViewModel(application: Application) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
+    private val streak = (application as GemmoryApp).streak
     private var ref: CanvasRef? = null
     private var opening: Job? = null
 
@@ -37,10 +40,14 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         close()
         this.ref = ref
         opening = viewModelScope.launch {
-            ui = when (val opened = store.open(ref)) {
+            val opened = store.open(ref)
+            ui = when (opened) {
                 is CanvasStore.Opened.Ready -> PlayUi.Ready(store.start(opened))
                 is CanvasStore.Opened.Damaged -> PlayUi.Damaged
             }
+            // The daily play streak (#33) counts a day once a gem is placed; opening a canvas isn't playing.
+            val session = (ui as? PlayUi.Ready)?.session ?: return@launch
+            snapshotFlow { session.placedCount }.drop(1).collect { streak.played() }
         }
     }
 
