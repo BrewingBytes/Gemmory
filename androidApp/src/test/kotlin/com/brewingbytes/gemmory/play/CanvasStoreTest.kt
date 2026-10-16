@@ -248,4 +248,14 @@ class CanvasStoreTest {
         assertEquals(listOf("photo-2", "photo-1"), photos.map { it.ref.id })
         assertIs<CanvasSummary.Damaged>(photos[1])
     }
+
+    /** #31: the whole catalog shows on a fresh install, never-opened pictures empty and titled, with nothing copied in. */
+    @Test
+    fun summariesListEveryBundledPictureUnopenedOnAFreshInstall() = runBlocking<Unit> {
+        val (pictures, photos) = store.summaries()
+        assertEquals(BundledPictures.ALL.map { it.title }, pictures.map { assertIs<CanvasSummary.Playable>(it).title })
+        assertTrue(pictures.all { (it as CanvasSummary.Playable).state.placedCount == 0 })
+        assertTrue(store.list(CanvasKind.BUNDLED).isEmpty())
+        assertTrue(photos.isEmpty())
+    }
 }

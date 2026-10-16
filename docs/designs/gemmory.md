@@ -199,7 +199,7 @@ An independent cold read by a Claude subagent (Codex was unavailable because the
   - A completion sparkle animation.
 - **Persistence:** progress saved per canvas on the phone as a versioned, CRC-checked, atomically written placement log (ordered cell indices; the cell bitset is rebuilt on load) bound to its grid's CRC32. Grids use their own versioned format; bundled pictures ship as frozen grids. Saves happen 1 s after the last placement (5 s max wait), on stop and on completion (eng review E2, D3, D4, D8, D11).
 - **Time-lapse:** replay the placement log into a 9:16 MP4 (MediaCodec), 15 seconds in total (1 s intro of the cropped source photo for photo canvases, 12 s build, 2 s still hold; Phase 5 D26), with a light watermark and the app name. Shared through the Android share sheet, with share text carrying a Play link with a utm referrer (`utm_source=share`, `utm_medium=bundled|photo`, `utm_campaign=timelapse`) (D14).
-- **Content:** about 30 bundled pictures, plus the free 24×32 starter picture (Phase 5 D13), plus "My Photos."
+- **Content:** about 30 bundled pictures, plus the free 24×32 starter picture (Phase 5 D13), plus "My Photos." (#31 shipped 48 plus the starter: 12 Quick, 17 Medium, 19 Big; founder call to take every candidate and AI tile but the Vespa-like scooter, 2026-10-16. Sources in `tools/bundled/PROVENANCE.md`.)
 - **UI spec:** every screen, state, string, gesture and accessibility rule lives in `docs/design-system.md` (Phase 5 design review, D3-D27).
 - **Monetization:**
   - 1 free photo conversion a day; more via a rewarded ad or VIP (no-fill handling per **Ad rules**).
