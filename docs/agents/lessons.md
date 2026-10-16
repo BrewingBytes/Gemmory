@@ -9,7 +9,9 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#31): `adb shell` reads stdin. In a `while read … done < classes.txt` loop it swallows the rest of the list and only the first class runs. Give every adb call `< /dev/null`.
 - 2026-10-16 (#31): at emulator load ~15-37, tests that wait for the gallery's starter tile (10 s) or for a canvas to open (5 s) time out, an instrumentation process can crash, and a cold launch can raise an ANR. CanvasAccessibilityTest, BillingFlowTest and HighlightStyleTest all passed once the load was below 3. Recheck on a quiet emulator before calling a timeout a regression.
 - 2026-10-16 (#32): the app reads the ledger (allowance, grace, ad caps) into memory at startup, so deleting `ledger/` files in a connected test's `@Before` doesn't reset it. Call `GemmoryApp.resetMonetizationForTest(fakeAds)` after clearing them, and `resetMonetizationForTest()` in `@After` to put AdMob back. A fake `AdGateway` also skips the UMP form (`ensureConsent`).
-- 2026-10-16 (#32): `ScreenSizesWalkthrough.twoHundredPercentFontOnA360dpPhone` (@DeviceCheck) fails on `main` too, at load ~3-4. After a photo canvas is finished, the finished picture or the reopened completion still doesn't appear within 10 s (lines 210/212). It's an existing failure, not load. To tell a regression from an existing failure, build `main` in a `git worktree` and run the same test against it.
+- 2026-10-16 (#50): the `emulator` on this host's PATH is a shim that resolves `../emulator` against the current directory and fails ("Qt library not found"). Boot with `$ANDROID_HOME/emulator/emulator` (`~/Library/Android/sdk/emulator/emulator`).
+- 2026-10-16 (#50): after repeated `wm size` / `wm density` / `font_scale` changes, the emulator's launcher can raise an ANR dialog that keeps window focus, and every launch wait then times out (the app's starter tile never shows). `adb shell dumpsys window | grep mCurrentFocus` shows "Application Not Responding: …nexuslauncher". Cold-reboot the emulator; retrying doesn't help.
+- 2026-10-16 (#50): a walkthrough or connected test that leaves a fresh completion on real AdMob can get a test interstitial (`AdActivity`) over the app about 4 s after Done, depending on the ad caps left by earlier runs ("No compose hierarchies found"). Use a fake `AdGateway` through `GemmoryApp.resetMonetizationForTest(fake)`.
 
 ## Bundled pictures
 
@@ -20,3 +22,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#31): an AI tile can carry a protected product shape without any logo (a Vespa-like scooter was dropped). Check AI tiles for recognizable designs, not just for text and brands.
 - 2026-10-16 (#31): `open(p, "w").write(open(p).read() + …)` truncates the file before reading it and wiped PROVENANCE.md once. Read first, then write. `BundledPicturesTest.everyPictureHasAProvenanceRow` now catches a lost row.
 - 2026-10-16 (#32): what's free is `BundledPictures.FREE`, and everything else is locked. A connected test or walkthrough that opens a picture outside that set must unlock it first (`app.monetization.unlocks.unlock(id)`) or run as VIP, or the tap opens the rewarded sheet instead of the canvas.
+
+## App code
+
+- 2026-10-16 (#50): the gallery's tiles are what it last read: `GalleryViewModel.refresh()` re-reads and re-renders every canvas asynchronously each time the Gallery shows, so for a moment after Done a just-finished canvas still looks unfinished. Anything that acts on a tap reads the canvas itself (`CanvasStore.isFinished`), not `Tile.done`.

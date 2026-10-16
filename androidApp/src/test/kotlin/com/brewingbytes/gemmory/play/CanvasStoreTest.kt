@@ -120,6 +120,23 @@ class CanvasStoreTest {
     }
 
     @Test
+    fun aCanvasIsFinishedOnDiskAsSoonAsItsSessionClosesWithTheLastGem() = runBlocking<Unit> {
+        // #50: a tile tap right after Done reads this, so it must not race the closing write.
+        createPhoto()
+        assertFalse(store.isFinished(photo))
+        assertFalse(store.isFinished(starter), "an unopened bundled picture isn't finished")
+        val session = store.start(assertIs<CanvasStore.Opened.Ready>(store.open(photo)))
+        for (cell in 0 until 12) {
+            session.select(pattern.cells[cell])
+            session.place(cell)
+        }
+        session.close()
+        assertTrue(store.isFinished(photo))
+        store.startOver(photo)
+        assertFalse(store.isFinished(photo))
+    }
+
+    @Test
     fun photoTitleComesFromTheRecordAndDefaultsWhenMissing() = runBlocking<Unit> {
         createPhoto()
         assertEquals("My photo · 13 Oct", assertIs<CanvasStore.Opened.Ready>(store.open(photo)).title)

@@ -94,8 +94,15 @@ class BackStack(initial: List<Route> = listOf(Route.Gallery)) {
         stack.removeAll { it == Route.Crop || it == Route.Size || it == Route.Preview }
     }
 
-    /** A tile tap: a finished canvas opens its completion still, anything else the canvas (resumed). */
-    fun openTile(ref: CanvasRef, finished: Boolean) {
+    /**
+     * A tile tap: a finished canvas opens its completion still, anything else the canvas (resumed). [isFinished] reads
+     * the canvas itself, not the tile, which can be stale right after a visit: a just-finished canvas opened as the
+     * canvas finishes a second time (#50). Nothing opens if the player went elsewhere while it was read.
+     */
+    suspend fun openTile(ref: CanvasRef, isFinished: suspend (CanvasRef) -> Boolean) {
+        val from = routes
+        val finished = isFinished(ref)
+        if (routes != from) return
         popToGallery()
         push(if (finished) Route.Completion(ref, fresh = false) else Route.Canvas(ref))
     }

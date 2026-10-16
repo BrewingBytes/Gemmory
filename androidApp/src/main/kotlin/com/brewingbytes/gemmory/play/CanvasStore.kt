@@ -192,6 +192,17 @@ class CanvasStore(
         }
     }
 
+    /**
+     * Whether [ref] is finished on disk, once its closing write is done. A tile tap opens from this: the gallery's
+     * tiles can still show a canvas as it was before the last visit (#50).
+     */
+    suspend fun isFinished(ref: CanvasRef): Boolean {
+        settle(ref)
+        return withContext(writer) {
+            repository.dirOf(ref).isDirectory && (summarize(ref) as? CanvasSummary.Playable)?.state?.isFinished == true
+        }
+    }
+
     /** The title is drawn into the time-lapse band, so the canvas's cached videos and pictures go with the old one. */
     suspend fun rename(ref: CanvasRef, title: String): WriteResult {
         settle(ref)

@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import android.app.Activity
 import android.content.Context
 import android.os.SystemClock
 import androidx.compose.ui.test.hasContentDescription
@@ -20,6 +21,8 @@ import com.brewingbytes.gemmory.DeviceCheck
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.ads.AdGateway
+import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
@@ -65,9 +68,31 @@ class ScreenSizesWalkthrough {
         Display("fold-closed", 1080, 2092, 420),
     )
 
+    /** No real AdMob: an interstitial after Done would cover the screens being captured. */
+    private object NoAds : AdGateway {
+        override val sdkReady = true
+
+        override fun online() = true
+
+        override suspend fun ensureConsent(activity: Activity) = true
+
+        override suspend fun start() = Unit
+
+        override fun preloadRewarded() = Unit
+
+        override suspend fun loadRewarded() = RewardedLoad.Loaded
+
+        override fun showRewarded(activity: Activity, onEarned: () -> Unit, onClosed: (shown: Boolean) -> Unit) = false
+
+        override fun preloadInterstitial() = Unit
+
+        override fun showInterstitial(activity: Activity, onShown: () -> Unit) = false
+    }
+
     @Before
     fun setUp() {
         assumeDeviceChecks()
+        app.resetMonetizationForTest(NoAds)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
@@ -85,6 +110,7 @@ class ScreenSizesWalkthrough {
     @After
     fun tearDown() {
         if (::scenario.isInitialized) scenario.close()
+        app.resetMonetizationForTest()
         A11yTestSupport.shell("wm size reset")
         A11yTestSupport.shell("wm density reset")
         A11yTestSupport.shell("settings put system font_scale 1.0")
