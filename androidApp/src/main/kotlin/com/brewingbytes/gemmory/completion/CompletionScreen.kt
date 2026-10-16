@@ -40,14 +40,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
@@ -56,6 +63,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.game.FinishCelebration
 import com.brewingbytes.gemmory.nav.Route
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
@@ -134,7 +142,14 @@ class Finished(
     val aspect: Float,
     val meta: String,
     val request: EncodeRequest,
-)
+) {
+    val cols: Int get() = request.pattern.width
+    val rows: Int get() = request.pattern.height
+
+    /** Gems per palette slot and each slot's color, for the confetti (#57). */
+    val counts: IntArray = request.pattern.countsPerSlot()
+    val colors: List<Color> = request.pattern.palette.map { Color(it.argb) }
+}
 
 class CompletionViewModel(application: Application) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
@@ -240,10 +255,11 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
 }
 
 /**
- * Completion (design system, Completion: "lights down"). Fresh: the screen dims ~30% around the picture, one specular
- * sweep crosses it over 2.4s (skipped under reduced motion), then one low chime and the finish haptic, a 2s still
- * hold, then "Finished", the meta line, Share and Done fade in. Reopened from the gallery it's the completion still:
- * no sweep, plus "Play again". Share makes the time-lapse (or reuses it) behind the progress sheet, then opens the
+ * Completion (design system, Completion: "lights down" and the finish celebration, #57). Fresh: the screen dims ~30%
+ * around the picture, a sparkle sweep glints every gem over 2.4s over a rising haptic crescendo, the chime lands, gem
+ * confetti in the picture's colors falls through the room during the 2s hold, then "Finished", the meta line, Share
+ * and Done fade in. Reduced motion keeps the dim, the chime, the soft finish haptic and the hold only. Reopened from
+ * the gallery it's the completion still: no celebration, plus "Play again". Share makes the time-lapse (or reuses it) behind the progress sheet, then opens the
  * Android share sheet; a cancelled or dismissed share comes back here with no message (design D8).
  */
 @Composable
@@ -263,6 +279,9 @@ fun CompletionScreen(
     val sequence = fresh && !vm.hasPlayed(ref)
     val dim = remember { Animatable(if (sequence) 0f else DIM) }
     val sweep = remember { Animatable(0f) }
+    val confetti = remember { Animatable(0f) }
+    var room by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var picture by remember { mutableStateOf<Rect?>(null) }
     val text = remember { Animatable(if (sequence) 0f else 1f) }
     var confirmPlayAgain by rememberSaveable { mutableStateOf(false) }
     val encode by remember(ref) { vm.encodeState(ref) }.collectAsStateWithLifecycle()
@@ -283,10 +302,17 @@ fun CompletionScreen(
     LaunchedEffect(finished != null) {
         if (finished == null || !sequence) return@LaunchedEffect
         vm.markPlayed(ref)
-        // Reduced motion (D21) skips the sweep; the dim and the text are fades and stay, at their real duration.
+        // Reduced motion (D21) skips the sparkle, the crescendo and the confetti; the dim and the text are fades and
+        // stay, at their real duration, and the chime and the soft finish haptic play right after the dim.
         withFullMotion { dim.animateTo(DIM, tween(DIM_MS, easing = FastOutSlowInEasing)) }
-        if (!reducedMotion) sweep.animateTo(1f, tween(SWEEP_MS, easing = LinearEasing))
+        if (!reducedMotion) {
+            // The celebration (#57): the haptic rises under the sparkle and peaks on the chime.
+            feedback.crescendo()
+            sweep.animateTo(1f, tween(FinishCelebration.SWEEP_MS, easing = LinearEasing))
+        }
         feedback.pictureFinished()
+        // The confetti falls through the hold, so Share and Done come no later than before.
+        if (!reducedMotion) launch { confetti.animateTo(1f, tween(FinishCelebration.CONFETTI_MS, easing = LinearEasing)) }
         delay(HOLD_MS)
         withFullMotion { text.animateTo(1f, tween(TEXT_MS)) }
     }
@@ -295,17 +321,29 @@ fun CompletionScreen(
         Modifier
             .fillMaxSize()
             .feltGround(LocalFelt.current.ground)
+            .onGloballyPositioned { room = it }
             .testTag(if (fresh) "completion-fresh" else "completion-still"),
     ) {
         // Lights down: the room dims, the picture stays lit.
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dim.value)))
+        val bounds = picture
+        if (finished != null && bounds != null && confetti.value > 0f && confetti.value < 1f) {
+            // Behind the picture, so it falls through the room and never over the picture.
+            Confetti(finished, bounds, roomWidth = room?.size?.width ?: 0, confetti.value * FinishCelebration.CONFETTI_MS)
+        }
         BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)) {
             // At 200% font the text and buttons may need more than they get: they scroll, the picture keeps the rest.
             val textMax = maxHeight * TEXT_MAX_SHARE
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     when {
-                        finished != null -> Picture(finished, sweep.value)
+                        finished != null -> Picture(
+                            finished,
+                            sweep.value,
+                            Modifier.onGloballyPositioned { coordinates ->
+                                picture = room?.takeIf { it.isAttached }?.localBoundingBoxOf(coordinates)
+                            },
+                        )
                         vm.damaged -> Text(
                             "This canvas's file is damaged, so it can't be opened.",
                             style = GemType.body,
@@ -389,10 +427,14 @@ fun CompletionScreen(
     }
 }
 
-/** The finished picture, fit, with one raking specular band at [sweep] (0 → 1 crosses it corner to corner). */
+/**
+ * The finished picture, fit, with the sparkle sweep at [sweep] (0 → 1, #57): every gem, or every tile of gems on a
+ * canvas too fine to glint one by one, catches the light in turn along the diagonal from top-left to bottom-right,
+ * some with a small facet star, over a faint raking band.
+ */
 @Composable
-private fun Picture(finished: Finished, sweep: Float) {
-    Box(Modifier.wrapContentSize().aspectRatio(finished.aspect).clipToBounds()) {
+private fun Picture(finished: Finished, sweep: Float, modifier: Modifier = Modifier) {
+    Box(Modifier.wrapContentSize().aspectRatio(finished.aspect).clipToBounds().then(modifier)) {
         Image(
             finished.image,
             contentDescription = "Finished picture",
@@ -401,14 +443,32 @@ private fun Picture(finished: Finished, sweep: Float) {
             modifier = Modifier.fillMaxSize(),
         )
         if (sweep > 0f && sweep < 1f) {
-            Canvas(Modifier.fillMaxSize()) {
-                // A 45° band: lines x + y = c, with c moving from before the top-left corner to past the bottom-right.
+            Canvas(Modifier.fillMaxSize().testTag(SPARKLE_TAG)) {
+                val tile = FinishCelebration.tileCells(size.width / finished.cols, MIN_GLINT_DP.dp.toPx())
+                val tilePx = size.width / finished.cols * tile
+                val cols = (finished.cols + tile - 1) / tile
+                val rows = (finished.rows + tile - 1) / tile
+                val star = 1.dp.toPx()
+                for (row in 0 until rows) for (col in 0 until cols) {
+                    val glint = FinishCelebration.glint(sweep, col, row, cols, rows)
+                    if (glint <= 0f) continue
+                    val left = col * tilePx
+                    val top = row * tilePx
+                    drawRect(Sparkle, Offset(left, top), Size(tilePx, tilePx), alpha = GLINT_ALPHA * glint)
+                    if (FinishCelebration.jitter(row * cols + col) > FinishCelebration.STAR_JITTER) {
+                        val center = Offset(left + tilePx / 2, top + tilePx / 2)
+                        val reach = tilePx * STAR_REACH * glint
+                        drawLine(Color.White, center - Offset(reach, 0f), center + Offset(reach, 0f), star, alpha = 0.9f * glint)
+                        drawLine(Color.White, center - Offset(0f, reach), center + Offset(0f, reach), star, alpha = 0.9f * glint)
+                    }
+                }
+                // The old sweep's band, faint, carries the eye along the diagonal.
                 val band = (size.width + size.height) * 0.1f
                 val c = -band + sweep * (size.width + size.height + 2 * band)
                 drawRect(
                     Brush.linearGradient(
                         0f to Color.Transparent,
-                        0.5f to Color.White.copy(alpha = 0.32f),
+                        0.5f to Color.White.copy(alpha = BAND_ALPHA),
                         1f to Color.Transparent,
                         start = Offset((c - band) / 2f, (c - band) / 2f),
                         end = Offset((c + band) / 2f, (c + band) / 2f),
@@ -419,11 +479,73 @@ private fun Picture(finished: Finished, sweep: Float) {
     }
 }
 
+/**
+ * Gem confetti (#57) [ms] after the chime: square cushion-cut gems in the picture's own colors, spilling out from under
+ * [picture] (its bounds in this layer, [roomWidth] px wide) and raining from above the screen, tumbling as they fall.
+ */
+@Composable
+private fun Confetti(finished: Finished, picture: Rect, roomWidth: Int, ms: Float) {
+    val density = LocalDensity.current
+    val gems = remember(finished, picture, roomWidth) {
+        with(density) {
+            FinishCelebration.confetti(
+                finished.counts,
+                pictureLeft = picture.left.toDp().value,
+                pictureTop = picture.top.toDp().value,
+                pictureWidth = picture.width.toDp().value,
+                pictureHeight = picture.height.toDp().value,
+                roomWidth = roomWidth.toDp().value,
+                seed = finished.ref.hashCode(),
+            )
+        }
+    }
+    val facets = remember { GemFacets() }
+    Canvas(Modifier.fillMaxSize().testTag(CONFETTI_TAG)) {
+        val dp = density.density
+        for (gem in gems) {
+            val at = FinishCelebration.at(gem, ms) ?: continue
+            withTransform({
+                translate(at.x * dp, at.y * dp)
+                rotate(at.angle * RADIANS_TO_DEGREES, pivot = Offset.Zero)
+                scale(at.tumble * at.size * dp, at.size * dp, pivot = Offset.Zero)
+            }) {
+                drawRect(finished.colors[gem.slot], Offset(-0.5f, -0.5f), Size(1f, 1f), alpha = at.alpha)
+                drawPath(facets.light, Color.White, alpha = FACET_ALPHA * at.alpha)
+                drawPath(facets.dark, Color.Black, alpha = FACET_ALPHA * at.alpha)
+            }
+        }
+    }
+}
+
+/** A unit gem's lit top facet and shaded bottom facet, centered on the origin, like the canvas's cushion cut. */
+private class GemFacets {
+    val light = Path().apply {
+        moveTo(-0.5f, -0.5f)
+        lineTo(0.5f, -0.5f)
+        lineTo(0f, 0f)
+        close()
+    }
+    val dark = Path().apply {
+        moveTo(-0.5f, 0.5f)
+        lineTo(0.5f, 0.5f)
+        lineTo(0f, 0f)
+        close()
+    }
+}
+
 private const val DIM = 0.3f
 private const val DIM_MS = 250
-private const val SWEEP_MS = 2_400
 private const val HOLD_MS = 2_000L
 private const val TEXT_MS = 400
 private const val TEXT_MAX_SHARE = 0.6f
 private const val SHARE_TAG = "completion-share"
 private const val PLAY_AGAIN_TAG = "completion-play-again"
+private const val SPARKLE_TAG = "finish-sparkle"
+private const val CONFETTI_TAG = "finish-confetti"
+private const val MIN_GLINT_DP = 4
+private const val GLINT_ALPHA = 0.55f
+private const val BAND_ALPHA = 0.14f
+private const val STAR_REACH = 1.3f
+private const val FACET_ALPHA = 0.18f
+private const val RADIANS_TO_DEGREES = 57.29578f
+private val Sparkle = Color(0xFFFFFAEB)

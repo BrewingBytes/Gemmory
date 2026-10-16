@@ -17,6 +17,8 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 
 - 2026-10-16 (#35): a monitor built as `tail -f log | awk '… exit'` doesn't end when awk exits: `tail` only notices on its next write, and a finished run writes nothing more. Stop it by hand (TaskStop, then `pkill -f "tail -n +1 -f <log>"`).
 - 2026-10-16 (#35): to see a milestone or any moment deep into a Big canvas by hand, seed the progress with a throwaway instrumented class that places gems through `PlaySession.place` and writes a 24dp `ViewState` centered on the next gem, then `adb shell input tap` the canvas center and `screenrecord` it (`ffmpeg -vf "fps=4,tile=6x2"` makes a frame sheet). Delete the class before the PR.
+- 2026-10-16 (#57): booted without `-gpu`, gemmory_pixel picked software rendering (`gles_mode_selected:swangle`, SwiftShader in `/tmp/emu.log` and `dumpsys SurfaceFlinger | grep GLES`), and every screen drew at ~10 fps (gfxinfo p50 105ms, "Slow issue draw commands" on almost every frame). Boot with `-gpu host` for any frame-rate check; the log then names the Apple GPU.
+- 2026-10-16 (#57): for a by-hand frame check of one moment, `dumpsys gfxinfo <pkg> reset` right before the `input tap` and `dumpsys gfxinfo <pkg>` after it, and measure the same moment on main's code too: the canvas-to-completion switch alone gives 8-11 janky frames on the emulator, with or without the celebration. `screenrecord` while measuring adds its own jank.
 
 ## CI
 
