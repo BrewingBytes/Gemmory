@@ -3,7 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release).
 
 ---
 
@@ -550,3 +550,27 @@ Labels: P2, persistence, game
 **Done when:** a picture pushed to the content repo shows up in the gallery within a day without an app update, plays and saves like a bundled picture, and survives offline. A tampered catalog or grid is refused. The rules are unit-tested (signature, hash, CRC, minAppVersion, withdraw, 24 h cadence with a fixed clock), and the privacy policy names GitHub.
 
 Related: #31 (bundled ramp stays in the APK so a new install has pictures offline), #32 (`locked` per remote picture), #34 (Today's picture can draw from remote pictures). Effort: design ~1h; build human ~1.5d / CC ~45min; publishing tool ~2h.
+
+## T28: Play Games Services achievements (no leaderboards)
+Labels: P2, game, ui
+
+**Why:** Play Console suggests adding Play Games Services (card "Add Play Games Services to your game", 2026-10-16). Achievements show in the Play Games app and on the player's Play profile. That's a light retention and discovery lever that fits a calm solo game, and sign-in v2 is automatic, so it adds no login screen. Leaderboards and friends don't fit the product (no competitive scores), so they stay out.
+
+**Step 1: decide (before code)**
+- **Achievement list (~8-12).** For example: first canvas finished, first Quick / Medium / Big finished, first photo canvas finished, first time-lapse shared, 5 / 25 canvases finished, a 7-day streak (#33), every milestone of one picture (#35). Each needs a name, a description, whether it's hidden or incremental, and an icon (512×512, `docs/design-system.md` palette). The founder approves the list and copy first.
+- **Where it shows.** A "Play Games achievements" row in Settings that opens Play Games' own achievements screen. No in-canvas UI: the canvas stays ad-free and quiet. Toasts use Play Games' own pop-up, or none (decide). Copy, TalkBack labels and states go in `docs/design-system.md` first; ask the founder before any departure.
+- **Unlock rules.** Achievements unlock from game events only (completion, share, streak), never from purchases or ads. They're idempotent and work offline: the SDK queues unlocks.
+
+**Scope**
+- Play Console: create the Play Games Services project for `com.brewingbytes.gemmory`, link both OAuth clients (upload and app-signing SHA-1), add the achievements and the game ID resource. Testers go on the PGS testers list during closed testing.
+- `:androidApp`: the `play-services-games-v2` SDK, `PlayGamesSdk.initialize` in `GemmoryApp`, automatic sign-in only (no sign-in button; if the player isn't signed in, unlocks are skipped silently), and an `Achievements` interface with a no-op in debug unless enabled with a `-P` switch, like `gemmory.fakeBilling`.
+- Pure `commonMain`: which game events unlock which achievement, unit-tested with a fixed event sequence. `:androidApp` only maps them to SDK calls.
+- Release build: R8 keep rules if the SDK needs them, and an R8 release smoke test on an emulator (dependency change).
+- **Privacy and Play:**
+  - Play Games collects the Play Games player ID and game activity, so update the "Who receives data" section of `docs/privacy-policy.md` and re-check the Data safety answers in `docs/play-compliance.md` (likely: App activity → Other actions, and a user ID).
+  - Photos still never leave the phone: achievements carry only event ids.
+  - Adults-only and target-audience answers are unchanged.
+
+**Done when:** a closed-test player is signed in to Play Games automatically, unlocks the agreed achievements by playing, and sees them in Play Games. Nothing breaks when Play Games is missing or the player opted out. The unlock rules are unit-tested, the R8 release build is smoke-tested, and the privacy policy and Data safety answers cover Play Games.
+
+Depends on #33 (daily streak) and #35 (milestones) for the achievements built on them; the first-finish ones can ship without them. Not before the closed test (founder, 2026-10-16). Effort: design ~1h (list + icons); build human ~1d / CC ~30min; Console setup ~1h.
