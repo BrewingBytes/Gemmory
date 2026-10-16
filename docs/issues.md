@@ -3,7 +3,7 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32).
 
 ---
 
@@ -574,3 +574,23 @@ Labels: P2, game, ui
 **Done when:** a closed-test player is signed in to Play Games automatically, unlocks the agreed achievements by playing, and sees them in Play Games. Nothing breaks when Play Games is missing or the player opted out. The unlock rules are unit-tested, the R8 release build is smoke-tested, and the privacy policy and Data safety answers cover Play Games.
 
 Depends on #33 (daily streak) and #35 (milestones) for the achievements built on them; the first-finish ones can ship without them. Not before the closed test (founder, 2026-10-16). Effort: design ~1h (list + icons); build human ~1d / CC ~30min; Console setup ~1h.
+
+## T29: 200%-font walkthrough fails at photo completion (ScreenSizesWalkthrough)
+Labels: bug, P2
+
+**Why:** `ScreenSizesWalkthrough.twoHundredPercentFontOnA360dpPhone` (`@DeviceCheck`) fails every time on `main` and on the #32 branch: 4 of 4 runs on gemmory_pixel at emulator load ~3-4, so it's not load (found during #32). That leaves the 200%-font photo-completion flow unverified. Either the app doesn't show a finished photo canvas reliably at 200% font, or the test waits too little or acts too early.
+
+**What fails** (`androidTest/.../app/ScreenSizesWalkthrough.kt`, 360dp phone, `font_scale 2.0`):
+- Line 210: after the last gem of the photo canvas `walk-1`, waiting 10 s for the "Finished picture" node (1 run on `main`).
+- Line 212: after Done → My Photos → tap `tile-photo-walk-1`, waiting 10 s for `completion-still` (1 run on `main`, 2 on the #32 branch).
+- In a #32-branch run, the `font2-completion` shot taken just before the failure shows the Finished screen correctly. The logcat said "interstitial blocked: TOO_SOON", so it isn't an interstitial covering the screen. A `font2-completion-still` shot from an earlier run exists on the device, so this step has passed before.
+
+**Scope**
+- Reproduce with a screenshot and a UI dump at the moment of the timeout, and find out whether it's the app or the test.
+- If it's the app (a finished photo canvas doesn't reopen to the completion still, or the finished picture doesn't load, at 200% font): fix it, and add a non-`@DeviceCheck` test that would catch it.
+- If it's the test: wait on the right condition (no fixed short timeouts for real-time picture loads) and keep the walkthrough's shots.
+- Remove the 2026-10-16 (#32) entry about this failure from `docs/agents/lessons.md` once it passes.
+
+**Done when:** the case passes 3 runs in a row on a quiet emulator with `-e deviceChecks true`, and the cause is written in the PR.
+
+Out of scope: any other ScreenSizesWalkthrough layout changes. Effort: human ~1-2h / CC ~20min.
