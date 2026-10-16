@@ -8,6 +8,11 @@ on:
     tags: ['v*']
   workflow_dispatch:
     inputs:
+      phones:
+        description: Phones to run on (a tag runs all three; one phone re-checks a failure with the quota left today)
+        type: choice
+        options: [all, pixel, samsung, mediatek]
+        default: all
       list_models:
         description: Only print the physical-device catalog (no test run, no quota used)
         type: boolean
@@ -24,11 +29,10 @@ permissions:
 
 env:
   # Picked from `gcloud firebase test android models list` (why each one: README). Spark gives 5 physical runs a day;
-  # each device here is one run.
-  DEVICES: >-
-    --device model=tokay,version=35
-    --device model=a35x,version=34
-    --device model=a06,version=35
+  # each phone is one run, and a matrix that doesn't fit what's left is refused whole (TEST_QUOTA_EXCEEDED).
+  PIXEL: model=tokay,version=35
+  SAMSUNG: model=a52sxq,version=34
+  MEDIATEK: model=a06,version=35
   TEST_TARGETS: >-
     class com.brewingbytes.gemmory.timelapse.TimelapseEncoderSmokeTest,class com.brewingbytes.gemmory.timelapse.EncodeCancelTest
 
@@ -72,14 +76,18 @@ jobs:
         run: |
           # stdout is the per-device outcome (JSON); stderr is the progress, the console link and the bucket link.
           # gcloud exits non-zero when any device fails (10) or is inconclusive (15), which fails the job.
-          # $DEVICES is split on purpose: one --device flag per phone.
-          # shellcheck disable=SC2086
+          case "${{ inputs.phones || 'all' }}" in
+            pixel) devices=(--device "$PIXEL") ;;
+            samsung) devices=(--device "$SAMSUNG") ;;
+            mediatek) devices=(--device "$MEDIATEK") ;;
+            *) devices=(--device "$PIXEL" --device "$SAMSUNG" --device "$MEDIATEK") ;;
+          esac
           gcloud firebase test android run \
             --type instrumentation \
             --app androidApp/build/outputs/apk/debug/androidApp-debug.apk \
             --test androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk \
             --test-targets "$TEST_TARGETS" \
-            $DEVICES \
+            "${devices[@]}" \
             --timeout 15m \
             --num-flaky-test-attempts 0 \
             --results-history-name 'Gemmory encoder smoke' \
@@ -99,6 +107,10 @@ jobs:
             echo '| Device | Outcome | Details |'
             echo '|---|---|---|'
             jq -r '.[]? | "| \(.axis_value) | \(.outcome) | \(.test_details) |"' outcome.json 2>/dev/null || true
+            if grep -q TEST_QUOTA_EXCEEDED testlab.log; then
+              echo
+              echo "**Not run: today's Test Lab quota is used up.** Spark allows 5 physical-device runs a day and this matrix didn't fit what was left, so it was refused whole and nothing ran. Re-run tomorrow, or pick one phone if only one needs a re-check and runs are left."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           # Copy each device's video and logcat next to the run, so they open without the Firebase Console.
           if [ -n "$bucket" ]; then

@@ -45,19 +45,19 @@ Debug build switches (`-P…`):
 
 ## Encoder smoke on Firebase Test Lab
 
-`.github/workflows/testlab.yml` (#11, design doc D7) runs `TimelapseEncoderSmokeTest` and `EncodeCancelTest` on three real phones in Firebase Test Lab, because video encoders differ by chip family. It runs when a `v*` tag is pushed (a release candidate, see Release) and by hand: Actions → Test Lab → Run workflow.
+`.github/workflows/testlab.yml` (#11, design doc D7) runs `TimelapseEncoderSmokeTest` and `EncodeCancelTest` on three real phones in Firebase Test Lab, because video encoders differ by chip family. It runs on all three phones when a `v*` tag is pushed (a release candidate, see Release), and by hand: Actions → Test Lab → Run workflow, where "phones" can pick one phone to re-check a single failure with the day's leftover quota.
 
 - **Phones** (one matrix, picked from `gcloud firebase test android models list` on 2026-10-16; chipsets are the makers' public specs, the catalog doesn't list them):
 
   | Family | Model (`model,version`) | Why |
   |---|---|---|
-  | Pixel / Tensor | Pixel 9 (`tokay,35`) | Tensor G4, Google's own encoder stack. Newest Pixel with high Test Lab capacity at API 35 (API 36 is medium), so runs don't queue. |
-  | Samsung | Galaxy A35 5G (`a35x,34`) | Exynos 1380, Samsung's best-selling mid-range line rather than a flagship. API 34 has medium capacity; 35 and 36 are low. |
+  | Pixel / Tensor | Pixel 9 (`tokay,35`) | Tensor G4, which uses Samsung's Exynos encoder under Google's build. Newest Pixel with high Test Lab capacity at API 35 (API 36 is medium), so runs don't queue. |
+  | Samsung | Galaxy A52s 5G (`a52sxq,34`) | Snapdragon 778G: Qualcomm's encoder, the most common on Android. The Pixel already covers Samsung's Exynos encoder (Tensor G4 logs `c2.exynos.h264.encoder`), so an Exynos Galaxy (the A35 5G of the first run) added nothing. Mid-range with medium Test Lab capacity; the newer A36 5G has only low capacity. |
   | Low-end MediaTek | Galaxy A06 (`a06,35`) | Helio G85, 720×1600 screen, Samsung's cheapest current phone. The other low-end catalog phones are Unisoc (moto g04/g14, TECNO, realme C53) or Snapdragon (A05s). |
 
 - **What passes:** each phone encodes through the app's fallback chain to an MP4 with 1 track, 14-16 s, 450 frames, at 1080×1920 or the 720×1280 fallback, and frames decode at that size; 720×1280 is also forced on its own; cancel and delete mid-encode leave no file. A fallback is logged (`smoke fallback:` in the logcat).
 - **Results:** the run's summary has the Test Lab console link and a pass/fail row per phone. The `test-lab-results` artifact has each phone's `video.mp4` and `logcat`. A failed or inconclusive phone fails the job.
-- **Quota:** the project is on the Spark plan: 5 physical-device runs a day at no cost, then Test Lab refuses runs (no bill). Each phone is one run, so one matrix uses 3, and there are no automatic retries. Re-run the job at most once a day.
+- **Quota:** the project is on the Spark plan: 5 physical-device runs a day at no cost, then Test Lab refuses runs (no bill). Each phone is one run, so one matrix uses 3 and there are no automatic retries. A second run the same day is refused whole (`TEST_QUOTA_EXCEEDED`, the run summary says so); run it again the next day.
 - **Catalog:** Run workflow with "Only print the physical-device catalog" ticked lists the phones without using quota; use it when a model above leaves the catalog.
 - **Credentials:** Workload Identity Federation, no key file. Setup: [docs/play-compliance.md](docs/play-compliance.md) → "Test Lab CI credentials".
 - **Test Lab shuts down on 2027-09-30** (Firebase deprecation notice); the move to Google Cloud's Developer Device Platform is #55.
