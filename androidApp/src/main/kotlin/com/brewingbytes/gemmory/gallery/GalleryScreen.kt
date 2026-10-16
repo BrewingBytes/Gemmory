@@ -8,6 +8,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,6 +72,7 @@ import com.brewingbytes.gemmory.ads.isLocked
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.photo.allowanceLine
 import com.brewingbytes.gemmory.policy.Allowance
+import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -133,6 +135,7 @@ private sealed interface GallerySheet {
 
 /** The gallery's "VIP" action, also where TalkBack focus returns when the paywall closes. */
 const val VIP_ACTION_TAG = "gallery-vip"
+const val STREAK_TAG = "gallery-streak"
 private const val SHARE_PROGRESS = "Share progress"
 
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
@@ -182,7 +185,7 @@ fun GalleryScreen(
                 if (showVip) GemTextButton("VIP", onVip, Modifier.testTag(VIP_ACTION_TAG))
                 IconAction(GemIcons.Settings, "Settings", onSettings)
             }
-            Tabs(tab, onTab = vm::selectTab)
+            Tabs(tab, onTab = vm::selectTab, streak = state.streak)
             if (notice != null) {
                 // Billing's one-time line (design D6, D7), read out when it appears.
                 Text(
@@ -338,10 +341,18 @@ private fun NoteAndButton(note: (@Composable () -> Unit)?, button: @Composable (
     }
 }
 
-/** Selected tab on felt-deep; both are 48dp targets. */
+/**
+ * Selected tab on felt-deep; both are 48dp targets. The daily play streak (#33) sits at the end of the row from
+ * [DailyStreak.SHOWN_FROM] days, and wraps under the tabs when they leave no room (200% font).
+ */
 @Composable
-private fun Tabs(selected: Int, onTab: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
         listOf("Pictures", "My Photos").forEachIndexed { index, label ->
             val isSelected = index == selected
             Box(
@@ -361,6 +372,27 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit) {
                 Text(label, style = GemType.button, color = GemColors.Bone)
             }
         }
+        if (streak >= DailyStreak.SHOWN_FROM) {
+            Spacer(Modifier.weight(1f))
+            StreakChip(streak)
+        }
+    }
+}
+
+/** "3 days in a row" (#33): the count in mono, like every number; one TalkBack node. Calm: no flame, no warning. */
+@Composable
+private fun StreakChip(days: Int) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(LocalFelt.current.deep)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .semantics(mergeDescendants = true) {}
+            .testTag(STREAK_TAG),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("$days", style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.Bone)
+        Text(" days in a row", style = GemType.label, color = GemColors.Bone)
     }
 }
 

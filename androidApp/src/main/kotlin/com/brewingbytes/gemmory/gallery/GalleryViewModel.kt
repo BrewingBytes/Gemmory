@@ -55,7 +55,13 @@ data class Tile(
 internal fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitlements: Entitlements): List<Tile> =
     pictures.sortedBy { it.locked(unlocked, entitlements) }
 
-data class GalleryState(val loaded: Boolean = false, val pictures: List<Tile> = emptyList(), val photos: List<Tile> = emptyList())
+/** [streak]: days in a row the player has placed a gem (#33), as of this visit; 0 when broken or never played. */
+data class GalleryState(
+    val loaded: Boolean = false,
+    val pictures: List<Tile> = emptyList(),
+    val photos: List<Tile> = emptyList(),
+    val streak: Int = 0,
+)
 
 class GalleryViewModel(application: Application, private val handle: SavedStateHandle) : AndroidViewModel(application) {
     private val app = application as GemmoryApp
@@ -86,7 +92,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             val tiles = withContext(Dispatchers.Default) { pictures.map { tile(it) } to photos.map { tile(it) } }
             val monetization = app.monetization
             val ordered = picturesInOrder(tiles.first, monetization.unlocks.unlocked.value, monetization.entitlements.value)
-            _state.value = GalleryState(loaded = true, pictures = ordered, photos = tiles.second)
+            _state.value = GalleryState(loaded = true, pictures = ordered, photos = tiles.second, streak = app.streak.current())
         }
     }
 

@@ -21,6 +21,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#57): for a by-hand frame check of one moment, `dumpsys gfxinfo <pkg> reset` right before the `input tap` and `dumpsys gfxinfo <pkg>` after it, and measure the same moment on main's code too: the canvas-to-completion switch alone gives 8-11 janky frames on the emulator, with or without the celebration. `screenrecord` while measuring adds its own jank.
 - 2026-10-17 (#36): `connectedDebugAndroidTest` uninstalls the app when it ends, so a throwaway seeding class run through Gradle leaves nothing to look at by hand. Install both APKs (`adb install -r` the debug and the androidTest APK) and run the seed with `adb shell am instrument -w -e class <seed class> com.brewingbytes.gemmory.test/androidx.test.runner.AndroidJUnitRunner`; the app and its data stay.
 - 2026-10-17 (#36): to check a time-lapse's real frames, pull the MP4 from the app's cache (`adb exec-out run-as com.brewingbytes.gemmory cat cache/timelapse/<file>.mp4 > out.mp4`) and tile chosen frames with `ffmpeg -vf "select='eq(n\,0)+eq(n\,449)',scale=270:-1,tile=2x1" -frames:v 1 sheet.png`.
+- 2026-10-17 (#33): to seed a SharedPreferences file for a by-hand look, write the XML on the host, `adb push` it to `/data/local/tmp/`, then `adb shell run-as com.brewingbytes.gemmory sh -c 'mkdir -p shared_prefs && cp /data/local/tmp/<name>.xml shared_prefs/'` with the app force-stopped (run-as can't read the host path, and a running app overwrites the file). The app reads it at its next start.
 
 
 ## CI
