@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.share.ProgressSharing
 import com.brewingbytes.gemmory.storage.CanvasRef
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -27,6 +28,12 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
 
     var ui by mutableStateOf<PlayUi>(PlayUi.Loading)
         private set
+
+    /** Share progress (#36); kept here so a rotation keeps its sheet. */
+    val sharing = ProgressSharing(application as GemmoryApp)
+
+    /** Share progress tap: the time-lapse of [session]'s log so far. */
+    fun shareProgress(session: PlaySession) = sharing.share(session.ref, session.pattern, session.log(), session.title)
 
     /** First-time hints (design D12); kept here so a rotation doesn't lose the one showing. */
     val hints = CoachHints(application)
@@ -58,6 +65,7 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         (ui as? PlayUi.Ready)?.session?.close()
         ui = PlayUi.Loading
         ref = null
+        sharing.clear()
         hints.reset()
     }
 

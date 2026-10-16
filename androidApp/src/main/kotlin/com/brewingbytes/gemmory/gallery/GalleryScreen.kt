@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -42,36 +44,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.ColorFilter
 import com.brewingbytes.gemmory.ads.isLocked
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.photo.allowanceLine
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.ui.A11yText
@@ -84,9 +85,9 @@ import com.brewingbytes.gemmory.ui.GemTextButton
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
+import com.brewingbytes.gemmory.ui.NOTE_MAX_WIDTH
 import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.feltGround
-import com.brewingbytes.gemmory.ui.NOTE_MAX_WIDTH
 import com.brewingbytes.gemmory.ui.galleryColumns
 import com.brewingbytes.gemmory.ui.noteFitsBeside
 
@@ -132,6 +133,7 @@ private sealed interface GallerySheet {
 
 /** The gallery's "VIP" action, also where TalkBack focus returns when the paywall closes. */
 const val VIP_ACTION_TAG = "gallery-vip"
+private const val SHARE_PROGRESS = "Share progress"
 
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
 fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.id}"
@@ -216,6 +218,7 @@ fun GalleryScreen(
                             else -> onOpen(tile)
                         }
                     },
+                    onShareProgress = { vm.shareProgress(it.ref) },
                     onRename = { sheet = GallerySheet.Rename(it.ref, it.title) },
                     onDelete = { sheet = GallerySheet.Delete(it.ref) },
                     onStartOver = { sheet = GallerySheet.StartOver(it.ref) },
@@ -237,6 +240,7 @@ fun GalleryScreen(
         }
     }
 
+    ProgressShareHost(vm.sharing, returnFocusTo = vm.sharing.request?.ref?.let(::tileTag))
     when (val s = sheet) {
         null -> Unit
         is GallerySheet.Rename -> RenameSheet(
@@ -366,6 +370,7 @@ private fun TileGrid(
     bottomPadding: Dp,
     isLocked: (Tile) -> Boolean,
     onOpen: (Tile) -> Unit,
+    onShareProgress: (Tile) -> Unit,
     onRename: (Tile) -> Unit,
     onDelete: (Tile) -> Unit,
     onStartOver: (Tile) -> Unit,
@@ -381,7 +386,7 @@ private fun TileGrid(
         verticalItemSpacing = 10.dp,
     ) {
         items(tiles, key = { "${it.ref.kind}/${it.ref.id}" }) { tile ->
-            TileView(tile, isLocked(tile), onOpen, onRename, onDelete, onStartOver)
+            TileView(tile, isLocked(tile), onOpen, onShareProgress, onRename, onDelete, onStartOver)
         }
     }
 }
@@ -392,6 +397,7 @@ private fun TileView(
     tile: Tile,
     locked: Boolean,
     onOpen: (Tile) -> Unit,
+    onShareProgress: (Tile) -> Unit,
     onRename: (Tile) -> Unit,
     onDelete: (Tile) -> Unit,
     onStartOver: (Tile) -> Unit,
@@ -401,6 +407,7 @@ private fun TileView(
     val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged)
     // TalkBack (design D19): one node per tile that reads exactly its state, with the ⋮ menu's items as its custom
     // actions (the ⋮ button itself is folded into them).
+    val share = !locked && tile.shareable
     val actions = when {
         locked -> emptyList()
         photo -> listOf(
@@ -408,7 +415,7 @@ private fun TileView(
             CustomAccessibilityAction("Delete") { onDelete(tile); true },
         )
         else -> listOf(CustomAccessibilityAction("Start over") { onStartOver(tile); true })
-    }
+    }.let { if (share) listOf(CustomAccessibilityAction(SHARE_PROGRESS) { onShareProgress(tile); true }) + it else it }
     Column(
         Modifier
             .testTag(tileTag(tile.ref))
@@ -484,7 +491,9 @@ private fun TileView(
                 TileMenu(
                     expanded = menu,
                     photo = photo,
+                    share = share,
                     onDismiss = { menu = false },
+                    onShareProgress = { menu = false; onShareProgress(tile) },
                     onRename = { menu = false; onRename(tile) },
                     onDelete = { menu = false; onDelete(tile) },
                     onStartOver = { menu = false; onStartOver(tile) },
@@ -494,12 +503,17 @@ private fun TileView(
     }
 }
 
-/** Tile ⋮ menu (design D3): photo canvases Rename / Delete, bundled pictures Start over. */
+/**
+ * Tile ⋮ menu (design D3): photo canvases Rename / Delete, bundled pictures Start over; first Share progress (#36)
+ * when [share] (unfinished, past the minimum).
+ */
 @Composable
 private fun TileMenu(
     expanded: Boolean,
     photo: Boolean,
+    share: Boolean,
     onDismiss: () -> Unit,
+    onShareProgress: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onStartOver: () -> Unit,
@@ -511,6 +525,14 @@ private fun TileMenu(
         shape = RoundedCornerShape(6.dp),
     ) {
         val colors = MenuDefaults.itemColors(textColor = GemColors.Bone)
+        if (share) {
+            DropdownMenuItem(
+                text = { Text(SHARE_PROGRESS, style = GemType.body) },
+                onClick = onShareProgress,
+                colors = colors,
+                modifier = Modifier.testTag("tile-share-progress"),
+            )
+        }
         if (photo) {
             DropdownMenuItem(text = { Text("Rename", style = GemType.body) }, onClick = onRename, colors = colors)
             DropdownMenuItem(text = { Text("Delete", style = GemType.body) }, onClick = onDelete, colors = colors)

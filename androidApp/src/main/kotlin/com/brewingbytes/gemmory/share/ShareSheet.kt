@@ -40,7 +40,7 @@ import com.brewingbytes.gemmory.ui.QuietButton
 /**
  * Share progress sheet (design system, Share progress sheet; design D8). Shown while an encode runs and for the
  * results that need words; a finished video goes straight to the share sheet, and Idle shows nothing. Dismissing it
- * while it runs is a Cancel.
+ * while it runs is a Cancel. [progress]: a share before the last gem (#36), whose picture shows "So far", not "After".
  */
 @Composable
 fun ShareSheet(
@@ -53,6 +53,7 @@ fun ShareSheet(
     onTryAgain: () -> Unit,
     onClose: () -> Unit,
     returnFocusTo: String? = null,
+    progress: Boolean = false,
 ) {
     when (state) {
         is EncodeState.Running -> GemSheet("Making your video", onCancel, returnFocusTo) {
@@ -74,14 +75,18 @@ fun ShareSheet(
         }
         is EncodeState.Picture -> GemSheet("Here's a picture instead", onClose, returnFocusTo) {
             Text(
-                "Video isn't supported on this phone, so here's a before/after picture instead.",
+                if (progress) {
+                    "Video isn't supported on this phone, so here's a picture of your progress instead."
+                } else {
+                    "Video isn't supported on this phone, so here's a before/after picture instead."
+                },
                 style = GemType.body,
                 color = GemColors.Bone,
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Thumb(before, "Before", aspect, Modifier.weight(1f))
-                Thumb(after, "After", aspect, Modifier.weight(1f))
+                Thumb(after, if (progress) "So far" else "After", aspect, Modifier.weight(1f))
             }
             Spacer(Modifier.height(20.dp))
             PrimaryButton("Share picture", onSharePicture, Modifier.fillMaxWidth().testTag("share-picture"))

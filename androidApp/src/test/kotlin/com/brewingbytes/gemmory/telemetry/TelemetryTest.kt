@@ -126,10 +126,14 @@ class TelemetryTest {
     fun canvasEventsCarrySourceAndSize() {
         assertEquals(AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "quick")), AnalyticsEvent.canvasStarted(photo, 48, 64))
         assertEquals(mapOf("source" to "photo", "size" to "medium"), AnalyticsEvent.canvasFinished(photo, 90, 90).params)
-        assertEquals(mapOf("source" to "bundled", "size" to "big"), AnalyticsEvent.shareTapped(puppy, 122, 122).params)
+        assertEquals(mapOf("source" to "bundled", "size" to "big", "kind" to "finished"), AnalyticsEvent.shareTapped(puppy, 122, 122, progress = false).params)
+        assertEquals(mapOf("source" to "photo", "size" to "quick", "kind" to "progress"), AnalyticsEvent.shareTapped(photo, 48, 64, progress = true).params)
         assertEquals("starter", AnalyticsEvent.size(starter, 24, 32), "the starter never counts as Quick")
         assertEquals("other", AnalyticsEvent.size(puppy, 10, 10))
-        assertEquals(AnalyticsEvent("share_completed", mapOf("source" to "bundled", "size" to "big")), AnalyticsEvent.shareCompleted("bundled", "big"))
+        assertEquals(
+            AnalyticsEvent("share_completed", mapOf("source" to "bundled", "size" to "big", "kind" to "progress")),
+            AnalyticsEvent.shareCompleted("bundled", "big", "progress"),
+        )
     }
 
     @Test
@@ -165,7 +169,7 @@ class TelemetryTest {
         val all = listOf(
             AnalyticsEvent.canvasStarted(photo, 90, 90),
             AnalyticsEvent.canvasFinished(puppy, 122, 122),
-            AnalyticsEvent.shareTapped(photo, 56, 56),
+            AnalyticsEvent.shareTapped(photo, 56, 56, progress = true),
         )
         for (e in all) for (v in e.params.values.map { it.toString() }) assertFalse(v == photo.id || v == puppy.id || "Puppy" in v, "${e.name}: $v")
     }

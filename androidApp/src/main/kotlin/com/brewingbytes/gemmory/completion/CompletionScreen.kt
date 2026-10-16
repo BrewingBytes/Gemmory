@@ -226,7 +226,7 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     fun share(ref: CanvasRef) {
         val request = finished?.takeIf { it.ref == ref }?.request?.withWatermark(!billing.entitlements.value.vip) ?: return
         killedNotice = false
-        analytics.log(AnalyticsEvent.shareTapped(ref, request.pattern.width, request.pattern.height))
+        analytics.log(AnalyticsEvent.shareTapped(ref, request.pattern.width, request.pattern.height, progress = false))
         encodes.share(request)
     }
 

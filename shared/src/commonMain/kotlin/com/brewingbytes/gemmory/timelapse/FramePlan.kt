@@ -22,6 +22,9 @@ sealed interface Frame {
  *
  * Photo canvases show their cropped source photo for the first third of the intro, then crossfade it to the empty
  * tint grid. Bundled pictures show the tint grid only.
+ *
+ * A progress share (#36) is the same plan over the log so far: [logSize] is the gems placed, so the build replays
+ * only those and the hold shows the canvas as it stands.
  */
 class FramePlan(val logSize: Int, val photoIntro: Boolean) {
     init {
@@ -41,6 +44,13 @@ class FramePlan(val logSize: Int, val photoIntro: Boolean) {
 
     /** Gems on the canvas at the end of build frame [buildFrame] (0-based): an even share, all of them at the last. */
     fun placedThrough(buildFrame: Int): Int = ((logSize.toLong() * (buildFrame + 1)) / BUILD_FRAMES).toInt()
+
+    /** Gems on the canvas in frame [index]: none in the intro, the build's share, then the whole log in the hold. */
+    fun placedAt(index: Int): Int = when (val frame = frame(index)) {
+        is Frame.Intro -> 0
+        is Frame.Build -> frame.placed
+        Frame.Hold -> logSize
+    }
 
     /** Presentation time of frame [index] in microseconds. */
     fun presentationTimeUs(index: Int): Long = index * 1_000_000L / FPS

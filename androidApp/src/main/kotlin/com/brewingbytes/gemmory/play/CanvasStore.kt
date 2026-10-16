@@ -128,6 +128,7 @@ class CanvasStore(
             onPictureFinished = {
                 analytics.log(AnalyticsEvent.canvasFinished(ref, opened.grid.pattern.width, opened.grid.pattern.height))
             },
+            onPlaced = { encodes.onPlaced(ref) },
             onClosed = { lastWrite, played ->
                 val done = scope.launch(writer) {
                     lastWrite.join()
