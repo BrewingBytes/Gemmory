@@ -75,24 +75,29 @@ class GemmoryApp : Application() {
 
     private lateinit var adMob: AdGateway
 
-    private fun newMonetization(scope: CoroutineScope) = Monetization(
+    private lateinit var appScope: CoroutineScope
+
+    private fun newMonetization(processStart: Boolean = true) = Monetization(
         filesDir = filesDir,
         clock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
         unlocks = PictureUnlocks(this),
-        scope = scope,
+        scope = appScope,
         policy = Dispatchers.IO.limitedParallelism(1),
         entitlements = billing.entitlements,
         reporter = reporter,
+        processStart = processStart,
     )
 
     /**
      * Connected tests only (#32): runs the ads on [ads] (AdMob by default) and re-reads the ledger and the unlocks from
-     * disk, so a test that cleared them starts with today's grace unused. Call before launching MainActivity.
+     * disk, so a test that cleared them starts with today's grace unused. Call before launching MainActivity. Not a
+     * cold start: the ads ledger's session state is left as it is. The replaced instance is closed.
      */
     @VisibleForTesting
     internal fun resetMonetizationForTest(ads: AdGateway = adMob) {
         this.ads = ads
-        monetization = newMonetization(CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        monetization.close()
+        monetization = newMonetization(processStart = false)
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
     }
 
@@ -132,7 +137,8 @@ class GemmoryApp : Application() {
             worker = Dispatchers.IO.limitedParallelism(1),
             analytics = analytics,
         )
-        monetization = newMonetization(scope)
+        appScope = scope
+        monetization = newMonetization()
         consent = ConsentManager(this)
         // Consent Mode v2 from the UMP result, now and on every change (R3-7).
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }

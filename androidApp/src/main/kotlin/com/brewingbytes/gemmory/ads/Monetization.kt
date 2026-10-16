@@ -72,6 +72,8 @@ class Monetization(
     private val policy: CoroutineDispatcher,
     reporter: NonFatalReporter = NonFatalReporter.Logcat,
     val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE),
+    /** False only for a test's second instance in the same process, which must not count as another cold start. */
+    processStart: Boolean = true,
 ) {
     private val ledger by lazy {
         DailyLedger(clock, FileStateStore(File(filesDir, StorageLayout.LEDGER_DAILY), LedgerCodec::encode, LedgerCodec::decode, reporter))
@@ -92,14 +94,23 @@ class Monetization(
 
     private var midnight: Job? = null
 
+    private val following: Job
+
     init {
         scope.launch(policy) {
-            ads.onProcessStart()
+            if (processStart) ads.onProcessStart()
             _firstSessionOver.value = ads.firstSessionOver
         }
         armMidnight()
         // VIP starting or lapsing changes the allowance at once (Unlimited, or back to today's free canvas).
-        scope.launch { entitlements.collect { withContext(policy) { refreshLocked() } } }
+        following = scope.launch { entitlements.collect { withContext(policy) { refreshLocked() } } }
+    }
+
+    /** Stops the midnight refresh and the entitlement follower, for a test that replaces this instance. */
+    @Synchronized
+    fun close() {
+        midnight?.cancel()
+        following.cancel()
     }
 
     /**

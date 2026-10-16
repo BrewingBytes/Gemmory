@@ -39,7 +39,7 @@ class MonetizationTest {
 
     private val entitlements = MutableStateFlow(Entitlements.FREE)
 
-    private fun TestScope.monetization(): Monetization = Monetization(
+    private fun TestScope.monetization(processStart: Boolean = true): Monetization = Monetization(
         filesDir = tmp.root,
         clock = clock,
         unlocks = PictureUnlocks(prefs),
@@ -47,6 +47,7 @@ class MonetizationTest {
         policy = UnconfinedTestDispatcher(testScheduler),
         reporter = { reports += it },
         entitlements = entitlements,
+        processStart = processStart,
     )
 
     private class FakeGateway : AdGateway {
@@ -124,6 +125,23 @@ class MonetizationTest {
     fun theVipActionWaitsForTheSecondSession() = runTest(UnconfinedTestDispatcher()) {
         assertFalse(monetization().firstSessionOver.value, "first launch")
         assertTrue(monetization().firstSessionOver.value, "a later cold start")
+    }
+
+    /** #32: a connected test's replacement instance is not a cold start, so it never ends the first session. */
+    @Test
+    fun aReplacementInstanceIsNotAColdStart() = runTest(UnconfinedTestDispatcher()) {
+        monetization().close()
+        assertFalse(monetization(processStart = false).firstSessionOver.value, "replaced in the same process")
+        assertTrue(monetization().firstSessionOver.value, "a later real cold start")
+    }
+
+    @Test
+    fun aClosedInstanceStopsFollowingBilling() = runTest(UnconfinedTestDispatcher()) {
+        val m = monetization()
+        m.consume("photo-1")
+        m.close()
+        entitlements.value = Entitlements(VipPlan.YEARLY)
+        assertEquals(Allowance.WatchVideo, m.allowance.value)
     }
 
     @Test
