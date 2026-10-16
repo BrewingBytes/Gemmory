@@ -476,10 +476,11 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
             val style = highlight
             drawIntoCanvas { renderer.draw(it.nativeCanvas, session, density, style, controller.effects, now) }
         }
-        PeekOverlay(session.pattern, peek, canvasSize)
         Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
             if (shown != null) HintChip(shown.text)
         }
+        // Over the hint chip, so the peek shows only the finished picture; under the banner, so a milestone still shows.
+        PeekOverlay(session.pattern, peek, canvasSize)
         MilestoneBanner(session, controller.feedback, controller.view, controller.reducedMotion)
         Announcer(session)
     }
