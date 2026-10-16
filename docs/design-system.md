@@ -150,7 +150,7 @@ Scale: 34 / 30 / 22 / 16 / 13 sp. Adjacent levels differ by size *and* role, nev
 ## Layout
 
 - Material 3 structure (top app bar, bottom sheets, system back) so Android feels native, with 16dp side gutters and a 4dp base grid.
-- **Gallery:** a 2-column staggered grid (10dp gap) that honors 1:1 / 3:4 / 4:3 tiles. Tabs are "Pictures" and "My Photos". A "New from photo" primary button floats bottom-right. The first Pictures tile is the free starter picture (24×32, about 5 minutes; Phase 5 D13).
+- **Gallery:** a 2-column staggered grid (10dp gap) that honors 1:1 / 3:4 / 4:3 tiles. Tabs are "Pictures" and "My Photos". A "New from photo" primary button floats bottom-right. The first Pictures tile is the free starter picture (24×32, about 5 minutes; Phase 5 D13). The other bundled pictures follow as a difficulty ramp: every Quick picture, then Medium, then Big (#31).
 - **Play canvas:** a top app bar (back, title, mono progress), then a full-bleed canvas on `felt-deep`, then the tray bar at the bottom. No ads and no other chrome.
 - **Size picker:** the face hint sits on top, followed by three option rows, each with a mini gem preview, gem count and color count.
 - **Paywall:** a full screen with close visible immediately (top-left), plain perk lines, two plan rows, one primary button and a quiet "Just remove ads" row.
