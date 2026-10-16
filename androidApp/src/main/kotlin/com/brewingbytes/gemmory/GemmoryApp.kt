@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory
 
 import android.app.Application
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -72,6 +73,29 @@ class GemmoryApp : Application() {
     lateinit var interstitials: Interstitials
         private set
 
+    private lateinit var adMob: AdGateway
+
+    private fun newMonetization(scope: CoroutineScope) = Monetization(
+        filesDir = filesDir,
+        clock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
+        unlocks = PictureUnlocks(this),
+        scope = scope,
+        policy = Dispatchers.IO.limitedParallelism(1),
+        entitlements = billing.entitlements,
+        reporter = reporter,
+    )
+
+    /**
+     * Connected tests only (#32): runs the ads on [ads] (AdMob by default) and re-reads the ledger and the unlocks from
+     * disk, so a test that cleared them starts with today's grace unused. Call before launching MainActivity.
+     */
+    @VisibleForTesting
+    internal fun resetMonetizationForTest(ads: AdGateway = adMob) {
+        this.ads = ads
+        monetization = newMonetization(CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
+    }
+
     override fun onCreate() {
         super.onCreate()
         reporter = NonFatalReporter.forBuild(BuildConfig.FIREBASE) {
@@ -108,19 +132,12 @@ class GemmoryApp : Application() {
             worker = Dispatchers.IO.limitedParallelism(1),
             analytics = analytics,
         )
-        monetization = Monetization(
-            filesDir = filesDir,
-            clock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
-            unlocks = PictureUnlocks(this),
-            scope = scope,
-            policy = Dispatchers.IO.limitedParallelism(1),
-            entitlements = billing.entitlements,
-            reporter = reporter,
-        )
+        monetization = newMonetization(scope)
         consent = ConsentManager(this)
         // Consent Mode v2 from the UMP result, now and on every change (R3-7).
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }
         ads = AdMobGateway(this, consent, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+        adMob = ads
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
         // The first session ends on the first foreground after ≥ 30 min in the background (eng D6). Billing asks Play
         // on every foreground, the first one being the cold start (eng E6).

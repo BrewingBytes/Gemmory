@@ -47,6 +47,12 @@ interface AdGateway {
     /** The device has a validated network connection, not just a network (eng D15). */
     fun online(): Boolean
 
+    /**
+     * Before the player's first ad: the UMP form when consent is still needed (ConsentManager.ensureBeforeAd). True
+     * when ads may be requested.
+     */
+    suspend fun ensureConsent(activity: Activity): Boolean
+
     /** Initializes the SDK once consent allows ad requests; a no-op before that. */
     suspend fun start()
 
@@ -93,6 +99,8 @@ class AdMobGateway(context: Context, private val consent: ConsentManager, privat
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
+
+    override suspend fun ensureConsent(activity: Activity): Boolean = consent.ensureBeforeAd(activity)
 
     override suspend fun start() {
         if (sdkReady || !consent.canRequestAds.value) return

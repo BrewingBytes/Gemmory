@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.storage
 
+import com.brewingbytes.gemmory.ads.PictureUnlocks
 import org.junit.Test
 import org.w3c.dom.Element
 import java.io.File
@@ -54,6 +55,17 @@ class BackupRulesTest {
             val section = root.getElementsByTagName(name).item(0) as Element
             assertEquals(expected, rules(section, "exclude"), name)
             assertTrue(rules(section, "include").isEmpty(), name)
+        }
+    }
+
+    /** #32: picture unlocks survive a reinstall, so their prefs file is never excluded (design doc, Locked pictures). */
+    @Test
+    fun pictureUnlocksAreBackedUp() {
+        val unlocks = "sharedpref:${PictureUnlocks.FILE}.xml"
+        assertTrue(unlocks !in rules(xml("backup_rules.xml"), "exclude"))
+        val root = xml("data_extraction_rules.xml")
+        for (name in listOf("cloud-backup", "device-transfer")) {
+            assertTrue(unlocks !in rules(root.getElementsByTagName(name).item(0) as Element, "exclude"), name)
         }
     }
 

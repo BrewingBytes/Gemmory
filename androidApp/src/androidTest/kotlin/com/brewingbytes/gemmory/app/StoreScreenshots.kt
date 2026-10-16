@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -19,8 +20,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.billing.BillingBackends
+import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.gallery.tileTag
 import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
@@ -68,6 +71,8 @@ class StoreScreenshots {
         hints.commit()
         BillingBackends.fake.reset()
         runBlocking { app.billing.refresh() }
+        // Store shots never show "Watch to unlock" (founder, #32): every picture opens, even on a Free account.
+        BundledPictures.ALL.forEach { app.monetization.unlocks.unlock(it.id) }
         if (tablet) {
             A11yTestSupport.shell("wm size 2560x1440")
             A11yTestSupport.shell("wm density 320")
@@ -95,11 +100,14 @@ class StoreScreenshots {
         A11yTestSupport.shell("wm density reset")
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(PictureUnlocks.FILE, Context.MODE_PRIVATE).edit().clear().commit()
+        app.resetMonetizationForTest()
     }
 
     private fun shot(name: String) {
         SystemClock.sleep(1_500)
         compose.waitForIdle()
+        compose.onAllNodes(hasTestTag("locked-label"), useUnmergedTree = true).assertCountEquals(0)
         A11yTestSupport.shell("screencap -p /data/local/tmp/store-${if (tablet) "t-" else ""}$name.png")
     }
 

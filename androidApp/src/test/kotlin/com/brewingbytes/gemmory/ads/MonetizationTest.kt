@@ -57,6 +57,8 @@ class MonetizationTest {
 
         override fun online() = true
 
+        override suspend fun ensureConsent(activity: Activity) = true
+
         override suspend fun start() = Unit
 
         override fun preloadRewarded() = Unit

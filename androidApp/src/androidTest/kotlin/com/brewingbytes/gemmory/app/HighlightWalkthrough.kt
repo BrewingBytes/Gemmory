@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.brewingbytes.gemmory.DeviceCheck
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.play.CellColors
 import com.brewingbytes.gemmory.play.CoachHint
@@ -61,6 +62,8 @@ class HighlightWalkthrough {
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()
+        // Locked pictures in PICTURES open straight away, as if their video was watched (#32).
+        PICTURES.forEach(app.monetization.unlocks::unlock)
     }
 
     @After
@@ -69,6 +72,8 @@ class HighlightWalkthrough {
         instrumentation.runOnMainSync { app.settings.setHighlight(HighlightStyle.TINT) }
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(PictureUnlocks.FILE, Context.MODE_PRIVATE).edit().clear().commit()
+        app.resetMonetizationForTest()
     }
 
     private fun session(): PlaySession? {

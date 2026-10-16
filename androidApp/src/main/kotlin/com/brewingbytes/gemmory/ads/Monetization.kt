@@ -45,9 +45,10 @@ class PictureUnlocks(private val prefs: SharedPreferences) {
         prefs.edit { putStringSet(KEY, _unlocked.value) }
     }
 
-    private companion object {
-        const val FILE = "unlocks"
-        const val KEY = "pictures"
+    companion object {
+        /** Backed up, so unlocks survive a reinstall (#32, BackupRulesTest). */
+        internal const val FILE = "unlocks"
+        private const val KEY = "pictures"
     }
 }
 
