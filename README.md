@@ -23,8 +23,6 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | [docs/privacy-policy.md](docs/privacy-policy.md) | The published privacy policy |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
 
-The full index, including the issue snapshot, deferred work and the agent workflow, is in [AGENTS.md](AGENTS.md).
-
 ## Build and test
 
 You need JDK 17 and the Android SDK (compile/target SDK 37, min SDK 29).
