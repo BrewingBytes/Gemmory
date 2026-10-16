@@ -90,12 +90,11 @@ object BundledPictures {
     )
 
     /**
-     * Gallery order: the starter, then Quick, Medium and Big (#31), the free ones first in each size (#32). The starter
-     * is never locked. Sources and licenses: tools/bundled/PROVENANCE.md.
+     * Catalog order: the starter, then Quick, Medium and Big (#31). The gallery shows the ones a player can open first,
+     * in this order, then the locked ones (#58, `picturesInOrder`). The starter is never locked. Sources and licenses:
+     * tools/bundled/PROVENANCE.md.
      */
-    val ALL: List<BundledPicture> = listOf(STARTER) + listOf(QUICK, MEDIUM, BIG).flatMap { size ->
-        size.map { it.copy(locked = it.id !in FREE) }.sortedBy { it.locked }
-    }
+    val ALL: List<BundledPicture> = listOf(STARTER) + (QUICK + MEDIUM + BIG).map { it.copy(locked = it.id !in FREE) }
 
     fun byId(id: String): BundledPicture? = ALL.firstOrNull { it.id == id }
 }
