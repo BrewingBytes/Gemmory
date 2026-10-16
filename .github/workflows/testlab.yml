@@ -26,9 +26,9 @@ env:
   # Picked from `gcloud firebase test android models list` (why each one: README). Spark gives 5 physical runs a day;
   # each device here is one run.
   DEVICES: >-
-    --device model=PIXEL_MODEL,version=PIXEL_API
-    --device model=SAMSUNG_MODEL,version=SAMSUNG_API
-    --device model=MEDIATEK_MODEL,version=MEDIATEK_API
+    --device model=tokay,version=35
+    --device model=a35x,version=34
+    --device model=a06,version=35
   TEST_TARGETS: >-
     class com.brewingbytes.gemmory.timelapse.TimelapseEncoderSmokeTest,class com.brewingbytes.gemmory.timelapse.EncodeCancelTest
 

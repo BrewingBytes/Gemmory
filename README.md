@@ -47,13 +47,13 @@ Debug build switches (`-P…`):
 
 `.github/workflows/testlab.yml` (#11, design doc D7) runs `TimelapseEncoderSmokeTest` and `EncodeCancelTest` on three real phones in Firebase Test Lab, because video encoders differ by chip family. It runs when a `v*` tag is pushed (a release candidate, see Release) and by hand: Actions → Test Lab → Run workflow.
 
-- **Phones** (one matrix, picked from `gcloud firebase test android models list` on DEVICES_DATE):
+- **Phones** (one matrix, picked from `gcloud firebase test android models list` on 2026-10-16; chipsets are the makers' public specs, the catalog doesn't list them):
 
   | Family | Model (`model,version`) | Why |
   |---|---|---|
-  | Pixel / Tensor | PIXEL_ROW |
-  | Samsung | SAMSUNG_ROW |
-  | Low-end MediaTek | MEDIATEK_ROW |
+  | Pixel / Tensor | Pixel 9 (`tokay,35`) | Tensor G4, Google's own encoder stack. Newest Pixel with high Test Lab capacity at API 35 (API 36 is medium), so runs don't queue. |
+  | Samsung | Galaxy A35 5G (`a35x,34`) | Exynos 1380, Samsung's best-selling mid-range line rather than a flagship. API 34 has medium capacity; 35 and 36 are low. |
+  | Low-end MediaTek | Galaxy A06 (`a06,35`) | Helio G85, 720×1600 screen, Samsung's cheapest current phone. The other low-end catalog phones are Unisoc (moto g04/g14, TECNO, realme C53) or Snapdragon (A05s). |
 
 - **What passes:** each phone encodes through the app's fallback chain to an MP4 with 1 track, 14-16 s, 450 frames, at 1080×1920 or the 720×1280 fallback, and frames decode at that size; 720×1280 is also forced on its own; cancel and delete mid-encode leave no file. A fallback is logged (`smoke fallback:` in the logcat).
 - **Results:** the run's summary has the Test Lab console link and a pass/fail row per phone. The `test-lab-results` artifact has each phone's `video.mp4` and `logcat`. A failed or inconclusive phone fails the job.
