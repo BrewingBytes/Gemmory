@@ -104,7 +104,7 @@ components:
 - Felt grain, bone type, one warm lamplight color for "this one."
 - Square cushion-cut gems tile with no gaps, so the picture always reads.
 - Progress you can feel (shrinking gem heaps) instead of percentages.
-- Completion dims the screen rather than exploding.
+- Completion dims the room and lets the picture celebrate: its gems glint, then gem confetti in its own colors falls through the dim (#57). The picture is never covered.
 
 Preview reference: `~/.gstack/projects/Gemmory/designs/design-system-20261013/preview.html` (approved 2026-10-13).
 
@@ -283,7 +283,7 @@ There are no zero-offset colored halos and no frosted glass anywhere.
 | Gem placed | `HapticFeedbackConstants.CLOCK_TICK`; drag throttled to ≤ 1 per 40ms | soft click, ±3 semitone random pitch |
 | Wrong color | `TEXT_HANDLE_MOVE` (lighter than the tick) | none |
 | Color finished | `CONFIRM` (API 30+), else `CONTEXT_CLICK` | felt-flap thump |
-| Picture finished | one 400ms soft `VibrationEffect` composition | one low chime |
+| Picture finished (#57) | a crescendo: 18 `PRIMITIVE_TICK`s that speed up and swell across the 2.4s sweep, then `PRIMITIVE_CLICK` + `QUICK_FALL` on the chime (no primitives: an amplitude waveform with the same shape; neither: the 400ms soft vibration on the chime). Reduced motion: the 400ms soft vibration on the chime | the low chime with its fifth (×1.5, 50%) and octave (×2, 36%) on top |
 | Progress milestone (#35) | `CONFIRM` (API 30+), else `CONTEXT_CLICK` | the finish chime a fifth higher (×1.5) at 40% volume |
 
 Sound and Haptics each get a Settings toggle. Both default to on.
@@ -337,19 +337,19 @@ Sound and Haptics each get a Settings toggle. Both default to on.
 | Bonus earned from a video | "Uses a bonus canvas from a video." | Start |
 | VIP | no line | Start |
 
-**Completion: "lights down", the one authored moment.**
+**Completion: "lights down" and the finish celebration, the one authored moment** (#57).
 1. The chrome slides away over 250ms and the screen dims ~30%.
-2. One raking specular sweep crosses the picture over 2.4s.
-3. One low chime and the finish haptic play.
-4. The picture holds still for 2s.
-5. "Finished" (display-lg), the meta line (title · gems · time), then Share (primary) and Done (quiet) fade in.
+2. **Sparkle sweep** (2.4s): every gem catches the light in turn along the diagonal from top-left to bottom-right (a `#FFFAEB` flash at up to 55%, each tile lit for 9% of the sweep, staggered by up to 5% so the wave twinkles), about one in seven with a small 4-point facet star, over the old raking band at 14%. A gem smaller than 4dp at fit (Big canvases) glints in square tiles of gems at least 4dp across. The finish haptic crescendo rises under it.
+3. The chime and the crescendo's peak land as the sweep reaches the far corner.
+4. **Gem confetti** (2s, the hold): square cushion-cut gems (4-9dp, lit top facet, shaded bottom facet) in the picture's own colors, picked in proportion to its gem counts. 60% spill out from under the picture's bottom edge into the room, 40% rain from above the screen; they tumble under gravity, pass **behind** the picture (never over it), and all fade out over the last 400ms. 180 on a phone, up to 360 on a wide screen.
+5. "Finished" (display-lg), the meta line (title · gems · time), then Share (primary) and Done (quiet) fade in, at the same 5.05s as before the celebration.
 
-Reduced motion skips the sweep. The interstitial (if allowed) can appear only after leaving this screen.
+Reduced motion skips the sparkle, the crescendo and the confetti: the dim, the chime, the 400ms soft haptic and the 2s hold remain. There is no Settings toggle for the celebration; Sound and Haptics follow their own toggles. The interstitial (if allowed) can appear only after leaving this screen.
 
 **Share and the meta line** (#13, #4): Share is the primary button; it opens the Share progress sheet below. A killed encode's message ("The video stopped when the app closed. Tap Share to try again.") is a muted line under Share for that visit. The lights-down dim is on the room around the picture; the picture itself stays lit. The meta line's time is active play time ("5 min", "1 h 12 min").
 
 A finished picture reopened from the gallery shows the **completion still**:
-- the picture at rest with no sweep;
+- the picture at rest with no sparkle, confetti, chime or haptic;
 - the "Finished" title and meta line;
 - Share (primary), Done (quiet) and a "Play again" text button. "Play again" asks the Start over confirm.
 
@@ -453,7 +453,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 - **Do** show progress as the art itself (tiles, tray heaps). Use numbers only in mono, small.
 - **Do** design the empty, loading, offline and error state of every component (see Rewarded states and Restore).
 - **Do** keep calm copy plain and specific: "You're offline, connect to watch a video", not "Oops!".
-- **Don't** add confetti, coin bursts, glitter particles, gold bevels, purple, neon or glow halos, even for events.
+- **Don't** add coin bursts, glitter particles, gold bevels, purple, neon or glow halos, even for events. The one exception is the finish celebration's gem confetti (#57): cushion-cut gems in the picture's own colors, behind the picture, on a fresh finish only. No other screen gets confetti.
 - **Don't** signal a wrong tap with red, shake, buzz or a counter.
 - **Don't** put a padlock over locked art or blur it; locked pictures are shown in full.
 - **Don't** use pill buttons, cards inside cards, emoji, or gradient buttons.
@@ -461,14 +461,14 @@ A finished picture reopened from the gallery shows the **completion still**:
 
 ## Motion
 
-- **Approach:** intentional and slow. Motion confirms; it never celebrates loudly.
+- **Approach:** intentional and slow. Motion confirms; it celebrates only at the finish (#57) and, briefly, at a milestone (#35).
 - **Easing:** enter ease-out (`FastOutSlowIn` decelerate), exit ease-in, move ease-in-out.
-- **Duration:** micro 80ms (placement glint), short 150-250ms (trough lift and flap, sheet), medium 250-400ms (screen transitions, chrome slide), long 2.4s (completion sweep only).
+- **Duration:** micro 80ms (placement glint), short 150-250ms (trough lift and flap, sheet), medium 250-400ms (screen transitions, chrome slide), long 2.4s (the completion's sparkle sweep only) and 2s (its confetti, during the hold).
 - **Placement glint:** a 180ms specular pass across the placed gem at 20dp and up. No particles.
-- **The one authored moment:** completion "lights down" (see Components).
+- **The one authored moment:** completion "lights down" with the finish celebration (see Components): the sparkle sweep is linear over 2.4s; the confetti falls under a constant 520dp/s² gravity with each gem spinning and tumbling, and fades out over its last 400ms. It plays only on a fresh finish, once (a rotation mid-sequence doesn't replay it), and never on the completion still.
 - **Milestone banner** (#35, a founder-approved exception to "never celebrates loudly"): the `bone` tag slides in from the left over 300ms (ease-out), the headline and count wipe open beside it from 300 to 660ms (`FastOutSlowIn`), the band holds and fades out over its last 300ms: 3s in all. No particles, glow or bounce. Under reduced motion the band fades in over 150ms, holds, and fades out over 150ms (2.5s in all) at its real duration; the chime and haptic stay.
 - **Peek:** a 150ms fade in and out; under reduced motion it switches at once.
-- Reduced motion (`ANIMATOR_DURATION_SCALE == 0` or the accessibility setting) skips the glint and the sweep. The 2s hold remains.
+- Reduced motion (`ANIMATOR_DURATION_SCALE == 0` or the accessibility setting) skips the glint, the sparkle sweep, the haptic crescendo and the confetti. The dim, the chime, the soft finish haptic and the 2s hold remain.
 - That setting also makes Compose finish every animation at once, so the reduced-motion fades and the blink run at their real duration on purpose (#14).
 - Under reduced motion, movement becomes fades (Phase 5 D21):
   - The wrong-tap trough nudge becomes the haptic plus a 120ms lamp-outline blink.
@@ -477,6 +477,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - The Find cell pulse is skipped.
   - The milestone banner fades instead of sliding and wiping; the peek switches at once.
   - The lights-down dim (a fade) stays.
+  - The finish celebration (#57) drops its sparkle, haptic crescendo and confetti; the dim, the chime and the soft finish haptic stay.
 - Haptics also follow the system touch-feedback setting.
 - The Selected color styles have no motion of their own; switching style redraws the canvas at once, with or without reduced motion.
 
@@ -506,3 +507,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-16 | Locked pictures (#32): only the starter and 2 Quick, 2 Medium, 2 Big are free, and the rest show the D14 label. Free pictures come first within each size | Founder call during #32 ("leave only starter + 2 quick + 2 medium + 2 big unlocked"). The free ones first, so a free player finds what they can play without scrolling past locked tiles. The list and the reinstall answer are in docs/designs/gemmory.md, Locked pictures |
 | 2026-10-16 | Pictures tab (#58): the starter, then every picture the player can open, then the locked ones, each group Quick, Medium, Big in catalog order. Replaces #32's free-first-within-size order. A video unlock or VIP moves tiles on the next Gallery visit, not at once | Founder asked during #35: a free player scrolled past locked Quick tiles to reach the free Medium and Big ones. Founder picks during #58: next visit over at once (after an unlock the canvas opens, so the tile has moved by the time the player is back; a VIP purchase doesn't reshuffle the grid in front of them), and catalog order inside the open group (VIP sees the plain #31 ramp). "Open" is the tap's rule (`isLocked`) |
 | 2026-10-16 | Progress milestones and peek (#35): 25/50/75% on every size, each a "Breaking News" banner across the middle of the canvas (tag snaps in, headline wipes open, 3s; `lamp` edges), the finish chime ×1.5 at 40% and the `CONFIRM` haptic, with a Settings toggle to turn milestones off. Peek is a top-bar eye: hold to see the whole finished picture, or tap for 1.5s; TalkBack action "Peek at picture" / "Back to canvas". No "best session" / "gems today" line | Founder picks from the HTML mockups (`~/.gstack/projects/Gemmory/designs/t23-milestones-peek/`) during #35. The banner departs from "no other chrome" and "Motion confirms; it never celebrates loudly" on purpose: on a Big canvas the only reward moments were a finished color and the finish. `lamp` on the banner's edges is a second meaning ("this moment"), kept as mocked. Long-press is taken by color select (D23), so the peek can't be a canvas hold. The stats line is in docs/todos.md |
+| 2026-10-16 | Finish celebration (#57): on a fresh finish the sweep becomes a sparkle that glints every gem (or 4dp tile of gems) in turn over the same 2.4s, a haptic crescendo rises under it and peaks with the chime (now with its fifth and octave), then gem confetti in the picture's own colors falls through the dimmed room during the 2s hold, behind the picture. Share still appears at 5.05s. Reduced motion keeps the dim, the chime, the soft haptic and the hold. No Settings toggle. The completion still doesn't celebrate | Founder pick (recommended D + A + F) from the HTML mockups (`~/.gstack/projects/Gemmory/designs/t32-finish-celebration/`) during #57, over fireworks (hidden behind a 3:4 picture, the genre's loud look), a gem shower (the tray is empty at the finish, and it covers the picture) and a time-lapse preview (the real 15s video would delay Share 10s+). Replaces the 2026-10-13 "no confetti" rule for this one moment; the colors come from the picture, so the shell stays unsaturated. No toggle: reduced motion removes all the motion, and Sound and Haptics have their own |

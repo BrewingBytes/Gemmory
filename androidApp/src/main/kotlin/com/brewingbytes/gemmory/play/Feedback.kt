@@ -13,6 +13,7 @@ import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.view.View
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.game.FinishCelebration
 import com.brewingbytes.gemmory.settings.AppSettings
 import kotlin.math.pow
 import kotlin.random.Random
@@ -70,17 +71,55 @@ class Feedback(context: Context, private val settings: AppSettings) {
         play(chime, MILESTONE_VOLUME, rate = MILESTONE_RATE)
     }
 
-    /** One 400ms soft vibration and one low chime. */
+    /** Whether [crescendo] is playing, so the chime doesn't add the soft finish vibration on top of its peak. */
+    private var crescendoPlaying = false
+
+    /**
+     * The finish celebration's haptic (#57): ticks that speed up and swell across the 2.4s sweep, then a peak and a
+     * quick fall on the chime. Primitives where the phone has them, else an amplitude waveform; a phone with neither
+     * gets today's soft vibration from [pictureFinished] instead.
+     */
+    fun crescendo() {
+        crescendoPlaying = false
+        if (!hapticsOn) return
+        val vibrator = vibrator() ?: return
+        val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && vibrator.areAllPrimitivesSupported(
+                VibrationEffect.Composition.PRIMITIVE_TICK,
+                VibrationEffect.Composition.PRIMITIVE_CLICK,
+                VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,
+            )
+        ) {
+            val composition = VibrationEffect.startComposition()
+            for (tick in FinishCelebration.crescendoTicks()) {
+                composition.addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, tick.scale, tick.delayMs)
+            }
+            composition
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, 1f)
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_QUICK_FALL, 0.6f)
+                .compose()
+        } else if (vibrator.hasAmplitudeControl()) {
+            val (timings, amplitudes) = FinishCelebration.crescendoWaveform()
+            VibrationEffect.createWaveform(timings, amplitudes, -1)
+        } else {
+            return
+        }
+        crescendoPlaying = vibrate(vibrator, effect)
+    }
+
+    /**
+     * The chime: the low finish chime with its fifth and octave above (#57), and the 400ms soft vibration unless the
+     * [crescendo] is already peaking on it.
+     */
     fun pictureFinished() {
         play(chime, CHIME_VOLUME)
+        play(chime, CHIME_FIFTH_VOLUME, rate = 1.5f)
+        play(chime, CHIME_OCTAVE_VOLUME, rate = 2f)
+        if (crescendoPlaying) {
+            crescendoPlaying = false
+            return
+        }
         if (!hapticsOn) return
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            appContext.getSystemService(VibratorManager::class.java)?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            appContext.getSystemService(Vibrator::class.java)
-        } ?: return
-        if (!vibrator.hasVibrator()) return
+        val vibrator = vibrator() ?: return
         val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && vibrator.areAllPrimitivesSupported(
                 VibrationEffect.Composition.PRIMITIVE_SLOW_RISE,
                 VibrationEffect.Composition.PRIMITIVE_QUICK_FALL,
@@ -94,15 +133,36 @@ class Feedback(context: Context, private val settings: AppSettings) {
             val amplitude = if (vibrator.hasAmplitudeControl()) SOFT_AMPLITUDE else VibrationEffect.DEFAULT_AMPLITUDE
             VibrationEffect.createOneShot(FINISH_VIBRATION_MS, amplitude)
         }
+        vibrate(vibrator, effect)
+    }
+
+    private fun vibrator(): Vibrator? {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            appContext.getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            appContext.getSystemService(Vibrator::class.java)
+        }
+        return vibrator?.takeIf { it.hasVibrator() }
+    }
+
+    /** False if the system touch-feedback setting is off before API 33, where the vibration can't carry the usage. */
+    private fun vibrate(vibrator: Vibrator, effect: VibrationEffect): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Touch usage follows the system touch-feedback setting.
             vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_TOUCH))
-        } else if (legacyTouchFeedbackOn()) {
-            vibrator.vibrate(effect)
+            return true
         }
+        if (!legacyTouchFeedbackOn()) return false
+        vibrator.vibrate(effect)
+        return true
     }
 
-    fun release() = sounds.release()
+    /** Also stops a [crescendo] still rising when the completion screen is left mid-sequence. */
+    fun release() {
+        if (crescendoPlaying) vibrator()?.cancel()
+        sounds.release()
+    }
 
     private fun haptic(view: View, constant: Int) {
         if (hapticsOn) view.performHapticFeedback(constant)
@@ -124,6 +184,8 @@ class Feedback(context: Context, private val settings: AppSettings) {
         const val CLICK_VOLUME = 0.35f
         const val THUMP_VOLUME = 0.6f
         const val CHIME_VOLUME = 0.7f
+        const val CHIME_FIFTH_VOLUME = 0.35f
+        const val CHIME_OCTAVE_VOLUME = 0.25f
         const val MILESTONE_VOLUME = 0.4f
         const val MILESTONE_RATE = 1.5f
     }
