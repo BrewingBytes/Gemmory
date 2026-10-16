@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,7 @@ import com.brewingbytes.gemmory.play.PlayScreen
 import com.brewingbytes.gemmory.settings.MEMBERSHIP_TAG
 import com.brewingbytes.gemmory.settings.SettingsScreen
 import com.brewingbytes.gemmory.ui.GemmoryTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val photoFlow: PhotoFlowViewModel by viewModels()
@@ -136,6 +138,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val top = stack.top
+        val scope = rememberCoroutineScope()
         // The interstitial check runs only once the player has left a just-finished picture's completion screen
         // (design doc Ad rules): never on the canvas, never before or during Share.
         var previous by remember { mutableStateOf<Route?>(null) }
@@ -158,7 +161,7 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(rewarded.event) {
             when (val event = rewarded.event) {
                 null -> return@LaunchedEffect
-                is RewardedEvent.OpenPicture -> stack.openTile(CanvasRef(CanvasKind.BUNDLED, event.id), finished = false)
+                is RewardedEvent.OpenPicture -> stack.openTile(CanvasRef(CanvasKind.BUNDLED, event.id), app.store::isFinished)
                 RewardedEvent.StartPhotoCanvas -> photoFlow.start()
             }
             rewarded.onEventHandled()
@@ -182,7 +185,7 @@ class MainActivity : ComponentActivity() {
                     unlocked = unlocked,
                     entitlements = entitlements,
                     onNewFromPhoto = pickPhoto,
-                    onOpen = { tile -> stack.openTile(tile.ref, tile.done) },
+                    onOpen = { tile -> scope.launch { stack.openTile(tile.ref, app.store::isFinished) } },
                     onLocked = { tile -> rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity) },
                     onSettings = { stack.push(Route.Settings) },
                     showVip = firstSessionOver,

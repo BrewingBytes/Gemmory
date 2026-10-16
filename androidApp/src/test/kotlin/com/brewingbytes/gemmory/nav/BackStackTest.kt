@@ -2,6 +2,10 @@ package com.brewingbytes.gemmory.nav
 
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,19 +39,40 @@ class BackStackTest {
     }
 
     @Test
-    fun tilesOpenTheCanvasOrTheCompletionStill() {
+    fun tilesOpenTheCanvasOrTheCompletionStill() = runTest {
         val stack = BackStack()
-        stack.openTile(starter, finished = false)
+        stack.openTile(starter) { false }
         assertEquals(Route.Canvas(starter), stack.top)
         stack.pop()
-        stack.openTile(starter, finished = true)
+        stack.openTile(starter) { true }
         assertEquals(Route.Completion(starter, fresh = false), stack.top)
     }
 
     @Test
-    fun finishingReplacesTheCanvasSoDoneAndBackGoToTheGallery() {
+    fun aTileOpensWhatTheCanvasIsNotWhatTheTileLastShowed() = runTest {
+        // #50: the canvas was finished, but the gallery still drew it from before; it must open as the still.
         val stack = BackStack()
-        stack.openTile(starter, finished = false)
+        val asked = mutableListOf<CanvasRef>()
+        stack.openTile(photo) { asked += it; true }
+        assertEquals(listOf(photo), asked)
+        assertEquals(listOf(Route.Gallery, Route.Completion(photo, fresh = false)), stack.routes)
+    }
+
+    @Test
+    fun nothingOpensIfThePlayerLeftWhileTheCanvasWasRead() = runTest {
+        val stack = BackStack()
+        val read = CompletableDeferred<Boolean>()
+        val tap = launch(start = CoroutineStart.UNDISPATCHED) { stack.openTile(photo) { read.await() } }
+        stack.push(Route.Settings)
+        read.complete(false)
+        tap.join()
+        assertEquals(listOf(Route.Gallery, Route.Settings), stack.routes)
+    }
+
+    @Test
+    fun finishingReplacesTheCanvasSoDoneAndBackGoToTheGallery() = runTest {
+        val stack = BackStack()
+        stack.openTile(starter) { false }
         stack.finished(starter)
         assertEquals(listOf(Route.Gallery, Route.Completion(starter, fresh = true)), stack.routes)
         stack.pop()
@@ -55,17 +80,17 @@ class BackStackTest {
     }
 
     @Test
-    fun finishedIsIgnoredUnlessThatCanvasIsOnTop() {
+    fun finishedIsIgnoredUnlessThatCanvasIsOnTop() = runTest {
         val stack = BackStack()
-        stack.openTile(photo, finished = false)
+        stack.openTile(photo) { false }
         stack.finished(starter)
         assertEquals(Route.Canvas(photo), stack.top)
     }
 
     @Test
-    fun playAgainOpensTheCanvasWithTheGalleryBelow() {
+    fun playAgainOpensTheCanvasWithTheGalleryBelow() = runTest {
         val stack = BackStack()
-        stack.openTile(starter, finished = true)
+        stack.openTile(starter) { true }
         stack.playAgain(starter)
         assertEquals(listOf(Route.Gallery, Route.Canvas(starter)), stack.routes)
     }
