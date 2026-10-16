@@ -17,15 +17,13 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 
 | Doc | What's in it |
 |---|---|
-| [AGENTS.md](AGENTS.md) | The rules that always apply (adults only, photos stay on the phone, no ads on the canvas, pure `commonMain`, design system, time limits) and the entry point for agents |
-| [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, and the CEO and eng review decision ledgers |
-| [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, fonts, components, navigation, canvas gestures and haptics, copy for every state, accessibility (`DESIGN.md` links here) |
-| [docs/issues.md](docs/issues.md) | Snapshot of the tasks, created as GitHub issues (T*n* = #*n* for #1-#14) |
-| [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers (Data safety, content rating, target audience, ads), Firebase and API key settings, the production gate |
+| [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, decision ledgers |
+| [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, components, navigation, canvas gestures, copy, accessibility |
+| [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, the production gate |
 | [docs/privacy-policy.md](docs/privacy-policy.md) | The published privacy policy |
-| [docs/todos.md](docs/todos.md) | Deferred work and when to pick it up (`TODOS.md` links here) |
-| [docs/agents/skill-routing.md](docs/agents/skill-routing.md) | Which gstack skill to use for which kind of request |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
+
+The full index, including the issue snapshot, deferred work and the agent workflow, is in [AGENTS.md](AGENTS.md).
 
 ## Build and test
 
