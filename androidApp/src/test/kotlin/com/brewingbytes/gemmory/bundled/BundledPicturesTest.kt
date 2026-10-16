@@ -99,15 +99,13 @@ class BundledPicturesTest {
         assertTrue(locked.none { it.id in BundledPictures.FREE })
     }
 
-    /** #32: a free player always has something of every size to play, and finds it first in its size. */
+    /** #32: a free player always has something of every size to play (#58 shows them first, GalleryOrderTest). */
     @Test
-    fun aFreePlayerHasAtLeastTwoOfEachSizeShownFirst() {
+    fun aFreePlayerHasAtLeastTwoOfEachSize() {
         val bySize = BundledPictures.ALL.drop(1).groupBy(::sizeOf)
         for (size in CanvasSize.entries) {
-            val pictures = bySize[size].orEmpty()
-            val free = pictures.count { !it.locked }
+            val free = bySize[size].orEmpty().count { !it.locked }
             assertTrue(free >= 2, "$size has $free free pictures")
-            assertTrue(pictures.take(free).none { it.locked }, "$size lists a locked picture before a free one")
         }
     }
 }

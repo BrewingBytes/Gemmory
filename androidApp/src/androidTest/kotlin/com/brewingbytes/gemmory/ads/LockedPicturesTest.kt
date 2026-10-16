@@ -26,6 +26,8 @@ import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.gallery.GalleryViewModel
+import com.brewingbytes.gemmory.gallery.Tile
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.policy.LoadFailure
@@ -39,13 +41,14 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
  * The locked bundled pictures through the real app (#32): the locked label and TalkBack text, a rewarded video, the
  * offline and no-fill copy, the daily grace unlock, VIP showing everything unlocked, and a VIP lapse (video unlocks
- * and started pictures stay open, the rest lock again). The ad SDK is a fake; billing is the debug fake backend.
+ * and started pictures stay open, the rest lock again), and the Pictures order: open pictures first (#58). The ad SDK is a fake; billing is the debug fake backend.
  */
 @RunWith(AndroidJUnit4::class)
 class LockedPicturesTest {
@@ -193,6 +196,33 @@ class LockedPicturesTest {
         assertLocked("sunrise")
     }
 
+    /** The Pictures tab's tiles, as the grid lists them. */
+    private fun pictureTiles(): List<Tile> {
+        var tiles = emptyList<Tile>()
+        scenario.onActivity { tiles = ViewModelProvider(it)[GalleryViewModel::class.java].state.value.pictures }
+        return tiles
+    }
+
+    private fun pictureOrder(): List<String> = pictureTiles().map { it.ref.id }
+
+    /** #58: the starter and the free pictures are the first 7 tiles; a video unlock moves up on the next visit. */
+    @Test
+    fun openPicturesComeFirstAndAnUnlockMovesUpOnTheNextVisit() {
+        launch()
+        val free = BundledPictures.ALL.filter { it.id in BundledPictures.FREE }.map { it.id }
+        compose.waitUntil("pictures listed", 10_000) { pictureOrder().size == BundledPictures.ALL.size }
+        assertEquals(listOf("starter") + free, pictureOrder().take(7))
+        assertTrue(pictureOrder().indexOf("wave") > 6)
+
+        tap("wave")
+        waitFor(hasText("Watch video"))
+        compose.onNodeWithTag("rewarded-primary").performClick()
+        waitForCanvas()
+        back()
+        compose.waitUntil("wave moved up", 10_000) { pictureOrder().indexOf("wave") == 1 }
+        assertEquals(listOf("starter", "wave") + free, pictureOrder().take(8))
+    }
+
     @Test
     fun offlineNeverGivesGraceThenNoFillGivesOneGraceUnlockADay() {
         ads.online = false
@@ -235,6 +265,9 @@ class LockedPicturesTest {
         compose.waitUntil("canvas ready", 10_000) { playUi() is PlayUi.Ready }
         scenario.onActivity { (playUi() as PlayUi.Ready).session.placeNext() }
         back()
+        // The lapse comes after the gallery has re-read the canvases, so its order (VIP: the plain ramp) holds while
+        // the test scrolls; one read after the lapse would list the started picture with the open ones (#58).
+        compose.waitUntil("the-kiss started", 10_000) { pictureTiles().any { it.ref.id == "the-kiss" && it.started } }
 
         setVip(false)
         assertOpen("wave") // watched a video: unlocked for good
