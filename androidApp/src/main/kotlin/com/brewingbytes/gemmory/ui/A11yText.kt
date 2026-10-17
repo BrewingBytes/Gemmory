@@ -23,6 +23,16 @@ object A11yText {
     /** After "Place next gem" (founder call #14): the selected color's remaining count. */
     fun left(left: Int, format: NumberFormat = NumberFormat.getIntegerInstance()): String = "${format.format(left)} left"
 
+    /** After a TalkBack fill action (#20): "214 placed. 98 left". */
+    fun batch(placed: Int, left: Int, format: NumberFormat = NumberFormat.getIntegerInstance()): String =
+        "${format.format(placed)} placed. ${left(left, format)}"
+
+    /** The tool well (#20): "Tool: Fill region". */
+    fun tool(name: String): String = "Tool: $name"
+
+    /** Fill color's TalkBack action and button label (#20): "Fill the rest of color 7". */
+    fun fillColor(color: Int): String = "Fill the rest of color $color"
+
     /** A progress milestone's headline (#35), shown on its banner and spoken by TalkBack. */
     fun milestone(percent: Int): String = when (percent) {
         25 -> "A quarter done"

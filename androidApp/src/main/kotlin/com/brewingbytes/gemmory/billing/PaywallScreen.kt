@@ -68,7 +68,7 @@ import kotlinx.coroutines.delay
 const val PAYWALL_TITLE_TAG = "paywall-title"
 
 /**
- * The paywall (design system, Paywall; Phase 5 D6): close visible immediately at the top-left, four perks, Yearly
+ * The paywall (design system, Paywall; Phase 5 D6): close visible immediately at the top-left, five perks (the fifth, the placement tools, #20), Yearly
  * (pre-selected, with its per-week price) and Weekly base plans, Start VIP, the one-time "Just remove ads" row
  * (hidden once owned) and the renewal fine print. No countdowns, no strike-through prices; every price comes from
  * Play. The content column is at most 480dp wide (D22) and scrolls, so 200% font wraps instead of clipping.

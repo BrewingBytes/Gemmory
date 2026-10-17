@@ -95,6 +95,34 @@ object GemIcons {
         )
         .build()
 
+    /** Placement tool "Tap" (#20): one gem. */
+    val ToolTap: ImageVector = ImageVector.Builder("ToolTap", 24.dp, 24.dp, 24f, 24f)
+        .addPath(addPathNodes("M9.5 8h5.0a1.5 1.5 0 0 1 1.5 1.5v5.0a1.5 1.5 0 0 1 -1.5 1.5h-5.0a1.5 1.5 0 0 1 -1.5 -1.5v-5.0a1.5 1.5 0 0 1 1.5 -1.5z"), fill = SolidColor(Color.White))
+        .build()
+
+    /** Placement tool "Brush" (#20): a 3×3 of gems. */
+    val ToolBrush: ImageVector = ImageVector.Builder("ToolBrush", 24.dp, 24.dp, 24f, 24f)
+        .addPath(addPathNodes("M5.0 4.0h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM10.75 4.0h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM16.5 4.0h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM5.0 9.75h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM10.75 9.75h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM16.5 9.75h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM5.0 15.5h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM10.75 15.5h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1zM16.5 15.5h2.5a1 1 0 0 1 1 1v2.5a1 1 0 0 1 -1 1h-2.5a1 1 0 0 1 -1 -1v-2.5a1 1 0 0 1 1 -1z"), fill = SolidColor(Color.White))
+        .build()
+
+    /** Placement tool "Fill region" (#20): a patch with the tapped gem at its heart. */
+    val ToolRegion: ImageVector = ImageVector.Builder("ToolRegion", 24.dp, 24.dp, 24f, 24f)
+        .addPath(
+            addPathNodes(
+                "M12 3.5c-4.1 0-8.5 2.4-8.5 7.2 0 3.6 2.2 4.6 3.4 6.4 1.4 2.1 2.8 3.4 5.6 3.4 4.3 0 7.9-3.3 7.9-8.3" +
+                    "0-5-3.6-8.7-8.4-8.7zm0 1.9c3.7 0 6.5 2.8 6.5 6.8 0 3.9-2.8 6.4-6 6.4-2 0-2.9-0.9-4-2.6" +
+                    "-1.3-1.9-3-2.6-3-5.3 0-3.4 3.4-5.3 6.5-5.3zM10.5 10h3a0.5 0.5 0 0 1 0.5 0.5v3a0.5 0.5 0 0 1-0.5 0.5h-3" +
+                    "a0.5 0.5 0 0 1-0.5-0.5v-3a0.5 0.5 0 0 1 0.5-0.5z",
+            ),
+            fill = SolidColor(Color.White),
+        )
+        .build()
+
+    /** "Fill the rest" of a color (#20): scattered gems and a check. */
+    val FillColor: ImageVector = ImageVector.Builder("FillColor", 24.dp, 24.dp, 24f, 24f)
+        .addPath(addPathNodes("M4 4h3a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1zM16 3h3a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1zM6 15h3a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1zM13.5 16.2l1.4-1.4 2.1 2.1 4.2-4.2 1.4 1.4-5.6 5.6z"), fill = SolidColor(Color.White))
+        .build()
+
     /** Material "visibility" eye, for the canvas's Peek (#35). */
     val Peek: ImageVector = ImageVector.Builder("Peek", 24.dp, 24.dp, 24f, 24f)
         .addPath(

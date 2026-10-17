@@ -28,6 +28,9 @@ class A11yTextTest {
         assertEquals("Three quarters done", A11yText.milestone(75))
         assertEquals("Showing the finished picture", A11yText.peek(true))
         assertEquals("Back to canvas", A11yText.peek(false))
+        assertEquals("1,214 placed. 98 left", A11yText.batch(1214, 98, us))
+        assertEquals("Tool: Fill region", A11yText.tool("Fill region"))
+        assertEquals("Fill the rest of color 7", A11yText.fillColor(7))
     }
 
     @Test

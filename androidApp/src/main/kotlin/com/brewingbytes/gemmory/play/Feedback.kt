@@ -14,6 +14,7 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.game.FinishCelebration
+import com.brewingbytes.gemmory.game.Sweep
 import com.brewingbytes.gemmory.settings.AppSettings
 import kotlin.math.pow
 import kotlin.random.Random
@@ -56,6 +57,36 @@ class Feedback(context: Context, private val settings: AppSettings) {
         val semitones = Random.nextFloat() * 6f - 3f
         play(click, CLICK_VOLUME, rate = 2f.pow(semitones / 12f))
     }
+
+    /**
+     * A tool's batch (#20) over [durationMs]: a light haptic sweep, ticks every 60ms swelling from 0.3 to 0.6
+     * (primitives, else an amplitude waveform, else one tick). The clicks come from [sweepClick], timed by the caller.
+     */
+    fun sweep(view: View, durationMs: Int) {
+        if (!hapticsOn) return
+        val vibrator = vibrator()
+        val ticks = Sweep.hapticTicks(durationMs)
+        val effect = when {
+            vibrator == null -> null
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_TICK) -> {
+                val composition = VibrationEffect.startComposition()
+                for (tick in ticks) composition.addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, tick.scale, tick.delayMs)
+                composition.compose()
+            }
+            vibrator.hasAmplitudeControl() -> {
+                // Each tick a 12ms pulse at its scale, then silence to the next.
+                val timings = LongArray(ticks.size * 2) { if (it % 2 == 0) SWEEP_PULSE_MS else (Sweep.TICK_GAP_MS - SWEEP_PULSE_MS) }
+                val amplitudes = IntArray(ticks.size * 2) { if (it % 2 == 0) (ticks[it / 2].scale * 255).toInt() else 0 }
+                VibrationEffect.createWaveform(timings, amplitudes, -1)
+            }
+            else -> null
+        }
+        if (effect == null || !vibrate(vibrator!!, effect)) haptic(view, HapticFeedbackConstants.CLOCK_TICK)
+    }
+
+    /** The [step]th click of a batch's run (#20): the gem click, a semitone higher each time. */
+    fun sweepClick(step: Int) = play(click, CLICK_VOLUME, rate = 2f.pow(step / 12f))
 
     /** Lighter than the tick, and silent. */
     fun wrongColor(view: View) = haptic(view, HapticFeedbackConstants.TEXT_HANDLE_MOVE)
@@ -180,6 +211,7 @@ class Feedback(context: Context, private val settings: AppSettings) {
     private companion object {
         const val TICK_THROTTLE_MS = 40L
         const val FINISH_VIBRATION_MS = 400L
+        const val SWEEP_PULSE_MS = 12L
         const val SOFT_AMPLITUDE = 60
         const val CLICK_VOLUME = 0.35f
         const val THUMP_VOLUME = 0.6f

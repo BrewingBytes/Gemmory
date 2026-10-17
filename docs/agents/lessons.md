@@ -24,6 +24,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-17 (#33): to seed a SharedPreferences file for a by-hand look, write the XML on the host, `adb push` it to `/data/local/tmp/`, then `adb shell run-as com.brewingbytes.gemmory sh -c 'mkdir -p shared_prefs && cp /data/local/tmp/<name>.xml shared_prefs/'` with the app force-stopped (run-as can't read the host path, and a running app overwrites the file). The app reads it at its next start.
 
 - 2026-10-17 (#34): Today's picture makes one locked picture open each day, picked by date, so a connected test that pins which pictures are locked (or the Pictures order) can fail on some days only. Call `app.resetTodaysForTest(enabled = false)` in its `@Before` and `resetTodaysForTest()` in `@After`, as LockedPicturesTest and StoreScreenshots do.
+- 2026-10-17 (#20): a throwaway instrumented class that opens a screen with a Compose test rule and then sleeps, so you can drive the app from the host with `adb shell input`, doesn't work: while the rule is active the test clock drives recomposition, so taps land (and even place gems) but nothing on screen or in the semantics tree changes. Let the seed set things up and end (onStop writes the canvas and its view), then launch the app normally and drive it by hand. The fake billing backend lives in memory, so VIP for a by-hand check comes from the paywall's "Start VIP" in that same app process.
 
 ## CI
 

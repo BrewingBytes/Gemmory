@@ -27,6 +27,7 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -117,6 +118,36 @@ class CanvasStoreTest {
         events.clear()
         play(starter)
         assertTrue(events.isEmpty(), "reopening a finished canvas counts nothing")
+    }
+
+    @Test
+    fun toolBatchesAreSavedInTheirOrderAndSurviveAReopen() = runBlocking<Unit> {
+        // #20: columns 0 and 2 are color 1 (slot 0), columns 1 and 3 color 2 (slot 1).
+        createPhoto()
+        events.clear()
+        val session = store.start(assertIs<CanvasStore.Opened.Ready>(store.open(photo)))
+        session.select(0)
+        assertNull(session.fillRegion(4), "no tools for a free player")
+        session.offerTools(true)
+        session.place(2)
+        // Column 0 is one region: rings from 4 are 4, then 0 and 8.
+        assertContentEquals(intArrayOf(4, 0, 8), assertNotNull(session.fillRegion(4)).placed)
+        // The rest of color 1 (6 and 10), nearest to cell 11 first, finishes it and selects color 2.
+        val rest = assertNotNull(session.fillColor(from = 11))
+        assertContentEquals(intArrayOf(10, 6), rest.placed)
+        assertEquals(0, assertNotNull(rest.colorFinished).slot)
+        assertEquals(1, session.selectedSlot)
+        // A brush stamp on 5 places only color 2's cells around it, nearest first; a second one skips them.
+        assertContentEquals(intArrayOf(5, 1, 9), assertNotNull(session.brush(5)).placed)
+        assertNull(session.brush(5), "nothing left to place: no change")
+        session.close()
+        val reopened = assertIs<CanvasStore.Opened.Ready>(store.open(photo))
+        assertContentEquals(intArrayOf(2, 4, 0, 8, 10, 6, 5, 1, 9), reopened.state.log())
+        assertEquals(
+            listOf("region", "color", "brush"),
+            events.filter { it.name == "fill_tool_used" }.map { it.params["tool"] },
+            "one event per tool per open",
+        )
     }
 
     @Test

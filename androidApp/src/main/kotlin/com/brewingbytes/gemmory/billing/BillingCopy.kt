@@ -15,7 +15,7 @@ import java.util.Locale
 /** Every billing string the app shows (design system: Paywall, Settings; Phase 5 D6, D7; founder answers #8). */
 object BillingCopy {
     const val TITLE = "Gemmory VIP"
-    val PERKS = listOf("Every picture unlocked", "Unlimited photo canvases", "No ads ever", "No watermark on your videos")
+    val PERKS = listOf("Every picture unlocked", "Unlimited photo canvases", "No ads ever", "No watermark on your videos", "Brush and fill tools")
     const val START_VIP = "Start VIP"
     const val FINE_PRINT = "VIP renews automatically until you cancel. Cancel anytime in Google Play."
     const val PRICES_FAILED = "Prices couldn't load. Connect and try again."
