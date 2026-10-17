@@ -150,8 +150,8 @@ Scale: 34 / 30 / 22 / 16 / 13 sp. Adjacent levels differ by size *and* role, nev
 ## Layout
 
 - Material 3 structure (top app bar, bottom sheets, system back) so Android feels native, with 16dp side gutters and a 4dp base grid.
-- **Gallery:** a 2-column staggered grid (10dp gap) that honors 1:1 / 3:4 / 4:3 tiles. Tabs are "Pictures" and "My Photos". A "New from photo" primary button floats bottom-right. The first Pictures tile is the free starter picture (24×32, about 5 minutes; Phase 5 D13). After it come every picture the player can open (free, unlocked by a video or today's grace, or started; all of them for VIP), then every locked one (#58). Each group is a difficulty ramp: every Quick picture, then Medium, then Big (#31). The order is set each time the Gallery shows, so a picture unlocked by a video moves up on the next visit, never under the player's finger; its locked label goes at once.
-- **Play canvas:** a top app bar (back, title, the Peek eye, mono progress), then a full-bleed canvas on `felt-deep`, then the tray bar at the bottom. No ads and no other chrome; the milestone banner (#35) is a 3s moment over the canvas, not chrome.
+- **Gallery:** a 2-column staggered grid (10dp gap) that honors 1:1 / 3:4 / 4:3 tiles. Tabs are "Pictures" and "My Photos", with the daily play streak chip (#33) at the end of their row. A "New from photo" primary button floats bottom-right. The first Pictures tile is the free starter picture (24×32, about 5 minutes; Phase 5 D13). After it come every picture the player can open (free, unlocked by a video or today's grace, or started; all of them for VIP), then every locked one (#58). Each group is a difficulty ramp: every Quick picture, then Medium, then Big (#31). The order is set each time the Gallery shows, so a picture unlocked by a video moves up on the next visit, never under the player's finger; its locked label goes at once.
+- **Play canvas:** a top app bar (back, title, the Peek eye, Share progress from the first gem (#36), mono progress), then a full-bleed canvas on `felt-deep`, then the tray bar at the bottom. No ads and no other chrome; the milestone banner (#35) is a 3s moment over the canvas, not chrome.
 - **Size picker:** the face hint sits on top, followed by three option rows, each with a mini gem preview, gem count and color count.
 - **Paywall:** a full screen with close visible immediately (top-left), plain perk lines, two plan rows, one primary button and a quiet "Just remove ads" row.
 - Touch targets are at least 48dp, text buttons included. **Documented exception:** canvas cells can be placed from 16dp. The accessible alternatives are zoom up to 48dp cells, the Find button and the TalkBack canvas actions (Phase 5 D16).
@@ -168,10 +168,11 @@ first launch ─► UMP consent (EEA only, first launch, before any ad request; 
                  ├─ tile done ─► Completion still (Share primary, Done quiet, "Play again" text)
                  ├─ tile locked ─► Rewarded sheet ─► (reward) Canvas
                  ├─ tile damaged ─► "Can't open" sheet (see Gallery tile)
-                 ├─ tile ⋮ menu: photo canvas "Rename" / "Delete" · bundled "Start over"
+                 ├─ tile ⋮ menu: photo canvas "Rename" / "Delete" · bundled "Start over" · first "Share progress" once a gem is placed (#36)
                  ├─ "VIP" ─► Paywall
                  └─ Settings ─► Membership row ─► Paywall (Free) or Play subscription page (VIP)
 Canvas ─finish─► Completion ─Share─► progress sheet ─► Android share sheet ─► back to Completion
+Canvas / tile ⋮ ─Share progress─► progress sheet ─► Android share sheet ─► back where it started (#36)
 Completion ─Done/back─► Gallery ─► interstitial check (Ad rules), never before or during Share
 ```
 
@@ -273,6 +274,7 @@ There are no zero-offset colored halos and no frosted glass anywhere.
   - Holding it shows the **whole finished picture**, fitted (whole pixels per cell, centered) over the canvas on `felt-deep`; releasing fades back. A tap (released within 250ms) shows it for 1.5s.
   - Fades are 150ms each way. A touch on the shown picture hides it and places nothing.
   - No canvas gesture changes: long-press still selects a color and two fingers still pan and zoom (D23).
+- **Share progress** (#36): a 48dp share icon button (Material's three-node "share", `bone`) labelled "Share progress", between the Peek eye and the progress. It shows from the first gem placed until the last one; on a blank canvas the top bar is unchanged. A tap opens the Share progress sheet over the canvas (see Share progress sheet → Progress share).
 - **Top bar at large font** (Phase 5 D20): the title ellipsizes to 1 line. Above 1.5× font scale, progress shows as a mono "59%".
 - **Wrong-color tap (eng D4, confirmed 2026-10-13):** rejected with **no state change**. Nothing goes in the log, no counter moves, no penalty applies. Feedback is one soft low haptic and the selected trough nudging 2dp sideways over 150ms. No red, no buzz, no toast.
 
@@ -296,7 +298,8 @@ Sound and Haptics each get a Settings toggle. Both default to on.
   - The whole tile is the tap target. Labels disappear without animation when VIP starts.
 - Every tile has a ⋮ menu, also opened by long-press (see Navigation map):
   - photo canvases: Rename, Delete;
-  - bundled pictures: Start over.
+  - bundled pictures: Start over;
+  - first, on an unfinished tile with at least one gem placed: Share progress (#36). It opens the Share progress sheet over the gallery.
 - Photo canvas titles default to "My photo · 13 Oct" (Phase 5 D26).
 - **Rename sheet** (#13): title "Rename", a one-line text field (at most 60 characters) with the current title, primary "Save" (disabled while blank) and "Keep" as a text button.
 - **Damaged canvas** (Phase 5 D9): when the save or grid is refused and there's no last good file, the tile keeps its last thumbnail with a `felt-deep` label "Can't open".
@@ -308,6 +311,13 @@ Sound and Haptics each get a Settings toggle. Both default to on.
   - An inline primary "New from photo". The floating button is hidden on this empty tab.
 - The "New from photo" floating button shows on both tabs. The grid gets 88dp of bottom padding so the button never covers a tile's %.
 - **Allowance note** (Phase 5 D5, layout #14): when today's free photo canvas is used, a `bone` line on a `felt-deep` chip (`sm` radius, 12/8dp padding) sits beside the floating button, right-aligned with it, at most 280dp wide. When less than 160dp is left beside the button (200% font on a phone), the chip goes on its own line above the button. The grid's bottom padding follows their height. The line has the same copy as the Preview allowance line.
+
+**Daily play streak** (#33).
+- A day counts once the player finishes a picture that day, any picture, bundled or their own photo (local date, the allowance's clock). Placing gems without finishing, or reopening a finished picture, doesn't count.
+- One missed day a week is forgiven: a single day off doesn't break the streak (and isn't counted). A longer gap starts over at the next day played. A clock moved back changes nothing.
+- From 2 days in a row, a `felt-deep` chip (`sm` radius, 12/8dp padding, like the allowance chip) at the end of the tabs row reads "4 days in a row": the count in mono 13sp, the words in Figtree 13sp, both `bone`. When the tabs leave no room (200% font) it wraps under them. TalkBack reads it as one node, "4 days in a row".
+- A broken streak just isn't shown. No flame, no "don't lose your streak", no reminder, no reward; never on the play canvas or the completion screen.
+- Stored in the "streak" preferences, which may be backed up (no photo data, nothing to earn).
 
 **Photo flow states** (Phase 5 D4).
 
@@ -358,6 +368,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 - A drop to 720p is silent.
 - **PNG fallback:** the sheet title becomes "Here's a picture instead", with the body "Video isn't supported on this phone, so here's a before/after picture instead." It shows both thumbnails (labelled "Before" and "After" in muted 13sp) and a primary "Share picture" button. The PNG itself is 1080×1920: "Before" (the cropped photo, or the empty tint grid for a bundled picture) above "After", on the same band with the same title, app line and watermark row as the video.
 - Dismissing the sheet while it runs is a Cancel. The failure and disk-full messages keep the sheet's "Making your video" title; swipe, back or the scrim closes them.
+- **Progress share** (#36, from the canvas's Share progress or a tile's ⋮): the same sheet, states and copy, with two differences in the PNG fallback: the body is "Video isn't supported on this phone, so here's a picture of your progress instead." and the second label is "So far" (on the sheet and in the PNG). Cancel, or a dismissed share sheet, goes back to the canvas or the gallery with no message. A process killed mid-encode shows nothing later: tapping Share progress again starts over.
 - **Edge states** (Phase 5 D8):
   - **Background:** encoding continues while the process lives. There is no foreground service.
   - **Process killed mid-encode:** on the next visit to that completion screen: "The video stopped when the app closed. Tap Share to try again."
@@ -420,6 +431,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 - Band text: the title in Bricolage Grotesque 600 at 60px, then "Gemmory · Photo Diamond Art" in Figtree at 36px, both in `frame-text` and left-aligned with 48px margins.
 - The non-VIP watermark is "Made with Gemmory", Figtree 600 at 30px, 70% opacity, bottom-right. It keeps its own bottom row with a 25% `scrim` band under it, so a title never collides with it.
 - The title is at most 2 lines, then an ellipsis.
+- **Progress share** (#36): a line under the title, "47% done" (rounded down; "Just started" under 1%; Figtree 600 at 36px, `frame-text`), then the app line. The build replays the save log so far and the hold shows the canvas as it stands (unplaced cells as pale tints); the band is still the finished picture, blurred. Timing, watermark and share text are the finished time-lapse's.
 - **Timing** (Phase 5 D26): 15s in total.
   - 1s intro: photo canvases show the cropped source photo crossfading to the empty tint grid; bundled pictures show the tint grid only.
   - 12s build.
@@ -439,8 +451,8 @@ A finished picture reopened from the gallery shows the **completion still**:
   - **Color finished:** announces "Color 7 done. Color 8 selected."
   - **Milestone** (#35): announces the headline ("Halfway there"). After Place next gem it follows the count ("311 left. Halfway there"); when the same gem finishes a color, one line: "Color 7 done. Color 8 selected. Halfway there."
   - **Trough:** "Color 7, 312 left, selected" or "Color 7, done". The description is "Color 7, 312 left" and "selected" comes from the selected state, so TalkBack doesn't say it twice.
-  - **Gallery tile:** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock" ("…, can't open" when damaged), with its ⋮ actions as custom actions. The tile is one node: its title, % and ⋮ button are folded into it, so it reads only that line.
-  - Every icon button has a label: Settings, Find, close.
+  - **Gallery tile:** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock" ("…, can't open" when damaged), with its ⋮ actions as custom actions ("Share progress" first when offered, #36). The tile is one node: its title, % and ⋮ button are folded into it, so it reads only that line.
+  - Every icon button has a label: Settings, Find, close, Share progress.
   - **Sheets:** focus moves to the sheet title on open and returns to the trigger on close. TalkBack moves its focus on its own when a sheet's window closes, so the trigger keeps asking for it for 1.2s after.
 - **Font scale:** see the tray and top bar rules. Sheets, paywall rows and size options wrap, with no fixed heights. QA at 200% on a 360dp-wide phone.
 - **Touch targets:** 48dp, with the documented canvas exception.
@@ -508,3 +520,5 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-16 | Pictures tab (#58): the starter, then every picture the player can open, then the locked ones, each group Quick, Medium, Big in catalog order. Replaces #32's free-first-within-size order. A video unlock or VIP moves tiles on the next Gallery visit, not at once | Founder asked during #35: a free player scrolled past locked Quick tiles to reach the free Medium and Big ones. Founder picks during #58: next visit over at once (after an unlock the canvas opens, so the tile has moved by the time the player is back; a VIP purchase doesn't reshuffle the grid in front of them), and catalog order inside the open group (VIP sees the plain #31 ramp). "Open" is the tap's rule (`isLocked`) |
 | 2026-10-16 | Progress milestones and peek (#35): 25/50/75% on every size, each a "Breaking News" banner across the middle of the canvas (tag snaps in, headline wipes open, 3s; `lamp` edges), the finish chime ×1.5 at 40% and the `CONFIRM` haptic, with a Settings toggle to turn milestones off. Peek is a top-bar eye: hold to see the whole finished picture, or tap for 1.5s; TalkBack action "Peek at picture" / "Back to canvas". No "best session" / "gems today" line | Founder picks from the HTML mockups (`~/.gstack/projects/Gemmory/designs/t23-milestones-peek/`) during #35. The banner departs from "no other chrome" and "Motion confirms; it never celebrates loudly" on purpose: on a Big canvas the only reward moments were a finished color and the finish. `lamp` on the banner's edges is a second meaning ("this moment"), kept as mocked. Long-press is taken by color select (D23), so the peek can't be a canvas hold. The stats line is in docs/todos.md |
 | 2026-10-16 | Finish celebration (#57): on a fresh finish the sweep becomes a sparkle that glints every gem (or 4dp tile of gems) in turn over the same 2.4s, a haptic crescendo rises under it and peaks with the chime (now with its fifth and octave), then gem confetti in the picture's own colors falls through the dimmed room during the 2s hold, behind the picture. Share still appears at 5.05s. Reduced motion keeps the dim, the chime, the soft haptic and the hold. No Settings toggle. The completion still doesn't celebrate | Founder pick (recommended D + A + F) from the HTML mockups (`~/.gstack/projects/Gemmory/designs/t32-finish-celebration/`) during #57, over fireworks (hidden behind a 3:4 picture, the genre's loud look), a gem shower (the tray is empty at the finish, and it covers the picture) and a time-lapse preview (the real 15s video would delay Share 10s+). Replaces the 2026-10-13 "no confetti" rule for this one moment; the colors come from the picture, so the shell stays unsaturated. No toggle: reduced motion removes all the motion, and Sound and Haptics have their own |
+| 2026-10-17 | Share progress (#36): a share icon in the play canvas's top bar (between the Peek eye and the progress) and "Share progress" first in an unfinished tile's ⋮ menu, both from the first gem. It shares the same 9:16 time-lapse, replaying the save log so far and ending on the canvas as it stands, with a "47% done" line under the title ("Just started" under 1%); the PNG fallback reads "Before" / "So far". Same sheet, encoder, fallback chain, watermark and share text; no ad before, during or after it, and it isn't a finished canvas for the interstitial rule. Analytics `share_tapped` / `share_completed` carry `kind` = `progress` \| `finished` | Picked by the agent from its own recommendations (`~/.gstack/projects/Gemmory/designs/t24-progress-share/`, with emulator frame sheets) while the founder was away; the founder confirmed the entry point and content in review (2026-10-17) and chose "any progress" over the proposed 10% minimum, so it's offered from the first gem. Rejected: a ⋮ overflow on the canvas (a menu of one item, and "Share" is hidden in it) and a still before/so-far picture (no sparkle; it's already the video's fallback). The band stays the finished picture blurred, so it doesn't change as gems are added |
+| 2026-10-17 | Daily play streak (#33): a day counts when a picture is finished that day, any picture (local date); one missed day a week is forgiven; a `felt-deep` chip "4 days in a row" at the end of the gallery's tabs row from 2 days on; a broken streak is simply not shown. No rewards, no reminders, nothing on the canvas or the completion screen. Backed up with the settings | Picked by the agent from the calmest options in the issue while the founder was away; in review the founder raised the bar from one gem to a finished picture and confirmed the rest (2026-10-17): rewards would tie it to the ad rules and tiers, and guilt or loss copy goes against a relaxing app. The completion screen stays the one authored moment. Screenshots at 1× and 2× font in `~/.gstack/projects/Gemmory/designs/t21-daily-streak/` |

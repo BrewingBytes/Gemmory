@@ -68,6 +68,10 @@ class TimelapseException(ref: CanvasRef, cause: Throwable) : Exception("time-lap
  *
  * While an encode runs, `cacheDir/encode-<canvasId>.pending` exists. If the process dies mid-encode the marker stays:
  * the next start deletes the partial MP4s, and [takeKilledNotice] tells that canvas's completion screen once.
+ *
+ * A progress share (#36) runs the same way, keyed apart ([EncodeRequest.key]). Its marker is
+ * `encode-<canvasId>.progress.pending` and the next start just deletes it: the canvas has no completion screen to
+ * tell, and Share progress starts over anyway. A placement stops it ([onPlaced]), since the video would be out of date.
  */
 class EncodeManager(
     private val cacheDir: File,
@@ -116,6 +120,14 @@ class EncodeManager(
         }
     }
 
+    /**
+     * A gem was placed on [ref] (eng E4d, #36): a progress encode running for it is out of date, so it stops like a
+     * Cancel. A finished result waiting for the share sheet stays.
+     */
+    override fun onPlaced(ref: CanvasRef) {
+        if (isRunning(ref)) cancel(ref)
+    }
+
     /** The result was shown or handed to the share sheet. */
     fun acknowledge(ref: CanvasRef) {
         val f = flow(ref)
@@ -132,6 +144,7 @@ class EncodeManager(
         withContext(io) {
             filesOf(ref).forEach { it.delete() }
             markerOf(ref).delete()
+            progressMarkerOf(ref).delete()
         }
         flow(ref).value = EncodeState.Idle
     }
@@ -147,7 +160,7 @@ class EncodeManager(
             val marker = markerOf(ref)
             if (!marker.exists()) return@withContext false
             marker.delete()
-            filesOf(ref).none { it.name.endsWith(".mp4") }
+            filesOf(ref).none { it.name.endsWith(".mp4") && !isProgress(it) }
         }
     }
 
@@ -162,7 +175,7 @@ class EncodeManager(
             return
         }
         post(ref, job, EncodeState.Running(0, FramePlan.TOTAL_FRAMES))
-        val marker = markerOf(ref)
+        val marker = if (request.inProgress) progressMarkerOf(ref) else markerOf(ref)
         val started = nowNanos()
         try {
             dir.mkdirs()
@@ -228,9 +241,13 @@ class EncodeManager(
         return target
     }
 
-    /** App start: partial files are from encodes that died with the process. Markers stay for [takeKilledNotice]. */
+    /**
+     * App start: partial files are from encodes that died with the process. Markers stay for [takeKilledNotice],
+     * except a progress share's, which nothing reads.
+     */
     private fun sweep() {
         dir.listFiles()?.filter { it.name.endsWith(PARTIAL) }?.forEach { it.delete() }
+        cacheDir.listFiles()?.filter { it.name.endsWith(PROGRESS_MARKER) }?.forEach { it.delete() }
     }
 
     private fun flow(ref: CanvasRef) = states.getOrPut(ref) { MutableStateFlow(EncodeState.Idle) }
@@ -244,6 +261,10 @@ class EncodeManager(
         File(dir, if (target == null) "${ref.id}.png$PARTIAL" else "${ref.id}.${target.width}x${target.height}.mp4$PARTIAL")
 
     fun markerOf(ref: CanvasRef): File = File(cacheDir, "encode-${ref.id}.pending")
+
+    fun progressMarkerOf(ref: CanvasRef): File = File(cacheDir, "encode-${ref.id}$PROGRESS_MARKER")
+
+    private fun isProgress(file: File) = file.name.contains(".${EncodeRequest.PROGRESS}.")
 
     companion object {
         const val DIR = "timelapse"
@@ -259,5 +280,6 @@ class EncodeManager(
             ChainOutcome.DiskFull -> "disk_full"
         }
         private const val PARTIAL = ".partial"
+        private const val PROGRESS_MARKER = ".${EncodeRequest.PROGRESS}.pending"
     }
 }

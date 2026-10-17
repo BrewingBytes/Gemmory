@@ -14,17 +14,18 @@ import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.billing.BillingRepository
 import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.play.PlayStreak
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
 import com.brewingbytes.gemmory.settings.AppSettings
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
-import com.brewingbytes.gemmory.timelapse.EncodeManager
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
 import com.brewingbytes.gemmory.telemetry.FirebaseAnalyticsLogger
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import com.brewingbytes.gemmory.timelapse.EncodeManager
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -49,6 +50,10 @@ class GemmoryApp : Application() {
         private set
 
     lateinit var settings: AppSettings
+        private set
+
+    /** The daily play streak (#33). */
+    lateinit var streak: PlayStreak
         private set
 
     /** App-scoped, so an encode keeps going while the process lives, whatever screen is showing (design D8). */
@@ -87,6 +92,14 @@ class GemmoryApp : Application() {
         processStart = processStart,
     )
 
+    /** Connected tests only (#33): re-reads the streak from its preferences, which a test seeded. */
+    @VisibleForTesting
+    internal fun resetStreakForTest() {
+        streak = newStreak()
+    }
+
+    private fun newStreak() = PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics)
+
     /**
      * Connected tests only (#32): runs the ads on [ads] (AdMob by default) and re-reads the ledger and the unlocks from
      * disk, so a test that cleared them starts with today's grace unused. Call before launching MainActivity. Not a
@@ -108,6 +121,7 @@ class GemmoryApp : Application() {
         }
         analytics = Analytics.forBuild(BuildConfig.FIREBASE) { FirebaseAnalyticsLogger(FirebaseAnalytics.getInstance(this)) }
         settings = AppSettings(this)
+        streak = newStreak()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         encodes = EncodeManager(
             cacheDir = cacheDir,

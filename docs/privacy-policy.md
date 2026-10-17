@@ -1,6 +1,6 @@
 # Gemmory privacy policy
 
-Effective date: 15 October 2026
+Effective date: 17 October 2026
 
 Gemmory: Photo Diamond Art ("Gemmory", "the app") is made by BrewingBytes ("we", "us"). This policy explains what data the app handles, why, who receives it and how long it is kept. Contact: andrei.serban@brewingbytes.com.
 
@@ -40,7 +40,7 @@ Because crash reports carry nothing that identifies you, there is no in-app swit
 With your permission, the app uses Google Analytics for Firebase to learn how the app is used, for example whether people finish pictures and whether sharing works, so we can decide what to improve.
 
 - **When it is on:** in the European Economic Area, the UK and Switzerland, only if you agree in the consent form shown when the app first starts (purpose "Store and/or access information on a device"). Until then, and if you say no, the app sends nothing to Google Analytics. Elsewhere it is on by default. You can change your choice at any time in Settings → Privacy choices (where it is shown).
-- **The events the app records:** a picture started or finished (bundled picture or photo, and its size), a photo canvas started, Share tapped and an app picked in the share sheet, a time-lapse made (its size, whether it worked and how long it took), a rewarded video offered, watched or unavailable, a free unlock granted when no video was available, a full-screen ad shown, and VIP or Remove ads bought. Events carry kinds, sizes and counts only: no picture names, no photo data, no IDs of yours.
+- **The events the app records:** a picture started or finished (bundled picture or photo, and its size), a photo canvas started, Share tapped and an app picked in the share sheet, a time-lapse made (its size, whether it worked and how long it took), the first picture finished on a new day (how many days in a row you've finished one), a rewarded video offered, watched or unavailable, a free unlock granted when no video was available, a full-screen ad shown, and VIP or Remove ads bought. Events carry kinds, sizes and counts only: no picture names, no photo data, no IDs of yours.
 - **What Google Analytics adds by itself:** a random app instance ID for this installation (not linked to you, and not included in backups), app opens, sessions and screen views, your device model, OS, app version, language and country, an approximate region derived from your IP address (the IP address itself is not stored), and Google Play purchase events with the product, price and currency.
 - **Advertising ID:** Google Analytics reads your device's advertising ID only when ad storage is allowed: in the EEA, the UK and Switzerland only if you agreed to it in the consent form; elsewhere by default. We have **not** turned on Google signals and have not linked Analytics to any advertising account, so Analytics data is not used to personalise ads.
 - **How long:** user-level data is kept for 2 months. Reports made from it are aggregated counts that don't identify anyone.

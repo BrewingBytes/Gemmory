@@ -28,6 +28,7 @@ object ShareIntents {
         val picked = Intent(context, ShareCompletedReceiver::class.java)
             .putExtra(AnalyticsEvent.SOURCE, AnalyticsEvent.source(request.ref))
             .putExtra(AnalyticsEvent.SIZE, AnalyticsEvent.size(request.ref, request.pattern.width, request.pattern.height))
+            .putExtra(AnalyticsEvent.KIND, AnalyticsEvent.kind(request.inProgress))
         val callback = PendingIntent.getBroadcast(
             context,
             0,
@@ -38,11 +39,12 @@ object ShareIntents {
     }
 }
 
-/** Logs share_completed with the canvas's source and size; which app was picked isn't recorded. */
+/** Logs share_completed with the canvas's source, size and share kind (#36); which app was picked isn't recorded. */
 class ShareCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val source = intent.getStringExtra(AnalyticsEvent.SOURCE) ?: return
         val size = intent.getStringExtra(AnalyticsEvent.SIZE) ?: return
-        (context.applicationContext as GemmoryApp).analytics.log(AnalyticsEvent.shareCompleted(source, size))
+        val kind = intent.getStringExtra(AnalyticsEvent.KIND) ?: AnalyticsEvent.kind(progress = false)
+        (context.applicationContext as GemmoryApp).analytics.log(AnalyticsEvent.shareCompleted(source, size, kind))
     }
 }

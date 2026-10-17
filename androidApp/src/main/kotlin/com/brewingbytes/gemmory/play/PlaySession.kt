@@ -34,6 +34,8 @@ class PlaySession internal constructor(
     private val onStopped: (playMillis: Long) -> Unit,
     /** The last gem was just placed (not a reopen of a finished canvas). */
     private val onPictureFinished: () -> Unit = {},
+    /** Any gem was placed: a progress share's encode is out of date (#36). */
+    private val onPlaced: () -> Unit = {},
     private val onClosed: (lastWrite: Job, playMillis: Long) -> Unit,
 ) {
     val viewport = CanvasViewport(pattern.width, pattern.height).apply { restore(view) }
@@ -136,6 +138,9 @@ class PlaySession internal constructor(
     @androidx.annotation.VisibleForTesting
     internal fun placedLogForTest(): IntArray = state.log()
 
+    /** The save log so far, in order: what Share progress replays (#36). */
+    fun log(): IntArray = state.log()
+
     fun trayOrder(): IntArray = state.trayOrder()
 
     /** Finished colors can't be selected. */
@@ -157,6 +162,7 @@ class PlaySession internal constructor(
             }
             is PlaceResult.Placed -> {
                 saver.onPlacement(cell)
+                onPlaced()
                 val before = placedCount
                 placedCount = state.placedCount
                 val crossed = crossedMilestone(before)

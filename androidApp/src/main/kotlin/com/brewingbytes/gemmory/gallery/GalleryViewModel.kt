@@ -3,20 +3,23 @@ package com.brewingbytes.gemmory.gallery
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.photo.PhotoTitles
+import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.share.ProgressSharing
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.ui.GemRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +40,8 @@ data class Tile(
     val damaged: Boolean,
     /** At least one gem placed: a started picture never locks again (eng E4c). */
     val started: Boolean = false,
+    /** Unfinished and past the minimum, so its ⋮ menu offers Share progress (#36). */
+    val shareable: Boolean = false,
 ) {
     /** Mono "42%" or "Done"; never "100%" before the last gem. */
     val progressLabel: String get() = if (done) "Done" else "$percent%"
@@ -50,7 +55,13 @@ data class Tile(
 internal fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitlements: Entitlements): List<Tile> =
     pictures.sortedBy { it.locked(unlocked, entitlements) }
 
-data class GalleryState(val loaded: Boolean = false, val pictures: List<Tile> = emptyList(), val photos: List<Tile> = emptyList())
+/** [streak]: days in a row the player has placed a gem (#33), as of this visit; 0 when broken or never played. */
+data class GalleryState(
+    val loaded: Boolean = false,
+    val pictures: List<Tile> = emptyList(),
+    val photos: List<Tile> = emptyList(),
+    val streak: Int = 0,
+)
 
 class GalleryViewModel(application: Application, private val handle: SavedStateHandle) : AndroidViewModel(application) {
     private val app = application as GemmoryApp
@@ -81,7 +92,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             val tiles = withContext(Dispatchers.Default) { pictures.map { tile(it) } to photos.map { tile(it) } }
             val monetization = app.monetization
             val ordered = picturesInOrder(tiles.first, monetization.unlocks.unlocked.value, monetization.entitlements.value)
-            _state.value = GalleryState(loaded = true, pictures = ordered, photos = tiles.second)
+            _state.value = GalleryState(loaded = true, pictures = ordered, photos = tiles.second, streak = app.streak.current())
         }
     }
 
@@ -90,6 +101,17 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         viewModelScope.launch {
             store.rename(ref, title)
             refresh()
+        }
+    }
+
+    /** Share progress (#36) from a tile's ⋮ menu; kept here so a rotation keeps its sheet. */
+    val sharing = ProgressSharing(app)
+
+    /** Share progress tap: the canvas's saved log so far, read fresh (a canvas just left may still be writing). */
+    fun shareProgress(ref: CanvasRef) {
+        viewModelScope.launch {
+            val opened = store.open(ref) as? CanvasStore.Opened.Ready ?: return@launch
+            sharing.share(ref, opened.grid.pattern, opened.state.log(), opened.title)
         }
     }
 
@@ -141,6 +163,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 done = state.isFinished,
                 damaged = false,
                 started = state.placedCount > 0,
+                shareable = ProgressShare.isOffered(state.placedCount, state.cellCount),
             )
         }
     }

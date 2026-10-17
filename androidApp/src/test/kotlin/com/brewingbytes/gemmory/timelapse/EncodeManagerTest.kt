@@ -178,11 +178,11 @@ class EncodeManagerTest {
         val m = manager()
         m.shareAndWait(request())
         m.acknowledge(ref)
-        assertEquals("starter.11.wm.mp4", (m.shareAndWait(request(logSize = 11)) as EncodeState.Video).file.name)
+        assertEquals("starter.12.clean.mp4", (m.shareAndWait(request(watermark = false)) as EncodeState.Video).file.name)
         m.acknowledge(ref)
-        assertEquals("starter.11.clean.mp4", (m.shareAndWait(request(logSize = 11, watermark = false)) as EncodeState.Video).file.name)
+        assertEquals("starter.progress.11.wm.mp4", (m.shareAndWait(request(logSize = 11)) as EncodeState.Video).file.name)
         assertEquals(3, backends.get())
-        assertEquals(listOf("starter.11.clean.mp4"), files(), "a new result replaces the canvas's older ones")
+        assertEquals(listOf("starter.progress.11.wm.mp4"), files(), "a new result replaces the canvas's older ones")
     }
 
     @Test
@@ -478,5 +478,59 @@ class EncodeManagerTest {
         runBlocking { m.cancelAndClear(ref) }
         assertFalse(m.markerOf(ref).exists())
         assertFalse(runBlocking { m.takeKilledNotice(ref) })
+    }
+
+    @Test
+    fun aProgressVideoIsKeyedApartFromTheFinishedOne() {
+        val m = manager()
+        val progress = assertIs<EncodeState.Video>(m.shareAndWait(request(logSize = 6)))
+        assertEquals("starter.progress.6.wm.mp4", progress.file.name)
+        m.acknowledge(ref)
+        assertEquals("starter.progress.7.wm.mp4", (m.shareAndWait(request(logSize = 7)) as EncodeState.Video).file.name, "one more gem, a new video")
+        m.acknowledge(ref)
+        assertEquals("starter.12.wm.mp4", (m.shareAndWait(request()) as EncodeState.Video).file.name, "the finished one is never the progress one")
+        assertEquals(3, backends.get())
+        assertEquals(listOf("starter.12.wm.mp4"), files(), "finishing drops the progress video")
+    }
+
+    @Test
+    fun aPlacementStopsARunningProgressEncode() {
+        gate = CountDownLatch(1)
+        atGate = CountDownLatch(1)
+        val m = manager()
+        m.share(request(logSize = 6))
+        assertTrue(atGate!!.await(5, TimeUnit.SECONDS))
+        assertTrue(m.progressMarkerOf(ref).exists())
+        assertFalse(m.markerOf(ref).exists(), "a progress share has its own marker")
+        m.onPlaced(ref)
+        assertEquals(EncodeState.Idle, m.state(ref).value)
+        m.awaitStopped()
+        assertEquals(emptyList(), files())
+        assertFalse(m.progressMarkerOf(ref).exists())
+    }
+
+    @Test
+    fun aPlacementLeavesAWaitingResultAlone() {
+        val m = manager()
+        val video = m.shareAndWait(request(logSize = 6))
+        m.onPlaced(ref)
+        assertEquals(video, m.state(ref).value, "only a running encode stops")
+    }
+
+    @Test
+    fun aKilledProgressEncodeNeverShowsTheFinishedNotice() {
+        File(tmp.root, "encode-starter.progress.pending").createNewFile()
+        val m = manager()
+        assertFalse(runBlocking { m.takeKilledNotice(ref) }, "a progress share has no completion screen to tell")
+        assertFalse(m.progressMarkerOf(ref).exists(), "the startup sweep (awaited above) deletes it")
+    }
+
+    @Test
+    fun aLeftoverProgressVideoDoesNotHideAKilledFinishedEncode() {
+        dir.mkdirs()
+        File(dir, "starter.progress.6.wm.mp4").writeText("progress")
+        File(tmp.root, "encode-starter.pending").createNewFile()
+        val m = manager()
+        assertTrue(runBlocking { m.takeKilledNotice(ref) })
     }
 }

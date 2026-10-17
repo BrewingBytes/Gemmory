@@ -62,7 +62,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         for (cell in pattern.cells.indices) painter.drawCell(boardCanvas, cell, isPlaced = false)
         val c = Canvas(chrome)
         style.drawBand(c, pattern, height)
-        style.drawText(c, request.title, boardTop + boardHeight, height, request.watermark)
+        style.drawText(c, request.title, boardTop + boardHeight, height, request.watermark, request.progressLine)
     }
 
     /**
@@ -104,7 +104,8 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
 
         /**
          * The before/after picture (eng E1 fallback), 1080×1920: the cropped photo (or, for a bundled picture, the
-         * empty tint grid) above the finished canvas, on the same band with the same text.
+         * empty tint grid) above the finished canvas, on the same band with the same text. A progress share (#36)
+         * shows the canvas as it stands, labelled "So far".
          */
         fun beforeAfter(context: Context, request: EncodeRequest): Bitmap {
             val width = 1080
@@ -115,14 +116,15 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             style.drawBand(canvas, request.pattern, height)
             val pattern = request.pattern
             val cellPx = max(4, (width + pattern.width - 1) / pattern.width)
-            val after = GemRenderer.render(pattern, cellPx)
+            val placed = BooleanArray(pattern.cells.size).also { for (cell in request.log) it[cell] = true }
+            val after = GemRenderer.render(pattern, cellPx) { placed[it] }
             val before = request.source?.let { decodeSource(it, after.width, after.height) }
                 ?: GemRenderer.render(pattern, cellPx) { false }
             val boxW = width - 2 * style.px(FrameStyle.MARGIN)
             val boxH = 640
             val label = style.labelPaint()
             var top = 48
-            for ((name, bitmap) in listOf("Before" to before, "After" to after)) {
+            for ((name, bitmap) in listOf(BEFORE to before, afterLabel(request) to after)) {
                 val scale = min(boxW.toFloat() / bitmap.width, boxH.toFloat() / bitmap.height)
                 val w = (bitmap.width * scale).roundToInt()
                 val h = (bitmap.height * scale).roundToInt()
@@ -134,9 +136,14 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             }
             before.recycle()
             after.recycle()
-            style.drawText(canvas, request.title, top, height, request.watermark)
+            style.drawText(canvas, request.title, top, height, request.watermark, request.progressLine)
             return out
         }
+
+        const val BEFORE = "Before"
+
+        /** "After" for a finished picture, "So far" for a progress share (#36). */
+        fun afterLabel(request: EncodeRequest): String = if (request.inProgress) "So far" else "After"
     }
 }
 
@@ -176,9 +183,10 @@ internal class FrameStyle(context: Context, private val width: Int) {
     /**
      * The title (Bricolage Grotesque 600, 60px, at most 2 lines then an ellipsis) and "Gemmory · Photo Diamond Art"
      * (Figtree 36px) from [textTop], left-aligned at 48px; the watermark row at the bottom (Figtree 600 30px, 70%,
-     * bottom-right, over a 25% scrim band), so the title never collides with it.
+     * bottom-right, over a 25% scrim band), so the title never collides with it. A progress share (#36) has its
+     * [progressLine] ("47% done", Figtree 600 36px) between the title and the app line.
      */
-    fun drawText(canvas: Canvas, title: String, textTop: Int, height: Int, watermark: Boolean) {
+    fun drawText(canvas: Canvas, title: String, textTop: Int, height: Int, watermark: Boolean, progressLine: String? = null) {
         val margin = px(MARGIN).toFloat()
         val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = bricolage
@@ -201,7 +209,12 @@ internal class FrameStyle(context: Context, private val width: Int) {
             textSize = 36 * s
             color = FRAME_TEXT
         }
-        val appTop = top + titleLayout.height + px(8)
+        var appTop = top + titleLayout.height + px(8)
+        if (progressLine != null) {
+            val progressPaint = TextPaint(appPaint).apply { fontVariationSettings = "'wght' 600" }
+            canvas.drawText(progressLine, margin, appTop - progressPaint.fontMetrics.ascent, progressPaint)
+            appTop += progressPaint.fontSpacing + px(2)
+        }
         canvas.drawText(APP_LINE, margin, appTop - appPaint.fontMetrics.ascent, appPaint)
 
         if (!watermark) return

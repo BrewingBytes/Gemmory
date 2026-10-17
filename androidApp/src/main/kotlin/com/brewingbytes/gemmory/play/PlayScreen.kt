@@ -38,8 +38,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -79,9 +79,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
@@ -105,7 +105,9 @@ import com.brewingbytes.gemmory.game.PlaceResult
 import com.brewingbytes.gemmory.game.Rejection
 import com.brewingbytes.gemmory.game.TapAction
 import com.brewingbytes.gemmory.game.TapOutcome
+import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
@@ -193,6 +195,7 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
                     progress = s.placedCount to s.cellCount,
                     onBack = leave,
                     peek = peek,
+                    onShare = if (ProgressShare.isOffered(s.placedCount, s.cellCount)) ({ vm.shareProgress(s) }) else null,
                     modifier = Modifier.graphicsLayer {
                         alpha = chrome.value
                         translationY = -(1f - chrome.value) * size.height * slide
@@ -235,14 +238,22 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
             }
         }
     }
+    ProgressShareHost(vm.sharing, returnFocusTo = SHARE_PROGRESS_TAG)
 }
 
 /**
  * Top bar (design D20): the title ellipsizes to one line; above 1.5× font scale progress shows as a mono "59%". The
- * Peek eye (#35) sits between the title and the progress.
+ * Peek eye (#35) sits between the title and the progress, then Share progress (#36) once [onShare] is offered.
  */
 @Composable
-private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit, modifier: Modifier = Modifier, peek: Peek? = null) {
+private fun TopBar(
+    title: String,
+    progress: Pair<Int, Int>?,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    peek: Peek? = null,
+    onShare: (() -> Unit)? = null,
+) {
     val largeFont = LocalDensity.current.fontScale > LARGE_FONT_SCALE
     Row(modifier.fillMaxWidth().heightIn(min = 56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconAction(GemIcons.Back, "Back", onBack)
@@ -256,6 +267,7 @@ private fun TopBar(title: String, progress: Pair<Int, Int>?, onBack: () -> Unit,
             modifier = Modifier.weight(1f),
         )
         if (peek != null) PeekButton(peek, Modifier.padding(start = 4.dp))
+        if (onShare != null) IconAction(GemIcons.Share, "Share progress", onShare, Modifier.testTag(SHARE_PROGRESS_TAG))
         if (progress != null) {
             val format = remember { NumberFormat.getIntegerInstance() }
             val (placed, total) = progress
@@ -771,6 +783,7 @@ private val HEAP_ROWS = intArrayOf(4, 3, 2)
 private val TROUGH_WIDTH = 52.dp
 private val TROUGH_MAX_WIDTH = 72.dp
 private const val LARGE_FONT_SCALE = 1.5f
+const val SHARE_PROGRESS_TAG = "share-progress"
 private val RAIL_MIN_WIDTH = 600.dp
 private const val HINT_MS = 6_000L
 private const val CELLS_PER_HEAP_GEM = 3.5

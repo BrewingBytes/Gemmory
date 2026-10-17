@@ -20,10 +20,16 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 
         val photoCanvasStarted = AnalyticsEvent("photo_canvas_started")
 
-        fun shareTapped(ref: CanvasRef, width: Int, height: Int) = AnalyticsEvent("share_tapped", canvas(ref, width, height))
+        /** [progress]: shared before the last gem (#36), from the canvas or the gallery tile. */
+        fun shareTapped(ref: CanvasRef, width: Int, height: Int, progress: Boolean) =
+            AnalyticsEvent("share_tapped", canvas(ref, width, height) + (KIND to kind(progress)))
 
-        /** The player picked an app in the share sheet. */
-        fun shareCompleted(source: String, size: String) = AnalyticsEvent("share_completed", mapOf(SOURCE to source, SIZE to size))
+        /** The player picked an app in the share sheet. [kind]: `progress` or `finished`. */
+        fun shareCompleted(source: String, size: String, kind: String) =
+            AnalyticsEvent("share_completed", mapOf(SOURCE to source, SIZE to size, KIND to kind))
+
+        /** The first picture finished on a new day (#33): the daily play streak is now [length] days. */
+        fun streakDay(length: Int) = AnalyticsEvent("streak_day", mapOf("length" to length.toLong()))
 
         fun rewardedOffered(type: RewardType) = AnalyticsEvent("rewarded_offered", reward(type))
 
@@ -50,6 +56,10 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 
         const val SOURCE = "source"
         const val SIZE = "size"
+        const val KIND = "kind"
+
+        /** The share's kind (#36): `progress` before the last gem, `finished` after it. */
+        fun kind(progress: Boolean): String = if (progress) "progress" else "finished"
 
         fun source(ref: CanvasRef): String = if (ref.kind == CanvasKind.PHOTO) "photo" else "bundled"
 
