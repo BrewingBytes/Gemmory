@@ -320,7 +320,7 @@ Sound and Haptics each get a Settings toggle. Both default to on.
   - VIP: "Today's pick", "Medium", "Start" / "Continue". Nothing to unlock, so no "free".
   - The whole card opens the picture, like its tile. A free player's pick opens straight to the canvas, never the rewarded sheet. Its tile in the grid is an open picture today: no "Watch to unlock" label, and it sits with the open pictures in its size (#58 order otherwise unchanged).
   - No `lamp` on the card (lamp stays "the selected one"), and the quiet button keeps "New from photo" the only primary.
-- What it grants (founder, 2026-10-17): free to start today; its first gem unlocks it for good, in the same unlocks a video writes, so Start over and a reinstall keep it. Opened but not started by midnight, it locks again. Opening a picture across midnight still keeps it open once started (E4c).
+- What it grants (founder, 2026-10-17): free to start today; its first gem unlocks it for good, in the same unlocks a video writes, so Start over and a reinstall keep it. With no gem placed by midnight, it locks again. The grant is decided when its canvas opens, so a first gem placed after midnight on a canvas opened before it still unlocks it for good.
 - Nothing to pick (everything unlocked or started): no card. The streak (#33) doesn't change: finishing any picture counts the day.
 - Stored in the "today" preferences (a day and a picture id). No ad, no server.
 

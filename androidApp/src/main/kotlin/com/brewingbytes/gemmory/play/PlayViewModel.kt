@@ -56,12 +56,13 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
                 is CanvasStore.Opened.Damaged -> PlayUi.Damaged
             }
             val session = (ui as? PlayUi.Ready)?.session ?: return@launch
-            // Today's picture (#34): its first gem unlocks it for good (a free player) and tells Analytics.
-            val vip = app.monetization.entitlements.value.vip
-            if (session.placedCount == 0 && app.todays.isToday(ref, vip)) {
+            // Today's picture (#34): decided now, at open, so a first gem placed after midnight still unlocks it for
+            // good (a free player) and tells Analytics.
+            val firstGem = if (session.placedCount == 0) app.todays.opened(ref, app.monetization.entitlements.value.vip) else null
+            if (firstGem != null) {
                 launch {
                     snapshotFlow { session.placedCount > 0 }.first { it }
-                    app.todays.started(ref, session.pattern.width, session.pattern.height, vip)
+                    firstGem.placed(session.pattern.width, session.pattern.height)
                 }
             }
             // The daily play streak (#33) counts a day when a picture is finished here; reopening a finished one isn't.

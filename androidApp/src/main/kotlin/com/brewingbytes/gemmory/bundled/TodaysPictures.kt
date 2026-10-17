@@ -29,15 +29,18 @@ internal fun todayCandidates(started: Set<String>, unlocked: Set<String>, vip: B
  * unlocks a video writes (founder, 2026-10-17), so a Start over or a reinstall keeps it.
  */
 class TodaysPictures(
-    context: Context,
     clock: DayClock,
+    store: StateStore<TodayState>,
     /** Read on each use: a connected test replaces the app's monetization, and its unlocks with it. */
     private val unlocks: () -> PictureUnlocks,
     private val analytics: Analytics,
     /** False only in connected tests that assert which pictures are locked, so no daily pick moves them. */
     private val enabled: Boolean = true,
 ) {
-    private val today = TodaysPicture(clock, PrefsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)))
+    constructor(context: Context, clock: DayClock, unlocks: () -> PictureUnlocks, analytics: Analytics, enabled: Boolean = true) :
+        this(clock, PrefsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)), unlocks, analytics, enabled)
+
+    private val today = TodaysPicture(clock, store)
 
     /** Today's picture id, picking it on the day's first call. [started]: bundled pictures with a gem placed. */
     @Synchronized
@@ -45,18 +48,25 @@ class TodaysPictures(
         if (enabled) today.pick(todayCandidates(started, unlocks().unlocked.value, vip), vip) else null
 
     /** Whether [ref] is today's free picture right now: it opens without a video. False once the day is over. */
-    @Synchronized
     fun isFreeToday(ref: CanvasRef): Boolean = isToday(ref, vip = false)
 
     /** Whether [ref] is today's picture (or pick) for this tier right now. */
     @Synchronized
     fun isToday(ref: CanvasRef, vip: Boolean): Boolean = enabled && ref.kind == CanvasKind.BUNDLED && today.picked(vip) == ref.id
 
-    /** The first gem on today's picture: a free player's grant becomes a permanent unlock, and Analytics hears of it. */
-    fun started(ref: CanvasRef, width: Int, height: Int, vip: Boolean) {
-        if (!isToday(ref, vip)) return
-        if (!vip) unlocks().unlock(ref.id)
-        analytics.log(AnalyticsEvent.todaysPictureStarted(ref, width, height, vip))
+    /**
+     * A canvas opened with no gem placed: if it's today's picture now, the grant is decided here, so its first gem
+     * still unlocks it when it lands after midnight. Null when it isn't today's.
+     */
+    fun opened(ref: CanvasRef, vip: Boolean): FirstGem? = if (isToday(ref, vip)) FirstGem(ref, vip) else null
+
+    /** Today's picture, opened while it was today's. */
+    inner class FirstGem internal constructor(private val ref: CanvasRef, private val vip: Boolean) {
+        /** The first gem: a free player's grant becomes a permanent unlock, and Analytics hears of it. */
+        fun placed(width: Int, height: Int) {
+            if (!vip) unlocks().unlock(ref.id)
+            analytics.log(AnalyticsEvent.todaysPictureStarted(ref, width, height, vip))
+        }
     }
 
     private class PrefsStore(private val prefs: SharedPreferences) : StateStore<TodayState> {
