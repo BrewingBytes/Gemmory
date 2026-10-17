@@ -83,7 +83,11 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** The share's kind (#36): `progress` before the last gem, `finished` after it. */
         fun kind(progress: Boolean): String = if (progress) "progress" else "finished"
 
-        fun source(ref: CanvasRef): String = if (ref.kind == CanvasKind.PHOTO) "photo" else "bundled"
+        fun source(ref: CanvasRef): String = when (ref.kind) {
+            CanvasKind.PHOTO -> "photo"
+            CanvasKind.BUNDLED -> "bundled"
+            CanvasKind.REMOTE -> "remote"
+        }
 
         /**
          * `starter` for the starter picture (never Quick, eng re-check), else the picker size whose grid this is
@@ -154,4 +158,8 @@ interface Analytics {
  * How a report names a canvas: a bundled picture by its id (`bundled/starter`), a photo canvas only by its kind,
  * since its id is the moment the player made it.
  */
-val CanvasRef.reportLabel: String get() = if (kind == CanvasKind.PHOTO) "photo" else "bundled/$id"
+val CanvasRef.reportLabel: String get() = when (kind) {
+    CanvasKind.PHOTO -> "photo"
+    CanvasKind.BUNDLED -> "bundled/$id"
+    CanvasKind.REMOTE -> "remote/$id"
+}

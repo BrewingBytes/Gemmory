@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 class GalleryOrderTest {
     /** The tiles as the store lists them: catalog order, [started] ones with a gem placed. */
     private fun tiles(started: Set<String> = emptySet()) = BundledPictures.ALL.map {
-        Tile(CanvasRef(CanvasKind.BUNDLED, it.id), it.title, 0.75f, null, 0, done = false, damaged = false, started = it.id in started)
+        Tile(CanvasRef(CanvasKind.BUNDLED, it.id), it.title, 0.75f, null, 0, done = false, damaged = false, started = it.id in started, lockable = it.locked)
     }
 
     private fun order(
@@ -51,6 +51,20 @@ class GalleryOrderTest {
         val open = listOf("starter", "lemons", "balloon", "the-kiss", "cherries", "tuscan-hills", "puppy", "cat")
         assertEquals(open + lockedExcept("the-kiss"), order(todayFree = "the-kiss"))
         assertEquals(BundledPictures.ALL.map { it.id }, order(entitlements = Entitlements(plan = VipPlan.YEARLY), todayFree = "the-kiss"))
+    }
+
+    /** #43: a remote picture follows the same rule by its catalog flag: open ones with the open, locked ones after. */
+    @Test
+    fun remotePicturesOpenOrLockByTheirCatalogFlag() {
+        fun remote(id: String, locked: Boolean) =
+            Tile(CanvasRef(CanvasKind.REMOTE, id), id, 1f, null, 0, done = false, damaged = false, lockable = locked)
+        val tiles = tiles() + remote("fox", locked = false) + remote("lanterns", locked = true)
+        val order = picturesInOrder(tiles, emptySet(), Entitlements.FREE).map { it.ref.id }
+        assertEquals(listOf("starter", "lemons", "balloon", "cherries", "tuscan-hills", "puppy", "cat", "fox"), order.take(8))
+        assertEquals("lanterns", order.last())
+        val unlocked = picturesInOrder(tiles, setOf("lanterns"), Entitlements.FREE).map { it.ref.id }
+        assertEquals(listOf("fox", "lanterns"), unlocked.take(9).takeLast(2), "a video or token unlock opens it")
+        assertEquals(tiles.map { it.ref.id }, picturesInOrder(tiles, emptySet(), Entitlements(plan = VipPlan.YEARLY)).map { it.ref.id })
     }
 
     @Test

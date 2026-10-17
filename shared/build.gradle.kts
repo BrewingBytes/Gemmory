@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
@@ -111,4 +113,54 @@ tasks.register<JavaExec>("freezeBundledGrid") {
         root.file(providers.gradleProperty("out").getOrElse("androidApp/src/main/assets/pictures/starter.gmrg")).asFile.path,
         root.file(providers.gradleProperty("review").getOrElse("tools/bundled/starter.review.png")).asFile.path,
     )
+}
+
+/**
+ * Remote pictures (#43): publish one into `pictures/v1/` (freeze, CRC + SHA-256, catalog entry, Ed25519 signature, the
+ * app's own checks, provenance row), or withdraw one. The signing key path comes from `-PsigningKey=` or
+ * `remotePictures.signingKey` in local.properties; the key itself is never in a repo. README → Publishing remote pictures.
+ */
+/** The tool's `key=value` arguments, read when the task is configured (tracked by the configuration cache). */
+fun remoteToolArgs(mode: String): List<String> {
+    val root = rootProject.layout.projectDirectory
+    val local = Properties().apply {
+        providers.fileContents(root.file("local.properties")).asText.orNull?.let { load(it.reader()) }
+    }
+    // The next release's versionCode, read from the app's build file; a picture never needs an older app by default.
+    val appBuild = providers.fileContents(root.file("androidApp/build.gradle.kts")).asText.get()
+    val versionCode = Regex("""versionCode = (\d+)""").find(appBuild)!!.groupValues[1]
+    fun p(name: String) = providers.gradleProperty(name).orNull
+    return listOf(
+        "mode=$mode",
+        "dir=${root.dir("pictures/v1").asFile.path}",
+        "bundled=${root.dir("androidApp/src/main/assets/pictures").asFile.path}",
+        "provenanceFile=${root.file("tools/remote/PROVENANCE.md").asFile.path}",
+        "reviewDir=${root.dir("tools/remote").asFile.path}",
+        "signingKey=${p("signingKey") ?: local.getProperty("remotePictures.signingKey").orEmpty()}",
+        "minAppVersion=${p("minAppVersion") ?: versionCode}",
+        "id=${p("id").orEmpty()}",
+        "title=${p("title").orEmpty()}",
+        "source=${p("source")?.let { root.file(it).asFile.path }.orEmpty()}",
+        "spec=${p("spec").orEmpty()}",
+        "focus=${p("focus") ?: "0.5"}",
+        "locked=${p("locked") ?: "true"}",
+        "provenance=${p("provenance").orEmpty()}",
+        "contentChecked=${p("contentChecked").orEmpty()}",
+    )
+}
+
+listOf("publishRemotePicture" to "publish", "withdrawRemotePicture" to "withdraw").forEach { (taskName, mode) ->
+    tasks.register<JavaExec>(taskName) {
+        group = "build"
+        description = if (mode == "publish") {
+            "Freezes, signs and adds a remote picture to pictures/v1 (#43)."
+        } else {
+            "Removes a remote picture from pictures/v1 and re-signs the catalog (#43)."
+        }
+        val jvmMain = kotlin.jvm().compilations.getByName("main")
+        dependsOn(jvmMain.compileTaskProvider)
+        classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+        mainClass.set("com.brewingbytes.gemmory.tools.RemotePictureTool")
+        args(remoteToolArgs(mode))
+    }
 }

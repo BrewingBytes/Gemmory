@@ -34,6 +34,17 @@ class TodayCandidatesTest {
         assertEquals(all - "cherries", todayCandidates(started = setOf("cherries"), unlocked = setOf("wave"), vip = true))
     }
 
+    /** #43: a new remote picture, when one is eligible, is today's picture before any other. */
+    @Test
+    fun aNewRemotePictureIsPreferred() {
+        val pictures = BundledPictures.ALL.map { TodayOption(it.id, it.locked) } + TodayOption("fox", locked = true) + TodayOption("owl", locked = false)
+        assertEquals(listOf("fox"), todayCandidates(emptySet(), emptySet(), vip = false, pictures) { it == "fox" || it == "owl" })
+        assertEquals(listOf("fox", "owl"), todayCandidates(emptySet(), emptySet(), vip = true, pictures) { it == "fox" || it == "owl" })
+        // Started or unlocked, it's no longer a candidate, so the rest come back.
+        assertEquals(locked, todayCandidates(setOf("fox"), emptySet(), vip = false, pictures) { it == "fox" })
+        assertEquals(locked + "fox", todayCandidates(emptySet(), emptySet(), vip = false, pictures) { false })
+    }
+
     @Test
     fun everyCatalogPictureHasASize() {
         for (p in BundledPictures.ALL - BundledPictures.STARTER) assertTrue(BundledPictures.sizeOf(p.id) != null, p.id)

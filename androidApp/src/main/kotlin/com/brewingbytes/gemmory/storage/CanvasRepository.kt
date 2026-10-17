@@ -20,6 +20,9 @@ import java.nio.file.StandardCopyOption
 enum class CanvasKind(internal val dir: String) {
     PHOTO(StorageLayout.PHOTO_CANVASES),
     BUNDLED(StorageLayout.BUNDLED_CANVASES),
+
+    /** A remote picture (#43): played exactly like a bundled one, its grid copied in from the download cache. */
+    REMOTE(StorageLayout.REMOTE_CANVASES),
 }
 
 data class CanvasRef(val kind: CanvasKind, val id: String) {
@@ -67,7 +70,7 @@ sealed interface WriteResult {
 class CanvasStorageException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
- * Canvas records in app-private storage, one directory each: `files/canvases/<photo|bundled>/<id>/` holding
+ * Canvas records in app-private storage, one directory each: `files/canvases/<photo|bundled|remote>/<id>/` holding
  * `grid` (GridCodec), `save` (SaveCodec), `save.last-good`, `view` (ViewStateCodec), `record` (CanvasRecordCodec:
  * title, creation time, play time), `thumb.png` (the last gallery thumbnail, kept for the "Can't open" tile) and,
  * for photo canvases, `source.jpg` (the cropped photo, at most 1024 px). Photo canvases live under the directory the

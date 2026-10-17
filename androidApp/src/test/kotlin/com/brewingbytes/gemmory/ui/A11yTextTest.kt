@@ -51,6 +51,9 @@ class A11yTextTest {
             A11yText.tile("Sunflowers", 0, done = false, locked = true, damaged = false),
         )
         assertEquals("My photo · 13 Oct, can't open", A11yText.tile("My photo · 13 Oct", 10, done = false, locked = false, damaged = true))
+        // #43: a remote picture that just arrived.
+        assertEquals("Fox in Snow, new, 0% done", A11yText.tile("Fox in Snow", 0, done = false, locked = false, damaged = false, new = true))
+        assertEquals("Fox in Snow, new, locked, watch a video to unlock", A11yText.tile("Fox in Snow", 0, done = false, locked = true, damaged = false, new = true))
     }
 
     @Test

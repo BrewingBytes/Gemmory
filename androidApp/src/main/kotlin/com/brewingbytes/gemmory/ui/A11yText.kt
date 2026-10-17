@@ -65,12 +65,18 @@ object A11yText {
         }
     }
 
-    /** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock". */
-    fun tile(title: String, percent: Int, done: Boolean, locked: Boolean, damaged: Boolean): String = when {
-        damaged -> "$title, can't open"
-        locked -> "$title, locked, watch a video to unlock"
-        done -> "$title, done"
-        else -> "$title, $percent% done"
+    /**
+     * "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock"; a remote picture
+     * that just arrived (#43) reads "Fox in Snow, new, 0% done" / "…, new, locked, watch a video to unlock".
+     */
+    fun tile(title: String, percent: Int, done: Boolean, locked: Boolean, damaged: Boolean, new: Boolean = false): String {
+        val head = if (new && !damaged) "$title, new" else title
+        return when {
+            damaged -> "$title, can't open"
+            locked -> "$head, locked, watch a video to unlock"
+            done -> "$head, done"
+            else -> "$head, $percent% done"
+        }
     }
 }
 

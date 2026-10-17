@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 11 and lower (auto backup). User photos never leave the phone (AGENTS.md): photo canvases
      (grid, progress, view state, source) stay out, and so does the ledger (the daily allowance counter, the ad caps
-     and the entitlement cache), and so do Firebase's identifiers. Anything else may be backed up.
+     and the entitlement cache), and so do Firebase's identifiers, and the remote pictures' download cache (#43). Anything else may be backed up.
      Paths must match storage/StorageLayout.kt and the files Firebase writes (checked by BackupRulesTest). -->
 <full-backup-content>
     <exclude domain="file" path="canvases/photo/" />
     <exclude domain="file" path="ledger/" />
+    <!-- Remote pictures (#43): the cached catalog and the downloaded grids, which can be downloaded again. A
+         started remote picture keeps its own grid copy and progress under canvases/remote/, which is backed up. -->
+    <exclude domain="file" path="remote/" />
     <!-- Firebase's own state (#5): the Crashlytics installation UUID, the Analytics app instance id and
          their pending reports and event queues. A restored phone starts as a new install, so no identifier crosses
          devices. (The Firebase installation id already lives in no_backup/.) -->

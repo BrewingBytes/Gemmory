@@ -146,6 +146,10 @@ class MainActivity : ComponentActivity() {
         // The interstitial check runs only once the player has left a just-finished picture's completion screen
         // (design doc Ad rules): never on the canvas, never before or during Share.
         var previous by remember { mutableStateOf<Route?>(null) }
+        // Remote pictures (#43): nothing downloads during play. A check still running stops; the next Gallery visit retries.
+        LaunchedEffect(top is Route.Canvas) {
+            if (top is Route.Canvas) app.remote.pause()
+        }
         LaunchedEffect(top) {
             val left = previous
             previous = top
@@ -165,7 +169,7 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(rewarded.event) {
             when (val event = rewarded.event) {
                 null -> return@LaunchedEffect
-                is RewardedEvent.OpenPicture -> stack.openTile(CanvasRef(CanvasKind.BUNDLED, event.id), app.store::isFinished)
+                is RewardedEvent.OpenPicture -> stack.openTile(app.pictureRef(event.id), app.store::isFinished)
                 RewardedEvent.StartPhotoCanvas -> photoFlow.start()
             }
             rewarded.onEventHandled()
@@ -275,7 +279,7 @@ class MainActivity : ComponentActivity() {
                     rewarded.dismiss()
                     openVip(
                         when (val target = ui.target) {
-                            is RewardTarget.Picture -> tileTag(CanvasRef(CanvasKind.BUNDLED, target.id))
+                            is RewardTarget.Picture -> tileTag(app.pictureRef(target.id))
                             RewardTarget.PhotoCanvas -> "preview-primary"
                             RewardTarget.Fills -> INVENTORY_TAG
                         },
@@ -284,7 +288,7 @@ class MainActivity : ComponentActivity() {
                 onDismiss = rewarded::dismiss,
                 // TalkBack focus goes back to the locked tile or Preview's "Watch a video" (design D19).
                 returnFocusTo = when (val target = ui.target) {
-                    is RewardTarget.Picture -> tileTag(CanvasRef(CanvasKind.BUNDLED, target.id))
+                    is RewardTarget.Picture -> tileTag(app.pictureRef(target.id))
                     RewardTarget.PhotoCanvas -> "preview-primary"
                     RewardTarget.Fills -> INVENTORY_TAG
                 },

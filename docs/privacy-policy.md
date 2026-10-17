@@ -10,6 +10,7 @@ Gemmory: Photo Diamond Art ("Gemmory", "the app") is made by BrewingBytes ("we",
 - There are no accounts. We don't ask for your name, email or phone number, and we never attach a user ID to anything the app sends.
 - The app sends Google three kinds of data: **crash reports** (always, to keep the app working), **usage statistics** (only where you allow them) and the **data Google AdMob uses to show ads**.
 - Purchases go through Google Play. We never see your payment details.
+- Once a day the app downloads the list of new pictures from **GitHub** (Microsoft). That request carries nothing about you.
 
 ## Your photos
 
@@ -22,6 +23,14 @@ When you make a photo canvas, you pick a photo with Android's photo picker. The 
 ## Sharing
 
 When you tap Share, the app makes the time-lapse video (or a before/after picture) on your phone and hands it to the Android share sheet. It goes only where you choose to send it. The share text includes a Google Play link to the app. The app counts that a share happened (see "Usage statistics"), never what was shared or to whom.
+
+## New pictures (GitHub)
+
+We publish new built-in pictures without an app update. About once a day, while you're in the gallery, the app downloads a signed list of pictures and any new picture files from GitHub (`raw.githubusercontent.com`), which is run by Microsoft. Nothing is downloaded while you play.
+
+- **What GitHub receives:** what every web request carries: your phone's IP address and a user agent naming the Android version and device model. The app adds no identifier, cookie, account or anything about you or your photos, and sends nothing to GitHub.
+- **What it's used for:** only to deliver the files. GitHub's handling of requests is covered by the GitHub General Privacy Statement.
+- The pictures are images with no code. The app checks every file's signature and checksum and refuses anything that doesn't match.
 
 ## Crash reports (Firebase Crashlytics)
 
@@ -69,11 +78,11 @@ VIP (weekly or yearly) and "Remove ads" are sold through Google Play Billing. Go
 
 We don't run servers that store your data. What the app keeps (your canvases, progress, settings, the daily photo canvas counter, ad limits and your purchase status) stays on your phone.
 
-If Android backup is on, Android may include some of it in your own Google backup and restore it on a new phone: your settings, your progress on the built-in pictures, your inventory (fills, kept photo canvases and unlock tokens), and your consent choice. **Never included:** photo canvases and their progress, the daily photo canvas counter, ad limits, your purchase status, and the Crashlytics and Analytics identifiers.
+If Android backup is on, Android may include some of it in your own Google backup and restore it on a new phone: your settings, your progress on the built-in pictures (including the ones downloaded from GitHub), your inventory (fills, kept photo canvases and unlock tokens), and your consent choice. **Never included:** photo canvases and their progress, the daily photo canvas counter, ad limits, your purchase status, the downloaded list of new pictures (it's fetched again), and the Crashlytics and Analytics identifiers.
 
 ## Who receives data
 
-Only Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Google Play for purchases. We don't sell your data, and we don't give it to anyone else. Google may process data outside your country, including in the United States, with the safeguards described in Google's privacy policy and data processing terms. All of it is sent encrypted (HTTPS/TLS).
+Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Google Play for purchases. And GitHub (Microsoft), which receives your IP address and user agent when the app downloads new pictures (see "New pictures"). We don't sell your data, and we don't give it to anyone else. Google and GitHub may process data outside your country, including in the United States, with the safeguards described in their privacy policies and data processing terms. All of it is sent encrypted (HTTPS/TLS).
 
 ## Your choices and rights
 

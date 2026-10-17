@@ -127,6 +127,11 @@ class TelemetryTest {
     @Test
     fun canvasEventsCarrySourceAndSize() {
         assertEquals(AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "quick")), AnalyticsEvent.canvasStarted(photo, 48, 64))
+        // #43: a remote picture is its own source, sized by its grid like a bundled one.
+        val fox = CanvasRef(CanvasKind.REMOTE, "fox-in-snow")
+        assertEquals(AnalyticsEvent("canvas_started", mapOf("source" to "remote", "size" to "big")), AnalyticsEvent.canvasStarted(fox, 106, 142))
+        assertEquals(AnalyticsEvent("canvas_finished", mapOf("source" to "remote", "size" to "big")), AnalyticsEvent.canvasFinished(fox, 106, 142))
+        assertEquals("remote/fox-in-snow", fox.reportLabel)
         assertEquals(mapOf("source" to "photo", "size" to "medium"), AnalyticsEvent.canvasFinished(photo, 90, 90).params)
         assertEquals(mapOf("source" to "bundled", "size" to "big", "kind" to "finished"), AnalyticsEvent.shareTapped(puppy, 122, 122, progress = false).params)
         assertEquals(mapOf("source" to "photo", "size" to "quick", "kind" to "progress"), AnalyticsEvent.shareTapped(photo, 48, 64, progress = true).params)

@@ -1,0 +1,289 @@
+package com.brewingbytes.gemmory.remote
+
+import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.save.Decoded
+import com.brewingbytes.gemmory.storage.AtomicFiles
+import com.brewingbytes.gemmory.storage.StorageLayout
+import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDate
+import java.io.File
+import java.io.IOException
+import kotlin.coroutines.coroutineContext
+
+/** What the canvas store needs of the remote catalog: the pictures ready to show and their verified grids. */
+interface RemoteCatalogView {
+    /** Catalog pictures (for this app version) whose grid is downloaded, in catalog order. */
+    fun listed(): List<RemotePicture>
+
+    /** [id]'s downloaded grid, checked against its catalog entry; null when it isn't listed or the file was refused. */
+    fun grid(id: String): ByteArray?
+
+    object None : RemoteCatalogView {
+        override fun listed(): List<RemotePicture> = emptyList()
+
+        override fun grid(id: String): ByteArray? = null
+    }
+}
+
+/** How a check ended. */
+enum class CheckOutcome { NOT_DUE, UPDATED, UNCHANGED, INCOMPLETE, OFFLINE, FAILED }
+
+/** A remote-picture problem for Crashlytics: a code and an id, never a URL with user data (there is none). */
+class RemotePictureException(message: String, cause: Throwable? = null) : IOException(message, cause)
+
+/**
+ * Remote pictures (#43): a signed catalog of finished grids in the repo's `pictures/v1/` folder, checked once a day
+ * while the Gallery shows, cached under [StorageLayout.REMOTE] (never backed up) and played like bundled pictures.
+ *
+ * Every catalog is checked ([RemoteCatalogs.check]: signature, format, rollback, ids) before anything is stored, and
+ * every grid ([RemoteCatalogs.checkGrid]: SHA-256, file, CRC, shape) before it's written and again when it's read.
+ * Grids download before the catalog is replaced; a grid the new catalog no longer lists is deleted (a started
+ * picture keeps its own copy in its canvas). Refusals and HTTP errors go to Crashlytics; being offline doesn't.
+ * All file work runs on [io], one call at a time.
+ */
+class RemotePictures internal constructor(
+    filesDir: File,
+    private val source: RemoteSource,
+    private val keys: List<ByteArray>,
+    private val appVersion: Int,
+    /** Ids the app already uses (the bundled pictures): a catalog listing one is refused. */
+    private val reservedIds: Set<String>,
+    private val clock: DayClock,
+    private val scope: CoroutineScope,
+    private val io: CoroutineDispatcher,
+    private val reporter: NonFatalReporter = NonFatalReporter.Logcat,
+    private val files: AtomicFiles = AtomicFiles(),
+) : RemoteCatalogView {
+    private val catalogFile = File(filesDir, StorageLayout.REMOTE_CATALOG)
+    private val signatureFile = File(filesDir, StorageLayout.REMOTE_SIGNATURE)
+    private val stateFile = File(filesDir, StorageLayout.REMOTE_STATE)
+    private val gridsDir = File(filesDir, StorageLayout.REMOTE_GRIDS)
+
+    /** What the gallery reads; replaced whole, so a reader never sees half a check. */
+    private class Snapshot(val catalog: RemoteCatalog?, val ready: Set<String>, val state: RemoteState)
+
+    @Volatile
+    private var snapshot: Snapshot? = null
+
+    private var job: Job? = null
+
+    private fun current(): Snapshot = snapshot ?: synchronized(this) { snapshot ?: load().also { snapshot = it } }
+
+    override fun listed(): List<RemotePicture> = current().let { s -> s.catalog?.pictures.orEmpty().filter { it.id in s.ready } }
+
+    override fun grid(id: String): ByteArray? {
+        val picture = current().catalog?.pictures?.firstOrNull { it.id == id } ?: return null
+        val bytes = try {
+            gridFile(id).takeIf { it.isFile }?.readBytes()
+        } catch (e: IOException) {
+            reporter.report(RemotePictureException("grid read $id", e))
+            null
+        } ?: return null
+        return when (val check = RemoteCatalogs.checkGrid(picture, bytes)) {
+            is GridCheck.Ok -> bytes
+            is GridCheck.Refused -> {
+                reporter.report(RemotePictureException("cached grid $id: ${check.reason.code}"))
+                null
+            }
+        }
+    }
+
+    /** The gallery's "New" label: arrived in the last 7 days and not opened yet. */
+    fun isNew(id: String): Boolean = current().state.isNew(id, today())
+
+    /** The player opened [id] (its canvas or its locked sheet): its "New" label goes. */
+    fun opened(id: String) {
+        if (!isNew(id)) return
+        scope.launch(io) { update(current().let { Snapshot(it.catalog, it.ready, it.state.opened(id)) }) }
+    }
+
+    /** Starts a check in the background when one is due (a day since the last success, an hour since the last try). */
+    @Synchronized
+    fun checkIfDue() {
+        if (job?.isActive == true || !RemoteSchedule.isDue(current().state, clock.nowMillis())) return
+        job = scope.launch { check() }
+    }
+
+    /** Stops a running check: a canvas is opening, and nothing downloads during play. It retries on the next Gallery visit. */
+    @Synchronized
+    fun pause() {
+        job?.cancel()
+        job = null
+    }
+
+    /** One check, now if due ([force] for tests). Cancellable between requests. */
+    suspend fun check(force: Boolean = false): CheckOutcome = withContext(io) {
+        val start = current()
+        val now = clock.nowMillis()
+        if (!force && !RemoteSchedule.isDue(start.state, now)) return@withContext CheckOutcome.NOT_DUE
+        var state = start.state.attempted(now)
+        update(Snapshot(start.catalog, start.ready, state))
+
+        val ifNoneMatch = RemoteSchedule.ifNoneMatch(state, start.catalog != null)
+        val catalogBytes: ByteArray?
+        val signatureBytes: ByteArray?
+        val etag: String?
+        val catalog: RemoteCatalog
+        when (val fetched = source.fetch(CATALOG, ifNoneMatch, RemoteCatalogs.MAX_CATALOG_BYTES)) {
+            Fetched.NotModified -> {
+                catalog = start.catalog ?: return@withContext failed("catalog: 304 without a cached catalog")
+                catalogBytes = null
+                signatureBytes = null
+                etag = state.etag
+            }
+            is Fetched.Body -> {
+                coroutineContext.ensureActive()
+                val sig = when (val s = source.fetch(SIGNATURE, null, SIGNATURE_MAX_BYTES)) {
+                    is Fetched.Body -> s.bytes
+                    else -> return@withContext problem("signature", s)
+                }
+                catalog = when (val c = RemoteCatalogs.check(fetched.bytes, sig, keys, appVersion, state.issuedAt, reservedIds)) {
+                    is CatalogCheck.Ok -> c.catalog
+                    is CatalogCheck.Refused -> return@withContext failed("catalog: ${c.reason.code}")
+                }
+                catalogBytes = fetched.bytes
+                signatureBytes = sig
+                etag = fetched.etag
+            }
+            else -> return@withContext problem("catalog", fetched)
+        }
+
+        // Grids first, so a stored catalog never lists a grid that isn't here yet.
+        var complete = true
+        var offline = false
+        val ready = HashSet<String>()
+        for (picture in catalog.pictures) {
+            coroutineContext.ensureActive()
+            if (cachedGridIsGood(picture)) {
+                ready += picture.id
+                continue
+            }
+            val outcome = when (val g = source.fetch(RemoteCatalogs.gridPath(picture.id), null, RemoteCatalogs.MAX_GRID_BYTES)) {
+                is Fetched.Body -> when (val check = RemoteCatalogs.checkGrid(picture, g.bytes)) {
+                    is GridCheck.Ok -> if (write(gridFile(picture.id), g.bytes, "grid ${picture.id}")) CheckOutcome.UPDATED else CheckOutcome.FAILED
+                    is GridCheck.Refused -> failed("grid ${picture.id}: ${check.reason.code}")
+                }
+                else -> problem("grid ${picture.id}", g)
+            }
+            if (outcome == CheckOutcome.UPDATED) ready += picture.id else complete = false
+            if (outcome == CheckOutcome.OFFLINE) offline = true
+        }
+
+        if (catalogBytes != null && signatureBytes != null) {
+            gridsDir.mkdirs()
+            val stored = write(signatureFile, signatureBytes, "signature") && write(catalogFile, catalogBytes, "catalog")
+            if (!stored) {
+                update(Snapshot(start.catalog, start.ready, state))
+                return@withContext CheckOutcome.FAILED
+            }
+        }
+        val gone = RemotePictureRules.withdrawn(gridIdsOnDisk(), catalog)
+        gone.forEach { gridFile(it).delete() }
+
+        if (complete) state = state.succeeded(now, today(), etag, catalog)
+        update(Snapshot(catalog, ready, state))
+        when {
+            !complete && offline -> CheckOutcome.OFFLINE
+            !complete -> CheckOutcome.INCOMPLETE
+            catalogBytes == null && gone.isEmpty() && ready == start.ready -> CheckOutcome.UNCHANGED
+            else -> CheckOutcome.UPDATED
+        }
+    }
+
+    private fun today(): LocalDate = LocalDate.fromEpochDays(clock.today())
+
+    private fun gridFile(id: String) = File(gridsDir, "$id.gmrg")
+
+    private fun gridIdsOnDisk(): Set<String> =
+        gridsDir.listFiles { f -> f.isFile && f.name.endsWith(".gmrg") }?.map { it.name.removeSuffix(".gmrg") }?.toSet().orEmpty()
+
+    private fun cachedGridIsGood(picture: RemotePicture): Boolean {
+        val file = gridFile(picture.id)
+        if (!file.isFile) return false
+        val bytes = try {
+            file.readBytes()
+        } catch (_: IOException) {
+            return false
+        }
+        return RemoteCatalogs.checkGrid(picture, bytes) is GridCheck.Ok
+    }
+
+    private fun write(file: File, bytes: ByteArray, what: String): Boolean = try {
+        file.parentFile?.mkdirs()
+        files.write(file, bytes)
+        true
+    } catch (e: IOException) {
+        val kind = if (AtomicFiles.isDiskFull(e)) "disk full" else "write failed"
+        reporter.report(RemotePictureException("$what: $kind", e))
+        false
+    }
+
+    private fun failed(message: String): CheckOutcome {
+        reporter.report(RemotePictureException(message))
+        return CheckOutcome.FAILED
+    }
+
+    private fun problem(what: String, fetched: Fetched): CheckOutcome = when (fetched) {
+        is Fetched.Failed -> if (fetched.offline) {
+            CheckOutcome.OFFLINE
+        } else {
+            reporter.report(RemotePictureException("$what: ${fetched.error.javaClass.simpleName}", fetched.error))
+            CheckOutcome.FAILED
+        }
+        is Fetched.HttpError -> failed("$what: HTTP ${fetched.code}")
+        Fetched.TooLarge -> failed("$what: too large")
+        Fetched.NotModified -> failed("$what: unexpected 304")
+        is Fetched.Body -> error("not a problem")
+    }
+
+    private fun update(next: Snapshot) {
+        snapshot = next
+        try {
+            stateFile.parentFile?.mkdirs()
+            files.write(stateFile, RemoteStateCodec.encode(next.state))
+        } catch (e: IOException) {
+            reporter.report(RemotePictureException("state: write failed", e))
+        }
+    }
+
+    /** The cache as last stored: the catalog is re-verified (it's small), grids are checked when read. */
+    private fun load(): Snapshot {
+        val state = try {
+            stateFile.takeIf { it.isFile }?.readBytes()?.let { RemoteStateCodec.decode(it) as? Decoded.Ok }?.value
+        } catch (_: IOException) {
+            null
+        } ?: RemoteState()
+        val catalog = try {
+            if (catalogFile.isFile && signatureFile.isFile) {
+                when (val c = RemoteCatalogs.check(catalogFile.readBytes(), signatureFile.readBytes(), keys, appVersion, null, reservedIds)) {
+                    is CatalogCheck.Ok -> c.catalog
+                    is CatalogCheck.Refused -> {
+                        reporter.report(RemotePictureException("cached catalog: ${c.reason.code}"))
+                        null
+                    }
+                }
+            } else {
+                null
+            }
+        } catch (e: IOException) {
+            reporter.report(RemotePictureException("cached catalog: read failed", e))
+            null
+        }
+        val onDisk = gridIdsOnDisk()
+        val ready = catalog?.pictures.orEmpty().map { it.id }.filter { it in onDisk }.toSet()
+        // No usable catalog: forget its ETag, so the next check downloads it whole.
+        return Snapshot(catalog, ready, if (catalog == null) state.copy(etag = null) else state)
+    }
+
+    companion object {
+        const val CATALOG = "catalog.json"
+        const val SIGNATURE = "catalog.json.sig"
+        private const val SIGNATURE_MAX_BYTES = 1024
+    }
+}
