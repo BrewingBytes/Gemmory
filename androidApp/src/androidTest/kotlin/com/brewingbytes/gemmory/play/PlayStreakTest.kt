@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -14,6 +15,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.ads.AdGateway
+import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
@@ -29,11 +32,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.time.LocalDate
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 /**
- * The daily play streak (#33): the first gem of today extends yesterday's streak, and the gallery shows it from two
- * days on; a streak that broke shows nothing.
+ * The daily play streak (#33): finishing a picture today extends yesterday's streak (a gem alone doesn't), and the
+ * gallery shows it from two days on; a streak that broke shows nothing.
  */
 @RunWith(AndroidJUnit4::class)
 class PlayStreakTest {
@@ -61,10 +65,13 @@ class PlayStreakTest {
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()
+        // No real AdMob: an interstitial after Done would cover the gallery (lessons, #50).
+        app.resetMonetizationForTest(NoAds)
     }
 
     @After
     fun tearDown() {
+        app.resetMonetizationForTest()
         if (::scenario.isInitialized) scenario.close()
         prefs.edit().clear().commit()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
@@ -81,15 +88,22 @@ class PlayStreakTest {
     }
 
     @Test
-    fun theFirstGemOfTodayExtendsYesterdaysStreak() {
+    fun finishingAPictureTodayExtendsYesterdaysStreak() {
         seed(length = 2, daysAgo = 1)
         launchOnMyPhotos()
         compose.waitUntil(5_000) { chipText() == "2 days in a row" }
-        compose.onNodeWithTag(TILE).performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        openTile()
         instrumentation.runOnMainSync { session()!!.placeNext() }
         compose.waitForIdle()
-        scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        back()
+        compose.waitUntil(5_000) { exists(TILE) }
+        compose.waitForIdle()
+        assertEquals("2 days in a row", chipText(), "a gem alone doesn't count the day")
+
+        openTile()
+        instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
+        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.onNodeWithTag("completion-done").performClick()
         compose.waitUntil(5_000) { chipText() == "3 days in a row" }
     }
 
@@ -100,6 +114,13 @@ class PlayStreakTest {
         compose.waitForIdle()
         assertFalse(exists(STREAK_TAG), "two days missed: no chip, and no message about it")
     }
+
+    private fun openTile() {
+        compose.onNodeWithTag(TILE).performClick()
+        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+    }
+
+    private fun back() = scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
 
     private fun launchOnMyPhotos() {
         runBlocking { app.store.create(ref, small) }
@@ -120,6 +141,26 @@ class PlayStreakTest {
     }
 
     private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
+
+    private object NoAds : AdGateway {
+        override val sdkReady = true
+
+        override fun online() = true
+
+        override suspend fun ensureConsent(activity: Activity) = true
+
+        override suspend fun start() = Unit
+
+        override fun preloadRewarded() = Unit
+
+        override suspend fun loadRewarded() = RewardedLoad.Loaded
+
+        override fun showRewarded(activity: Activity, onEarned: () -> Unit, onClosed: (shown: Boolean) -> Unit) = false
+
+        override fun preloadInterstitial() = Unit
+
+        override fun showInterstitial(activity: Activity, onShown: () -> Unit) = false
+    }
 
     private companion object {
         const val TILE = "tile-photo-streak"

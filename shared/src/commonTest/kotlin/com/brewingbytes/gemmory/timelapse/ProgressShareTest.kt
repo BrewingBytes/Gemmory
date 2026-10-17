@@ -57,20 +57,22 @@ class ProgressShareTest {
     @Test
     fun thePercentageLineRoundsDownAndNeverSaysDoneEarly() {
         assertEquals("47% done", ProgressShare.line(564, 1_200))
-        assertEquals("10% done", ProgressShare.line(120, 1_200))
-        assertEquals("9% done", ProgressShare.line(119, 1_200))
+        assertEquals("1% done", ProgressShare.line(12, 1_200))
         assertEquals("99% done", ProgressShare.line(14_883, 14_884))
-        assertEquals("0% done", ProgressShare.line(0, 0))
     }
 
     @Test
-    fun offeredFromTenPercentUntilTheLastGem() {
+    fun underOnePercentItJustStarted() {
+        assertEquals("Just started", ProgressShare.line(1, 1_200), "one gem, not \"0% done\"")
+        assertEquals("Just started", ProgressShare.line(11, 1_200))
+        assertEquals("Just started", ProgressShare.line(148, 14_884), "a Big canvas under 1%")
+    }
+
+    @Test
+    fun offeredFromTheFirstGemUntilTheLastOne() {
         assertFalse(ProgressShare.isOffered(0, 1_200), "a blank canvas")
-        assertFalse(ProgressShare.isOffered(119, 1_200), "9%")
-        assertTrue(ProgressShare.isOffered(120, 1_200), "10%")
+        assertTrue(ProgressShare.isOffered(1, 1_200), "one gem")
         assertTrue(ProgressShare.isOffered(1_199, 1_200), "one gem left")
         assertFalse(ProgressShare.isOffered(1_200, 1_200), "finished: the completion screen's Share instead")
-        assertFalse(ProgressShare.isOffered(76, 768), "the starter at 9%")
-        assertTrue(ProgressShare.isOffered(77, 768), "the starter at 10%")
     }
 }

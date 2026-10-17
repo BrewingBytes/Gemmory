@@ -28,7 +28,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         fun shareCompleted(source: String, size: String, kind: String) =
             AnalyticsEvent("share_completed", mapOf(SOURCE to source, SIZE to size, KIND to kind))
 
-        /** The first gem of a new day (#33): the daily play streak is now [length] days. */
+        /** The first picture finished on a new day (#33): the daily play streak is now [length] days. */
         fun streakDay(length: Int) = AnalyticsEvent("streak_day", mapOf("length" to length.toLong()))
 
         fun rewardedOffered(type: RewardType) = AnalyticsEvent("rewarded_offered", reward(type))

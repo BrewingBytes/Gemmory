@@ -17,7 +17,7 @@ import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 class PlayStreak(context: Context, clock: DayClock, private val analytics: Analytics) {
     private val streak = DailyStreak(clock, PrefsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)))
 
-    /** A gem was placed: the first one of a new day extends the streak, and says so to Analytics. */
+    /** A picture was finished: the first one of a new day extends the streak, and says so to Analytics. */
     fun played() {
         streak.played()?.let { analytics.log(AnalyticsEvent.streakDay(it)) }
     }

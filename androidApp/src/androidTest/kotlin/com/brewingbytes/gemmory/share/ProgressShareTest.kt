@@ -39,8 +39,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
 /**
- * Share progress (#36): offered on the play canvas's top bar and the gallery tile's ⋮ menu only from 10%, and a tap
- * reaches the share progress sheet without touching the save log.
+ * Share progress (#36): offered on the play canvas's top bar and the gallery tile's ⋮ menu from the first gem, and a
+ * tap reaches the share progress sheet without touching the save log.
  */
 @RunWith(AndroidJUnit4::class)
 class ProgressShareTest {
@@ -53,7 +53,7 @@ class ProgressShareTest {
     private val ref = CanvasRef(CanvasKind.PHOTO, "progress-share")
     private lateinit var scenario: ActivityScenario<MainActivity>
 
-    /** 8×6 in three colors: 4 gems is 8%, 5 gems is 10%. */
+    /** 8×6 in three colors. */
     private val small = Pattern(
         width = 8,
         height = 6,
@@ -79,10 +79,9 @@ class ProgressShareTest {
     }
 
     @Test
-    fun theCanvasOffersItOnlyFromTenPercent() {
+    fun theCanvasOffersItFromTheFirstGem() {
         val session = open()
-        onMain { repeat(4) { session.placeNext() } }
-        assertFalse(exists(SHARE_PROGRESS_TAG), "8%: not yet")
+        assertFalse(exists(SHARE_PROGRESS_TAG), "a blank canvas: not yet")
         onMain { session.placeNext() }
         compose.waitUntil(2_000) { exists(SHARE_PROGRESS_TAG) }
     }
@@ -102,11 +101,10 @@ class ProgressShareTest {
     }
 
     @Test
-    fun theGalleryTileOffersItOnlyFromTenPercentAndReachesTheSheet() {
-        val session = open()
-        onMain { repeat(4) { session.placeNext() } }
+    fun theGalleryTileOffersItFromTheFirstGemAndReachesTheSheet() {
+        open()
         backToGallery()
-        assertFalse("Share progress" in tileActions(), "8%: not in the tile's actions")
+        assertFalse("Share progress" in tileActions(), "a blank canvas: not in the tile's actions")
 
         open().also { s -> onMain { s.placeNext() } }
         backToGallery()

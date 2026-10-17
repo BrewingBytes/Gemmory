@@ -11,15 +11,15 @@ data class StreakState(val length: Int = 0, val lastDay: Long = NEVER, val restD
 }
 
 /**
- * Daily play streak (#33): a day counts once the player places at least one gem, by the local date (the allowance's
- * [DayClock]). One missed day a week is forgiven, so a single day off doesn't break it; a longer gap starts over at
+ * Daily play streak (#33): a day counts once the player finishes a picture that day, any picture, bundled or their
+ * own photo (founder, 2026-10-17), by the local date (the allowance's [DayClock]). One missed day a week is forgiven, so a single day off doesn't break it; a longer gap starts over at
  * the next day played. A clock moved back changes nothing. No rewards, and the gallery shows it from [SHOWN_FROM]
  * days; a broken streak just isn't shown.
  */
 class DailyStreak(private val clock: DayClock, private val store: StateStore<StreakState>) {
     private var state: StreakState = store.load() ?: StreakState()
 
-    /** A gem was placed. Returns the new length when this was the first gem of a new day, else null. */
+    /** A picture was finished. Returns the new length when this was the first finish of a new day, else null. */
     fun played(): Int? {
         val next = played(state, clock.today())
         if (next == state) return null

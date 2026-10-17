@@ -12,6 +12,7 @@ import com.brewingbytes.gemmory.share.ProgressSharing
 import com.brewingbytes.gemmory.storage.CanvasRef
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 sealed interface PlayUi {
@@ -52,9 +53,9 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
                 is CanvasStore.Opened.Ready -> PlayUi.Ready(store.start(opened))
                 is CanvasStore.Opened.Damaged -> PlayUi.Damaged
             }
-            // The daily play streak (#33) counts a day once a gem is placed; opening a canvas isn't playing.
+            // The daily play streak (#33) counts a day when a picture is finished here; reopening a finished one isn't.
             val session = (ui as? PlayUi.Ready)?.session ?: return@launch
-            snapshotFlow { session.placedCount }.drop(1).collect { streak.played() }
+            snapshotFlow { session.placedCount == session.cellCount }.drop(1).filter { it }.collect { streak.played() }
         }
     }
 
