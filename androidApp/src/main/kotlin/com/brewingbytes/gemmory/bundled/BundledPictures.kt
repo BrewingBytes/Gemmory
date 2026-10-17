@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.bundled
 
+import com.brewingbytes.gemmory.converter.CanvasSize
+
 /**
  * A bundled picture: a frozen grid asset made once by `./gradlew :shared:freezeBundledGrid` and copied as is into
  * `canvases/bundled/<id>/` when the player first opens it (design D13, eng D11). [gridCrc32] is the asset's CRC,
@@ -99,10 +101,13 @@ object BundledPictures {
     fun byId(id: String): BundledPicture? = ALL.firstOrNull { it.id == id }
 
     /** "Quick", "Medium" or "Big" for a catalog picture (Today's picture card, #34); null for the starter. */
-    fun sizeOf(id: String): String? = when {
-        QUICK.any { it.id == id } -> "Quick"
-        MEDIUM.any { it.id == id } -> "Medium"
-        BIG.any { it.id == id } -> "Big"
+    fun sizeOf(id: String): String? = canvasSizeOf(id)?.label
+
+    /** A catalog picture's size, which places remote pictures beside it (#43); null for the starter. */
+    fun canvasSizeOf(id: String): CanvasSize? = when {
+        QUICK.any { it.id == id } -> CanvasSize.QUICK
+        MEDIUM.any { it.id == id } -> CanvasSize.MEDIUM
+        BIG.any { it.id == id } -> CanvasSize.BIG
         else -> null
     }
 }

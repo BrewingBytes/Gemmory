@@ -12,7 +12,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
-import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.TodayOption
+import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.photo.PhotoTitles
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
@@ -43,6 +44,12 @@ data class Tile(
     val started: Boolean = false,
     /** Unfinished and past the minimum, so its ⋮ menu offers Share progress (#36). */
     val shareable: Boolean = false,
+    /** The picture's catalog lock flag (bundled `FREE`, or a remote picture's `locked`), before unlocks and VIP. */
+    val lockable: Boolean = false,
+    /** A remote picture that arrived in the last 7 days and hasn't been opened (#43): the "New" label. */
+    val isNew: Boolean = false,
+    /** Quick / Medium / Big; null for the starter and photo canvases. */
+    val size: CanvasSize? = null,
 ) {
     /** Mono "42%" or "Done"; never "100%" before the last gem. */
     val progressLabel: String get() = if (done) "Done" else "$percent%"
@@ -98,6 +105,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
      * player's finger (#58). The locked labels follow them live.
      */
     fun refresh() {
+        // Remote pictures (#43): a background check when one is due. What it brings shows on the next visit.
+        app.remote.checkIfDue()
         viewModelScope.launch {
             val (pictures, photos) = store.summaries()
             val tiles = withContext(Dispatchers.Default) { pictures.map { tile(it) } to photos.map { tile(it) } }
@@ -111,15 +120,22 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         }
     }
 
+    /** A tile was tapped: a remote picture's "New" label goes (#43), whether it opens or shows its locked sheet. */
+    fun opened(tile: Tile) {
+        if (tile.ref.kind == CanvasKind.REMOTE && tile.isNew) app.remote.opened(tile.ref.id)
+    }
+
     /** Whether [tile] is today's free picture right now (#34), read live so a gallery left open past midnight can't grant it. */
     fun isFreeToday(tile: Tile): Boolean = app.todays.isFreeToday(tile.ref)
 
     /** Today's picture (#34): picked on the day's first visit, then the same one all day. */
     private suspend fun todayCard(summaries: List<CanvasSummary>, tiles: List<Tile>, unlocked: Set<String>, vip: Boolean): TodayCard? {
         val started = tiles.filter { it.started }.map { it.ref.id }.toSet()
-        val id = withContext(Dispatchers.IO) { app.todays.pick(started, vip) } ?: return null
+        val options = tiles.filter { it.size != null }.map { TodayOption(it.ref.id, it.lockable) }
+        val newIds = tiles.filter { it.isNew }.map { it.ref.id }.toSet()
+        val id = withContext(Dispatchers.IO) { app.todays.pick(started, vip, options) { it in newIds } } ?: return null
         val tile = tiles.firstOrNull { it.ref.id == id && !it.damaged } ?: return null
-        val size = BundledPictures.sizeOf(id) ?: return null
+        val size = tile.size?.label ?: return null
         val preview = if (tile.started) {
             tile.image
         } else {
@@ -175,6 +191,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 percent = 0,
                 done = false,
                 damaged = true,
+                lockable = summary.locked,
+                size = summary.size,
             )
         }
         is CanvasSummary.Playable -> {
@@ -197,6 +215,9 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 damaged = false,
                 started = state.placedCount > 0,
                 shareable = ProgressShare.isOffered(state.placedCount, state.cellCount),
+                lockable = summary.locked,
+                isNew = summary.ref.kind == CanvasKind.REMOTE && app.remote.isNew(summary.ref.id),
+                size = summary.size,
             )
         }
     }

@@ -52,9 +52,11 @@ Declare only these. Everything else is **not collected**.
 - **Precise location, messages, contacts, calendar, audio, files, health, web browsing, in-app search, other user-generated content, other actions:** not collected.
 - **App info and performance → Other app performance data:** nothing beyond crash logs and diagnostics.
 
+**Remote pictures (#43), re-checked 2026-10-17: no change.** Once a day the app GETs a signed catalog and grid files from `raw.githubusercontent.com` (GitHub, Microsoft). The request carries no identifier, cookie, account or user content (plain `HttpURLConnection`, the platform's default user agent), and the app sends nothing in a body. GitHub sees the IP address and user agent that any download carries, and uses them only to serve the file. No new data type is collected: the app derives nothing from the request, and Approximate location is already declared for AdMob and Analytics. The privacy policy names GitHub under "Who receives data" and in its own "New pictures" section. The files are data (finished GMRY grids, signed), never code, which keeps the download within Play's Device and Network Abuse policy.
+
 **"Shared" vs "service provider":** Crashlytics, Analytics (with sharing settings off, see Firebase Console below) and ML Kit process data for us, so they are not "shared". AdMob's disclosure says it "collects and shares" its four types, so every type AdMob touches is marked shared.
 
-**Re-check this section when:** the app starts talking to a new server (#43 remote pictures will add GitHub, which sees the IP address and user agent), an SDK is added or updated (re-read its Play data disclosure page), Analytics is linked to AdMob or Google Ads, Google signals or data sharing is turned on, a user ID or account is added, or an event starts carrying new data.
+**Re-check this section when:** the app starts talking to a new server (GitHub for remote pictures #43 was checked, above), an SDK is added or updated (re-read its Play data disclosure page), Analytics is linked to AdMob or Google Ads, Google signals or data sharing is turned on, a user ID or account is added, or an event starts carrying new data.
 
 ## Other App content declarations
 

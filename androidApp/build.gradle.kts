@@ -17,6 +17,9 @@ val localProps = Properties().apply {
 }
 val uploadStoreFile: String? = localProps.getProperty("gemmory.upload.storeFile")
 
+/** Remote pictures (#43): `pictures/v1/` in this (public) repo, served by GitHub. README → Publishing remote pictures. */
+val REMOTE_PICTURES_URL = "https://raw.githubusercontent.com/BrewingBytes/Gemmory/main/pictures/v1/"
+
 kotlin {
     jvmToolchain(17)
 }
@@ -47,6 +50,9 @@ android {
         // Crashlytics and Analytics send from release builds only (#12). The manifest reads the same switch.
         buildConfigField("boolean", "FIREBASE", "true")
         manifestPlaceholders["firebaseEnabled"] = "true"
+        // Remote pictures (#43): the catalog folder (pictures/v1/ on main), checked once a day. Debug builds can point it
+        // elsewhere with `-Pgemmory.remotePicturesUrl=…` (a local test server, say).
+        buildConfigField("String", "REMOTE_PICTURES_URL", "\"$REMOTE_PICTURES_URL\"")
     }
 
     signingConfigs {
@@ -71,6 +77,8 @@ android {
             val firebaseInDebug = providers.gradleProperty("gemmory.firebaseInDebug").getOrElse("false")
             buildConfigField("boolean", "FIREBASE", firebaseInDebug)
             manifestPlaceholders["firebaseEnabled"] = firebaseInDebug
+            val remoteUrl = providers.gradleProperty("gemmory.remotePicturesUrl").getOrElse(REMOTE_PICTURES_URL)
+            buildConfigField("String", "REMOTE_PICTURES_URL", "\"$remoteUrl\"")
         }
         release {
             // R8: the mapping file goes into the App Bundle, so Play Console shows readable stack traces for crashes

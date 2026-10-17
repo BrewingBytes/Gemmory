@@ -2,7 +2,8 @@
 <!-- User photos never leave the phone (AGENTS.md): nothing in the app uploads them, and the Photo Picker needs no
      media permission. INTERNET and ACCESS_NETWORK_STATE are for AdMob + UMP (#7): ads, the consent form and the
      validated-network check that decides offline vs no-fill (eng D15). ML Kit's datatransport also uses them for its
-     diagnostics, never images (design doc R3-6). AdMob merges AD_ID (adults only; declared in Data safety, #5). -->
+     diagnostics, never images (design doc R3-6). Remote pictures (#43) download a signed catalog and grids from
+     GitHub, with no user data in the request. AdMob merges AD_ID (adults only; declared in Data safety, #5). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />

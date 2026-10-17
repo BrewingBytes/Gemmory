@@ -62,7 +62,11 @@ class PictureUnlocks(private val prefs: SharedPreferences) {
  * the entitlement (eng E4c: entitlement is checked at Start only, so a lapsed VIP keeps started canvases).
  */
 fun isLocked(picture: BundledPicture, unlocked: Set<String>, entitlements: Entitlements, started: Boolean): Boolean =
-    picture.locked && picture.id !in unlocked && !entitlements.vip && !started
+    isLocked(picture.locked, picture.id, unlocked, entitlements, started)
+
+/** The same rule for any picture by its catalog flag [locked]: bundled, or remote (#43). */
+fun isLocked(locked: Boolean, id: String, unlocked: Set<String>, entitlements: Entitlements, started: Boolean): Boolean =
+    locked && id !in unlocked && !entitlements.vip && !started
 
 /**
  * App-scoped home of the pure policies (eng E5): [DailyLedger] and [AdPolicy] under `filesDir/ledger` (never backed up,

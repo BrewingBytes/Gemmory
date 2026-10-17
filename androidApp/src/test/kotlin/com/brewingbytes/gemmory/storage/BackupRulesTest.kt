@@ -10,10 +10,10 @@ import kotlin.test.assertTrue
 
 /**
  * Photo data never leaves the phone (AGENTS.md): the backup rules must exclude exactly the StorageLayout dirs, plus
- * Firebase's identifiers (#5).
+ * Firebase's identifiers (#5) and the remote pictures' download cache (#43).
  */
 class BackupRulesTest {
-    private val appData = setOf("file:${StorageLayout.PHOTO_CANVASES}/", "file:${StorageLayout.LEDGER}/")
+    private val appData = setOf("file:${StorageLayout.PHOTO_CANVASES}/", "file:${StorageLayout.LEDGER}/", "file:${StorageLayout.REMOTE}/")
 
     /**
      * Where Firebase BOM 34.19.0 keeps per-install state, read off a device: the Crashlytics installation UUID and
@@ -80,6 +80,25 @@ class BackupRulesTest {
         for (excluded in sections) {
             assertTrue(excluded.none { it == "file:$dir/" || it == "file:${StorageLayout.INVENTORY}" }, "$excluded")
         }
+    }
+
+    /**
+     * #43: the download cache (catalog, state, grids) is excluded and can be fetched again; a started remote picture's
+     * progress and grid copy are backed up like a bundled picture's.
+     */
+    @Test
+    fun remoteCacheIsExcludedButRemoteProgressIsBackedUp() {
+        for (path in listOf(StorageLayout.REMOTE_CATALOG, StorageLayout.REMOTE_SIGNATURE, StorageLayout.REMOTE_STATE, StorageLayout.REMOTE_GRIDS)) {
+            assertTrue(path.startsWith("${StorageLayout.REMOTE}/"), path)
+        }
+        val sections = listOf(rules(xml("backup_rules.xml"), "exclude")) + listOf("cloud-backup", "device-transfer").map {
+            rules(xml("data_extraction_rules.xml").getElementsByTagName(it).item(0) as Element, "exclude")
+        }
+        for (excluded in sections) {
+            assertTrue("file:${StorageLayout.REMOTE}/" in excluded)
+            assertTrue(excluded.none { StorageLayout.REMOTE_CANVASES.startsWith(it.removePrefix("file:").trimEnd('/')) }, "$excluded")
+        }
+        assertEquals("canvases/remote", CanvasKind.REMOTE.dir)
     }
 
     @Test

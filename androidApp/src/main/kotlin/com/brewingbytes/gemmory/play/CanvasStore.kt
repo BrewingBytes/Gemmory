@@ -3,8 +3,12 @@ package com.brewingbytes.gemmory.play
 import android.os.SystemClock
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasState
+import com.brewingbytes.gemmory.remote.RemoteCatalogView
+import com.brewingbytes.gemmory.remote.RemotePictureRules
 import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
@@ -28,18 +32,25 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-/** One gallery tile's data. */
+/**
+ * One gallery tile's data. [size] is a picture's Quick / Medium / Big (null for the starter and photo canvases);
+ * [locked] is its catalog flag (`BundledPictures.FREE`, or a remote picture's `locked`), before unlocks and VIP.
+ */
 sealed interface CanvasSummary {
     val ref: CanvasRef
     val title: String
     val createdAtMillis: Long
+    val size: CanvasSize?
+    val locked: Boolean
 
-    /** [state] is the restored progress (empty for a bundled picture never opened). */
+    /** [state] is the restored progress (empty for a picture never opened). */
     class Playable(
         override val ref: CanvasRef,
         override val title: String,
         val state: CanvasState,
         override val createdAtMillis: Long,
+        override val size: CanvasSize? = null,
+        override val locked: Boolean = false,
     ) : CanvasSummary
 
     /** "Can't open" (design D9): [thumb] is the last thumbnail, if one was ever written. */
@@ -48,6 +59,8 @@ sealed interface CanvasSummary {
         override val title: String,
         override val createdAtMillis: Long,
         val thumb: File?,
+        override val size: CanvasSize? = null,
+        override val locked: Boolean = false,
     ) : CanvasSummary
 }
 
@@ -67,6 +80,8 @@ class CanvasStore(
     private val encodes: EncodeCanceller,
     reporter: NonFatalReporter = NonFatalReporter.Logcat,
     private val analytics: Analytics = Analytics.None,
+    /** Remote pictures (#43): listed in the gallery like bundled ones, their grids copied in on first open. */
+    private val remote: RemoteCatalogView = RemoteCatalogView.None,
 ) {
     val repository = CanvasRepository(filesDir, reporter)
     private val swept: Job = scope.launch(writer) { repository.sweep() }
@@ -86,11 +101,11 @@ class CanvasStore(
         data class Damaged(val problem: LoadProblem?) : Opened
     }
 
-    /** Loads a canvas, copying a bundled picture's frozen grid in first if it was never opened. */
+    /** Loads a canvas, copying a bundled or remote picture's frozen grid in first if it was never opened. */
     suspend fun open(ref: CanvasRef): Opened {
         settle(ref)
         return withContext(writer) {
-            val started = ensureBundled(ref)
+            val started = ensurePicture(ref)
             val (grid, log) = when (val r = repository.load(ref)) {
                 is LoadResult.Loaded -> r.grid to r.log
                 is LoadResult.RecoveredFromLastGood -> r.grid to r.log
@@ -179,21 +194,46 @@ class CanvasStore(
         return withContext(writer) { repository.list(kind) }
     }
 
-    /** Every bundled picture in catalog order, then photo canvases newest first. */
+    /**
+     * Every picture in catalog order (bundled, with remote pictures merged into their size, #43), then photo
+     * canvases newest first. A remote picture shows while the catalog lists it, or once started (the withdraw rule).
+     */
     suspend fun summaries(): Pair<List<CanvasSummary>, List<CanvasSummary>> {
         swept.join()
         closing.values.toList().forEach { it.join() }
         return withContext(writer) {
-            val pictures = BundledPictures.ALL.map { picture ->
+            val bundled = BundledPictures.ALL.map { picture ->
                 val ref = CanvasRef(CanvasKind.BUNDLED, picture.id)
+                val size = BundledPictures.canvasSizeOf(picture.id)
                 if (repository.dirOf(ref).isDirectory) {
-                    summarize(ref)
+                    summarize(ref, size, picture.locked)
                 } else {
                     val grid = (GridCodec.decode(bundledGrid(picture)) as Decoded.Ok).value
-                    CanvasSummary.Playable(ref, picture.title, CanvasState.empty(grid.pattern), 0L)
+                    CanvasSummary.Playable(ref, picture.title, CanvasState.empty(grid.pattern), 0L, size, picture.locked)
                 }
             }
-            val photos = repository.list(CanvasKind.PHOTO).map { summarize(CanvasRef(CanvasKind.PHOTO, it)) }
+            val listed = remote.listed()
+            val listedIds = listed.map { it.id }.toSet()
+            val added = listed.associate { it.id to it.addedAt }
+            val inCatalog = listed.mapNotNull { picture ->
+                val ref = CanvasRef(CanvasKind.REMOTE, picture.id)
+                if (repository.dirOf(ref).isDirectory) {
+                    summarize(ref, picture.size, picture.locked)
+                } else {
+                    val bytes = remote.grid(picture.id) ?: return@mapNotNull null
+                    val grid = (GridCodec.decode(bytes) as? Decoded.Ok)?.value ?: return@mapNotNull null
+                    CanvasSummary.Playable(ref, picture.title, CanvasState.empty(grid.pattern), 0L, picture.size, picture.locked)
+                }
+            }
+            // Withdrawn from the catalog (or a restored save before the first check): shown only once started.
+            val kept = repository.list(CanvasKind.REMOTE).filter { it !in listedIds }.mapNotNull { id ->
+                val summary = summarize(CanvasRef(CanvasKind.REMOTE, id), null, false)
+                val started = summary is CanvasSummary.Damaged || (summary as CanvasSummary.Playable).state.placedCount > 0
+                if (!RemotePictureRules.shows(inCatalog = false, gridReady = false, started = started)) return@mapNotNull null
+                if (summary is CanvasSummary.Playable) summary.withSize(sizeOfGrid(summary.state)) else summary
+            }
+            val pictures = RemotePictureRules.merge(bundled, inCatalog + kept, { it.size }, { added[it.ref.id] }, { it.ref.id })
+            val photos = repository.list(CanvasKind.PHOTO).map { summarize(CanvasRef(CanvasKind.PHOTO, it), null, false) }
                 .sortedByDescending { it.createdAtMillis }
             pictures to photos
         }
@@ -206,7 +246,7 @@ class CanvasStore(
     suspend fun isFinished(ref: CanvasRef): Boolean {
         settle(ref)
         return withContext(writer) {
-            repository.dirOf(ref).isDirectory && (summarize(ref) as? CanvasSummary.Playable)?.state?.isFinished == true
+            repository.dirOf(ref).isDirectory && (summarize(ref, null, false) as? CanvasSummary.Playable)?.state?.isFinished == true
         }
     }
 
@@ -222,15 +262,16 @@ class CanvasStore(
     }
 
     /**
-     * Start over / Play again (design D3): clears progress, view state and play time. A bundled picture is removed
-     * whole and copied fresh from its frozen grid on the next open, which also fixes a damaged one.
+     * Start over / Play again (design D3): clears progress, view state and play time. A bundled or remote picture is
+     * removed whole and copied fresh from its frozen grid on the next open, which also fixes a damaged one. A remote
+     * picture withdrawn from the catalog is then gone, like any withdrawn picture not started (#43).
      */
     suspend fun startOver(ref: CanvasRef): Boolean {
         settle(ref)
         encodes.cancelAndClear(ref)
         return withContext(writer) {
             when (ref.kind) {
-                CanvasKind.BUNDLED -> repository.delete(ref)
+                CanvasKind.BUNDLED, CanvasKind.REMOTE -> repository.delete(ref)
                 CanvasKind.PHOTO -> repository.clearProgress(ref)
             }
         }
@@ -264,27 +305,49 @@ class CanvasStore(
         closing[ref]?.join()
     }
 
-    /** True when this call copied the picture in, i.e. the player just started it. */
-    private fun ensureBundled(ref: CanvasRef): Boolean {
-        if (ref.kind != CanvasKind.BUNDLED || repository.dirOf(ref).isDirectory) return false
-        val picture = BundledPictures.byId(ref.id) ?: return false
-        return repository.create(ref, bundledGrid(picture), CanvasRecord("", System.currentTimeMillis(), 0L)) == WriteResult.Written
+    /**
+     * True when this call copied the picture in, i.e. the player just started it. A remote picture's record keeps
+     * its catalog title, so it still has one after it leaves the catalog or comes back from a backup (#43).
+     */
+    private fun ensurePicture(ref: CanvasRef): Boolean {
+        if (repository.dirOf(ref).isDirectory) return false
+        val now = System.currentTimeMillis()
+        return when (ref.kind) {
+            CanvasKind.PHOTO -> false
+            CanvasKind.BUNDLED -> {
+                val picture = BundledPictures.byId(ref.id) ?: return false
+                repository.create(ref, bundledGrid(picture), CanvasRecord("", now, 0L)) == WriteResult.Written
+            }
+            CanvasKind.REMOTE -> {
+                val picture = remote.listed().firstOrNull { it.id == ref.id } ?: return false
+                val grid = remote.grid(ref.id) ?: return false
+                repository.create(ref, grid, CanvasRecord(picture.title, now, 0L)) == WriteResult.Written
+            }
+        }
     }
 
-    private fun summarize(ref: CanvasRef): CanvasSummary {
+    private fun summarize(ref: CanvasRef, size: CanvasSize?, locked: Boolean): CanvasSummary {
         val record = repository.readRecord(ref)
         val title = titleOf(ref, record)
         val (grid, log) = when (val r = repository.load(ref)) {
             is LoadResult.Loaded -> r.grid to r.log
             is LoadResult.RecoveredFromLastGood -> r.grid to r.log
-            is LoadResult.Damaged -> return damaged(ref, title, record)
+            is LoadResult.Damaged -> return damaged(ref, title, record, size, locked)
         }
-        val state = CanvasState.restore(grid.pattern, log) ?: return damaged(ref, title, record)
-        return CanvasSummary.Playable(ref, title, state, record?.createdAtMillis ?: 0L)
+        val state = CanvasState.restore(grid.pattern, log) ?: return damaged(ref, title, record, size, locked)
+        return CanvasSummary.Playable(ref, title, state, record?.createdAtMillis ?: 0L, size, locked)
     }
 
-    private fun damaged(ref: CanvasRef, title: String, record: CanvasRecord?) =
-        CanvasSummary.Damaged(ref, title, record?.createdAtMillis ?: 0L, repository.thumbFile(ref).takeIf { it.isFile })
+    private fun damaged(ref: CanvasRef, title: String, record: CanvasRecord?, size: CanvasSize?, locked: Boolean) =
+        CanvasSummary.Damaged(ref, title, record?.createdAtMillis ?: 0L, repository.thumbFile(ref).takeIf { it.isFile }, size, locked)
+
+    private fun CanvasSummary.Playable.withSize(size: CanvasSize?) = CanvasSummary.Playable(ref, title, state, createdAtMillis, size, locked)
+
+    /** A withdrawn remote picture's size, from its grid's shape. */
+    private fun sizeOfGrid(state: CanvasState): CanvasSize? {
+        val p = state.pattern
+        return CanvasSize.entries.firstOrNull { size -> GridSpec.PICKER.any { it.width == p.width && it.height == p.height && it.id.startsWith(size.name.lowercase()) } }
+    }
 
     private fun writePlayTime(ref: CanvasRef, opened: CanvasRecord?, playMillis: Long) {
         // Re-read, so a rename made while the canvas was closed isn't overwritten by the opened copy.
@@ -297,6 +360,7 @@ class CanvasStore(
 
         fun titleOf(ref: CanvasRef, record: CanvasRecord?): String = when (ref.kind) {
             CanvasKind.BUNDLED -> BundledPictures.byId(ref.id)?.title ?: ref.id
+            CanvasKind.REMOTE -> record?.title?.takeIf { it.isNotBlank() } ?: ref.id
             CanvasKind.PHOTO -> record?.title?.takeIf { it.isNotBlank() } ?: DEFAULT_PHOTO_TITLE
         }
     }

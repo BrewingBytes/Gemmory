@@ -18,7 +18,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 
 | Doc | What's in it |
 |---|---|
-| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, how to add a bundled picture |
+| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, how to add a bundled picture and how to publish a remote one (#43) |
 | [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, plus the CEO and eng review decision ledgers (E1-E7, D1-D20) |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, fonts, components, navigation map, canvas zoom/gesture/haptics rules, copy for every state, accessibility (TalkBack, font scale, reduced motion, large screens) (`DESIGN.md` at the root is a symlink to it) |
 | [docs/issues.md](docs/issues.md) | Snapshot of tasks T1-T14, created as GitHub issues #1-#14 (T*n* = #*n*) |
@@ -28,6 +28,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 | [docs/agents/lessons.md](docs/agents/lessons.md) | Dated gotchas learned in earlier changes (emulator, connected tests, bundled-picture sourcing) |
 | [docs/agents/skill-routing.md](docs/agents/skill-routing.md) | Which gstack skill to use for which kind of request |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
+| [tools/remote/PROVENANCE.md](tools/remote/PROVENANCE.md) | The same for every remote picture (#43), published to `pictures/v1/` with `:shared:publishRemotePicture` (README) |
 
 ## Skill routing
 

@@ -13,12 +13,19 @@ import com.brewingbytes.gemmory.ads.Monetization
 import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.billing.BillingRepository
+import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.PlayStreak
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
+import com.brewingbytes.gemmory.remote.HttpRemoteSource
+import com.brewingbytes.gemmory.remote.RemoteKeys
+import com.brewingbytes.gemmory.remote.RemotePictures
+import com.brewingbytes.gemmory.remote.RemoteSource
+import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.settings.AppSettings
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
@@ -59,6 +66,10 @@ class GemmoryApp : Application() {
 
     /** Today's picture (#34). */
     lateinit var todays: TodaysPictures
+        private set
+
+    /** Remote pictures (#43): the signed catalog in the repo's `pictures/v1/`, checked once a day from the Gallery. */
+    lateinit var remote: RemotePictures
         private set
 
     /** App-scoped, so an encode keeps going while the process lives, whatever screen is showing (design D8). */
@@ -121,6 +132,48 @@ class GemmoryApp : Application() {
         enabled,
     )
 
+    private fun newRemote(source: RemoteSource = HttpRemoteSource(BuildConfig.REMOTE_PICTURES_URL), keys: List<ByteArray> = RemoteKeys.PRODUCTION) =
+        RemotePictures(
+            filesDir = filesDir,
+            source = source,
+            keys = keys,
+            appVersion = BuildConfig.VERSION_CODE,
+            reservedIds = BundledPictures.ALL.map { it.id }.toSet(),
+            clock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
+            scope = appScope,
+            io = Dispatchers.IO.limitedParallelism(1),
+            reporter = reporter,
+        )
+
+    /**
+     * Connected tests only (#43): remote pictures from [source] signed by [keys] (a test key, never trusted in a
+     * real build), re-read from disk, which the test cleared or seeded. Call before launching MainActivity. The
+     * canvas store is rebuilt to read them. No argument puts GitHub and the production key back.
+     */
+    @VisibleForTesting
+    internal fun resetRemoteForTest(source: RemoteSource? = null, keys: List<ByteArray> = RemoteKeys.PRODUCTION) {
+        remote.pause()
+        remote = if (source == null) newRemote() else newRemote(source, keys)
+        store = newStore()
+    }
+
+    /** A picture's canvas by id: ids are unique across bundled and remote pictures (the catalog check refuses a clash). */
+    fun pictureRef(id: String): CanvasRef =
+        CanvasRef(if (BundledPictures.byId(id) == null && remote.listed().any { it.id == id }) CanvasKind.REMOTE else CanvasKind.BUNDLED, id)
+
+    private fun newStore() = CanvasStore(
+        filesDir = filesDir,
+        scope = appScope,
+        writer = storeWriter,
+        bundledGrid = { picture -> assets.open(picture.asset).use { it.readBytes() } },
+        encodes = encodes,
+        reporter = reporter,
+        analytics = analytics,
+        remote = remote,
+    )
+
+    private val storeWriter = Dispatchers.IO.limitedParallelism(1)
+
     private fun newStreak() =
         PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics) { monetization.onStreakDay(it) }
 
@@ -155,15 +208,9 @@ class GemmoryApp : Application() {
             reporter = reporter,
             analytics = analytics,
         )
-        store = CanvasStore(
-            filesDir = filesDir,
-            scope = scope,
-            writer = Dispatchers.IO.limitedParallelism(1),
-            bundledGrid = { picture -> assets.open(picture.asset).use { it.readBytes() } },
-            encodes = encodes,
-            reporter = reporter,
-            analytics = analytics,
-        )
+        appScope = scope
+        remote = newRemote()
+        store = newStore()
         billing = BillingRepository(
             backend = BillingBackends.create(this, reporter),
             cache = EntitlementCache(
@@ -174,7 +221,6 @@ class GemmoryApp : Application() {
             worker = Dispatchers.IO.limitedParallelism(1),
             analytics = analytics,
         )
-        appScope = scope
         monetization = newMonetization()
         todays = newTodays()
         consent = ConsentManager(this)

@@ -73,7 +73,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.brewingbytes.gemmory.ads.isLocked
-import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.photo.allowanceLine
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.DailyStreak
@@ -149,13 +148,15 @@ private const val SHARE_PROGRESS = "Share progress"
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
 fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.id}"
 
+/** The "New" label on a remote picture's tile (#43). */
+const val NEW_LABEL_TAG = "new-label"
+
 /**
  * Whether [this] tile is a locked picture the player hasn't unlocked (design D14). [todayFree], today's free picture
  * (#34), opens without a video today.
  */
 internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, todayFree: String? = null): Boolean =
-    ref.kind == CanvasKind.BUNDLED && ref.id != todayFree &&
-        BundledPictures.byId(ref.id)?.let { isLocked(it, unlocked, entitlements, started) } == true
+    ref.kind != CanvasKind.PHOTO && ref.id != todayFree && isLocked(lockable, ref.id, unlocked, entitlements, started)
 
 /**
  * Gallery (design system, Layout and Gallery tile): tabs Pictures / My Photos, a 2-column staggered grid of tiles
@@ -233,6 +234,7 @@ fun GalleryScreen(
                 // midnight shows yesterday's card until the next visit but no longer grants it.
                 val todayFree = state.today?.takeIf { !it.vip }?.tile?.ref?.id
                 val open: (Tile) -> Unit = { tile ->
+                    vm.opened(tile)
                     when {
                         tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
                         tile.locked(unlocked, entitlements, tile.ref.id.takeIf { vm.isFreeToday(tile) }) -> onLocked(tile)
@@ -548,7 +550,7 @@ private fun TileView(
 ) {
     var menu by remember { mutableStateOf(false) }
     val photo = tile.ref.kind == CanvasKind.PHOTO
-    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged)
+    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew)
     // TalkBack (design D19): one node per tile that reads exactly its state, with the ⋮ menu's items as its custom
     // actions (the ⋮ button itself is folded into them).
     val share = !locked && tile.shareable
@@ -606,6 +608,24 @@ private fun TileView(
                     Image(GemIcons.Play, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Watch to unlock", style = GemType.label, color = GemColors.Bone)
+                }
+            }
+            if (tile.isNew && !tile.damaged) {
+                // A remote picture that just arrived (#43): top-left, so it never meets "Watch to unlock" below. One
+                // line at any font scale; on a narrow tile at 2× it may ellipsize, never wrap.
+                Row(
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(LocalFelt.current.deep)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .testTag(NEW_LABEL_TAG),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(GemIcons.Spark, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("New", style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (tile.damaged) {

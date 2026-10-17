@@ -236,6 +236,21 @@ object GemIcons {
         }
         .build()
 
+    /** A four-point spark for the "New" label on a remote picture's tile (#43), drawn as a vector like [Play]. */
+    val Spark: ImageVector = ImageVector.Builder("Spark", 12.dp, 12.dp, 24f, 24f)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(12f, 1f)
+            lineTo(14.6f, 9.4f)
+            lineTo(23f, 12f)
+            lineTo(14.6f, 14.6f)
+            lineTo(12f, 23f)
+            lineTo(9.4f, 14.6f)
+            lineTo(1f, 12f)
+            lineTo(9.4f, 9.4f)
+            close()
+        }
+        .build()
+
     /** Three vertical dots (⋮), drawn as a vector so no font renders it as an emoji. */
     val More: ImageVector = ImageVector.Builder("More", 24.dp, 24.dp, 24f, 24f)
         .path(fill = SolidColor(Color.White)) {

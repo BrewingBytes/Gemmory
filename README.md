@@ -1,6 +1,6 @@
 # Gemmory: Photo Diamond Art
 
-An Android diamond-painting game. You turn your own photo into a gem canvas you can finish, then share a 9:16 sparkle time-lapse of it. The game also ships 49 bundled pictures, from a 5-minute starter (The Starry Night) through Quick and Medium up to ~15k-gem Big pictures. It's free with ads, and a VIP subscription removes them.
+An Android diamond-painting game. You turn your own photo into a gem canvas you can finish, then share a 9:16 sparkle time-lapse of it. The game also ships 49 bundled pictures, from a 5-minute starter (The Starry Night) through Quick and Medium up to ~15k-gem Big pictures, and more arrive without an app update (remote pictures, checked once a day). It's free with ads, and a VIP subscription removes them.
 
 It's for adults only. User photos never leave the phone: there is no upload, no backend for user content, and photo data is excluded from cloud backup and device transfer.
 
@@ -11,6 +11,8 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | `shared` | Kotlin Multiplatform, pure `commonMain` (no `android.*` or `java.awt`): the photo-to-grid converter, game rules, the save and grid codecs, the ad policy and the daily ledger. Build-time tools live in `jvmMain` |
 | `androidApp` | Jetpack Compose app: gallery, photo flow (ML Kit face check), play canvas, time-lapse encoder, AdMob + UMP, Play Billing, Firebase Crashlytics/Analytics |
 | `tools/bundled` | Source images, review PNGs and `PROVENANCE.md` for every bundled picture |
+| `pictures/v1` | The remote pictures' signed catalog and grids, which the app downloads from GitHub (created by the first publish) |
+| `tools/remote` | Source images, review PNGs and `PROVENANCE.md` for every remote picture |
 | `docs` | Design doc, design system, issue snapshot, Play compliance, privacy policy, deferred work |
 
 ## Docs
@@ -22,6 +24,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, Test Lab CI credentials, the production gate |
 | [docs/privacy-policy.md](docs/privacy-policy.md) | The published privacy policy |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
+| [tools/remote/PROVENANCE.md](tools/remote/PROVENANCE.md) | The same for every remote picture, with when it was published |
 
 ## Build and test
 
@@ -82,3 +85,25 @@ Grids are frozen once and never re-converted. Re-freezing a shipped picture chan
 4. Add a row to `tools/bundled/PROVENANCE.md` (source link, author and date, license or terms URL, spec and focus). `BundledPicturesTest` fails without it.
 
 The gallery shows the starter first, then every Quick picture, then Medium, then Big (`BundledPicturesTest` checks the order).
+
+## Publishing remote pictures
+
+Remote pictures (#43) reach players within a day, with no Play release. The app checks `pictures/v1/` on `main` (`https://raw.githubusercontent.com/BrewingBytes/Gemmory/main/pictures/v1/`) once a day from the gallery, and it refuses anything not signed with the key below. Rules are in the design doc (Locked pictures → Remote pictures).
+
+**The signing key** is an Ed25519 key at `~/.gemmory/remote-pictures-ed25519.pem`, with its path in `local.properties` as `remotePictures.signingKey` (or pass `-PsigningKey=`). It never goes in a repo. Keep a copy in a password manager: without it, no catalog can be signed until a release ships a new public key in `RemoteKeys.PRODUCTION`. To rotate it, add the new public key to that list, release, then sign with the new key.
+
+To publish a picture:
+
+1. Put the source in `tools/remote/<id>.jpg`, under the same rules as a bundled picture (CC0, public domain, or an image-model output with commercial rights). The id is new and never reused, and it isn't a bundled picture's id.
+2. Run the publishing task. It prints the content check and stops until you pass `-PcontentChecked=yes`: PEGI 3 / Everyone, made for adults, no identifiable people, brands or protected designs, and the license recorded.
+   ```sh
+   ./gradlew :shared:publishRemotePicture -Pid=<id> -Ptitle="Fox in Snow" -Psource=tools/remote/<id>.jpg \
+     -Pspec=big-3:4 -Pfocus=0.5 -Plocked=true \
+     -Pprovenance="<source link> | <author, date> | <license or terms URL>" -PcontentChecked=yes
+   ```
+   The task freezes the grid like `freezeBundledGrid` and writes `pictures/v1/grids/<id>.gmrg`. It adds the catalog entry (CRC, SHA-256, size, colors, `addedAt`, and `minAppVersion`, which defaults to the app's current versionCode; pass `-PminAppVersion=` for an older one). Then it signs `catalog.json` and checks the result with the app's own verifier and the app's public key before writing anything. Last, it writes `tools/remote/<id>.review.png` and appends the provenance row.
+3. Look at the review PNG, then commit `pictures/v1/` and `tools/remote/`, and open a PR. Phones pick the picture up within a day of the merge.
+
+To withdraw a picture, run `./gradlew :shared:withdrawRemotePicture -Pid=<id>`, mark its provenance row withdrawn, and open a PR. The picture leaves every phone that hasn't started it. Never edit `catalog.json` by hand (the signature would no longer match and every phone would refuse it), and never re-freeze a published grid. A fix is a new id.
+
+Debug builds can read another catalog folder with `-Pgemmory.remotePicturesUrl=<url ending in />`.

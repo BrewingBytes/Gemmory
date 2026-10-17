@@ -8,20 +8,33 @@ import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.StateStore
 import com.brewingbytes.gemmory.policy.TodayState
 import com.brewingbytes.gemmory.policy.TodaysPicture
+import com.brewingbytes.gemmory.remote.RemotePictureRules
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 
+/** A picture Today's picture may offer: its id and catalog lock flag (bundled, or remote #43). */
+data class TodayOption(val id: String, val locked: Boolean)
+
 /**
  * Pictures a [TodaysPicture] may pick from, in catalog order (#34): for a free player the locked ones neither
- * unlocked nor started, for VIP every picture not started. Never the starter.
+ * unlocked nor started, for VIP every picture not started. Never the starter. When any of them is a remote picture
+ * still marked "New" ([isNew]), only those (#43).
  */
-internal fun todayCandidates(started: Set<String>, unlocked: Set<String>, vip: Boolean): List<String> =
-    BundledPictures.ALL
+internal fun todayCandidates(
+    started: Set<String>,
+    unlocked: Set<String>,
+    vip: Boolean,
+    pictures: List<TodayOption> = BundledPictures.ALL.map { TodayOption(it.id, it.locked) },
+    isNew: (String) -> Boolean = { false },
+): List<String> {
+    val eligible = pictures
         .filter { it.id != BundledPictures.STARTER.id && it.id !in started }
         .filter { vip || (it.locked && it.id !in unlocked) }
         .map { it.id }
+    return RemotePictureRules.todayCandidates(eligible, isNew)
+}
 
 /**
  * Today's picture (#34) on this phone. The day's pick lives in the "today" preferences (an id and a day, no user
@@ -42,17 +55,24 @@ class TodaysPictures(
 
     private val today = TodaysPicture(clock, store)
 
-    /** Today's picture id, picking it on the day's first call. [started]: bundled pictures with a gem placed. */
+    /**
+     * Today's picture id, picking it on the day's first call. [started]: pictures with a gem placed; [pictures]: the
+     * gallery's pictures in order; [isNew]: a remote picture's "New" mark (#43), preferred when one is eligible.
+     */
     @Synchronized
-    fun pick(started: Set<String>, vip: Boolean): String? =
-        if (enabled) today.pick(todayCandidates(started, unlocks().unlocked.value, vip), vip) else null
+    fun pick(
+        started: Set<String>,
+        vip: Boolean,
+        pictures: List<TodayOption> = BundledPictures.ALL.map { TodayOption(it.id, it.locked) },
+        isNew: (String) -> Boolean = { false },
+    ): String? = if (enabled) today.pick(todayCandidates(started, unlocks().unlocked.value, vip, pictures, isNew), vip) else null
 
     /** Whether [ref] is today's free picture right now: it opens without a video. False once the day is over. */
     fun isFreeToday(ref: CanvasRef): Boolean = isToday(ref, vip = false)
 
     /** Whether [ref] is today's picture (or pick) for this tier right now. */
     @Synchronized
-    fun isToday(ref: CanvasRef, vip: Boolean): Boolean = enabled && ref.kind == CanvasKind.BUNDLED && today.picked(vip) == ref.id
+    fun isToday(ref: CanvasRef, vip: Boolean): Boolean = enabled && ref.kind != CanvasKind.PHOTO && today.picked(vip) == ref.id
 
     /**
      * A canvas opened with no gem placed: if it's today's picture now, the grant is decided here, so its first gem

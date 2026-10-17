@@ -2,7 +2,7 @@ package com.brewingbytes.gemmory.storage
 
 /**
  * Paths under `filesDir`. The backup rules in res/xml/backup_rules.xml and data_extraction_rules.xml exclude
- * [PHOTO_CANVASES] and [LEDGER] by these exact paths (BackupRulesTest keeps them in sync). Everything else may be
+ * [PHOTO_CANVASES], [LEDGER] and [REMOTE] by these exact paths (BackupRulesTest keeps them in sync). Everything else may be
  * backed up, so photo-derived data must only ever live under [PHOTO_CANVASES] (or cacheDir, which is never
  * backed up).
  */
@@ -14,6 +14,24 @@ object StorageLayout {
 
     /** Bundled-picture progress. No user content, so it may be backed up. */
     const val BUNDLED_CANVASES = "$CANVASES/bundled"
+
+    /**
+     * Remote-picture progress (#43): the grid copied in from [REMOTE_GRIDS] on first open, then progress exactly like
+     * a bundled picture. No user content, so it's backed up, grid included (16 KB at most), so a restored save opens
+     * even after its picture left the catalog.
+     */
+    const val REMOTE_CANVASES = "$CANVASES/remote"
+
+    /**
+     * The remote catalog's download cache (#43): `catalog.json`, its `.sig`, the "GMRR" state (ETag, check times,
+     * "New" bookkeeping) and `grids/<id>.gmrg`. Never backed up: all of it can be downloaded again.
+     */
+    const val REMOTE = "remote"
+
+    const val REMOTE_CATALOG = "$REMOTE/catalog.json"
+    const val REMOTE_SIGNATURE = "$REMOTE/catalog.json.sig"
+    const val REMOTE_STATE = "$REMOTE/state"
+    const val REMOTE_GRIDS = "$REMOTE/grids"
 
     /**
      * The daily allowance + grace counters (DailyLedger), the interstitial caps (AdPolicy) and the entitlement cache
