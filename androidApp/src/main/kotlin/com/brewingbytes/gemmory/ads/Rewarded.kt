@@ -1,7 +1,5 @@
 package com.brewingbytes.gemmory.ads
 
-import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
-import com.brewingbytes.gemmory.telemetry.UnavailableReason
 import android.app.Activity
 import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
@@ -17,17 +15,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.policy.EarnSource
+import com.brewingbytes.gemmory.policy.Inventory
+import com.brewingbytes.gemmory.policy.Item
+import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.policy.RewardedRules
 import com.brewingbytes.gemmory.policy.Unavailable
-import com.brewingbytes.gemmory.policy.LoadFailure
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.UnavailableReason
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.GemTextButton
@@ -38,7 +41,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** What a rewarded video unlocks: a locked bundled picture, or one more photo canvas today. */
+/** What a rewarded video unlocks: a locked bundled picture, one more photo canvas (kept, #38), or 5 fills (#38). */
 sealed interface RewardTarget {
     val type: RewardType
 
@@ -48,6 +51,11 @@ sealed interface RewardTarget {
 
     data object PhotoCanvas : RewardTarget {
         override val type get() = RewardType.PHOTO_CANVAS
+    }
+
+    /** From the gallery's Inventory sheet (#38), never the canvas. */
+    data object Fills : RewardTarget {
+        override val type get() = RewardType.FILLS
     }
 }
 
@@ -64,7 +72,7 @@ sealed interface RewardPhase {
 
     data class NotAvailable(val kind: Unavailable) : RewardPhase
 
-    /** Locked picture: "Unlocked" for 600 ms, then the canvas opens (design D11). */
+    /** Locked picture: "Unlocked" for 600 ms, then the canvas opens (design D11). Fills: "5 fills added" (#38). */
     data object Unlocked : RewardPhase
 }
 
@@ -176,12 +184,35 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
             when (target) {
                 is RewardTarget.Picture -> unlocked(target.id)
                 RewardTarget.PhotoCanvas -> {
-                    // Back to Preview, whose line now reads "Uses a bonus canvas from a video."
+                    // Back to Preview, whose line now reads "Uses a kept photo canvas (1 left)."
                     monetization.grantReward()
+                    app.analytics.log(AnalyticsEvent.inventoryEarned(Item.PHOTO_CANVAS, EarnSource.VIDEO, 1))
                     ui = null
                 }
+                RewardTarget.Fills -> fillsAdded(EarnSource.VIDEO)
             }
         }
+    }
+
+    /** "Use an unlock token" on a locked picture's sheet (#38): opens it for good, like a video. */
+    fun useToken() {
+        val target = ui?.target as? RewardTarget.Picture ?: return
+        if (ui?.phase == RewardPhase.Showing || ui?.phase == RewardPhase.Unlocked) return
+        job?.cancel()
+        job = viewModelScope.launch {
+            if (!monetization.useToken(target.id)) return@launch
+            app.analytics.log(AnalyticsEvent.inventorySpent(Item.UNLOCK_TOKEN))
+            unlocked(target.id)
+        }
+    }
+
+    /** 5 fills (#38): "5 fills added" for 600 ms, then the sheet closes. */
+    private suspend fun fillsAdded(source: EarnSource) {
+        monetization.earnFills()
+        app.analytics.log(AnalyticsEvent.inventoryEarned(Item.FILLS, source, Inventory.FILLS_PER_VIDEO))
+        ui = ui?.copy(phase = RewardPhase.Unlocked)
+        delay(UNLOCKED_MS)
+        ui = null
     }
 
     /** "Unlock picture" / "Start canvas" on the online no-fill grace offer. */
@@ -197,9 +228,11 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
             when (val target = current.target) {
                 is RewardTarget.Picture -> unlocked(target.id)
                 RewardTarget.PhotoCanvas -> {
+                    app.analytics.log(AnalyticsEvent.inventoryEarned(Item.PHOTO_CANVAS, EarnSource.GRACE, 1))
                     ui = null
                     event = RewardedEvent.StartPhotoCanvas
                 }
+                RewardTarget.Fills -> fillsAdded(EarnSource.GRACE)
             }
         }
     }
@@ -227,18 +260,32 @@ fun RewardedSheet(
     onVip: () -> Unit,
     onDismiss: () -> Unit,
     returnFocusTo: String? = null,
+    /** Unlock tokens held (#38): a locked picture's sheet offers one under the video. */
+    tokens: Int = 0,
+    onToken: () -> Unit = {},
 ) {
     val picture = ui.target is RewardTarget.Picture
-    GemSheet(if (picture) "Watch to unlock" else "Another photo canvas", onDismiss, returnFocusTo) {
+    val fills = ui.target is RewardTarget.Fills
+    val title = when {
+        picture -> "Watch to unlock"
+        fills -> "More fills"
+        else -> "Another photo canvas"
+    }
+    GemSheet(title, onDismiss, returnFocusTo) {
         val phase = ui.phase
         when (phase) {
             RewardPhase.Unlocked -> {
-                Text("Unlocked", style = GemType.body, color = GemColors.Bone, modifier = Modifier.testTag("rewarded-unlocked"))
+                Text(
+                    if (fills) "${Inventory.FILLS_PER_VIDEO} fills added" else "Unlocked",
+                    style = GemType.body,
+                    color = GemColors.Bone,
+                    modifier = Modifier.testTag("rewarded-unlocked"),
+                )
                 return@GemSheet
             }
             is RewardPhase.NotAvailable -> Text(
                 when (phase.kind) {
-                    Unavailable.GRACE_OFFER -> "No video right now. This one's on us today."
+                    Unavailable.GRACE_OFFER -> if (fills) "No video right now. These are on us today." else "No video right now. This one's on us today."
                     Unavailable.NO_VIDEO -> "No video right now. Try again in a bit."
                     Unavailable.OFFLINE -> "You're offline, connect to watch a video"
                 },
@@ -248,7 +295,11 @@ fun RewardedSheet(
                 modifier = Modifier.testTag("rewarded-unavailable"),
             )
             else -> Text(
-                if (picture) "Watch a short video to unlock this picture for good." else "Watch a short video for one more photo canvas today.",
+                when {
+                    picture -> "Watch a short video to unlock this picture for good."
+                    fills -> "Watch a short video for ${Inventory.FILLS_PER_VIDEO} fills. Each fills a region, the rest of a color, or a brush stroke."
+                    else -> "Watch a short video for one more photo canvas. It's kept until you use it."
+                },
                 style = GemType.body,
                 color = GemColors.Bone,
             )
@@ -282,10 +333,25 @@ fun RewardedSheet(
                 )
             is RewardPhase.NotAvailable -> when (phase.kind) {
                 Unavailable.GRACE_OFFER -> {
-                    PrimaryButton(if (picture) "Unlock picture" else "Start canvas", onGrace, Modifier.fillMaxWidth().testTag("rewarded-primary"))
+                    PrimaryButton(
+                        when {
+                            picture -> "Unlock picture"
+                            fills -> "Get ${Inventory.FILLS_PER_VIDEO} fills"
+                            else -> "Start canvas"
+                        },
+                        onGrace,
+                        Modifier.fillMaxWidth().testTag("rewarded-primary"),
+                    )
                     Spacer(Modifier.height(4.dp))
                     Centered {
-                        GemTextButton(if (picture) "Or get VIP: every picture unlocked" else "Or get VIP: unlimited photo canvases", onVip)
+                        GemTextButton(
+                            when {
+                                picture -> "Or get VIP: every picture unlocked"
+                                fills -> "Or get VIP: unlimited fills"
+                                else -> "Or get VIP: unlimited photo canvases"
+                            },
+                            onVip,
+                        )
                     }
                 }
                 Unavailable.NO_VIDEO, Unavailable.OFFLINE -> {
@@ -295,6 +361,11 @@ fun RewardedSheet(
                 }
             }
             RewardPhase.Unlocked -> Unit
+        }
+        // An unlock token (#38) is another way in, offered under the video while nothing else is under way.
+        if (picture && tokens > 0 && phase != RewardPhase.Showing) {
+            Spacer(Modifier.height(8.dp))
+            QuietButton("Use an unlock token · $tokens left", onToken, Modifier.fillMaxWidth().testTag("rewarded-token"))
         }
     }
 }

@@ -24,6 +24,7 @@ class RewardedSheetTest {
     val compose = createComposeRule()
 
     private var ui by mutableStateOf(RewardedUi(RewardTarget.PhotoCanvas, RewardPhase.Loading))
+    private var tokens by mutableStateOf(0)
     private val clicks = mutableListOf<String>()
 
     private fun show(target: RewardTarget, phase: RewardPhase, closedEarly: Boolean = false) {
@@ -41,6 +42,8 @@ class RewardedSheetTest {
                     onTryAgain = { clicks += "try" },
                     onVip = { clicks += "vip" },
                     onDismiss = { clicks += "dismiss" },
+                    tokens = tokens,
+                    onToken = { clicks += "token" },
                 )
             }
         }
@@ -93,7 +96,7 @@ class RewardedSheetTest {
         ui = RewardedUi(RewardTarget.PhotoCanvas, RewardPhase.Ready)
         start()
         text("Another photo canvas").assertExists()
-        text("Watch a short video for one more photo canvas today.").assertExists()
+        text("Watch a short video for one more photo canvas. It's kept until you use it.").assertExists()
 
         show(RewardTarget.PhotoCanvas, RewardPhase.NotAvailable(Unavailable.GRACE_OFFER))
         text("Start canvas").assertExists()
@@ -102,5 +105,30 @@ class RewardedSheetTest {
         show(RewardTarget.PhotoCanvas, RewardPhase.Loading, closedEarly = true)
         text("Watch to the end to unlock.").assertExists()
         text("Loading video…").assertExists()
+    }
+
+    /** #38: the fills video from the Inventory sheet, and an unlock token on a locked picture's sheet. */
+    @Test
+    fun fillsRowsAndTheUnlockToken() {
+        ui = RewardedUi(RewardTarget.Fills, RewardPhase.Ready)
+        start()
+        text("More fills").assertExists()
+        text("Watch a short video for 5 fills. Each fills a region, the rest of a color, or a brush stroke.").assertExists()
+        show(RewardTarget.Fills, RewardPhase.NotAvailable(Unavailable.GRACE_OFFER))
+        text("No video right now. These are on us today.").assertExists()
+        text("Get 5 fills").assertExists()
+        text("Or get VIP: unlimited fills").assertExists()
+        show(RewardTarget.Fills, RewardPhase.Unlocked)
+        text("5 fills added").assertExists()
+
+        // No token held: no token button; one held: under the video, in every state but while it shows.
+        show(RewardTarget.Picture("wave"), RewardPhase.Ready)
+        text("Use an unlock token · 1 left").assertDoesNotExist()
+        tokens = 1
+        show(RewardTarget.Picture("wave"), RewardPhase.NotAvailable(Unavailable.OFFLINE))
+        text("Use an unlock token · 1 left").assertExists().performClick()
+        assertEquals(listOf("token"), clicks)
+        show(RewardTarget.Picture("wave"), RewardPhase.Showing)
+        text("Use an unlock token · 1 left").assertDoesNotExist()
     }
 }

@@ -86,6 +86,7 @@ import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -200,9 +201,11 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
                     s.milestonesOn = milestonesOn
                     s.reducedMotion = reducedMotion
                 }
-                // Placement tools (#20): VIP only for now; free players see no tool well or Fill button until #38.
-                val entitlements by (context.applicationContext as GemmoryApp).monetization.entitlements.collectAsStateWithLifecycle()
-                LaunchedEffect(s, entitlements.vip) { s.offerTools(entitlements.vip) }
+                // Placement tools (#20): unlimited for VIP; anyone else uses the fills they hold (#38).
+                val monetization = (context.applicationContext as GemmoryApp).monetization
+                val entitlements by monetization.entitlements.collectAsStateWithLifecycle()
+                val inventory by monetization.inventory.collectAsStateWithLifecycle()
+                LaunchedEffect(s, entitlements.vip, inventory.fills) { s.offerTools(entitlements.vip, inventory.fills) }
                 val peek = remember(s) { Peek(scope) }
                 TopBar(
                     s.title,
@@ -364,7 +367,7 @@ private class CanvasController(
     private fun toolTap(cell: Int): TapOutcome? {
         if (!session.startsPaint(cell)) return null
         val batch = when (session.tool) {
-            PlacementTool.BRUSH -> session.brush(cell)
+            PlacementTool.BRUSH -> session.startStroke().let { session.brush(cell) }
             PlacementTool.REGION -> session.fillRegion(cell)
             else -> return null
         } ?: return null
@@ -373,6 +376,8 @@ private class CanvasController(
     }
 
     override fun onLongPress(cell: Int) = session.select(session.pattern.cells[cell])
+
+    override fun onPaintStart() = session.startStroke()
 
     override fun onPaint(cell: Int, slot: Int) {
         // A drag paints only its own color: once that color finishes and the next one is selected, it stops.
@@ -540,7 +545,7 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
     val description = A11yText.canvas(session.placedCount, session.cellCount, slot + 1, session.remaining(slot), format)
     val peeking = peek.shown
     // Placement tools (#20, VIP): "Fill region at next gem", and "Fill the rest of color 7" while Fill color shows.
-    val toolsOn = session.toolsOn
+    val toolsOn = session.toolsUsable
     val fillColor = session.fillColorVisible
     val actions = remember(controller, peeking, toolsOn, fillColor, slot) {
         listOfNotNull(
@@ -657,6 +662,8 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
     val showFind = !session.isFinished && session.findVisible
     val showFill = !session.isFinished && session.fillColorVisible
     val showWell = !session.isFinished && session.toolsOn
+    // The fills left (#38) on the well's corner; VIP has no count.
+    val wellCount = if (session.unlimitedTools) null else session.fills
     var picking by remember(session) { mutableStateOf(false) }
     if (!showWell) picking = false
     val pick: (PlacementTool) -> Unit = {
@@ -726,11 +733,13 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
                 FillColorButton(session, controller, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp))
             }
             if (showWell) {
-                ToolWell(session.tool, { picking = !picking }, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp))
+                ToolWell(session.tool, wellCount, session.toolsUsable, { picking = !picking }, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp))
             }
             if (picking) {
                 Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (tool in PlacementTool.MODES) ToolTrough(tool, tool == session.tool, reducedMotion, { pick(tool) }, Modifier.fillMaxWidth())
+                    for (tool in PlacementTool.MODES) {
+                        ToolTrough(tool, tool == session.tool, reducedMotion, { pick(tool) }, Modifier.fillMaxWidth(), enabled = tool == PlacementTool.TAP || session.toolsUsable)
+                    }
                 }
                 return@Column
             }
@@ -762,7 +771,9 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
     Row(Modifier.fillMaxWidth().background(deep).testTag("tray"), verticalAlignment = Alignment.CenterVertically) {
         if (showFind) FindButton(controller::find, Modifier.padding(start = 16.dp))
         if (showFill) FillColorButton(session, controller, Modifier.padding(start = if (showFind) 8.dp else 16.dp))
-        if (showWell) ToolWell(session.tool, { picking = !picking }, Modifier.padding(start = if (showFind || showFill) 8.dp else 16.dp))
+        if (showWell) {
+            ToolWell(session.tool, wellCount, session.toolsUsable, { picking = !picking }, Modifier.padding(start = if (showFind || showFill) 8.dp else 16.dp))
+        }
         // The tool troughs lie over the color troughs at exactly their size, so the tray (and the canvas) never
         // changes height when they swap, at any font scale.
         Box(Modifier.weight(1f)) {
@@ -785,7 +796,14 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 for (tool in PlacementTool.MODES) {
-                    ToolTrough(tool, tool == session.tool, reducedMotion, { pick(tool) }, Modifier.weight(1f).fillMaxHeight())
+                    ToolTrough(
+                        tool,
+                        tool == session.tool,
+                        reducedMotion,
+                        { pick(tool) },
+                        Modifier.weight(1f).fillMaxHeight(),
+                        enabled = tool == PlacementTool.TAP || session.toolsUsable,
+                    )
                 }
             }
         }
@@ -810,22 +828,43 @@ private fun PlacementTool.icon() = when (this) {
 
 /**
  * The tool well (#20, founder pick P1): a 48dp quiet button showing the current tool, with a 6dp lamp corner while
- * it isn't Tap. A tap swaps the troughs for the tool troughs (or back).
+ * it isn't Tap. A tap swaps the troughs for the tool troughs (or back). Without VIP (#38) the fills left show in mono
+ * at its bottom-right corner, and at 0 it's dimmed (it still opens, to show the tools out of fills).
  */
 @Composable
-private fun ToolWell(tool: PlacementTool, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ToolWell(tool: PlacementTool, count: Int?, usable: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .alpha(if (usable) 1f else DIMMED_ALPHA)
             .clip(RoundedCornerShape(6.dp))
             .background(LocalFelt.current.raised)
             .clickable(role = Role.Button, onClick = onClick)
             // The tag before the clear, which drops everything after it.
             .testTag("tool-well")
-            .clearAndSetSemantics { contentDescription = A11yText.tool(tool.label()) },
+            .clearAndSetSemantics { contentDescription = A11yText.tool(tool.label(), count) },
         contentAlignment = Alignment.Center,
     ) {
-        Image(tool.icon(), contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
+        // Above 1.5× font the count would cover the icon, so it sits beside it and the well widens (D20).
+        val inline = count != null && LocalDensity.current.fontScale > LARGE_FONT_SCALE
+        Row(Modifier.padding(horizontal = if (inline) 8.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+            Image(tool.icon(), contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
+            if (inline) Text(" $count", style = GemType.mono.copy(fontSize = 11.sp), color = GemColors.Bone, maxLines = 1)
+        }
+        if (count != null && !inline) {
+            Text(
+                "$count",
+                style = GemType.mono.copy(fontSize = 11.sp),
+                color = GemColors.Bone,
+                maxLines = 1,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(2.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(LocalFelt.current.ground)
+                    .padding(horizontal = 4.dp),
+            )
+        }
         if (tool != PlacementTool.TAP) {
             Box(Modifier.align(Alignment.TopEnd).padding(5.dp).size(6.dp).clip(RoundedCornerShape(1.dp)).background(GemColors.Lamp))
         }
@@ -837,7 +876,15 @@ private fun ToolWell(tool: PlacementTool, onClick: () -> Unit, modifier: Modifie
  * hides, as a color trough's count does (D20), so a two-line name still fits the tray's height.
  */
 @Composable
-private fun ToolTrough(tool: PlacementTool, selected: Boolean, instantLift: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ToolTrough(
+    tool: PlacementTool,
+    selected: Boolean,
+    instantLift: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** False for Brush and Fill region with no fills left (#38): dimmed and not clickable. */
+    enabled: Boolean = true,
+) {
     val showIcon = LocalDensity.current.fontScale <= LARGE_FONT_SCALE
     val lift by animateDpAsState(if (selected) (-3).dp else 0.dp, if (instantLift) snap() else tween(LIFT_MS), label = "lift")
     val shape = RoundedCornerShape(8.dp)
@@ -848,12 +895,14 @@ private fun ToolTrough(tool: PlacementTool, selected: Boolean, instantLift: Bool
             .graphicsLayer { translationY = lift.toPx() }
             .testTag("tool-${tool.param}")
             .border(BorderStroke(2.dp, if (selected) GemColors.Lamp else Color.Transparent), shape)
+            .alpha(if (enabled) 1f else DIMMED_ALPHA)
             .clip(shape)
             .background(felt.ground)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .clearAndSetSemantics {
-                contentDescription = tool.label()
+                contentDescription = if (enabled) tool.label() else "${tool.label()}, no fills left"
                 this.selected = selected
+                if (!enabled) disabled()
             }
             .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1032,4 +1081,5 @@ private const val ZOOM_MS = 250
 private const val CHROME_OUT_MS = 250
 private const val REDUCED_FADE_MS = 150
 private const val BLINK_MS = 120L
+private const val DIMMED_ALPHA = 0.55f
 private const val ANNOUNCEMENT_MS = 3_000L

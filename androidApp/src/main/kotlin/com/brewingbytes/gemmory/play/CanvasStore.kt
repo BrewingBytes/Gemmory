@@ -129,10 +129,11 @@ class CanvasStore(
                 analytics.log(AnalyticsEvent.canvasFinished(ref, opened.grid.pattern.width, opened.grid.pattern.height))
             },
             onPlaced = { encodes.onPlaced(ref) },
-            // Tools are VIP-only for now (#20), so every use is a VIP one.
-            onToolUsed = { tool ->
+            // VIP uses the tools without limit; anyone else pays with fills (#38).
+            onToolUsed = { tool, unlimited ->
                 val pattern = opened.grid.pattern
-                analytics.log(AnalyticsEvent.fillToolUsed(ref, pattern.width, pattern.height, tool.param, tier = "vip"))
+                val tier = if (unlimited) "vip" else "free"
+                analytics.log(AnalyticsEvent.fillToolUsed(ref, pattern.width, pattern.height, tool.param, tier))
             },
             onClosed = { lastWrite, played ->
                 val done = scope.launch(writer) {

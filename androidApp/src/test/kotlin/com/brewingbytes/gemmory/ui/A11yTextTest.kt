@@ -30,6 +30,8 @@ class A11yTextTest {
         assertEquals("Back to canvas", A11yText.peek(false))
         assertEquals("1,214 placed. 98 left", A11yText.batch(1214, 98, us))
         assertEquals("Tool: Fill region", A11yText.tool("Fill region"))
+        assertEquals("Tool: Brush 3×3, 1 fill", A11yText.tool("Brush 3×3", 1))
+        assertEquals("Tool: Tap, 0 fills", A11yText.tool("Tap", 0))
         assertEquals("Fill the rest of color 7", A11yText.fillColor(7))
     }
 

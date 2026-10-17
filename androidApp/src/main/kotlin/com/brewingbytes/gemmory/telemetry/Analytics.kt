@@ -3,6 +3,8 @@ package com.brewingbytes.gemmory.telemetry
 import android.util.Log
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.policy.ConsentModeV2
+import com.brewingbytes.gemmory.policy.EarnSource
+import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -41,6 +43,15 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
          */
         fun fillToolUsed(ref: CanvasRef, width: Int, height: Int, tool: String, tier: String) =
             AnalyticsEvent("fill_tool_used", mapOf("tool" to tool, SIZE to size(ref, width, height), "tier" to tier))
+
+        /** An inventory item was earned (#38): [amount] of [item] from [source] (video, grace or the streak wheel). */
+        fun inventoryEarned(item: Item, source: EarnSource, amount: Int) = AnalyticsEvent(
+            "inventory_earned",
+            mapOf("item" to item.param, "source" to source.param, "amount" to amount.toLong()),
+        )
+
+        /** One inventory item was spent (#38). */
+        fun inventorySpent(item: Item) = AnalyticsEvent("inventory_spent", mapOf("item" to item.param))
 
         fun rewardedOffered(type: RewardType) = AnalyticsEvent("rewarded_offered", reward(type))
 

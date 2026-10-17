@@ -27,8 +27,12 @@ object A11yText {
     fun batch(placed: Int, left: Int, format: NumberFormat = NumberFormat.getIntegerInstance()): String =
         "${format.format(placed)} placed. ${left(left, format)}"
 
-    /** The tool well (#20): "Tool: Fill region". */
-    fun tool(name: String): String = "Tool: $name"
+    /** The tool well (#20): "Tool: Fill region"; without VIP (#38) with the fills left, "Tool: Fill region, 4 fills". */
+    fun tool(name: String, fills: Int? = null): String = when (fills) {
+        null -> "Tool: $name"
+        1 -> "Tool: $name, 1 fill"
+        else -> "Tool: $name, $fills fills"
+    }
 
     /** Fill color's TalkBack action and button label (#20): "Fill the rest of color 7". */
     fun fillColor(color: Int): String = "Fill the rest of color $color"

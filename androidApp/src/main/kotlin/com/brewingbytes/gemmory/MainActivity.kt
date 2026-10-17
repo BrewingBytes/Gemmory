@@ -26,9 +26,12 @@ import com.brewingbytes.gemmory.ads.RewardedViewModel
 import com.brewingbytes.gemmory.billing.BillingCopy
 import com.brewingbytes.gemmory.billing.PaywallScreen
 import com.brewingbytes.gemmory.billing.subscriptionPage
+import com.brewingbytes.gemmory.gallery.INVENTORY_TAG
 import com.brewingbytes.gemmory.gallery.VIP_ACTION_TAG
 import com.brewingbytes.gemmory.policy.Membership
 import com.brewingbytes.gemmory.policy.Allowance
+import com.brewingbytes.gemmory.policy.EarnSource
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,6 +106,7 @@ class MainActivity : ComponentActivity() {
         val membership by app.billing.membership.collectAsStateWithLifecycle()
         val firstSessionOver by app.monetization.firstSessionOver.collectAsStateWithLifecycle()
         val notice by app.billing.notice.collectAsStateWithLifecycle()
+        val inventory by app.monetization.inventory.collectAsStateWithLifecycle()
 
         // Where TalkBack focus goes back to when the paywall closes: what opened it.
         var paywallTrigger by rememberSaveable { mutableStateOf<String?>(null) }
@@ -191,6 +195,14 @@ class MainActivity : ComponentActivity() {
                     showVip = firstSessionOver,
                     onVip = { openVip(VIP_ACTION_TAG) },
                     notice = galleryNotice,
+                    // VIP has everything unlimited, so no inventory (#38).
+                    inventory = inventory.takeIf { !entitlements.vip },
+                    onWatchFills = { rewarded.open(RewardTarget.Fills, this@MainActivity) },
+                    onSpin = {
+                        app.monetization.spin()?.also {
+                            app.analytics.log(AnalyticsEvent.inventoryEarned(it.item, EarnSource.WHEEL, it.amount))
+                        }
+                    },
                 )
             }
             Route.Settings -> SettingsScreen(onBack = { stack.pop() }, onMembership = { openVip(MEMBERSHIP_TAG) })
@@ -224,6 +236,7 @@ class MainActivity : ComponentActivity() {
             Route.Preview -> PreviewScreen(
                 state = flow,
                 allowance = allowance,
+                kept = inventory.canvases,
                 onStart = photoFlow::start,
                 onWatchVideo = { rewarded.open(RewardTarget.PhotoCanvas, this@MainActivity) },
                 onChooseAnother = {
@@ -264,6 +277,7 @@ class MainActivity : ComponentActivity() {
                         when (val target = ui.target) {
                             is RewardTarget.Picture -> tileTag(CanvasRef(CanvasKind.BUNDLED, target.id))
                             RewardTarget.PhotoCanvas -> "preview-primary"
+                            RewardTarget.Fills -> INVENTORY_TAG
                         },
                     )
                 },
@@ -272,7 +286,11 @@ class MainActivity : ComponentActivity() {
                 returnFocusTo = when (val target = ui.target) {
                     is RewardTarget.Picture -> tileTag(CanvasRef(CanvasKind.BUNDLED, target.id))
                     RewardTarget.PhotoCanvas -> "preview-primary"
+                    RewardTarget.Fills -> INVENTORY_TAG
                 },
+                // Unlock tokens (#38) on a locked picture's sheet.
+                tokens = inventory.tokens,
+                onToken = rewarded::useToken,
             )
         }
     }

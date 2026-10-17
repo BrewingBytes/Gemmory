@@ -253,11 +253,14 @@ private fun GemImage(bitmap: ImageBitmap, description: String, modifier: Modifie
     )
 }
 
-/** The allowance line on Preview and the gallery note (design D5); null when there is none (VIP). */
-internal fun allowanceLine(allowance: Allowance): String? = when (allowance) {
+/**
+ * The allowance line on Preview and the gallery note (design D5); null when there is none (VIP). [kept]: photo
+ * canvases kept in the inventory (#38); a bonus from before the update, used today, reads as before.
+ */
+internal fun allowanceLine(allowance: Allowance, kept: Int = 0): String? = when (allowance) {
     Allowance.Unlimited -> null
     Allowance.Free -> "Uses today's free photo canvas."
-    Allowance.Bonus -> "Uses a bonus canvas from a video."
+    Allowance.Bonus -> if (kept > 0) "Uses a kept photo canvas ($kept left)." else "Uses a bonus canvas from a video."
     Allowance.WatchVideo -> "Today's free one is used. Watch a video for another."
 }
 
@@ -274,6 +277,8 @@ fun PreviewScreen(
     onWatchVideo: () -> Unit,
     onChooseAnother: () -> Unit,
     onBack: () -> Unit,
+    /** Photo canvases kept in the inventory (#38), for "Uses a kept photo canvas (2 left)." */
+    kept: Int = 0,
 ) {
     val conversion = state.conversions[state.size]
     val rules = state.rules
@@ -333,7 +338,7 @@ fun PreviewScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                allowanceLine(allowance)?.let {
+                allowanceLine(allowance, kept)?.let {
                     Text(
                         it,
                         style = GemType.label,
