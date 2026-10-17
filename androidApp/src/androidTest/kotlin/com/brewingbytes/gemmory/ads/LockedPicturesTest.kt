@@ -98,6 +98,8 @@ class LockedPicturesTest {
         clearState()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         app.resetMonetizationForTest(ads)
+        // No picture of the day (#34): these tests pin which pictures are locked and where they sit.
+        app.resetTodaysForTest(enabled = false)
         setVip(false)
     }
 
@@ -107,6 +109,7 @@ class LockedPicturesTest {
         setVip(false)
         clearState()
         app.resetMonetizationForTest()
+        app.resetTodaysForTest()
     }
 
     /** No canvases, no unlocks and an unused grace today. */

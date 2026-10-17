@@ -13,6 +13,7 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 sealed interface PlayUi {
@@ -27,6 +28,7 @@ sealed interface PlayUi {
 class PlayViewModel(application: Application) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
     private val streak = (application as GemmoryApp).streak
+    private val app = application as GemmoryApp
     private var ref: CanvasRef? = null
     private var opening: Job? = null
 
@@ -53,8 +55,16 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
                 is CanvasStore.Opened.Ready -> PlayUi.Ready(store.start(opened))
                 is CanvasStore.Opened.Damaged -> PlayUi.Damaged
             }
-            // The daily play streak (#33) counts a day when a picture is finished here; reopening a finished one isn't.
             val session = (ui as? PlayUi.Ready)?.session ?: return@launch
+            // Today's picture (#34): its first gem unlocks it for good (a free player) and tells Analytics.
+            val vip = app.monetization.entitlements.value.vip
+            if (session.placedCount == 0 && app.todays.isToday(ref, vip)) {
+                launch {
+                    snapshotFlow { session.placedCount > 0 }.first { it }
+                    app.todays.started(ref, session.pattern.width, session.pattern.height, vip)
+                }
+            }
+            // The daily play streak (#33) counts a day when a picture is finished here; reopening a finished one isn't.
             snapshotFlow { session.placedCount == session.cellCount }.drop(1).filter { it }.collect { streak.played() }
         }
     }

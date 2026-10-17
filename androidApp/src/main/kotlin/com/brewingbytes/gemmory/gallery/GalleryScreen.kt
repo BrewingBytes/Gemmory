@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -60,10 +61,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,6 +93,7 @@ import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.NOTE_MAX_WIDTH
 import com.brewingbytes.gemmory.ui.PrimaryButton
+import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.galleryColumns
 import com.brewingbytes.gemmory.ui.noteFitsBeside
@@ -136,14 +141,19 @@ private sealed interface GallerySheet {
 /** The gallery's "VIP" action, also where TalkBack focus returns when the paywall closes. */
 const val VIP_ACTION_TAG = "gallery-vip"
 const val STREAK_TAG = "gallery-streak"
+const val TODAY_TAG = "gallery-today"
 private const val SHARE_PROGRESS = "Share progress"
 
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
 fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.id}"
 
-/** Whether [this] tile is a locked picture the player hasn't unlocked (design D14). */
-internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements): Boolean =
-    ref.kind == CanvasKind.BUNDLED && BundledPictures.byId(ref.id)?.let { isLocked(it, unlocked, entitlements, started) } == true
+/**
+ * Whether [this] tile is a locked picture the player hasn't unlocked (design D14). [todayFree], today's free picture
+ * (#34), opens without a video today.
+ */
+internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, todayFree: String? = null): Boolean =
+    ref.kind == CanvasKind.BUNDLED && ref.id != todayFree &&
+        BundledPictures.byId(ref.id)?.let { isLocked(it, unlocked, entitlements, started) } == true
 
 /**
  * Gallery (design system, Layout and Gallery tile): tabs Pictures / My Photos, a 2-column staggered grid of tiles
@@ -210,17 +220,22 @@ fun GalleryScreen(
             if (tab == 1 && state.loaded && tiles.isEmpty()) {
                 MyPhotosEmpty(onNewFromPhoto)
             } else {
+                // Today's free picture (#34) opens without a video; the tap re-checks it, so a gallery left open past
+                // midnight shows yesterday's card until the next visit but no longer grants it.
+                val todayFree = state.today?.takeIf { !it.vip }?.tile?.ref?.id
+                val open: (Tile) -> Unit = { tile ->
+                    when {
+                        tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
+                        tile.locked(unlocked, entitlements, tile.ref.id.takeIf { vm.isFreeToday(tile) }) -> onLocked(tile)
+                        else -> onOpen(tile)
+                    }
+                }
                 TileGrid(
                     tiles = tiles,
                     bottomPadding = gridBottom,
-                    isLocked = { it.locked(unlocked, entitlements) },
-                    onOpen = { tile ->
-                        when {
-                            tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
-                            tile.locked(unlocked, entitlements) -> onLocked(tile)
-                            else -> onOpen(tile)
-                        }
-                    },
+                    header = state.today?.takeIf { tab == 0 }?.let { card -> { TodayCardView(card) { open(card.tile) } } },
+                    isLocked = { it.locked(unlocked, entitlements, todayFree) },
+                    onOpen = open,
                     onShareProgress = { vm.shareProgress(it.ref) },
                     onRename = { sheet = GallerySheet.Rename(it.ref, it.title) },
                     onDelete = { sheet = GallerySheet.Delete(it.ref) },
@@ -379,6 +394,75 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int) {
     }
 }
 
+/**
+ * Today's picture (#34): a felt-deep card above the Pictures grid with the finished picture (its real progress once
+ * started), "Today's picture" ("Today's pick" for VIP), the title, the size and "free today", and a quiet Start
+ * (Continue once started; none when done). The whole card opens it; TalkBack reads it as one node.
+ */
+@Composable
+private fun TodayCardView(card: TodayCard, onOpen: () -> Unit) {
+    val tile = card.tile
+    val action = when {
+        tile.done -> "Open"
+        tile.started -> "Continue"
+        else -> "Start"
+    }
+    val description = A11yText.today(tile.title, card.size, card.vip, card.free, tile.started, tile.percent, tile.done)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp)
+            .testTag(TODAY_TAG)
+            .clip(RoundedCornerShape(12.dp))
+            .background(LocalFelt.current.deep)
+            .clickable(onClickLabel = action, onClick = onOpen)
+            .clearAndSetSemantics {
+                contentDescription = description
+                onClick(label = action) { onOpen(); true }
+            }
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            Modifier
+                .width(TODAY_THUMB)
+                .aspectRatio(tile.aspect)
+                .clip(RoundedCornerShape(4.dp)),
+        ) {
+            card.preview?.let {
+                Image(it, contentDescription = null, contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.None, modifier = Modifier.fillMaxSize())
+            }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // text-muted and bone on felt-deep (6.30 and 7.58:1); lamp stays "the selected one" only.
+            Text(if (card.vip) "Today's pick" else "Today's picture", style = GemType.label, color = GemColors.TextMuted)
+            Text(tile.title, style = GemType.button, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(todayLine(card), style = GemType.label, color = GemColors.TextMuted)
+            if (!tile.done) {
+                Spacer(Modifier.height(6.dp))
+                QuietButton(action, onOpen)
+            }
+        }
+    }
+}
+
+/** "Medium · free today" / "Medium · 12% done" / "Medium · done" / "Medium"; the percent in mono, like every figure. */
+private fun todayLine(card: TodayCard) = buildAnnotatedString {
+    append(card.size)
+    val tile = card.tile
+    when {
+        tile.done -> append(" · done")
+        tile.started -> {
+            append(" · ")
+            withStyle(GemType.mono.copy(fontSize = 13.sp).toSpanStyle()) { append("${tile.percent}%") }
+            append(" done")
+        }
+        card.free -> append(" · free today")
+    }
+}
+
+private val TODAY_THUMB = 72.dp
+
 /** "3 days in a row" (#33): the count in mono, like every number; one TalkBack node. Calm: no flame, no warning. */
 @Composable
 private fun StreakChip(days: Int) {
@@ -400,6 +484,7 @@ private fun StreakChip(days: Int) {
 private fun TileGrid(
     tiles: List<Tile>,
     bottomPadding: Dp,
+    header: (@Composable () -> Unit)?,
     isLocked: (Tile) -> Boolean,
     onOpen: (Tile) -> Unit,
     onShareProgress: (Tile) -> Unit,
@@ -417,6 +502,8 @@ private fun TileGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalItemSpacing = 10.dp,
     ) {
+        // Today's picture (#34) spans the grid's width and scrolls with it, so it never holds space at 200% font.
+        if (header != null) item(key = TODAY_TAG, span = StaggeredGridItemSpan.FullLine) { header() }
         items(tiles, key = { "${it.ref.kind}/${it.ref.id}" }) { tile ->
             TileView(tile, isLocked(tile), onOpen, onShareProgress, onRename, onDelete, onStartOver)
         }

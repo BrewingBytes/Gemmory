@@ -31,6 +31,10 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** The first picture finished on a new day (#33): the daily play streak is now [length] days. */
         fun streakDay(length: Int) = AnalyticsEvent("streak_day", mapOf("length" to length.toLong()))
 
+        /** The first gem on today's picture (#34). [vip]: it was VIP's "Today's pick", not a free grant. */
+        fun todaysPictureStarted(ref: CanvasRef, width: Int, height: Int, vip: Boolean) =
+            AnalyticsEvent("todays_picture_started", mapOf(SIZE to size(ref, width, height), "tier" to if (vip) "vip" else "free"))
+
         fun rewardedOffered(type: RewardType) = AnalyticsEvent("rewarded_offered", reward(type))
 
         fun rewardedWatched(type: RewardType) = AnalyticsEvent("rewarded_watched", reward(type))

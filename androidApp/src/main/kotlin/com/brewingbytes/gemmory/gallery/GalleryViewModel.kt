@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.photo.PhotoTitles
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
@@ -48,19 +49,29 @@ data class Tile(
 }
 
 /**
- * Pictures tab order (#58): every picture a tap opens (the starter, the free ones, unlocked or started ones, all of
- * them for VIP), then the locked ones, each group keeping the catalog's Quick, Medium, Big ramp (#31). "Opens" is
- * [Tile.locked], the rule the tap follows.
+ * Pictures tab order (#58): every picture a tap opens (the starter, the free ones, unlocked or started ones, today's
+ * free picture (#34), all of them for VIP), then the locked ones, each group keeping the catalog's Quick, Medium, Big
+ * ramp (#31). "Opens" is [Tile.locked], the rule the tap follows.
  */
-internal fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitlements: Entitlements): List<Tile> =
-    pictures.sortedBy { it.locked(unlocked, entitlements) }
+internal fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitlements: Entitlements, todayFree: String? = null): List<Tile> =
+    pictures.sortedBy { it.locked(unlocked, entitlements, todayFree) }
 
-/** [streak]: days in a row the player has placed a gem (#33), as of this visit; 0 when broken or never played. */
+/**
+ * The Today's picture card (#34) above the Pictures grid. [preview] is the finished picture until a gem is placed,
+ * then the tile's real progress. [free]: a free player's pick not started yet ("free today"); [vip]: "Today's pick".
+ */
+data class TodayCard(val tile: Tile, val preview: ImageBitmap?, val size: String, val vip: Boolean, val free: Boolean)
+
+/**
+ * [streak]: days in a row with a picture finished (#33), as of this visit; 0 when broken or never played. [today]:
+ * today's picture (#34), null when there's nothing to pick.
+ */
 data class GalleryState(
     val loaded: Boolean = false,
     val pictures: List<Tile> = emptyList(),
     val photos: List<Tile> = emptyList(),
     val streak: Int = 0,
+    val today: TodayCard? = null,
 )
 
 class GalleryViewModel(application: Application, private val handle: SavedStateHandle) : AndroidViewModel(application) {
@@ -91,9 +102,31 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             val (pictures, photos) = store.summaries()
             val tiles = withContext(Dispatchers.Default) { pictures.map { tile(it) } to photos.map { tile(it) } }
             val monetization = app.monetization
-            val ordered = picturesInOrder(tiles.first, monetization.unlocks.unlocked.value, monetization.entitlements.value)
-            _state.value = GalleryState(loaded = true, pictures = ordered, photos = tiles.second, streak = app.streak.current())
+            val unlocked = monetization.unlocks.unlocked.value
+            val entitlements = monetization.entitlements.value
+            val today = todayCard(pictures, tiles.first, unlocked, entitlements.vip)
+            val todayFree = today?.takeIf { !it.vip }?.tile?.ref?.id
+            val ordered = picturesInOrder(tiles.first, unlocked, entitlements, todayFree)
+            _state.value = GalleryState(loaded = true, pictures = ordered, photos = tiles.second, streak = app.streak.current(), today = today)
         }
+    }
+
+    /** Whether [tile] is today's free picture right now (#34), read live so a gallery left open past midnight can't grant it. */
+    fun isFreeToday(tile: Tile): Boolean = app.todays.isFreeToday(tile.ref)
+
+    /** Today's picture (#34): picked on the day's first visit, then the same one all day. */
+    private suspend fun todayCard(summaries: List<CanvasSummary>, tiles: List<Tile>, unlocked: Set<String>, vip: Boolean): TodayCard? {
+        val started = tiles.filter { it.started }.map { it.ref.id }.toSet()
+        val id = withContext(Dispatchers.IO) { app.todays.pick(started, vip) } ?: return null
+        val tile = tiles.firstOrNull { it.ref.id == id && !it.damaged } ?: return null
+        val size = BundledPictures.sizeOf(id) ?: return null
+        val preview = if (tile.started) {
+            tile.image
+        } else {
+            val pattern = (summaries.firstOrNull { it.ref == tile.ref } as? CanvasSummary.Playable)?.state?.pattern
+            pattern?.let { withContext(Dispatchers.Default) { GemRenderer.render(it, cellPxFor(it.width)).asImageBitmap() } } ?: tile.image
+        }
+        return TodayCard(tile, preview, size, vip, free = !vip && !tile.started && id !in unlocked)
     }
 
     fun rename(ref: CanvasRef, input: String) {

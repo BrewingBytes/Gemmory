@@ -19,7 +19,8 @@ class GalleryOrderTest {
         unlocked: Set<String> = emptySet(),
         entitlements: Entitlements = Entitlements.FREE,
         started: Set<String> = emptySet(),
-    ): List<String> = picturesInOrder(tiles(started), unlocked, entitlements).map { it.ref.id }
+        todayFree: String? = null,
+    ): List<String> = picturesInOrder(tiles(started), unlocked, entitlements, todayFree).map { it.ref.id }
 
     /** The locked pictures in catalog order, less [open]. */
     private fun lockedExcept(vararg open: String) =
@@ -42,6 +43,14 @@ class GalleryOrderTest {
     fun aStartedLockedPictureJoinsTheOpenOnesInItsSize() {
         val open = listOf("starter", "lemons", "balloon", "the-kiss", "cherries", "tuscan-hills", "puppy", "cat")
         assertEquals(open + lockedExcept("the-kiss"), order(started = setOf("the-kiss")))
+    }
+
+    /** #34: today's free picture opens without a video, so today it's an open one in its size; nothing else moves. */
+    @Test
+    fun todaysFreePictureJoinsTheOpenOnesInItsSize() {
+        val open = listOf("starter", "lemons", "balloon", "the-kiss", "cherries", "tuscan-hills", "puppy", "cat")
+        assertEquals(open + lockedExcept("the-kiss"), order(todayFree = "the-kiss"))
+        assertEquals(BundledPictures.ALL.map { it.id }, order(entitlements = Entitlements(plan = VipPlan.YEARLY), todayFree = "the-kiss"))
     }
 
     @Test

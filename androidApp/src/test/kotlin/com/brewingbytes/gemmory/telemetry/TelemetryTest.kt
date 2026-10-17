@@ -151,6 +151,10 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("photo_canvas_started"), AnalyticsEvent.photoCanvasStarted)
         assertEquals(AnalyticsEvent("streak_day", mapOf("length" to 3L)), AnalyticsEvent.streakDay(3))
         assertEquals(
+            AnalyticsEvent("todays_picture_started", mapOf("size" to "medium", "tier" to "free")),
+            AnalyticsEvent.todaysPictureStarted(CanvasRef(CanvasKind.BUNDLED, "cherries"), 104, 78, vip = false),
+        )
+        assertEquals(
             AnalyticsEvent("timelapse_made", mapOf("source" to "photo", "size" to "big", "outcome" to "picture", "wall_ms" to 41_000L)),
             AnalyticsEvent.timelapseMade(photo, 106, 142, "picture", 41_000),
         )

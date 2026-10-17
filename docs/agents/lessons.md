@@ -23,6 +23,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-17 (#36): to check a time-lapse's real frames, pull the MP4 from the app's cache (`adb exec-out run-as com.brewingbytes.gemmory cat cache/timelapse/<file>.mp4 > out.mp4`) and tile chosen frames with `ffmpeg -vf "select='eq(n\,0)+eq(n\,449)',scale=270:-1,tile=2x1" -frames:v 1 sheet.png`.
 - 2026-10-17 (#33): to seed a SharedPreferences file for a by-hand look, write the XML on the host, `adb push` it to `/data/local/tmp/`, then `adb shell run-as com.brewingbytes.gemmory sh -c 'mkdir -p shared_prefs && cp /data/local/tmp/<name>.xml shared_prefs/'` with the app force-stopped (run-as can't read the host path, and a running app overwrites the file). The app reads it at its next start.
 
+- 2026-10-17 (#34): Today's picture makes one locked picture open each day, picked by date, so a connected test that pins which pictures are locked (or the Pictures order) can fail on some days only. Call `app.resetTodaysForTest(enabled = false)` in its `@Before` and `resetTodaysForTest()` in `@After`, as LockedPicturesTest does.
 
 ## CI
 
