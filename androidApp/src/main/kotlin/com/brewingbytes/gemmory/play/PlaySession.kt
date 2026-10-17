@@ -42,7 +42,7 @@ class PlaySession internal constructor(
     /** Any gem was placed: a progress share's encode is out of date (#36). */
     private val onPlaced: () -> Unit = {},
     /** A placement tool (#20) placed its first gems on this canvas since it opened. */
-    private val onToolUsed: (PlacementTool) -> Unit = {},
+    private val onToolUsed: (tool: PlacementTool, unlimited: Boolean) -> Unit = { _, _ -> },
     /** The monotonic clock the batch cues wait on (#20). */
     private val uptimeMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     private val onClosed: (lastWrite: Job, playMillis: Long) -> Unit,
@@ -85,24 +85,72 @@ class PlaySession internal constructor(
         return true
     }
 
-    /**
-     * Whether the placement tools (#20) are offered: VIP only for now (founder 2026-10-15; free players get charges
-     * with #38). Kept current by the play screen; turning it off goes back to plain taps.
-     */
-    var toolsOn by mutableStateOf(false)
+    /** VIP (#20): the placement tools without limit. Kept current by the play screen through [offerTools]. */
+    var unlimitedTools by mutableStateOf(false)
         private set
+
+    /**
+     * Fills a player without VIP holds (#38), less those this session spent that the inventory hasn't counted yet;
+     * each Fill region or Fill color use, or Brush stroke, takes one.
+     */
+    var fills by mutableIntStateOf(0)
+        private set
+
+    private var fillsFromInventory = 0
+    private var fillsPending = 0
+
+    /** A fill was spent on this canvas: at 0 the tool well stays, dimmed, rather than vanishing under the finger. */
+    private var spentHere by mutableStateOf(false)
+
+    /** Whether the tool well shows: VIP, fills held, or fills run out on this canvas. */
+    val toolsOn: Boolean get() = unlimitedTools || fills > 0 || spentHere
+
+    /** Whether a tool can place now; at 0 fills the well is dimmed and plain taps are back. */
+    val toolsUsable: Boolean get() = unlimitedTools || fills > 0
 
     /** The tool well's mode (#20); Fill color is a button, never a mode. */
     var tool by mutableStateOf(PlacementTool.TAP)
         private set
 
-    fun offerTools(on: Boolean) {
-        toolsOn = on
-        if (!on) tool = PlacementTool.TAP
+    /**
+     * Spends one fill for [useId] (#38) and calls `done` once the inventory has it; set by the play screen. Main thread.
+     */
+    var spendFill: (useId: String, done: () -> Unit) -> Unit = { _, done -> done() }
+
+    /** VIP and the fills held, from the entitlements and the inventory (kept current by the play screen). */
+    fun offerTools(unlimited: Boolean, fillsHeld: Int = 0) {
+        unlimitedTools = unlimited
+        fillsFromInventory = fillsHeld
+        fills = maxOf(0, fillsHeld - fillsPending)
+        if (!toolsUsable) tool = PlacementTool.TAP
     }
 
     fun chooseTool(chosen: PlacementTool) {
-        if (toolsOn && chosen in PlacementTool.MODES) tool = chosen
+        if (toolsUsable && chosen in PlacementTool.MODES) tool = chosen
+    }
+
+    /** Whether the current Brush stroke (finger down to up, #38) has paid its fill. */
+    private var strokePaid = false
+
+    /** A Brush stroke starts (a tap, or a drag that paints): its first placement pays one fill. */
+    fun startStroke() {
+        strokePaid = false
+    }
+
+    private var uses = 0
+
+    /** Pays one fill for a use that placed something (#38); VIP pays nothing. */
+    private fun payFill() {
+        if (unlimitedTools) return
+        fillsPending++
+        fills = maxOf(0, fills - 1)
+        spentHere = true
+        spendFill("fill-${System.nanoTime()}-${uses++}") {
+            fillsPending--
+            fills = maxOf(0, fillsFromInventory - fillsPending)
+            if (!toolsUsable) tool = PlacementTool.TAP
+        }
+        if (!toolsUsable) tool = PlacementTool.TAP
     }
 
     /** Reduced motion, kept current by the play screen: a batch then shows at once and its cues don't wait. */
@@ -165,11 +213,19 @@ class PlaySession internal constructor(
     val fillColorVisible: Boolean
         get() {
             placedCount // a snapshot read, as in findVisible
-            return toolsOn && remaining(selectedSlot) in 1..PlacementTools.FILL_COLOR_MAX_LEFT
+            return toolsUsable && remaining(selectedSlot) in 1..PlacementTools.FILL_COLOR_MAX_LEFT
         }
 
-    /** A brush stamp (#20) centred on [cell]: the selected color's unplaced cells in the 3×3 around it. */
-    fun brush(cell: Int): Batch? = placeBatch(PlacementTool.BRUSH, PlacementTools.brush(pattern, cell), announceCount = false)
+    /**
+     * A brush stamp (#20) centred on [cell]: the selected color's unplaced cells in the 3×3 around it. The stroke's
+     * first placement pays its fill (#38); the rest of the stroke is free, even once the fills run out.
+     */
+    fun brush(cell: Int): Batch? {
+        val paid = strokePaid
+        val batch = placeBatch(PlacementTool.BRUSH, PlacementTools.brush(pattern, cell), announceCount = false, paid = paid)
+        if (batch != null) strokePaid = true
+        return batch
+    }
 
     /** Fill region (#20) from [cell], an unplaced cell of the selected color (the caller checks, as for a tap). */
     fun fillRegion(cell: Int): Batch? =
@@ -186,7 +242,7 @@ class PlaySession internal constructor(
      * with its count ("214 placed. 98 left.") unless it finishes the color.
      */
     fun fillRegionNext(): Batch? {
-        if (!toolsOn) return null
+        if (!toolsUsable) return null
         val cell = nextRemainingCell(pattern, state::isPlaced, selectedSlot, findCursor - 1) ?: return null
         findCursor = cell
         return placeBatch(PlacementTool.REGION, PlacementTools.region(pattern, cell, selectedSlot), announceCount = true)
@@ -195,16 +251,18 @@ class PlaySession internal constructor(
     /**
      * A tool's batch (#20): every cell through [CanvasState.place] in order, saved like one placement, the selection
      * moving on if it finished the color. The milestone, announcement and finish cues are set now and play when the
-     * sweep ends ([cueDelayMs]). Null when nothing could be placed (then nothing changed).
+     * sweep ends ([cueDelayMs]). Null when nothing could be placed (then nothing changed, and no fill is spent).
+     * Without VIP a use needs a fill, unless [paid] already (a Brush stroke's later stamps).
      */
-    private fun placeBatch(tool: PlacementTool, cells: ToolCells, announceCount: Boolean): Batch? {
-        if (!toolsOn) return null
+    private fun placeBatch(tool: PlacementTool, cells: ToolCells, announceCount: Boolean, paid: Boolean = false): Batch? {
+        if (!paid && !toolsUsable) return null
         val before = placedCount
         val batch = PlacementTools.place(state, cells, selectedSlot)
         if (batch.placed.isEmpty()) return null
+        if (!paid) payFill()
         saver.onPlacements(batch.placed)
         onPlaced()
-        if (toolsUsed.add(tool)) onToolUsed(tool)
+        if (toolsUsed.add(tool)) onToolUsed(tool, unlimitedTools)
         placedCount = state.placedCount
         cuesAt = uptimeMillis() + if (reducedMotion) 0 else Sweep.durationMs(batch.lastRing)
         val crossed = crossedMilestone(before)

@@ -78,6 +78,8 @@ import com.brewingbytes.gemmory.photo.allowanceLine
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.InventoryState
+import com.brewingbytes.gemmory.policy.WheelPrize
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -173,11 +175,17 @@ fun GalleryScreen(
     showVip: Boolean = false,
     onVip: () -> Unit = {},
     notice: String? = null,
+    /** What the player holds (#38); null for VIP, who has everything unlimited and no inventory. */
+    inventory: InventoryState? = null,
+    onWatchFills: () -> Unit = {},
+    onSpin: suspend () -> WheelPrize? = { null },
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
     val tab = vm.tab
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
+    // The Inventory sheet (#38) and its gift wheel: 0 none, 1 inventory, 2 wheel.
+    var inventorySheet by rememberSaveable { mutableIntStateOf(0) }
     // The floating button (and the allowance chip) never cover a tile's %: the grid scrolls clear of them (D10).
     // The measured height excludes the overlay's 16dp padding; another 16dp keeps a gap (56dp button → 88dp).
     var overlayHeight by remember { mutableIntStateOf(0) }
@@ -192,6 +200,7 @@ fun GalleryScreen(
         Column(Modifier.fillMaxSize()) {
             AppTopBar("Gemmory", onBack = null) {
                 // Quiet, from the 2nd session on (design D3): never on the first launch.
+                if (inventory != null) InventoryButton(inventory.spinsWaiting > 0) { inventorySheet = 1 }
                 if (showVip) GemTextButton("VIP", onVip, Modifier.testTag(VIP_ACTION_TAG))
                 IconAction(GemIcons.Settings, "Settings", onSettings)
             }
@@ -245,7 +254,7 @@ fun GalleryScreen(
         }
         if (!(tab == 1 && state.loaded && state.photos.isEmpty())) {
             // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
-            val note = allowanceLine(allowance).takeIf { allowance != Allowance.Free }
+            val note = allowanceLine(allowance, inventory?.canvases ?: 0).takeIf { allowance != Allowance.Free }
             NoteAndButton(
                 note = note?.let { { AllowanceChip(it) } },
                 button = { PrimaryButton("New from photo", onNewFromPhoto) },
@@ -259,6 +268,22 @@ fun GalleryScreen(
     }
 
     ProgressShareHost(vm.sharing, returnFocusTo = vm.sharing.request?.ref?.let(::tileTag))
+    // VIP starting while a sheet is up closes it: VIP has no inventory.
+    if (inventory != null) {
+        when (inventorySheet) {
+        1 -> InventorySheet(
+            state = inventory,
+            streak = state.streak,
+            onWatchFills = {
+                inventorySheet = 0
+                onWatchFills()
+            },
+            onSpin = { inventorySheet = 2 },
+            onDismiss = { inventorySheet = 0 },
+        )
+        2 -> WheelSheet(inventory.spinsWaiting, onSpin, onDismiss = { inventorySheet = 0 })
+        }
+    }
     when (val s = sheet) {
         null -> Unit
         is GallerySheet.Rename -> RenameSheet(

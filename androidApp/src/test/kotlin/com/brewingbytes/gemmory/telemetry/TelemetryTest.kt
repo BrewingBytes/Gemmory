@@ -6,6 +6,8 @@ import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.photo.ConverterException
 import com.brewingbytes.gemmory.photo.FaceDetectorException
 import com.brewingbytes.gemmory.policy.ConsentModeV2
+import com.brewingbytes.gemmory.policy.EarnSource
+import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -153,6 +155,15 @@ class TelemetryTest {
         assertEquals(
             AnalyticsEvent("todays_picture_started", mapOf("size" to "medium", "tier" to "free")),
             AnalyticsEvent.todaysPictureStarted(CanvasRef(CanvasKind.BUNDLED, "cherries"), 104, 78, vip = false),
+        )
+        assertEquals(
+            AnalyticsEvent("inventory_earned", mapOf("item" to "fills", "source" to "wheel", "amount" to 10L)),
+            AnalyticsEvent.inventoryEarned(Item.FILLS, EarnSource.WHEEL, 10),
+        )
+        assertEquals(AnalyticsEvent("inventory_spent", mapOf("item" to "unlock_token")), AnalyticsEvent.inventorySpent(Item.UNLOCK_TOKEN))
+        assertEquals(
+            AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "fills")),
+            AnalyticsEvent.rewardedOffered(RewardType.FILLS),
         )
         assertEquals(
             AnalyticsEvent("fill_tool_used", mapOf("tool" to "region", "size" to "big", "tier" to "vip")),

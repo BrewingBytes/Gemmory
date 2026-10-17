@@ -32,6 +32,9 @@ interface CanvasInputHandler {
 
     /** One cell crossed by a paint drag of [slot]'s color. Cells of other colors and placed gems are skipped silently. */
     fun onPaint(cell: Int, slot: Int)
+
+    /** A paint drag starts, before its first [onPaint]: a Brush stroke (#38) pays one fill for the whole drag. */
+    fun onPaintStart() {}
 }
 
 private enum class Mode { PENDING, PAINT, PAN, MULTI }
@@ -127,6 +130,7 @@ fun Modifier.canvasInput(session: PlaySession, handler: CanvasInputHandler): Mod
                         if (paints) {
                             mode = Mode.PAINT
                             paintSlot = session.selectedSlot
+                            handler.onPaintStart()
                             paintAlong(down.position, pointer.position)
                         } else {
                             mode = Mode.PAN

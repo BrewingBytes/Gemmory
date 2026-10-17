@@ -161,12 +161,14 @@ Scale: 34 / 30 / 22 / 16 / 13 sp. Adjacent levels differ by size *and* role, nev
 
 ```
 first launch ─► UMP consent (EEA only, first launch, before any ad request; never over a later launch)
-            └─► Gallery  [title left · Settings icon right · quiet "VIP" text action from the 2nd session on]
+            └─► Gallery  [title left · Inventory bag (no VIP, #38) · quiet "VIP" text action from the 2nd session on · Settings icon right]
                  ├─ tab Pictures (default) │ tab My Photos
                  ├─ "New from photo" ─► Photo Picker ─► Crop ─► Size picker ─► Preview ─Start─► Canvas
                  ├─ tile in progress ─► Canvas (resumed)
                  ├─ tile done ─► Completion still (Share primary, Done quiet, "Play again" text)
-                 ├─ tile locked ─► Rewarded sheet ─► (reward) Canvas
+                 ├─ tile locked ─► Rewarded sheet ─► (reward, or an unlock token #38) Canvas
+                 ├─ Inventory bag ─► Inventory sheet ─┬─ "Watch a video: +5 fills" ─► Rewarded sheet (fills) ─► back to the gallery
+                 │                                    └─ "Spin for your 5-day gift" ─► Gift wheel sheet ─► back to the gallery
                  ├─ Today's picture card (or its tile) ─► Canvas, no video (#34)
                  ├─ tile damaged ─► "Can't open" sheet (see Gallery tile)
                  ├─ tile ⋮ menu: photo canvas "Rename" / "Delete" · bundled "Start over" · first "Share progress" once a gem is placed (#36)
@@ -226,10 +228,11 @@ There are no zero-offset colored halos and no frosted glass anywhere.
   - Each tap pans and zooms (24dp cells) to the next remaining cell and pulses the cell once for 400ms. Under reduced motion the cell doesn't pulse.
   - It is hidden at all other times. It shares its logic with the TalkBack "Find next gem" action.
   - It is an icon button (magnifier) labelled "Find". In the large-screen rail it is pinned full width at the top, above the scrolling troughs.
-- **Placement tools** (#20, founder picks 2026-10-17, VIP only; free and remove-ads players see none of this until #38):
+- **Placement tools** (#20, founder picks 2026-10-17): unlimited for VIP; anyone else uses fills from the inventory (#38), one per Fill region or Fill color use, or per Brush stroke (finger down to up), spent only when the use placed something:
   - **Tool well:** a 48dp quiet icon button after Find (and Fill), before the troughs, showing the current tool's icon: Tap (one gem), Brush 3×3 (a 3×3 of gems) or Fill region (a patch with a gem at its heart). While the tool isn't Tap, a 6dp `lamp` square sits in its top-right corner. Tapping it swaps the color troughs for three tool troughs in the same row (Tap, Brush 3×3, Fill region: `felt` wells, 64dp tall at least, icon over a 13sp label that wraps to 2 lines at large font, with the icon hidden above 1.5× font scale as the count is (D20), laid over the color troughs at their exact size so the tray never changes height, the chosen one lifted 3dp with the lamp outline); picking one, or tapping the well again, swaps the color troughs back. The tool stays until changed or the canvas is left; every canvas opens on Tap. In the large-screen rail the well is pinned full width under Find and the tool troughs stack.
   - **Fill color:** while the selected color has 20 or fewer cells left (when Find shows), a 48dp quiet button "Fill 14" (its icon and the count) sits after Find. A tap places all of them, nearest the middle of the view first, which always finishes the color.
-  - If VIP lapses on an open canvas, the well and the Fill button go and the tool goes back to Tap.
+  - **Without VIP** (#38): the well shows while the player holds fills, with the count in mono 11sp on a `felt` tab at its bottom-right corner ("Tool: Tap, 5 fills"); above 1.5× font the count sits beside the icon instead and the well widens, so it never covers the icon. When they run out on a canvas it stays, dimmed to 55%, and the tool goes back to Tap; tapping it still opens the tool troughs, with Brush and Fill region dimmed and read as "Brush 3×3, no fills left". Fill color hides at 0. Nothing on the canvas says where fills come from (no nag, no ad). With no fills on opening, there's no well.
+  - If VIP lapses on an open canvas, the well follows the fills held, and the tool goes back to Tap if there are none.
 - **Font scale** (Phase 5 D20):
   - Trough width grows with the font scale, up to 72dp.
   - Above 1.5× the remaining count is hidden; TalkBack still reads it. The number never clips.
@@ -335,8 +338,15 @@ Sound and Haptics each get a Settings toggle. Both default to on.
 - A day counts once the player finishes a picture that day, any picture, bundled or their own photo (local date, the allowance's clock). Placing gems without finishing, or reopening a finished picture, doesn't count.
 - One missed day a week is forgiven: a single day off doesn't break the streak (and isn't counted). A longer gap starts over at the next day played. A clock moved back changes nothing.
 - From 2 days in a row, a `felt-deep` chip (`sm` radius, 12/8dp padding, like the allowance chip) at the end of the tabs row reads "4 days in a row": the count in mono 13sp, the words in Figtree 13sp, both `bone`. When the tabs leave no room (200% font) it wraps under them. TalkBack reads it as one node, "4 days in a row".
-- A broken streak just isn't shown. No flame, no "don't lose your streak", no reminder, no reward; never on the play canvas or the completion screen.
-- Stored in the "streak" preferences, which may be backed up (no photo data, nothing to earn).
+- A broken streak just isn't shown. No flame, no "don't lose your streak", no reminder; never on the play canvas or the completion screen.
+- Every 5th day in a row earns a gift wheel spin for players without VIP (#38, see Inventory); the Inventory sheet shows the way to the next one.
+- Stored in the "streak" preferences, which may be backed up (no photo data; a restore can't add days).
+
+**Inventory** (#38, founder picks 2026-10-17; mockups `~/.gstack/projects/Gemmory/designs/t25-inventory/`). Not for VIP, who has everything unlimited.
+- **Bag (E1):** a 48dp icon button in the gallery top bar, before "VIP", labelled "Inventory". While a gift spin waits, a 7dp `bone` square (2dp radius) sits at its top-right and it reads "Inventory, gift spin waiting".
+- **Inventory sheet:** title "Inventory"; three rows, each a 44dp `felt` well with the item's icon, the count in mono 18sp, then the name (body) and a muted line: Fills "One fills a region, the rest of a color, or a brush stroke." · Photo canvases "For a photo after today's free one. Kept until you use them." · Unlock tokens "Opens any locked picture for good." Each row is one TalkBack node ("Fills: 5. One fills…"). Then primary "Watch a video: +5 fills" (the fills rewarded sheet), and the muted line "Next gift spin at 5 days in a row" over five 6dp steps, `bone` for the days so far. While spins wait, a primary "Spin for your 5-day gift" ("Spin for your gift (2 waiting)") comes first and the video becomes a quiet button.
+- **Gift wheel (W1):** a sheet "Your gift" with a 220dp wheel of four flat segments sized by their odds, clockwise from the top: 5 fills 50% (`patina`), 10 fills 20% (`patina-text`), 1 photo canvas 20% (`bone`), 1 unlock token 10% (`text-muted`), `felt-deep` seams and hub, a `bone` pointer at the top; the odds in words below ("5 fills 50%" …). "Spin": the prize is rolled and added first, then the wheel turns 5 times and lands on it over 3.2s easing out, a gem tick (haptic + click) as each segment passes the pointer and the milestone chime on landing; "5 fills added to your inventory." in a polite live region; then "Spin" again while more wait, else a quiet "Done". TalkBack reads the wheel as "Gift wheel. 5 fills 50%, …".
+- Stored on the phone, backed up like the unlocks.
 
 **Photo flow states** (Phase 5 D4).
 
@@ -363,7 +373,8 @@ Sound and Haptics each get a Settings toggle. Both default to on.
 |---|---|---|
 | Free one available | "Uses today's free photo canvas." | Start |
 | Free one used | "Today's free one is used. Watch a video for another." | primary becomes "Watch a video" (rewarded states) |
-| Bonus earned from a video | "Uses a bonus canvas from a video." | Start |
+| Kept canvas in the inventory (#38) | "Uses a kept photo canvas (2 left)." | Start |
+| Bonus earned before the #38 update (that day only) | "Uses a bonus canvas from a video." | Start |
 | VIP | no line | Start |
 
 **Completion: "lights down" and the finish celebration, the one authored moment** (#57).
@@ -400,8 +411,8 @@ A finished picture reopened from the gallery shows the **completion still**:
 | State | Copy | Actions |
 |---|---|---|
 | Loading (≤ 5s) | primary button disabled: "Loading video…", plus a 2dp indeterminate line | none |
-| Video ready (#7) | sheet title "Watch to unlock" / "Another photo canvas"; body "Watch a short video to unlock this picture for good." / "Watch a short video for one more photo canvas today." | primary "Watch video" |
-| Online no-fill, grace available | "No video right now. This one's on us today." | primary "Unlock picture" / "Start canvas"; text "Or get VIP: every picture unlocked" / "Or get VIP: unlimited photo canvases" |
+| Video ready (#7) | sheet title "Watch to unlock" / "Another photo canvas" / "More fills" (#38); body "Watch a short video to unlock this picture for good." / "Watch a short video for one more photo canvas. It's kept until you use it." / "Watch a short video for 5 fills. Each fills a region, the rest of a color, or a brush stroke." | primary "Watch video". A locked picture with unlock tokens held also gets a quiet "Use an unlock token · 1 left" under it (#38), in every state but while the video shows; one tap shows "Unlocked" and opens it, as a video does |
+| Online no-fill, grace available | "No video right now. This one's on us today." (fills: "These are on us today.") | primary "Unlock picture" / "Start canvas" / "Get 5 fills"; text "Or get VIP: every picture unlocked" / "Or get VIP: unlimited photo canvases" / "Or get VIP: unlimited fills" |
 | Online no-fill, grace used | "No video right now. Try again in a bit." | quiet "Try again"; text "Get VIP: no videos needed" |
 | Offline | "You're offline, connect to watch a video" (in `fault`) | quiet "Try again"; text "Get VIP: no videos needed". No grace. |
 | Reward granted (Phase 5 D11) | locked picture: the sheet shows "Unlocked" for 600ms, then the canvas opens. Extra canvas: back to Preview with "Uses a bonus canvas from a video." | none |
@@ -473,7 +484,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - **Trough:** "Color 7, 312 left, selected" or "Color 7, done". The description is "Color 7, 312 left" and "selected" comes from the selected state, so TalkBack doesn't say it twice.
   - **Gallery tile:** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock" ("…, can't open" when damaged), with its ⋮ actions as custom actions ("Share progress" first when offered, #36). The tile is one node: its title, % and ⋮ button are folded into it, so it reads only that line.
   - **Today's picture card** (#34): one node, "Today's picture: Beach Huts, Quick, free to start today" / "Today's pick: Beach Huts, Quick" (VIP) / "Today's picture: Beach Huts, 12% done" / "…, done", with the click labelled "Start", "Continue" or "Open".
-  - Every icon button has a label: Settings, Find, close, Share progress, the tool well ("Tool: Fill region", #20). The Fill button reads "Fill the rest of color 7"; tool troughs read "Tap" / "Brush 3×3" / "Fill region", with "selected" from the selected state.
+  - Every icon button has a label: Settings, Find, close, Share progress, the tool well ("Tool: Fill region", #20; "Tool: Tap, 5 fills" without VIP, #38), Inventory ("Inventory, gift spin waiting" while one waits, #38). The Fill button reads "Fill the rest of color 7"; tool troughs read "Tap" / "Brush 3×3" / "Fill region", with "selected" from the selected state.
   - **Sheets:** focus moves to the sheet title on open and returns to the trigger on close. TalkBack moves its focus on its own when a sheet's window closes, so the trigger keeps asking for it for 1.2s after.
 - **Font scale:** see the tray and top bar rules. Sheets, paywall rows and size options wrap, with no fixed heights. QA at 200% on a 360dp-wide phone.
 - **Touch targets:** 48dp, with the documented canvas exception.
@@ -501,6 +512,7 @@ A finished picture reopened from the gallery shows the **completion still**:
 - **The one authored moment:** completion "lights down" with the finish celebration (see Components): the sparkle sweep is linear over 2.4s; the confetti falls under a constant 520dp/s² gravity with each gem spinning and tumbling, and fades out over its last 400ms. It plays only on a fresh finish, once (a rotation mid-sequence doesn't replay it), and never on the completion still.
 - **Milestone banner** (#35, a founder-approved exception to "never celebrates loudly"): the `bone` tag slides in from the left over 300ms (ease-out), the headline and count wipe open beside it from 300 to 660ms (`FastOutSlowIn`), the band holds and fades out over its last 300ms: 3s in all. No particles, glow or bounce. Under reduced motion the band fades in over 150ms, holds, and fades out over 150ms (2.5s in all) at its real duration; the chime and haptic stay.
 - **Peek:** a 150ms fade in and out; under reduced motion it switches at once.
+- **Gift wheel** (#38): 5 turns over 3.2s, easing out (cubic 0.1, 0.6, 0.2, 1), landing on the prize's middle. Under reduced motion it doesn't turn: the result line and the chime come at once.
 - **A tool's sweep** (#20): rings outward at 16ms each, at most 600ms, each gem's glint as its ring shows. Under reduced motion the batch shows at once with one tick and one click, like a tap; its cues don't wait.
 - Reduced motion (`ANIMATOR_DURATION_SCALE == 0` or the accessibility setting) skips the glint, the sparkle sweep, the haptic crescendo and the confetti. The dim, the chime, the soft finish haptic and the 2s hold remain.
 - That setting also makes Compose finish every animation at once, so the reduced-motion fades and the blink run at their real duration on purpose (#14).
@@ -511,6 +523,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - The Find cell pulse is skipped.
   - The milestone banner fades instead of sliding and wiping; the peek switches at once.
   - A tool's batch (#20) shows at once, with no sweep and no glint.
+  - The gift wheel (#38) doesn't turn; its result shows at once.
   - The lights-down dim (a fade) stays.
   - The finish celebration (#57) drops its sparkle, haptic crescendo and confetti; the dim, the chime and the soft finish haptic stay.
 - Haptics also follow the system touch-feedback setting.
@@ -547,3 +560,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-17 | Daily play streak (#33): a day counts when a picture is finished that day, any picture (local date); one missed day a week is forgiven; a `felt-deep` chip "4 days in a row" at the end of the gallery's tabs row from 2 days on; a broken streak is simply not shown. No rewards, no reminders, nothing on the canvas or the completion screen. Backed up with the settings | Picked by the agent from the calmest options in the issue while the founder was away; in review the founder raised the bar from one gem to a finished picture and confirmed the rest (2026-10-17): rewards would tie it to the ad rules and tiers, and guilt or loss copy goes against a relaxing app. The completion screen stays the one authored moment. Screenshots at 1× and 2× font in `~/.gstack/projects/Gemmory/designs/t21-daily-streak/` |
 | 2026-10-17 | Today's picture (#34): one bundled picture a day picked on the phone (date-seeded, kept for the day; a locked one not unlocked or started for a free player, any not started for VIP), shown as a `felt-deep` card above the Pictures grid with the finished picture, "Today's picture" / "Today's pick", the title, "Quick · free today" and a quiet Start. It opens without a video; the first gem unlocks it for good. Its tile joins the open pictures for the day. No streak link, no ad. Analytics `todays_picture_started` | Founder picks from the HTML mockups (`~/.gstack/projects/Gemmory/designs/t22-todays-picture/`, with emulator shots at 1× and 2× font): the card (B) over a lamp-outlined 2nd tile (A, recommended) and a first tile (C, breaks D13); unlock on the first gem over the E4c started rule alone (a Start over would have locked it again) and over unlocking on sight; VIP gets "Today's pick"; any finished picture already counts the streak. The card is a new component, so the mockup's lamp kicker became `text-muted` and its bone Start a quiet button, keeping lamp and the primary fill to their one meaning each |
 | 2026-10-17 | Placement tools (#20): Brush 3×3, Fill region and Fill color ("Fill N" beside Find while ≤ 20 left), VIP only until #38 adds earned charges. Picker: a tool well in the tray (P1) that swaps the troughs for tool troughs; a 6dp `lamp` corner on the well while a tool other than Tap is on. A batch is placed at once and revealed as a ring sweep (16ms a ring, ≤ 600ms) with a light `PRIMITIVE_TICK` sweep and 5 rising clicks; its cues wait for the sweep. TalkBack: "Fill region at next gem", "Fill the rest of color 7". Paywall gains a 5th perk | Founder picks from the HTML mockups (`~/.gstack/projects/Gemmory/designs/t17-placement-tools/`) during #20, over a segmented row above the tray (P2: ~44dp of chrome on every canvas) and a long-press on the trough (P3: hidden). VIP-only keeps the founder's 2026-10-15 power-up call without a video on the canvas (no ads there) and without a VIP nag: free players see nothing. The well's lamp corner is the "selected" meaning (a tool is selected). Tools work from 16dp like a tap, so nothing is placed where its number can't be read |
+| 2026-10-17 | Inventory (#38): fills (one per tool use or brush stroke), kept photo canvases and unlock tokens for players without VIP, in a bag (E1) in the gallery top bar opening an Inventory sheet; a rewarded video there gives 5 fills (never on the canvas), the extra-canvas video's canvas is now kept, and every 5th streak day earns a spin of a flat gift wheel (W1: 5 fills 50%, 10 fills 20%, 1 photo canvas 20%, 1 unlock token 10%, odds on the wheel and in words). The tool well (#20) shows for free players holding fills, with the count, and dims at 0 with no copy. Unlock tokens are a quiet button on the locked picture's sheet. VIP has no inventory | Founder picks from the HTML mockups during #38, over a "5 fills" chip (E2: one item of three, cramped at 2×) and a tabs-row chip (E3), and over a gem-ring wheel (W2). The wheel and the streak gift reverse #33's "no reward" and #38's "no random rewards" on purpose (founder); the gift is free, so no paid loot box. The wheel uses shell tokens only (`patina`, `patina-text`, `bone`, `text-muted`), no new color; `lamp` stays "selected". Its tick and chime reuse the gem click and the milestone chime |

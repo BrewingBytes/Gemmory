@@ -69,6 +69,19 @@ class BackupRulesTest {
         }
     }
 
+    /** #38: the inventory survives a reinstall like the unlocks: neither it nor a folder above it is excluded. */
+    @Test
+    fun theInventoryIsBackedUp() {
+        val dir = StorageLayout.INVENTORY.substringBefore('/')
+        assertTrue(!StorageLayout.INVENTORY.startsWith("${StorageLayout.LEDGER}/"))
+        val sections = listOf(rules(xml("backup_rules.xml"), "exclude")) + listOf("cloud-backup", "device-transfer").map {
+            rules(xml("data_extraction_rules.xml").getElementsByTagName(it).item(0) as Element, "exclude")
+        }
+        for (excluded in sections) {
+            assertTrue(excluded.none { it == "file:$dir/" || it == "file:${StorageLayout.INVENTORY}" }, "$excluded")
+        }
+    }
+
     @Test
     fun everyLedgerFileIsInsideTheExcludedDir() {
         // The allowance counter, the ad caps and the entitlement cache (#8): a restored cache would carry VIP to a

@@ -123,6 +123,33 @@ object GemIcons {
         .addPath(addPathNodes("M4 4h3a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1zM16 3h3a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1zM6 15h3a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1zM13.5 16.2l1.4-1.4 2.1 2.1 4.2-4.2 1.4 1.4-5.6 5.6z"), fill = SolidColor(Color.White))
         .build()
 
+    /** The gallery's Inventory (#38): a bag. */
+    val Bag: ImageVector = ImageVector.Builder("Bag", 24.dp, 24.dp, 24f, 24f)
+        .addPath(addPathNodes("M7 7V6a5 5 0 0 1 10 0v1h3l-1.2 14H5.2L4 7h3zm2 0h6V6a3 3 0 0 0-6 0v1z"), fill = SolidColor(Color.White))
+        .build()
+
+    /** Inventory: kept photo canvases (#38), a framed landscape. */
+    val PhotoCanvas: ImageVector = ImageVector.Builder("PhotoCanvas", 24.dp, 24.dp, 24f, 24f)
+        .addPath(
+            addPathNodes(
+                "M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v9.6l4-4 4 4 3-3 3 3V6H5z " +
+                    "M16 7.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z",
+            ),
+            fill = SolidColor(Color.White),
+        )
+        .build()
+
+    /** Inventory: unlock tokens (#38), an open padlock (never drawn over art). */
+    val Token: ImageVector = ImageVector.Builder("Token", 24.dp, 24.dp, 24f, 24f)
+        .addPath(
+            addPathNodes(
+                "M7 10V7a5 5 0 0 1 9.6-1.9l-1.8 0.8A3 3 0 0 0 9 7v3h9a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7" +
+                    "a2 2 0 0 1 2-2h1zm-1 2v7h12v-7H6z",
+            ),
+            fill = SolidColor(Color.White),
+        )
+        .build()
+
     /** Material "visibility" eye, for the canvas's Peek (#35). */
     val Peek: ImageVector = ImageVector.Builder("Peek", 24.dp, 24.dp, 24f, 24f)
         .addPath(

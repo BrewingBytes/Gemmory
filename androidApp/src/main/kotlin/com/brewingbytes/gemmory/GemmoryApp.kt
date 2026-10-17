@@ -84,7 +84,8 @@ class GemmoryApp : Application() {
 
     private lateinit var adMob: AdGateway
 
-    private lateinit var appScope: CoroutineScope
+    lateinit var appScope: CoroutineScope
+        private set
 
     private fun newMonetization(processStart: Boolean = true) = Monetization(
         filesDir = filesDir,
@@ -120,7 +121,8 @@ class GemmoryApp : Application() {
         enabled,
     )
 
-    private fun newStreak() = PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics)
+    private fun newStreak() =
+        PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics) { monetization.onStreakDay(it) }
 
     /**
      * Connected tests only (#32): runs the ads on [ads] (AdMob by default) and re-reads the ledger and the unlocks from

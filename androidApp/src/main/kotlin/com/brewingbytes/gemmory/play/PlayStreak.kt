@@ -12,14 +12,23 @@ import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 
 /**
  * The daily play streak (#33) on this phone. Kept in the "streak" preferences, which may be backed up: it's no photo
- * data and earns nothing, so unlike the allowance there's nothing to game by restoring it. Main thread only.
+ * data, and a restore can't add days. Every 5th day earns a gift spin (#38) through [onDay]. Main thread only.
  */
-class PlayStreak(context: Context, clock: DayClock, private val analytics: Analytics) {
+class PlayStreak(
+    context: Context,
+    clock: DayClock,
+    private val analytics: Analytics,
+    /** A new streak day of this length (#38: every 5th earns a wheel spin). */
+    private val onDay: (length: Int) -> Unit = {},
+) {
     private val streak = DailyStreak(clock, PrefsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)))
 
     /** A picture was finished: the first one of a new day extends the streak, and says so to Analytics. */
     fun played() {
-        streak.played()?.let { analytics.log(AnalyticsEvent.streakDay(it)) }
+        streak.played()?.let {
+            analytics.log(AnalyticsEvent.streakDay(it))
+            onDay(it)
+        }
     }
 
     /** Days in a row as of today; 0 once broken. The gallery shows it from [DailyStreak.SHOWN_FROM]. */

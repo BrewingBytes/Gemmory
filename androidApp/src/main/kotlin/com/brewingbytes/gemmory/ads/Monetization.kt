@@ -13,8 +13,13 @@ import com.brewingbytes.gemmory.policy.DailyLedger
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.InterstitialContext
+import com.brewingbytes.gemmory.policy.Inventory
+import com.brewingbytes.gemmory.policy.InventoryCodec
+import com.brewingbytes.gemmory.policy.InventoryState
+import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LedgerCodec
 import com.brewingbytes.gemmory.policy.RewardType
+import com.brewingbytes.gemmory.policy.WheelPrize
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
@@ -75,8 +80,16 @@ class Monetization(
     /** False only for a test's second instance in the same process, which must not count as another cold start. */
     processStart: Boolean = true,
 ) {
+    /** The inventory (#38), backed up unlike the ledger; the ledger keeps its photo canvases in it. */
+    private val items by lazy {
+        Inventory(FileStateStore(File(filesDir, StorageLayout.INVENTORY), InventoryCodec::encode, InventoryCodec::decode, reporter))
+    }
     private val ledger by lazy {
-        DailyLedger(clock, FileStateStore(File(filesDir, StorageLayout.LEDGER_DAILY), LedgerCodec::encode, LedgerCodec::decode, reporter))
+        DailyLedger(
+            clock,
+            FileStateStore(File(filesDir, StorageLayout.LEDGER_DAILY), LedgerCodec::encode, LedgerCodec::decode, reporter),
+            bank = items,
+        )
     }
     private val ads by lazy {
         AdPolicy(clock, FileStateStore(File(filesDir, StorageLayout.LEDGER_ADS), AdPolicyCodec::encode, AdPolicyCodec::decode, reporter))
@@ -86,6 +99,11 @@ class Monetization(
 
     /** Drives the Preview allowance line and the gallery note (design D5). */
     val allowance: StateFlow<Allowance> = _allowance.asStateFlow()
+
+    private val _inventory = MutableStateFlow(InventoryState())
+
+    /** What the inventory holds (#38): the gallery's Inventory sheet, the tool well's count and the kept canvases. */
+    val inventory: StateFlow<InventoryState> = _inventory.asStateFlow()
 
     private val _firstSessionOver = MutableStateFlow(false)
 
@@ -133,6 +151,7 @@ class Monetization(
 
     private fun refreshLocked() {
         _allowance.value = ledger.allowance(entitlements.value)
+        _inventory.value = items.state
     }
 
     private suspend fun <T> onPolicy(block: () -> T): T = withContext(policy) {
@@ -153,6 +172,32 @@ class Monetization(
     suspend fun graceAvailable(type: RewardType): Boolean = onPolicy { ledger.graceAvailable(type) }
 
     suspend fun useGrace(type: RewardType): Boolean = onPolicy { ledger.useGrace(type) }
+
+    /** Fills from a rewarded video or today's fills grace (#38). */
+    suspend fun earnFills() = onPolicy { items.earn(Item.FILLS, Inventory.FILLS_PER_VIDEO) }
+
+    /** Spends one [item] for [useId] (idempotent per use); false when none is left. VIP spends nothing. */
+    suspend fun spend(item: Item, useId: String): Boolean = onPolicy {
+        entitlements.value.vip || items.spend(item, useId)
+    }
+
+    /** Opens [pictureId] for good with an unlock token (#38); false when there is none. */
+    suspend fun useToken(pictureId: String): Boolean {
+        if (!spend(Item.UNLOCK_TOKEN, "unlock-$pictureId")) return false
+        unlocks.unlock(pictureId)
+        return true
+    }
+
+    /** The 5-day streak gift's spin (#38): the prize is added at once. Null when none is waiting, and for VIP. */
+    suspend fun spin(): WheelPrize? = onPolicy { if (entitlements.value.vip) null else items.spin() }
+
+    /** The streak reached [length] days on a new day (#33): every 5th earns a spin, for players without VIP. */
+    fun onStreakDay(length: Int) {
+        scope.launch(policy) {
+            if (!entitlements.value.vip) items.onStreakDay(length)
+            refreshLocked()
+        }
+    }
 
     suspend fun interstitialBlock(ctx: InterstitialContext): AdBlock? = onPolicy { ads.blockFor(ctx) }
 

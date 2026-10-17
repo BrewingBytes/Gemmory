@@ -8,11 +8,11 @@ import com.brewingbytes.gemmory.save.MalformedException
 import com.brewingbytes.gemmory.save.Refusal
 import com.brewingbytes.gemmory.save.i64
 
-/** What a rewarded video (or a grace unlock) is for (design doc, Ad rules). */
-enum class RewardType { PHOTO_CANVAS, PICTURE }
+/** What a rewarded video (or a grace unlock) is for (design doc, Ad rules); [FILLS] is the inventory's fills (#38). */
+enum class RewardType { PHOTO_CANVAS, PICTURE, FILLS }
 
-/** Which allowance a Start used. */
-enum class Spent { FREE, BONUS }
+/** Which allowance a Start used: today's free one, a bonus earned today (before #38), or a kept canvas (#38). */
+enum class Spent { FREE, BONUS, KEPT }
 
 /** One Start, remembered so a repeat with the same draft id uses nothing more (eng E4a). */
 data class Consumption(val draftId: String, val spent: Spent, val day: Long)
@@ -39,7 +39,7 @@ sealed interface Allowance {
     /** "Uses today's free photo canvas." */
     data object Free : Allowance
 
-    /** "Uses a bonus canvas from a video." */
+    /** "Uses a kept photo canvas (2 left)." (#38; before it, a bonus from today's video). */
     data object Bonus : Allowance
 
     /** "Today's free one is used. Watch a video for another." */
@@ -61,8 +61,16 @@ sealed interface ConsumeResult {
  * The photo canvas allowance (design doc, Photo canvas allowance rules; CEO D7; eng E4, D15): one free photo canvas a
  * day, plus one more for every rewarded video watched (no daily cap, founder call #7), and one grace unlock per day
  * per [RewardType]. Everything resets when the local date changes. Not thread-safe: one caller at a time.
+ *
+ * With a [bank] (#38), an extra canvas from a video or today's grace goes into the inventory and is kept until it's
+ * used, after today's free one; a bonus left from before the update still counts today. Without one, extras are
+ * today's bonus, as before.
  */
-class DailyLedger(private val clock: DayClock, private val store: StateStore<LedgerState>) {
+class DailyLedger(
+    private val clock: DayClock,
+    private val store: StateStore<LedgerState>,
+    private val bank: CanvasBank? = null,
+) {
     private var state: LedgerState = store.load() ?: LedgerState(clock.today())
 
     /** Today's state; a new local date (midnight, DST, a moved clock) starts a fresh day but keeps [LedgerState.consumed]. */
@@ -82,7 +90,7 @@ class DailyLedger(private val clock: DayClock, private val store: StateStore<Led
         val s = current()
         return when {
             !s.freeUsed -> Allowance.Free
-            s.bonusLeft > 0 -> Allowance.Bonus
+            s.bonusLeft > 0 || (bank?.canvases ?: 0) > 0 -> Allowance.Bonus
             else -> Allowance.WatchVideo
         }
     }
@@ -98,6 +106,7 @@ class DailyLedger(private val clock: DayClock, private val store: StateStore<Led
         val spent = when {
             !s.freeUsed -> Spent.FREE
             s.bonusLeft > 0 -> Spent.BONUS
+            bank?.takeCanvas(draftId) == true -> Spent.KEPT
             else -> return ConsumeResult.NoneLeft
         }
         val consumed = (s.consumed + Consumption(draftId, spent, s.day)).takeLast(MAX_REMEMBERED)
@@ -105,6 +114,7 @@ class DailyLedger(private val clock: DayClock, private val store: StateStore<Led
             when (spent) {
                 Spent.FREE -> s.copy(freeUsed = true, consumed = consumed)
                 Spent.BONUS -> s.copy(bonusLeft = s.bonusLeft - 1, consumed = consumed)
+                Spent.KEPT -> s.copy(consumed = consumed)
             },
         )
         return ConsumeResult.Ok(spent, repeat = false)
@@ -117,6 +127,8 @@ class DailyLedger(private val clock: DayClock, private val store: StateStore<Led
         val rest = s.consumed - c
         commit(
             when {
+                // A kept canvas goes back to the inventory on any day: it never expired.
+                c.spent == Spent.KEPT -> s.copy(consumed = rest).also { bank?.returnCanvas(draftId) }
                 c.day != s.day -> s.copy(consumed = rest)
                 c.spent == Spent.FREE -> s.copy(freeUsed = false, consumed = rest)
                 else -> s.copy(bonusLeft = s.bonusLeft + 1, consumed = rest)
@@ -124,30 +136,39 @@ class DailyLedger(private val clock: DayClock, private val store: StateStore<Led
         )
     }
 
-    /** A rewarded video for an extra photo canvas was watched to the end: one more canvas today. */
+    /** A rewarded video for an extra photo canvas was watched to the end: one more canvas (kept, with a bank). */
     fun grantReward() {
         val s = current()
-        commit(s.copy(extrasEarned = s.extrasEarned + 1, bonusLeft = s.bonusLeft + 1))
+        val bank = bank
+        if (bank != null) {
+            bank.addCanvas(EarnSource.VIDEO)
+            commit(s.copy(extrasEarned = s.extrasEarned + 1))
+        } else {
+            commit(s.copy(extrasEarned = s.extrasEarned + 1, bonusLeft = s.bonusLeft + 1))
+        }
     }
 
     /** Whether today's grace unlock for [type] is still there (the caller checks online no-fill first, D15). */
     fun graceAvailable(type: RewardType): Boolean = type !in current().graceUsed
 
     /**
-     * Uses today's grace unlock for [type]. For a photo canvas it grants a bonus canvas; for a picture the caller
-     * unlocks it. False when it was already used today.
+     * Uses today's grace unlock for [type]. For a photo canvas it grants a bonus canvas (kept, with a bank); for a
+     * picture the caller unlocks it, and for fills the caller adds them (#38). False when it was already used today.
      */
     fun useGrace(type: RewardType): Boolean {
         if (!graceAvailable(type)) return false
         val s = current()
         commit(
             when (type) {
-                RewardType.PHOTO_CANVAS -> s.copy(
-                    graceUsed = s.graceUsed + type,
-                    extrasEarned = s.extrasEarned + 1,
-                    bonusLeft = s.bonusLeft + 1,
-                )
-                RewardType.PICTURE -> s.copy(graceUsed = s.graceUsed + type)
+                RewardType.PHOTO_CANVAS -> {
+                    bank?.addCanvas(EarnSource.GRACE)
+                    s.copy(
+                        graceUsed = s.graceUsed + type,
+                        extrasEarned = s.extrasEarned + 1,
+                        bonusLeft = if (bank != null) s.bonusLeft else s.bonusLeft + 1,
+                    )
+                }
+                RewardType.PICTURE, RewardType.FILLS -> s.copy(graceUsed = s.graceUsed + type)
             },
         )
         return true
@@ -164,8 +185,8 @@ class DailyLedger(private val clock: DayClock, private val store: StateStore<Led
 
 /**
  * The ledger file `filesDir/ledger/daily`, "GMRL" v1 (same envelope and CRC trailer as the save files). Body,
- * big-endian: i64 day, u8 freeUsed, varint extrasEarned, varint bonusLeft, u8 grace bits (1 = photo canvas, 2 = picture),
- * u8 count, then per Start: u16 id byte length, the id in UTF-8, u8 spent (0 free, 1 bonus), i64 day.
+ * big-endian: i64 day, u8 freeUsed, varint extrasEarned, varint bonusLeft, u8 grace bits (1 = photo canvas, 2 = picture,
+ * 4 = fills), u8 count, then per Start: u16 id byte length, the id in UTF-8, u8 spent (0 free, 1 bonus, 2 kept), i64 day.
  */
 object LedgerCodec {
     val MAGIC = "GMRL".encodeToByteArray()

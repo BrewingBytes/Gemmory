@@ -5,6 +5,7 @@ import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.game.PlacementTool
 import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.save.ViewState
@@ -128,7 +129,7 @@ class CanvasStoreTest {
         val session = store.start(assertIs<CanvasStore.Opened.Ready>(store.open(photo)))
         session.select(0)
         assertNull(session.fillRegion(4), "no tools for a free player")
-        session.offerTools(true)
+        session.offerTools(unlimited = true)
         session.place(2)
         // Column 0 is one region: rings from 4 are 4, then 0 and 8.
         assertContentEquals(intArrayOf(4, 0, 8), assertNotNull(session.fillRegion(4)).placed)
@@ -148,6 +149,49 @@ class CanvasStoreTest {
             events.filter { it.name == "fill_tool_used" }.map { it.params["tool"] },
             "one event per tool per open",
         )
+    }
+
+    @Test
+    fun withoutVipEachUseOrBrushStrokeSpendsOneFill() = runBlocking<Unit> {
+        // #38: columns 0 and 2 are color 1 (slot 0), columns 1 and 3 color 2 (slot 1).
+        createPhoto()
+        events.clear()
+        val session = store.start(assertIs<CanvasStore.Opened.Ready>(store.open(photo)))
+        val spent = mutableListOf<String>()
+        var held = 2
+        session.spendFill = { id, done ->
+            spent += id
+            held--
+            session.offerTools(unlimited = false, fillsHeld = held)
+            done()
+        }
+        session.offerTools(unlimited = false, fillsHeld = held)
+        assertTrue(session.toolsOn && session.toolsUsable)
+        session.select(0)
+        assertNull(session.fillRegion(5), "a region of another color places nothing, and spends nothing")
+        assertTrue(spent.isEmpty())
+        assertNotNull(session.fillRegion(4))
+        assertEquals(1, session.fills)
+        // One brush stroke: three stamps, one fill, even though it's the last one.
+        session.select(1)
+        session.startStroke()
+        assertNotNull(session.brush(1))
+        assertEquals(0, session.fills)
+        assertNotNull(session.brush(9), "the rest of the stroke is paid for")
+        assertEquals(2, spent.size)
+        // Out of fills: the well stays (dimmed), the tools don't place, and the tool is back to Tap.
+        assertTrue(session.toolsOn)
+        assertFalse(session.toolsUsable)
+        assertEquals(PlacementTool.TAP, session.tool)
+        session.startStroke()
+        assertNull(session.brush(11))
+        assertNull(session.fillRegionNext())
+        assertEquals(2, spent.size)
+        assertEquals(
+            listOf("free", "free"),
+            events.filter { it.name == "fill_tool_used" }.map { it.params["tier"] },
+        )
+        session.close()
     }
 
     @Test

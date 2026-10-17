@@ -8,13 +8,17 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.share.ProgressSharing
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface PlayUi {
     data object Loading : PlayUi
@@ -56,6 +60,13 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
                 is CanvasStore.Opened.Damaged -> PlayUi.Damaged
             }
             val session = (ui as? PlayUi.Ready)?.session ?: return@launch
+            // A fill spent on this canvas (#38) is written to the inventory even if the canvas closes right after.
+            session.spendFill = { useId, done ->
+                app.appScope.launch {
+                    if (app.monetization.spend(Item.FILLS, useId)) app.analytics.log(AnalyticsEvent.inventorySpent(Item.FILLS))
+                    withContext(Dispatchers.Main) { done() }
+                }
+            }
             // Today's picture (#34): decided now, at open, so a first gem placed after midnight still unlocks it for
             // good (a free player) and tells Analytics.
             val firstGem = if (session.placedCount == 0) app.todays.opened(ref, app.monetization.entitlements.value.vip) else null

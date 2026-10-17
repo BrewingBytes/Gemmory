@@ -30,4 +30,10 @@ object StorageLayout {
 
     /** EntitlementCache, "GMRE" (#8). */
     const val LEDGER_ENTITLEMENTS = "$LEDGER/entitlements"
+
+    /**
+     * The inventory (#38), "GMRI": fills, kept photo canvases, unlock tokens and the streak wheel's spins. Backed up and
+     * transferred (no user content), like the picture unlocks, so a new phone keeps what was earned.
+     */
+    const val INVENTORY = "inventory/items"
 }

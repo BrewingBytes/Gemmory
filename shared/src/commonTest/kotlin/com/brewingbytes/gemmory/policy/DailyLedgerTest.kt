@@ -227,4 +227,59 @@ class DailyLedgerTest {
         store.bytes = byteArrayOf(0x47, 0x4D, 0x52, 0x4C, 0, 1, 0, 0, 0, 0)
         assertEquals(Allowance.Free, ledger().allowance(free))
     }
+
+    // #38: with the inventory as its bank, extra canvases are kept past midnight and used after today's free one.
+
+    private val bankStore = CodecStore(InventoryCodec::encode) { (InventoryCodec.decode(it) as? Decoded.Ok)?.value }
+
+    @Test
+    fun keptCanvasesOutliveMidnightAndComeAfterTheFreeOne() {
+        val bank = Inventory(bankStore)
+        val l = DailyLedger(clock.day, store, bank)
+        l.grantReward()
+        l.grantReward()
+        assertEquals(2, bank.canvases)
+        assertEquals(Allowance.Free, l.allowance(free), "today's free one first")
+        assertEquals(ConsumeResult.Ok(Spent.FREE, repeat = false), l.start())
+        assertEquals(Allowance.Bonus, l.allowance(free))
+        clock.set("2026-10-15T09:00")
+        assertEquals(2, bank.canvases, "nothing expired at midnight")
+        assertEquals(ConsumeResult.Ok(Spent.FREE, repeat = false), l.start())
+        assertEquals(ConsumeResult.Ok(Spent.KEPT, repeat = false), l.consume("photo-k", free))
+        assertEquals(ConsumeResult.Ok(Spent.KEPT, repeat = true), l.consume("photo-k", free), "a repeated Start takes one")
+        assertEquals(1, bank.canvases)
+        // A Start that couldn't write gives the kept canvas back, even on a later day.
+        clock.set("2026-10-16T09:00")
+        l.release("photo-k")
+        assertEquals(2, bank.canvases)
+        assertEquals(ConsumeResult.Ok(null, repeat = false), l.consume("photo-v", vip), "VIP uses nothing")
+        assertEquals(2, bank.canvases)
+    }
+
+    @Test
+    fun theGraceCanvasIsKeptAndTheFillsGraceIsItsOwn() {
+        val bank = Inventory(bankStore)
+        val l = DailyLedger(clock.day, store, bank)
+        l.start()
+        assertTrue(l.useGrace(RewardType.PHOTO_CANVAS))
+        assertEquals(1, bank.canvases)
+        assertTrue(l.graceAvailable(RewardType.FILLS), "the fills grace is separate")
+        assertTrue(l.useGrace(RewardType.FILLS))
+        assertFalse(l.useGrace(RewardType.FILLS))
+        assertEquals(1, bank.canvases, "the caller adds the fills, not the ledger")
+        val saved = assertIs<Decoded.Ok<LedgerState>>(LedgerCodec.decode(store.bytes!!)).value
+        assertEquals(setOf(RewardType.PHOTO_CANVAS, RewardType.FILLS), saved.graceUsed)
+    }
+
+    @Test
+    fun aBonusFromBeforeTheUpdateIsStillUsedToday() {
+        DailyLedger(clock.day, store).apply {
+            start()
+            grantReward()
+        }
+        val l = DailyLedger(clock.day, store, Inventory(bankStore))
+        assertEquals(Allowance.Bonus, l.allowance(free))
+        assertEquals(ConsumeResult.Ok(Spent.BONUS, repeat = false), l.start())
+        assertEquals(Allowance.WatchVideo, l.allowance(free))
+    }
 }
