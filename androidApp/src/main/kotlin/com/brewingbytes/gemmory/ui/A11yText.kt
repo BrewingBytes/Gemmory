@@ -37,6 +37,20 @@ object A11yText {
     fun trough(color: Int, left: Int, format: NumberFormat = NumberFormat.getIntegerInstance()): String =
         if (left == 0) "Color $color, done" else "Color $color, ${format.format(left)} left"
 
+    /**
+     * Today's picture card (#34), one node: "Today's picture: Sunflowers, Medium, free to start today" / "Today's pick:
+     * Sunflowers, Medium" (VIP) / "Today's picture: Sunflowers, 12% done" / "…, done".
+     */
+    fun today(title: String, size: String, vip: Boolean, free: Boolean, started: Boolean, percent: Int, done: Boolean): String {
+        val head = "${if (vip) "Today's pick" else "Today's picture"}: $title"
+        return when {
+            done -> "$head, done"
+            started -> "$head, $percent% done"
+            free -> "$head, $size, free to start today"
+            else -> "$head, $size"
+        }
+    }
+
     /** "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock". */
     fun tile(title: String, percent: Int, done: Boolean, locked: Boolean, damaged: Boolean): String = when {
         damaged -> "$title, can't open"

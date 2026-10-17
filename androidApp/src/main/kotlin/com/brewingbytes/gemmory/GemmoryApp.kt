@@ -13,6 +13,7 @@ import com.brewingbytes.gemmory.ads.Monetization
 import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.billing.BillingRepository
+import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.PlayStreak
 import com.brewingbytes.gemmory.policy.DayClock
@@ -56,6 +57,10 @@ class GemmoryApp : Application() {
     lateinit var streak: PlayStreak
         private set
 
+    /** Today's picture (#34). */
+    lateinit var todays: TodaysPictures
+        private set
+
     /** App-scoped, so an encode keeps going while the process lives, whatever screen is showing (design D8). */
     lateinit var encodes: EncodeManager
         private set
@@ -97,6 +102,23 @@ class GemmoryApp : Application() {
     internal fun resetStreakForTest() {
         streak = newStreak()
     }
+
+    /**
+     * Connected tests only (#34): re-reads today's pick from its preferences, which a test cleared or seeded.
+     * [enabled] false offers no picture of the day, for tests that assert which pictures are locked.
+     */
+    @VisibleForTesting
+    internal fun resetTodaysForTest(enabled: Boolean = true) {
+        todays = newTodays(enabled)
+    }
+
+    private fun newTodays(enabled: Boolean = true) = TodaysPictures(
+        this,
+        DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
+        { monetization.unlocks },
+        analytics,
+        enabled,
+    )
 
     private fun newStreak() = PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics)
 
@@ -152,6 +174,7 @@ class GemmoryApp : Application() {
         )
         appScope = scope
         monetization = newMonetization()
+        todays = newTodays()
         consent = ConsentManager(this)
         // Consent Mode v2 from the UMP result, now and on every change (R3-7).
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }

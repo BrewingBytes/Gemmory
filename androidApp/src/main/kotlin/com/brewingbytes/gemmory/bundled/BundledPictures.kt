@@ -97,4 +97,12 @@ object BundledPictures {
     val ALL: List<BundledPicture> = listOf(STARTER) + (QUICK + MEDIUM + BIG).map { it.copy(locked = it.id !in FREE) }
 
     fun byId(id: String): BundledPicture? = ALL.firstOrNull { it.id == id }
+
+    /** "Quick", "Medium" or "Big" for a catalog picture (Today's picture card, #34); null for the starter. */
+    fun sizeOf(id: String): String? = when {
+        QUICK.any { it.id == id } -> "Quick"
+        MEDIUM.any { it.id == id } -> "Medium"
+        BIG.any { it.id == id } -> "Big"
+        else -> null
+    }
 }

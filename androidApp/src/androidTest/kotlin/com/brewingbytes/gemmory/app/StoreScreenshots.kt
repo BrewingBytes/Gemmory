@@ -24,6 +24,7 @@ import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.gallery.tileTag
 import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
@@ -73,6 +74,10 @@ class StoreScreenshots {
         runBlocking { app.billing.refresh() }
         // Store shots never show "Watch to unlock" (founder, #32): every picture opens, even on a Free account.
         BundledPictures.ALL.forEach { app.monetization.unlocks.unlock(it.id) }
+        // No Today's picture card (#34): a pick left on the device from earlier today would show one, so the
+        // shots would change from run to run.
+        context.getSharedPreferences(TodaysPictures.FILE, Context.MODE_PRIVATE).edit().clear().commit()
+        app.resetTodaysForTest(enabled = false)
         if (tablet) {
             A11yTestSupport.shell("wm size 2560x1440")
             A11yTestSupport.shell("wm density 320")
@@ -102,6 +107,7 @@ class StoreScreenshots {
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences(PictureUnlocks.FILE, Context.MODE_PRIVATE).edit().clear().commit()
         app.resetMonetizationForTest()
+        app.resetTodaysForTest()
     }
 
     private fun shot(name: String) {
