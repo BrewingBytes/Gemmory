@@ -59,6 +59,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -87,6 +89,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -98,11 +101,14 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.game.Batch
 import com.brewingbytes.gemmory.game.CanvasGestures
 import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.game.GameEvent
 import com.brewingbytes.gemmory.game.PlaceResult
+import com.brewingbytes.gemmory.game.PlacementTool
 import com.brewingbytes.gemmory.game.Rejection
+import com.brewingbytes.gemmory.game.Sweep
 import com.brewingbytes.gemmory.game.TapAction
 import com.brewingbytes.gemmory.game.TapOutcome
 import com.brewingbytes.gemmory.share.ProgressShareHost
@@ -154,6 +160,8 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
     val finished = session != null && session.placedCount == session.cellCount
     LaunchedEffect(finished) {
         if (!finished) return@LaunchedEffect
+        // A tool's batch (#20) that placed the last gem finishes its sweep first.
+        session?.let { delay(it.cueDelayMs()) }
         if (reducedMotion) {
             withFullMotion { chrome.animateTo(0f, tween(REDUCED_FADE_MS)) }
         } else {
@@ -188,7 +196,13 @@ fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: P
                 val scope = rememberCoroutineScope()
                 val settings = (context.applicationContext as GemmoryApp).settings
                 val milestonesOn by settings.milestones.collectAsStateWithLifecycle()
-                SideEffect { s.milestonesOn = milestonesOn }
+                SideEffect {
+                    s.milestonesOn = milestonesOn
+                    s.reducedMotion = reducedMotion
+                }
+                // Placement tools (#20): VIP only for now; free players see no tool well or Fill button until #38.
+                val entitlements by (context.applicationContext as GemmoryApp).monetization.entitlements.collectAsStateWithLifecycle()
+                LaunchedEffect(s, entitlements.vip) { s.offerTools(entitlements.vip) }
                 val peek = remember(s) { Peek(scope) }
                 TopBar(
                     s.title,
@@ -319,7 +333,7 @@ private class CanvasController(
                 hints.onTapZoom()
                 TapOutcome.ZOOMED_IN
             }
-            TapAction.PLACE -> when (val result = session.place(cell!!)) {
+            TapAction.PLACE -> toolTap(cell!!) ?: when (val result = session.place(cell)) {
                 is PlaceResult.Placed -> {
                     placed(result)
                     TapOutcome.PLACED
@@ -343,12 +357,46 @@ private class CanvasController(
         }
     }
 
+    /**
+     * A tap with the brush or Fill region (#20) on a cell a tap would place: the tool's batch. Null for plain taps and
+     * for any other cell, which then goes through [PlaySession.place] like a tap (a wrong color is rejected there).
+     */
+    private fun toolTap(cell: Int): TapOutcome? {
+        if (!session.startsPaint(cell)) return null
+        val batch = when (session.tool) {
+            PlacementTool.BRUSH -> session.brush(cell)
+            PlacementTool.REGION -> session.fillRegion(cell)
+            else -> return null
+        } ?: return null
+        placed(batch)
+        return TapOutcome.PLACED
+    }
+
     override fun onLongPress(cell: Int) = session.select(session.pattern.cells[cell])
 
     override fun onPaint(cell: Int, slot: Int) {
         // A drag paints only its own color: once that color finishes and the next one is selected, it stops.
-        if (session.selectedSlot != slot || session.pattern.cells[cell] != slot || session.isPlaced(cell)) return
+        if (session.selectedSlot != slot) return
+        // The brush (#20) stamps its 3×3 around every cell the finger crosses, whatever that cell's color.
+        if (session.tool == PlacementTool.BRUSH) {
+            session.brush(cell)?.let(::placed)
+            return
+        }
+        if (session.pattern.cells[cell] != slot || session.isPlaced(cell)) return
         (session.place(cell) as? PlaceResult.Placed)?.let(::placed)
+    }
+
+    /** Fill color (#20), the tray's "Fill N": the rest of the selected color, nearest the middle of the view first. */
+    fun fillColor(announceCount: Boolean = false): Boolean {
+        val from = viewport.cellAt(viewport.width / 2f, viewport.height / 2f) ?: (session.cellCount / 2)
+        placed(session.fillColor(from, announceCount) ?: return false)
+        return true
+    }
+
+    /** TalkBack "Fill region at next gem" (#20). */
+    fun fillRegionNext(): Boolean {
+        placed(session.fillRegionNext() ?: return false)
+        return true
     }
 
     /** Find (design D24): pan and zoom to 24dp cells on the next remaining cell, then pulse it once. */
@@ -382,6 +430,46 @@ private class CanvasController(
     fun wholePicture(): Boolean {
         animateTo(viewport.minZoomDp, viewport.columns / 2f, viewport.rows / 2f)
         return true
+    }
+
+    /**
+     * A tool's batch (#20): one sweep instead of a tick per gem. Placed already, it's revealed ring by ring with a
+     * glint on each gem as its ring shows (from 20dp), a light haptic sweep and a run of rising clicks; the color-done
+     * thump waits for the end. A single-ring batch (a brush stamp) or reduced motion shows at once with one tick and
+     * click, like a tap.
+     */
+    private fun placed(batch: Batch) {
+        val durationMs = if (reducedMotion) 0 else Sweep.durationMs(batch.lastRing)
+        val now = System.nanoTime()
+        val ringNanos = (Sweep.ringMs(batch.lastRing) * 1_000_000).toLong()
+        if (durationMs == 0) {
+            feedback.gemPlaced(view)
+        } else {
+            effects.reveal(session.cellCount, batch.placed, batch.rings, now, ringNanos)
+            feedback.sweep(view, durationMs)
+            val clicks = Sweep.clickTimes(durationMs)
+            scope.launch {
+                for ((step, at) in clicks.withIndex()) {
+                    delay(at - (if (step == 0) 0 else clicks[step - 1]).toLong())
+                    feedback.sweepClick(step)
+                }
+            }
+        }
+        if (!reducedMotion && viewport.zoomDp >= CanvasZoom.FACET_MIN_DP) {
+            for (i in batch.placed.indices) effects.glint(batch.placed[i], now + batch.rings[i] * ringNanos)
+        }
+        if (durationMs > 0 || effects.isActive(now)) tick()
+        if (batch.colorFinished != null) {
+            if (durationMs == 0) {
+                feedback.colorFinished(view)
+            } else {
+                scope.launch {
+                    delay(durationMs.toLong())
+                    feedback.colorFinished(view)
+                }
+            }
+        }
+        hints.onPlaced()
     }
 
     private fun placed(result: PlaceResult.Placed) {
@@ -445,15 +533,20 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
         hints.expire(hint)
     }
 
-    // TalkBack (design D19): the canvas is one node with six actions instead of a node per cell. Its description
+    // TalkBack (design D19): the canvas is one node with six actions (eight with the tools, #20) instead of a node per cell. Its description
     // changes at most once per placement. The peek action (#35) reads "Back to canvas" while the picture shows.
     val format = remember { NumberFormat.getIntegerInstance() }
     val slot = session.selectedSlot
     val description = A11yText.canvas(session.placedCount, session.cellCount, slot + 1, session.remaining(slot), format)
     val peeking = peek.shown
-    val actions = remember(controller, peeking) {
-        listOf(
+    // Placement tools (#20, VIP): "Fill region at next gem", and "Fill the rest of color 7" while Fill color shows.
+    val toolsOn = session.toolsOn
+    val fillColor = session.fillColorVisible
+    val actions = remember(controller, peeking, toolsOn, fillColor, slot) {
+        listOfNotNull(
             CustomAccessibilityAction("Place next gem") { controller.placeNext() },
+            if (toolsOn) CustomAccessibilityAction("Fill region at next gem") { controller.fillRegionNext() } else null,
+            if (fillColor) CustomAccessibilityAction(A11yText.fillColor(slot + 1)) { controller.fillColor(announceCount = true) } else null,
             CustomAccessibilityAction("Find next gem") { controller.find() },
             CustomAccessibilityAction("Zoom in") { controller.zoomStep(zoomIn = true) },
             CustomAccessibilityAction("Zoom out") { controller.zoomStep(zoomIn = false) },
@@ -506,8 +599,15 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
 @Composable
 private fun Announcer(session: PlaySession) {
     val announcement = session.announcement
+    // What the region says now: a tool's batch (#20) speaks when its sweep ends, with its other cues.
+    var spoken by remember { mutableStateOf<Announcement?>(null) }
     LaunchedEffect(announcement) {
-        if (announcement == null) return@LaunchedEffect
+        if (announcement == null) {
+            spoken = null
+            return@LaunchedEffect
+        }
+        delay(session.cueDelayMs())
+        spoken = announcement
         delay(ANNOUNCEMENT_MS)
         session.announced(announcement)
     }
@@ -519,7 +619,7 @@ private fun Announcer(session: PlaySession) {
                 liveRegion = LiveRegionMode.Polite
                 // A changed description is what makes TalkBack speak; a trailing space on every other announcement
                 // makes the same words ("Not color 7" twice) a change too.
-                if (announcement != null) contentDescription = announcement.text + if (announcement.id % 2 == 0) " " else ""
+                spoken?.let { contentDescription = it.text + if (it.id % 2 == 0) " " else "" }
             },
     )
 }
@@ -544,7 +644,9 @@ private fun HintChip(text: String) {
  * The sorting tray: one trough per color in tray order (finished ones at the end), the selected one lifted with
  * a lamp outline and scrolled into view. A wrong-color tap nudges the selected trough 2dp sideways over 150ms.
  * Find sits at the tray's start while the selected color has 20 or fewer cells left (design D24). As a [rail]
- * (large screens, D22) the troughs stack in two columns with Find on top.
+ * (large screens, D22) the troughs stack in two columns with Find on top. For VIP (#20), "Fill N" follows Find while it
+ * shows, and the tool well comes next; tapping the well swaps the troughs for the three tool troughs until one is
+ * picked.
  */
 @Composable
 private fun Tray(session: PlaySession, controller: CanvasController, rail: Boolean, reducedMotion: Boolean) {
@@ -553,6 +655,14 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
     // A finished picture has nothing left to select, so no trough wears the lamp outline.
     val selected = if (session.isFinished) -1 else session.selectedSlot
     val showFind = !session.isFinished && session.findVisible
+    val showFill = !session.isFinished && session.fillColorVisible
+    val showWell = !session.isFinished && session.toolsOn
+    var picking by remember(session) { mutableStateOf(false) }
+    if (!showWell) picking = false
+    val pick: (PlacementTool) -> Unit = {
+        session.chooseTool(it)
+        picking = false
+    }
     val nudge = remember { Animatable(0f) }
     // Reduced motion (D21): the nudge becomes a 120ms blink of the lamp outline (the haptic stays).
     var blink by remember { mutableStateOf(false) }
@@ -612,6 +722,18 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
         // Find stays pinned at the top of the rail, outside the scrolling troughs.
         Column(Modifier.fillMaxHeight().width(troughWidth * 2 + 8.dp + 24.dp).background(deep).testTag("tray-rail")) {
             if (showFind) FindButton(controller::find, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp))
+            if (showFill) {
+                FillColorButton(session, controller, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp))
+            }
+            if (showWell) {
+                ToolWell(session.tool, { picking = !picking }, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp))
+            }
+            if (picking) {
+                Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (tool in PlacementTool.MODES) ToolTrough(tool, tool == session.tool, reducedMotion, { pick(tool) }, Modifier.fillMaxWidth())
+                }
+                return@Column
+            }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 state = gridState,
@@ -639,14 +761,131 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
     }
     Row(Modifier.fillMaxWidth().background(deep).testTag("tray"), verticalAlignment = Alignment.CenterVertically) {
         if (showFind) FindButton(controller::find, Modifier.padding(start = 16.dp))
+        if (showFill) FillColorButton(session, controller, Modifier.padding(start = if (showFind) 8.dp else 16.dp))
+        if (showWell) ToolWell(session.tool, { picking = !picking }, Modifier.padding(start = if (showFind || showFill) 8.dp else 16.dp))
+        // The tool troughs lie over the color troughs at exactly their size, so the tray (and the canvas) never
+        // changes height when they swap, at any font scale.
+        Box(Modifier.weight(1f)) {
         LazyRow(
             state = listState,
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(start = if (showFind) 8.dp else 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            modifier = if (picking) Modifier.alpha(0f).clearAndSetSemantics {} else Modifier,
+            contentPadding = PaddingValues(start = if (showFind || showFill || showWell) 8.dp else 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(order, key = { it }) { slot -> trough(slot, Modifier.animateItem()) }
         }
+        if (picking) {
+            Row(
+                Modifier
+                    .matchParentSize()
+                    .background(deep)
+                    // Touches between the tool troughs stop here, not on the hidden color troughs.
+                    .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }
+                    .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (tool in PlacementTool.MODES) {
+                    ToolTrough(tool, tool == session.tool, reducedMotion, { pick(tool) }, Modifier.weight(1f).fillMaxHeight())
+                }
+            }
+        }
+        }
+    }
+}
+
+/** The placement tools' names (#20), on the tool troughs and in the well's label. */
+private fun PlacementTool.label(): String = when (this) {
+    PlacementTool.TAP -> "Tap"
+    PlacementTool.BRUSH -> "Brush 3×3"
+    PlacementTool.REGION -> "Fill region"
+    PlacementTool.FILL_COLOR -> "Fill color"
+}
+
+private fun PlacementTool.icon() = when (this) {
+    PlacementTool.TAP -> GemIcons.ToolTap
+    PlacementTool.BRUSH -> GemIcons.ToolBrush
+    PlacementTool.REGION -> GemIcons.ToolRegion
+    PlacementTool.FILL_COLOR -> GemIcons.FillColor
+}
+
+/**
+ * The tool well (#20, founder pick P1): a 48dp quiet button showing the current tool, with a 6dp lamp corner while
+ * it isn't Tap. A tap swaps the troughs for the tool troughs (or back).
+ */
+@Composable
+private fun ToolWell(tool: PlacementTool, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(LocalFelt.current.raised)
+            .clickable(role = Role.Button, onClick = onClick)
+            // The tag before the clear, which drops everything after it.
+            .testTag("tool-well")
+            .clearAndSetSemantics { contentDescription = A11yText.tool(tool.label()) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(tool.icon(), contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
+        if (tool != PlacementTool.TAP) {
+            Box(Modifier.align(Alignment.TopEnd).padding(5.dp).size(6.dp).clip(RoundedCornerShape(1.dp)).background(GemColors.Lamp))
+        }
+    }
+}
+
+/**
+ * A tool trough (#20): the icon over its name; the chosen one lifts with the lamp outline. Above 1.5× font the icon
+ * hides, as a color trough's count does (D20), so a two-line name still fits the tray's height.
+ */
+@Composable
+private fun ToolTrough(tool: PlacementTool, selected: Boolean, instantLift: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val showIcon = LocalDensity.current.fontScale <= LARGE_FONT_SCALE
+    val lift by animateDpAsState(if (selected) (-3).dp else 0.dp, if (instantLift) snap() else tween(LIFT_MS), label = "lift")
+    val shape = RoundedCornerShape(8.dp)
+    val felt = LocalFelt.current
+    Column(
+        modifier
+            .heightIn(min = 64.dp)
+            .graphicsLayer { translationY = lift.toPx() }
+            .testTag("tool-${tool.param}")
+            .border(BorderStroke(2.dp, if (selected) GemColors.Lamp else Color.Transparent), shape)
+            .clip(shape)
+            .background(felt.ground)
+            .clickable(role = Role.Button, onClick = onClick)
+            .clearAndSetSemantics {
+                contentDescription = tool.label()
+                this.selected = selected
+            }
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (showIcon) {
+            Image(tool.icon(), contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
+            Spacer(Modifier.height(4.dp))
+        }
+        Text(tool.label(), style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
+    }
+}
+
+/** Fill color (#20): "Fill 14" beside Find while the selected color has 20 or fewer left; it places all of them. */
+@Composable
+private fun FillColorButton(session: PlaySession, controller: CanvasController, modifier: Modifier = Modifier) {
+    val left = session.remaining(session.selectedSlot)
+    Row(
+        modifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(LocalFelt.current.raised)
+            .clickable(role = Role.Button) { controller.fillColor() }
+            .testTag("fill-color")
+            .clearAndSetSemantics { contentDescription = A11yText.fillColor(session.selectedSlot + 1) }
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Image(GemIcons.FillColor, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
+        Spacer(Modifier.width(6.dp))
+        Text("Fill $left", style = GemType.button, color = GemColors.Bone, maxLines = 1)
     }
 }
 

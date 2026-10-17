@@ -27,7 +27,8 @@ import kotlin.math.sin
  * cells on screen and draws each as its color's cached sprite for the current zoom bucket, with raised edges on
  * placed gems from 8dp (D18), numbers on unplaced cells from 16dp and facets from 20dp. The selected color stands
  * out per the player's [HighlightStyle] (#19): stronger tint, the D17 ring from 8dp, or the other colors dimmed. On
- * top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). Main thread only.
+ * top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). A tool's batch (#20) is placed at once and
+ * revealed ring by ring: its cells keep their unplaced look until their ring's time. Main thread only.
  */
 class CanvasRenderer(context: Context, private val pattern: Pattern) {
     private val colors = CellColors(pattern)
@@ -118,8 +119,9 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
             var index = row * pattern.width + col0
             for (col in col0..col1) {
                 val slot = cells[index]
-                // A direct call, not a stored (Int) -> Boolean: no boxing per visible cell per frame.
-                val kind = kindOf(session.isPlaced(index), slot, selectedSlot)
+                // A direct call, not a stored (Int) -> Boolean: no boxing per visible cell per frame. A cell the sweep
+                // hasn't reached yet still looks like the selected color it was placed as.
+                val kind = if (effects.hidden(index, nowNanos)) SpriteKind.SELECTED else kindOf(session.isPlaced(index), slot, selectedSlot)
                 val left = ox + col * cell
                 dst.set(left, top, left + cell, top + cell)
                 drawSprite(canvas, spec, slot, kind)
@@ -331,9 +333,42 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
 
 /**
  * Short-lived canvas effects: placement glints (design system Motion: 180ms, from 20dp, skipped under reduced
- * motion) and the Find pulse (400ms, skipped under reduced motion). Times are System.nanoTime, the frame clock's base.
+ * motion), the Find pulse (400ms, skipped under reduced motion) and a batch's reveal (#20: its cells show ring by
+ * ring, never under reduced motion). Times are System.nanoTime, the frame clock's base.
  */
 class CanvasEffects {
+    /** Per cell, the time its ring shows, or 0 when it isn't in the running reveal; allocated on the first batch. */
+    private var revealAt: LongArray? = null
+    private val revealCells = ArrayList<Int>()
+    private var revealEnd = 0L
+
+    /**
+     * Reveals [cells] (in log order) with their [rings], starting at [startNanos], [ringNanos] apart. A reveal still
+     * running is finished first, so its cells show at once.
+     */
+    fun reveal(cellCount: Int, cells: IntArray, rings: IntArray, startNanos: Long, ringNanos: Long) {
+        val at = revealAt ?: LongArray(cellCount).also { revealAt = it }
+        clearReveal(at)
+        for (i in cells.indices) {
+            val time = startNanos + rings[i] * ringNanos
+            at[cells[i]] = time
+            revealCells += cells[i]
+            if (time > revealEnd) revealEnd = time
+        }
+    }
+
+    /** Whether [cell] is placed but its ring of the running reveal hasn't shown yet. */
+    fun hidden(cell: Int, nowNanos: Long): Boolean {
+        val at = revealAt ?: return false
+        return at[cell] > nowNanos
+    }
+
+    private fun clearReveal(at: LongArray) {
+        for (cell in revealCells) at[cell] = 0L
+        revealCells.clear()
+        revealEnd = 0L
+    }
+
     private val glintCells = ArrayList<Int>()
     private val glintStarts = ArrayList<Long>()
     private var pulseCell = -1
@@ -351,7 +386,8 @@ class CanvasEffects {
 
     fun isActive(nowNanos: Long): Boolean {
         prune(nowNanos)
-        return glintCells.isNotEmpty() || pulse(nowNanos) != null
+        revealAt?.let { if (revealCells.isNotEmpty() && nowNanos >= revealEnd) clearReveal(it) }
+        return glintCells.isNotEmpty() || pulse(nowNanos) != null || revealCells.isNotEmpty()
     }
 
     fun forEachGlint(nowNanos: Long, block: (cell: Int, progress: Float) -> Unit) {

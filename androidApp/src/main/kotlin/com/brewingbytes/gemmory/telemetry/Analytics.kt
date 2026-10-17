@@ -35,6 +35,13 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         fun todaysPictureStarted(ref: CanvasRef, width: Int, height: Int, vip: Boolean) =
             AnalyticsEvent("todays_picture_started", mapOf(SIZE to size(ref, width, height), "tier" to if (vip) "vip" else "free"))
 
+        /**
+         * A placement tool (#20) placed gems on this canvas for the first time since it opened. [tool]: `brush`,
+         * `region` or `color`; [tier] is `vip` (the only tier with tools until #38 adds earned charges).
+         */
+        fun fillToolUsed(ref: CanvasRef, width: Int, height: Int, tool: String, tier: String) =
+            AnalyticsEvent("fill_tool_used", mapOf("tool" to tool, SIZE to size(ref, width, height), "tier" to tier))
+
         fun rewardedOffered(type: RewardType) = AnalyticsEvent("rewarded_offered", reward(type))
 
         fun rewardedWatched(type: RewardType) = AnalyticsEvent("rewarded_watched", reward(type))

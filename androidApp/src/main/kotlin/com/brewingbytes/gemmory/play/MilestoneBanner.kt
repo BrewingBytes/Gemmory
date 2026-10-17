@@ -42,6 +42,7 @@ import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.withFullMotion
+import kotlinx.coroutines.delay
 import java.text.NumberFormat
 
 /**
@@ -58,8 +59,11 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
     val clock = remember { Animatable(0f) }
     val total = if (reducedMotion) REDUCED_TOTAL_MS else TOTAL_MS
     LaunchedEffect(milestone) {
-        // A milestone already cued (a rotation mid-banner) doesn't start again.
-        if (milestone == null || !session.cue(milestone)) return@LaunchedEffect
+        // A milestone already cued (a rotation mid-banner) doesn't start again. One crossed by a tool's batch (#20)
+        // starts when its sweep ends.
+        if (milestone == null || milestone.id <= session.cuedMilestone) return@LaunchedEffect
+        delay(session.cueDelayMs())
+        if (!session.cue(milestone)) return@LaunchedEffect
         feedback.milestone(view)
         shown = milestone
         clock.snapTo(0f)

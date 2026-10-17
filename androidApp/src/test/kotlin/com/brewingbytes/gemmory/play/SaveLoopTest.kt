@@ -189,4 +189,43 @@ class SaveLoopTest {
         runCurrent()
         assertEquals(1, h.saves.size)
     }
+
+    @Test
+    fun aBatchIsSavedLikeOnePlacementInItsOrder() = runTest {
+        val h = Harness(this, initialLog = intArrayOf(9))
+        runCurrent()
+        // A region fill of 200 cells (#20): one event, written 1 s later in its sweep order, after the earlier tap.
+        val batch = IntArray(200) { 1000 - it }
+        h.loop.onPlacement(4)
+        advanceTimeBy(300)
+        h.loop.onPlacements(batch)
+        advanceTimeBy(999)
+        runCurrent()
+        assertTrue(h.saves.isEmpty())
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf(1_300L), h.saves.map { it.at })
+        assertEquals(listOf(9, 4) + batch.toList(), h.saves.single().log)
+    }
+
+    @Test
+    fun batchesKeepTheFiveSecondCapAndAFinishWritesAtOnce() = runTest {
+        val h = Harness(this)
+        runCurrent()
+        // A brush drag: a 9-cell stamp every 200ms keeps the debounce from firing; the 5 s cap still writes.
+        repeat(30) { i ->
+            h.loop.onPlacements(IntArray(9) { i * 9 + it })
+            advanceTimeBy(200)
+            runCurrent()
+        }
+        assertEquals(listOf(5_000L), h.saves.map { it.at })
+        assertEquals((0 until 25 * 9).toList(), h.saves[0].log)
+        // The batch that finishes the picture is followed by writeNow, as for a tap: written at once.
+        h.loop.onPlacements(intArrayOf(500, 501))
+        h.loop.writeNow()
+        runCurrent()
+        assertEquals(6_000L, h.saves.last().at)
+        assertEquals(listOf(500, 501), h.saves.last().log.takeLast(2))
+        assertEquals(30 * 9 + 2, h.saves.last().log.size)
+    }
 }

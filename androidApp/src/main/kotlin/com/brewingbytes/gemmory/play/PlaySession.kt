@@ -5,12 +5,17 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.game.Batch
 import com.brewingbytes.gemmory.game.CanvasGestures
 import com.brewingbytes.gemmory.game.CanvasState
 import com.brewingbytes.gemmory.game.GameEvent
 import com.brewingbytes.gemmory.game.Milestones
 import com.brewingbytes.gemmory.game.PlaceResult
+import com.brewingbytes.gemmory.game.PlacementTool
+import com.brewingbytes.gemmory.game.PlacementTools
 import com.brewingbytes.gemmory.game.Rejection
+import com.brewingbytes.gemmory.game.Sweep
+import com.brewingbytes.gemmory.game.ToolCells
 import com.brewingbytes.gemmory.game.nextRemainingCell
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -36,6 +41,10 @@ class PlaySession internal constructor(
     private val onPictureFinished: () -> Unit = {},
     /** Any gem was placed: a progress share's encode is out of date (#36). */
     private val onPlaced: () -> Unit = {},
+    /** A placement tool (#20) placed its first gems on this canvas since it opened. */
+    private val onToolUsed: (PlacementTool) -> Unit = {},
+    /** The monotonic clock the batch cues wait on (#20). */
+    private val uptimeMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     private val onClosed: (lastWrite: Job, playMillis: Long) -> Unit,
 ) {
     val viewport = CanvasViewport(pattern.width, pattern.height).apply { restore(view) }
@@ -75,6 +84,37 @@ class PlaySession internal constructor(
         cuedMilestone = shown.id
         return true
     }
+
+    /**
+     * Whether the placement tools (#20) are offered: VIP only for now (founder 2026-10-15; free players get charges
+     * with #38). Kept current by the play screen; turning it off goes back to plain taps.
+     */
+    var toolsOn by mutableStateOf(false)
+        private set
+
+    /** The tool well's mode (#20); Fill color is a button, never a mode. */
+    var tool by mutableStateOf(PlacementTool.TAP)
+        private set
+
+    fun offerTools(on: Boolean) {
+        toolsOn = on
+        if (!on) tool = PlacementTool.TAP
+    }
+
+    fun chooseTool(chosen: PlacementTool) {
+        if (toolsOn && chosen in PlacementTool.MODES) tool = chosen
+    }
+
+    /** Reduced motion, kept current by the play screen: a batch then shows at once and its cues don't wait. */
+    var reducedMotion = false
+
+    /** When the running batch's sweep ends (#20): its color-done, milestone and finish cues wait until then. */
+    private var cuesAt = 0L
+
+    /** How long the cues of the last batch still wait for its sweep; 0 when no sweep is running. */
+    fun cueDelayMs(): Long = maxOf(0L, cuesAt - uptimeMillis())
+
+    private val toolsUsed = HashSet<PlacementTool>()
 
     /** The peek (#35) was turned on or off from its TalkBack canvas action. */
     fun announcePeek(shown: Boolean) = announce(A11yText.peek(shown))
@@ -119,6 +159,74 @@ class PlaySession internal constructor(
             announce(listOfNotNull(A11yText.left(remaining(selectedSlot)), crossed?.let(A11yText::milestone)).joinToString(". "))
         }
         return result
+    }
+
+    /** Fill color (#20) shows beside Find for VIP while the selected color has 1 to 20 cells left. */
+    val fillColorVisible: Boolean
+        get() {
+            placedCount // a snapshot read, as in findVisible
+            return toolsOn && remaining(selectedSlot) in 1..PlacementTools.FILL_COLOR_MAX_LEFT
+        }
+
+    /** A brush stamp (#20) centred on [cell]: the selected color's unplaced cells in the 3×3 around it. */
+    fun brush(cell: Int): Batch? = placeBatch(PlacementTool.BRUSH, PlacementTools.brush(pattern, cell), announceCount = false)
+
+    /** Fill region (#20) from [cell], an unplaced cell of the selected color (the caller checks, as for a tap). */
+    fun fillRegion(cell: Int): Batch? =
+        placeBatch(PlacementTool.REGION, PlacementTools.region(pattern, cell, selectedSlot), announceCount = false)
+
+    /** Fill color (#20): every remaining cell of the selected color, nearest to [from] (the view's middle) first. */
+    fun fillColor(from: Int, announceCount: Boolean = false): Batch? {
+        if (!fillColorVisible) return null
+        return placeBatch(PlacementTool.FILL_COLOR, PlacementTools.fillColor(pattern, state::isPlaced, selectedSlot, from), announceCount)
+    }
+
+    /**
+     * TalkBack "Fill region at next gem" (#20): the region holding the cell "Place next gem" would place, announced
+     * with its count ("214 placed. 98 left.") unless it finishes the color.
+     */
+    fun fillRegionNext(): Batch? {
+        if (!toolsOn) return null
+        val cell = nextRemainingCell(pattern, state::isPlaced, selectedSlot, findCursor - 1) ?: return null
+        findCursor = cell
+        return placeBatch(PlacementTool.REGION, PlacementTools.region(pattern, cell, selectedSlot), announceCount = true)
+    }
+
+    /**
+     * A tool's batch (#20): every cell through [CanvasState.place] in order, saved like one placement, the selection
+     * moving on if it finished the color. The milestone, announcement and finish cues are set now and play when the
+     * sweep ends ([cueDelayMs]). Null when nothing could be placed (then nothing changed).
+     */
+    private fun placeBatch(tool: PlacementTool, cells: ToolCells, announceCount: Boolean): Batch? {
+        if (!toolsOn) return null
+        val before = placedCount
+        val batch = PlacementTools.place(state, cells, selectedSlot)
+        if (batch.placed.isEmpty()) return null
+        saver.onPlacements(batch.placed)
+        onPlaced()
+        if (toolsUsed.add(tool)) onToolUsed(tool)
+        placedCount = state.placedCount
+        cuesAt = uptimeMillis() + if (reducedMotion) 0 else Sweep.durationMs(batch.lastRing)
+        val crossed = crossedMilestone(before)
+        if (crossed != null) milestone = Milestone(crossed, (milestone?.id ?: 0) + 1)
+        val done = batch.colorFinished
+        if (done != null) {
+            done.next?.let {
+                selectedSlot = it
+                findCursor = -1
+            }
+            val line = A11yText.colorDone(done.slot + 1, done.next?.plus(1))
+            announce(if (crossed == null) line else "$line ${A11yText.milestone(crossed)}.")
+        } else {
+            val count = if (announceCount) A11yText.batch(batch.placed.size, remaining(selectedSlot)) else null
+            val line = listOfNotNull(count, crossed?.let(A11yText::milestone)).joinToString(". ")
+            if (line.isNotEmpty()) announce(line)
+        }
+        if (batch.pictureFinished) {
+            saver.writeNow()
+            onPictureFinished()
+        }
+        return batch
     }
 
     /** The live region has spoken [shown]; clearing it lets the same words be announced again. */

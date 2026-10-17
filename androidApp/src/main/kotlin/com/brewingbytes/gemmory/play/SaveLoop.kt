@@ -34,6 +34,9 @@ class SaveLoop(
     private sealed interface Event {
         class Placed(val cell: Int) : Event
 
+        /** A tool's batch (#20): its cells in log order, one placement as far as the cadence goes. */
+        class PlacedAll(val cells: IntArray) : Event
+
         class Flush(val view: ViewState?, val done: CompletableDeferred<Unit>) : Event
     }
 
@@ -48,6 +51,11 @@ class SaveLoop(
 
     fun onPlacement(cell: Int) {
         events.trySend(Event.Placed(cell))
+    }
+
+    /** A tool's batch (#20), in log order: saved on the same 1 s / 5 s cadence as a single placement. */
+    fun onPlacements(cells: IntArray) {
+        events.trySend(Event.PlacedAll(cells.copyOf()))
     }
 
     /**
@@ -89,6 +97,12 @@ class SaveLoop(
                 is Event.Placed -> {
                     if (size == log.size) log = log.copyOf(log.size * 2)
                     log[size++] = event.cell
+                    scheduler.onPlacement()
+                }
+                is Event.PlacedAll -> {
+                    if (size + event.cells.size > log.size) log = log.copyOf(maxOf(log.size * 2, size + event.cells.size))
+                    event.cells.copyInto(log, size)
+                    size += event.cells.size
                     scheduler.onPlacement()
                 }
                 is Event.Flush -> {
