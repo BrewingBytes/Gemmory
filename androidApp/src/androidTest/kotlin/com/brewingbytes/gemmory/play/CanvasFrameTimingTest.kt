@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.play
 
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import android.view.FrameMetrics
@@ -27,6 +28,7 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -37,8 +39,11 @@ import kotlin.math.sin
 
 /**
  * Frame timing of a Big canvas panned and zoomed across every zoom level (#10). Two-finger gestures only, so it
- * navigates the same way on every renderer. Logs per-phase frame durations under [TAG]; it asserts nothing, since an
- * emulator's numbers only compare builds. Left out of connectedDebugAndroidTest; run it with
+ * navigates the same way on every renderer. Logs per-phase frame durations under [TAG] and fails past the #54 line:
+ * a frame is missed when it ends more than [SLACK_NANOS] past its deadline, and a pan phase may miss [MAX_PAN_MISSED] of its frames,
+ * a pinch phase [MAX_PINCH_MISSED] (a new zoom bucket builds its sprite atlas), the whole run [MAX_ALL_MISSED].
+ * A phase with fewer than [MIN_FRAMES] frames fails too, since then nothing was measured. Test Lab runs it on the
+ * low-end phone (README → "Frame timing on Firebase Test Lab"). Left out of connectedDebugAndroidTest; run it with
  * `am instrument -w -e class com.brewingbytes.gemmory.play.CanvasFrameTimingTest ...`; `-e highlight outline|dim`
  * times another Selected color style (#19, default tint), and `-e colors 60` a More colors canvas (#29, default 36).
  */
@@ -101,10 +106,15 @@ class CanvasFrameTimingTest {
 
         lateinit var window: Window
         scenario.onActivity { window = it.window }
-        val frames = Collections.synchronizedList(mutableListOf<Long>())
+        // Before API 31 frames carry no deadline, so a missed frame is one over 1.5 vsyncs at the display's rate.
+        val hz = window.decorView.display.refreshRate
+        Log.i(TAG, "display ${"%.0f".format(hz)} Hz")
+        val vsyncNanos = (1_000_000_000.0 / hz).toLong()
+        val frames = Collections.synchronizedList(mutableListOf<Frame>())
         val stages = Collections.synchronizedList(mutableListOf<LongArray>())
         val listener = Window.OnFrameMetricsAvailableListener { _, metrics, _ ->
-            frames += metrics.getMetric(FrameMetrics.TOTAL_DURATION)
+            val deadline = if (Build.VERSION.SDK_INT >= 31) metrics.getMetric(FrameMetrics.DEADLINE) else vsyncNanos * 3 / 2
+            frames += Frame(metrics.getMetric(FrameMetrics.TOTAL_DURATION), deadline)
             stages += STAGES.map { metrics.getMetric(it) }.toLongArray()
         }
         instrumentation.runOnMainSync { window.addOnFrameMetricsAvailableListener(listener, android.os.Handler(android.os.Looper.getMainLooper())) }
@@ -115,7 +125,7 @@ class CanvasFrameTimingTest {
         val bounds = compose.onNodeWithTag("play-canvas").fetchSemanticsNode().boundsInWindow
         val cx = location[0] + bounds.center.x
         val cy = location[1] + bounds.center.y
-        val phases = linkedMapOf<String, List<Long>>()
+        val phases = linkedMapOf<String, List<Frame>>()
 
         fun phase(name: String, gesture: () -> Unit) {
             SystemClock.sleep(300)
@@ -132,7 +142,7 @@ class CanvasFrameTimingTest {
             Log.i(TAG, "$name: zoom now ${"%.1f".format(vp.zoomDp)}dp")
         }
 
-        phase("fit pan") { twoFingerPan(cx, cy, 300f, 2_000) }
+        phase(FIT_PAN) { twoFingerPan(cx, cy, 300f, 2_000) }
         phase("pinch fit->~10dp") { pinch(cx, cy, 200f, 200f * 10f / vp.zoomDp, 1_500) }
         phase("~10dp pan") { twoFingerPan(cx, cy, 300f, 2_000) }
         phase("pinch ->~20dp") { pinch(cx, cy, 150f, 300f, 1_200) }
@@ -142,18 +152,34 @@ class CanvasFrameTimingTest {
         phase("pinch ->fit") { pinch(cx, cy, 500f, 60f, 1_500); pinch(cx, cy, 500f, 60f, 1_000) }
 
         instrumentation.runOnMainSync { window.removeOnFrameMetricsAvailableListener(listener) }
-        for ((name, list) in phases) Log.i(TAG, summary(name, list))
-        Log.i(TAG, summary("ALL", phases.values.flatten()))
+        val failures = mutableListOf<String>()
+        val lines = mutableListOf<String>()
+        fun check(name: String, list: List<Frame>, maxMissed: Double) {
+            val line = summary(name, list)
+            lines += line
+            Log.i(TAG, line)
+            val missed = list.count { it.missed }
+            if (list.size < MIN_FRAMES) failures += "$name: ${list.size} frames, under $MIN_FRAMES"
+            else if (missed > maxMissed * list.size) failures += "$name: missed $missed of ${list.size}, over ${"%.0f".format(maxMissed * 100)}%"
+        }
+        // At fit the whole canvas shows and panning is clamped, so that phase draws only a few frames: logged, not checked.
+        Log.i(TAG, summary(FIT_PAN, phases.remove(FIT_PAN).orEmpty()))
+        for ((name, list) in phases) check(name, list, if (name.startsWith("pinch")) MAX_PINCH_MISSED else MAX_PAN_MISSED)
+        check("ALL", phases.values.flatten(), MAX_ALL_MISSED)
+        assertTrue("Frame timing past the #54 line: ${failures.joinToString("; ")}\n${lines.joinToString("\n")}", failures.isEmpty())
     }
 
-    private fun summary(name: String, nanos: List<Long>): String {
-        if (nanos.isEmpty()) return "$name: no frames"
-        val ms = nanos.map { it / 1_000_000.0 }.sorted()
+    private class Frame(val total: Long, val deadline: Long) {
+        val missed get() = total > deadline + SLACK_NANOS
+    }
+
+    private fun summary(name: String, frames: List<Frame>): String {
+        if (frames.isEmpty()) return "$name: no frames"
+        val ms = frames.map { it.total / 1_000_000.0 }.sorted()
         fun p(q: Double) = "%.1f".format(ms[((ms.size - 1) * q).toInt()])
-        // The emulator's frame totals include the wait for vsync, so a missed frame is one over 1.5 vsyncs.
-        val janky = ms.count { it > 25.0 }
+        val missed = frames.count { it.missed }
         return "$name: frames=${ms.size} p50=${p(0.5)} p90=${p(0.9)} p95=${p(0.95)} p99=${p(0.99)} max=${p(1.0)} " +
-            "missed(>25ms)=$janky (${"%.1f".format(100.0 * janky / ms.size)}%)"
+            "missed=$missed (${"%.1f".format(100.0 * missed / frames.size)}%)"
     }
 
     /** Two fingers 120px apart moving in a circle of [radius] px around ([x], [y]). */
@@ -216,6 +242,16 @@ class CanvasFrameTimingTest {
 
     private companion object {
         const val TAG = "CanvasFrameTiming"
+
+        // The #54 pass line (design doc → #10 note), checked on the Galaxy A06. MIN_FRAMES only catches a phase that
+        // drew nothing: pinch ->48dp reaches the zoom cap early and ends with 54-81 frames on the emulator.
+        const val MAX_PAN_MISSED = 0.05
+        const val MAX_PINCH_MISSED = 0.10
+        const val MAX_ALL_MISSED = 0.05
+        const val MIN_FRAMES = 30
+        // The emulator's totals include the wait for vsync, so an on-time frame ends up to ~0.6 ms past its deadline.
+        const val SLACK_NANOS = 1_000_000L
+        const val FIT_PAN = "fit pan"
         val STAGES = intArrayOf(
             FrameMetrics.INPUT_HANDLING_DURATION,
             FrameMetrics.DRAW_DURATION,

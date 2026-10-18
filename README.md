@@ -45,7 +45,7 @@ Debug build switches (`-P…`):
 - `gemmory.firebaseInDebug=true` sends Crashlytics/Analytics from debug builds. By default they only log to Logcat.
 - `gemmory.playGames=true` turns Play Games achievements on in a debug build (#49). By default debug builds keep earned achievements in the ledger and hide the Settings row. It needs the debug key's SHA-1 on a Play Games OAuth client and a tester account (Play Games setup below).
 - `gemmory.umpDebugEea=true` and `gemmory.umpTestDevice=…` show the EEA consent form.
-- `android.testInstrumentationRunnerArguments.deviceChecks=true` runs the `@DeviceCheck` walkthroughs. `@PerfTest` classes (canvas frame timing, gallery load timing) run only on request via `am instrument -e class …`.
+- `android.testInstrumentationRunnerArguments.deviceChecks=true` runs the `@DeviceCheck` walkthroughs. `@PerfTest` classes (canvas frame timing, gallery load timing) run only on request via `am instrument -e class …`. The canvas frame-timing test fails past its pass line (Frame timing on Firebase Test Lab below).
 
 ## Encoder smoke on Firebase Test Lab
 
@@ -61,16 +61,25 @@ Debug build switches (`-P…`):
 
 - **What passes:** each phone encodes through the app's fallback chain to an MP4 with 1 track, 14-16 s, 450 frames, at 1080×1920 or the 720×1280 fallback, and frames decode at that size; 720×1280 is also forced on its own; cancel and delete mid-encode leave no file. A fallback is logged (`smoke fallback:` in the logcat).
 - **Results:** the run's summary has the Test Lab console link and a pass/fail row per phone. The `test-lab-results` artifact has each phone's `video.mp4` and `logcat`. A failed or inconclusive phone fails the job.
-- **Quota:** the project is on the Spark plan: 5 physical-device runs a day at no cost, then Test Lab refuses runs (no bill). Each phone is one run, so one matrix uses 3 and there are no automatic retries. A second run the same day is refused whole (`TEST_QUOTA_EXCEEDED`, the run summary says so); run it again the next day.
+- **Quota:** the project is on the Spark plan: 5 physical-device runs a day at no cost, then Test Lab refuses runs (no bill). Each phone is one run, so one matrix uses 3 and there are no automatic retries. A `v*` tag also runs frame timing on the Galaxy A06 (below), so a release-candidate day uses 4 and leaves 1 for a one-phone re-check. A second run the same day is refused whole (`TEST_QUOTA_EXCEEDED`, the run summary says so); run it again the next day.
 - **Catalog:** Run workflow with "Only print the physical-device catalog" ticked lists the phones without using quota; use it when a model above leaves the catalog.
 - **Credentials:** Workload Identity Federation, no key file. Setup: [docs/play-compliance.md](docs/play-compliance.md) → "Test Lab CI credentials".
 - **Test Lab shuts down on 2027-09-30** (Firebase deprecation notice); the move to Google Cloud's Developer Device Platform is #55.
+
+## Frame timing on Firebase Test Lab
+
+The same workflow runs `CanvasFrameTimingTest` (#54, design doc → #10 note) on the low-end phone alone, the Galaxy A06 (`a06,35`), as a second matrix: a Big canvas (106×142, 36 colors, a third placed) is panned and pinched across every zoom level with two fingers, and the test fails past the pass line.
+
+- **Pass line:** a frame is missed when it ends more than 1 ms past its own deadline (`FrameMetrics.DEADLINE`, so it holds at any refresh rate; the 1 ms covers the emulator, whose on-time frames end up to 0.6 ms late). Each pan phase may miss at most 5% of its frames, each pinch phase 10% (the first frames at a new zoom bucket build its sprite atlas), the whole run 5%. A phase with fewer than 30 frames fails too. The fit-zoom pan is logged but not checked: the whole canvas shows, so it draws only a few frames. The numbers are constants in the test's companion object.
+- **When:** every `v*` tag, after the encoder smoke (it runs even if the smoke failed). By hand: Actions → Test Lab → Run workflow → phones `frames`. It runs the debug APK, which is slower than release, so a pass is a safe bound.
+- **Quota:** 1 physical-device run. A tag day uses 4 of the 5 (3 smoke + 1 frames); a by-hand `frames` run fits after a tag run that day, but a full 3-phone re-run doesn't.
+- **Results:** the run summary has a "Frame timing on Test Lab" block with the pass/fail row and the per-phase lines (`frames`, p50-max, `missed`) from the A06's logcat; the `test-lab-results` artifact has its video and logcat under `results-frames/`. On the emulator (boot with `-gpu host`), install both debug APKs and run `adb shell am instrument -w -e class com.brewingbytes.gemmory.play.CanvasFrameTimingTest com.brewingbytes.gemmory.test/androidx.test.runner.AndroidJUnitRunner`; the lines are under the `CanvasFrameTiming` logcat tag.
 
 ## Release
 
 `./gradlew :androidApp:bundleRelease` builds an R8-shrunk AAB. It's signed with the upload key when `local.properties` (git-ignored) sets `gemmory.upload.storeFile`, `gemmory.upload.storePassword`, `gemmory.upload.keyAlias` and `gemmory.upload.keyPassword`. The keystore lives outside the repo, and keystores, passwords and service-account files are never committed. The Play Console answers and the production gate are in [docs/play-compliance.md](docs/play-compliance.md).
 
-A release candidate is the `main` commit with the version bump: tag it `v<versionName>` (`git tag v0.3.2 && git push origin v0.3.2`). The tag starts the Test Lab encoder smoke; upload the AAB to Play only after it passes.
+A release candidate is the `main` commit with the version bump: tag it `v<versionName>` (`git tag v0.3.2 && git push origin v0.3.2`). The tag starts the Test Lab encoder smoke and the frame-timing check (4 of the day's 5 runs); upload the AAB to Play only after both pass.
 
 ## Play Games setup
 
