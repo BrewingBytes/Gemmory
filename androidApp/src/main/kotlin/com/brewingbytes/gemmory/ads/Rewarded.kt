@@ -41,7 +41,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** What a rewarded video unlocks: a locked bundled picture, one more photo canvas (kept, #38), or 5 fills (#38). */
+/**
+ * What a rewarded video unlocks: a locked bundled picture, one more photo canvas (kept, #38), 5 fills (#38), or More
+ * colors on the photo in the flow (#29).
+ */
 sealed interface RewardTarget {
     val type: RewardType
 
@@ -56,6 +59,11 @@ sealed interface RewardTarget {
     /** From the gallery's Inventory sheet (#38), never the canvas. */
     data object Fills : RewardTarget {
         override val type get() = RewardType.FILLS
+    }
+
+    /** From Preview (#29): More colors for the photo in the flow, that draft only. */
+    data object Colors : RewardTarget {
+        override val type get() = RewardType.COLORS
     }
 }
 
@@ -72,7 +80,10 @@ sealed interface RewardPhase {
 
     data class NotAvailable(val kind: Unavailable) : RewardPhase
 
-    /** Locked picture: "Unlocked" for 600 ms, then the canvas opens (design D11). Fills: "5 fills added" (#38). */
+    /**
+     * Locked picture: "Unlocked" for 600 ms, then the canvas opens (design D11). Fills: "5 fills added" (#38). Colors:
+     * "More colors unlocked" (#29).
+     */
     data object Unlocked : RewardPhase
 }
 
@@ -83,8 +94,11 @@ data class RewardedUi(val target: RewardTarget, val phase: RewardPhase, val clos
 sealed interface RewardedEvent {
     data class OpenPicture(val id: String) : RewardedEvent
 
-    /** The extra-canvas grace: Start the photo canvas on Preview right away. */
+    /** The extra-canvas grace: Start the photo canvas on Preview right away (with More colors unlocked, #29). */
     data object StartPhotoCanvas : RewardedEvent
+
+    /** More colors for the photo on Preview (#29): from the colors video, or a canvas video (one video gets both). */
+    data object MoreColorsUnlocked : RewardedEvent
 }
 
 /**
@@ -188,8 +202,10 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                     monetization.grantReward()
                     app.analytics.log(AnalyticsEvent.inventoryEarned(Item.PHOTO_CANVAS, EarnSource.VIDEO, 1))
                     ui = null
+                    event = RewardedEvent.MoreColorsUnlocked
                 }
                 RewardTarget.Fills -> fillsAdded(EarnSource.VIDEO)
+                RewardTarget.Colors -> colorsUnlocked()
             }
         }
     }
@@ -215,7 +231,15 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
         ui = null
     }
 
-    /** "Unlock picture" / "Start canvas" on the online no-fill grace offer. */
+    /** "More colors unlocked" for 600 ms, then back to Preview with More allowed (#29). */
+    private suspend fun colorsUnlocked() {
+        ui = ui?.copy(phase = RewardPhase.Unlocked)
+        delay(UNLOCKED_MS)
+        ui = null
+        event = RewardedEvent.MoreColorsUnlocked
+    }
+
+    /** "Unlock picture" / "Start canvas" / "Use more colors" on the online no-fill grace offer. */
     fun useGrace() {
         val current = ui ?: return
         if ((current.phase as? RewardPhase.NotAvailable)?.kind != Unavailable.GRACE_OFFER) return
@@ -233,6 +257,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                     event = RewardedEvent.StartPhotoCanvas
                 }
                 RewardTarget.Fills -> fillsAdded(EarnSource.GRACE)
+                RewardTarget.Colors -> colorsUnlocked()
             }
         }
     }
@@ -266,9 +291,11 @@ fun RewardedSheet(
 ) {
     val picture = ui.target is RewardTarget.Picture
     val fills = ui.target is RewardTarget.Fills
+    val colors = ui.target is RewardTarget.Colors
     val title = when {
         picture -> "Watch to unlock"
         fills -> "More fills"
+        colors -> "More colors"
         else -> "Another photo canvas"
     }
     GemSheet(title, onDismiss, returnFocusTo) {
@@ -276,7 +303,11 @@ fun RewardedSheet(
         when (phase) {
             RewardPhase.Unlocked -> {
                 Text(
-                    if (fills) "${Inventory.FILLS_PER_VIDEO} fills added" else "Unlocked",
+                    when {
+                        fills -> "${Inventory.FILLS_PER_VIDEO} fills added"
+                        colors -> "More colors unlocked"
+                        else -> "Unlocked"
+                    },
                     style = GemType.body,
                     color = GemColors.Bone,
                     modifier = Modifier.testTag("rewarded-unlocked"),
@@ -298,6 +329,7 @@ fun RewardedSheet(
                 when {
                     picture -> "Watch a short video to unlock this picture for good."
                     fills -> "Watch a short video for ${Inventory.FILLS_PER_VIDEO} fills. Each fills a region, the rest of a color, or a brush stroke."
+                    colors -> "Watch a short video for more colors on this photo canvas."
                     else -> "Watch a short video for one more photo canvas. It's kept until you use it."
                 },
                 style = GemType.body,
@@ -337,6 +369,7 @@ fun RewardedSheet(
                         when {
                             picture -> "Unlock picture"
                             fills -> "Get ${Inventory.FILLS_PER_VIDEO} fills"
+                            colors -> "Use more colors"
                             else -> "Start canvas"
                         },
                         onGrace,
@@ -348,6 +381,7 @@ fun RewardedSheet(
                             when {
                                 picture -> "Or get VIP: every picture unlocked"
                                 fills -> "Or get VIP: unlimited fills"
+                                colors -> "Or get VIP: more colors on every photo"
                                 else -> "Or get VIP: unlimited photo canvases"
                             },
                             onVip,

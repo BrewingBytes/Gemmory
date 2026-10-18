@@ -2,7 +2,8 @@
 
 Every bundled picture's source image, its license and how its frozen grid was made. Grids are frozen once with
 `./gradlew :shared:freezeBundledGrid` and never re-converted (design D13, eng D11). Re-freezing a shipped picture
-changes its grid CRC and orphans saves made on it.
+changes its grid CRC and orphans saves made on it. Bundled grids stay at their size's Standard colors (16 / 24 / 36);
+richer pictures ship as remote pictures with `-Pcolors=more` (#29).
 
 | Picture | Asset | Source | Author, date | License | Freeze |
 |---|---|---|---|---|---|

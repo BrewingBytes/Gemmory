@@ -251,6 +251,10 @@ class AccessibilityChecksTest {
         waitForTag("preview-primary")
         compose.waitUntil(30_000) { compose.onAllNodes(hasText("Setting the gems…")).fetchSemanticsNodes().isEmpty() }
         scan()
+        // #29: the Colors row with More chosen (its play mark and the video primary for a free player).
+        compose.onNodeWithTag("colors-more").performClick()
+        compose.waitUntil(30_000) { compose.onAllNodes(hasContentDescription("Gem preview")).fetchSemanticsNodes().isNotEmpty() }
+        scan()
     }
 
     @Test

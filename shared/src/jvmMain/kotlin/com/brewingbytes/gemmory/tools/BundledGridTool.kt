@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.tools
 
+import com.brewingbytes.gemmory.converter.ConverterOptions
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.converter.convert
@@ -32,10 +33,10 @@ object BundledGridTool {
      * Crops [image] to [spec]'s ratio, scales it to at most 1024 px on the long edge and converts it. [focus] places
      * the crop along the axis being cut: 0 = left/top, 0.5 = centered, 1 = right/bottom.
      */
-    fun convertImage(image: BufferedImage, spec: GridSpec, focus: Double = 0.5): Pattern {
+    fun convertImage(image: BufferedImage, spec: GridSpec, focus: Double = 0.5, options: ConverterOptions = ConverterOptions()): Pattern {
         val prepared = downscale(crop(image, spec, focus))
         val pixels = prepared.getRGB(0, 0, prepared.width, prepared.height, null, 0, prepared.width)
-        return convert(pixels, prepared.width, prepared.height, spec, SEED)
+        return convert(pixels, prepared.width, prepared.height, spec, SEED, options)
     }
 
     fun freeze(image: BufferedImage, spec: GridSpec, focus: Double = 0.5): ByteArray =

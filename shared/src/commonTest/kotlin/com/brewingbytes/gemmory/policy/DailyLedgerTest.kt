@@ -271,6 +271,23 @@ class DailyLedgerTest {
         assertEquals(setOf(RewardType.PHOTO_CANVAS, RewardType.FILLS), saved.graceUsed)
     }
 
+    /** #29: the More colors grace is its own, grants nothing in the ledger, and its bit (8) round-trips. */
+    @Test
+    fun theColorsGraceIsItsOwnAndRoundTrips() {
+        val bank = Inventory(bankStore)
+        val l = DailyLedger(clock.day, store, bank)
+        l.start()
+        assertTrue(l.useGrace(RewardType.COLORS))
+        assertFalse(l.useGrace(RewardType.COLORS))
+        assertTrue(l.graceAvailable(RewardType.PHOTO_CANVAS), "the photo canvas grace is separate")
+        assertEquals(0, bank.canvases, "the caller unlocks More on the photo, the ledger only remembers the grace")
+        val bytes = store.bytes!!
+        assertEquals(setOf(RewardType.COLORS), assertIs<Decoded.Ok<LedgerState>>(LedgerCodec.decode(bytes)).value.graceUsed)
+        // A file written before #29 (bits 1-4 only) still reads the same.
+        val old = LedgerCodec.encode(LedgerState(day = 1, graceUsed = setOf(RewardType.PICTURE, RewardType.FILLS)))
+        assertEquals(setOf(RewardType.PICTURE, RewardType.FILLS), assertIs<Decoded.Ok<LedgerState>>(LedgerCodec.decode(old)).value.graceUsed)
+    }
+
     @Test
     fun aBonusFromBeforeTheUpdateIsStillUsedToday() {
         DailyLedger(clock.day, store).apply {

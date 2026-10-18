@@ -8,8 +8,12 @@ import com.brewingbytes.gemmory.save.MalformedException
 import com.brewingbytes.gemmory.save.Refusal
 import com.brewingbytes.gemmory.save.i64
 
-/** What a rewarded video (or a grace unlock) is for (design doc, Ad rules); [FILLS] is the inventory's fills (#38). */
-enum class RewardType { PHOTO_CANVAS, PICTURE, FILLS }
+/**
+ * What a rewarded video (or a grace unlock) is for (design doc, Ad rules); [FILLS] is the inventory's fills (#38),
+ * [COLORS] the More colors choice for one photo canvas (#29). New entries go last: the ledger stores grace as bits by
+ * ordinal.
+ */
+enum class RewardType { PHOTO_CANVAS, PICTURE, FILLS, COLORS }
 
 /** Which allowance a Start used: today's free one, a bonus earned today (before #38), or a kept canvas (#38). */
 enum class Spent { FREE, BONUS, KEPT }
@@ -153,7 +157,8 @@ class DailyLedger(
 
     /**
      * Uses today's grace unlock for [type]. For a photo canvas it grants a bonus canvas (kept, with a bank); for a
-     * picture the caller unlocks it, and for fills the caller adds them (#38). False when it was already used today.
+     * picture the caller unlocks it, for fills the caller adds them (#38), and for colors the caller unlocks More on
+     * the photo (#29). False when it was already used today.
      */
     fun useGrace(type: RewardType): Boolean {
         if (!graceAvailable(type)) return false
@@ -168,7 +173,7 @@ class DailyLedger(
                         bonusLeft = if (bank != null) s.bonusLeft else s.bonusLeft + 1,
                     )
                 }
-                RewardType.PICTURE, RewardType.FILLS -> s.copy(graceUsed = s.graceUsed + type)
+                RewardType.PICTURE, RewardType.FILLS, RewardType.COLORS -> s.copy(graceUsed = s.graceUsed + type)
             },
         )
         return true
@@ -186,7 +191,7 @@ class DailyLedger(
 /**
  * The ledger file `filesDir/ledger/daily`, "GMRL" v1 (same envelope and CRC trailer as the save files). Body,
  * big-endian: i64 day, u8 freeUsed, varint extrasEarned, varint bonusLeft, u8 grace bits (1 = photo canvas, 2 = picture,
- * 4 = fills), u8 count, then per Start: u16 id byte length, the id in UTF-8, u8 spent (0 free, 1 bonus, 2 kept), i64 day.
+ * 4 = fills, 8 = colors since #29), u8 count, then per Start: u16 id byte length, the id in UTF-8, u8 spent (0 free, 1 bonus, 2 kept), i64 day.
  */
 object LedgerCodec {
     val MAGIC = "GMRL".encodeToByteArray()

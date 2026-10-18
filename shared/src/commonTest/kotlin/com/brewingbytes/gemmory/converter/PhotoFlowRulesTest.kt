@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.converter
 import com.brewingbytes.gemmory.converter.CanvasSize.BIG
 import com.brewingbytes.gemmory.converter.CanvasSize.MEDIUM
 import com.brewingbytes.gemmory.converter.CanvasSize.QUICK
+import com.brewingbytes.gemmory.policy.Allowance
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -73,5 +74,22 @@ class PhotoFlowRulesTest {
         }
         assertEquals(false, PhotoFlowRules.canStart(FaceCheck.FACE, MEDIUM, converted = true, faceMinSize = FaceMinSize.BIG))
         assertEquals(true, PhotoFlowRules.canStart(FaceCheck.FACE, BIG, converted = true, faceMinSize = FaceMinSize.BIG))
+    }
+
+    /** #29: every allowance × choice × unlocked, against the Preview table in the design system. */
+    @Test
+    fun previewPrimaryForEveryColorChoice() {
+        val allowances = listOf(Allowance.Free, Allowance.Bonus, Allowance.WatchVideo, Allowance.Unlimited)
+        for (allowance in allowances) for (choice in ColorChoice.entries) for (unlocked in listOf(false, true)) {
+            val expected = when {
+                allowance == Allowance.WatchVideo -> PreviewPrimary.WATCH_FOR_CANVAS
+                choice == ColorChoice.MORE && allowance != Allowance.Unlimited && !unlocked -> PreviewPrimary.WATCH_FOR_COLORS
+                else -> PreviewPrimary.START
+            }
+            assertEquals(expected, PhotoFlowRules.previewPrimary(allowance, choice, unlocked), "$allowance $choice unlocked=$unlocked")
+        }
+        assertEquals(false, PhotoFlowRules.colorsAllowed(ColorChoice.MORE, Allowance.Free, moreUnlocked = false))
+        assertEquals(true, PhotoFlowRules.colorsAllowed(ColorChoice.MORE, Allowance.Unlimited, moreUnlocked = false), "VIP")
+        assertEquals(true, PhotoFlowRules.colorsAllowed(ColorChoice.FEWER, Allowance.WatchVideo, moreUnlocked = false))
     }
 }

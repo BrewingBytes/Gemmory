@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.play
 
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
@@ -81,8 +82,8 @@ class CanvasStoreTest {
     @After
     fun tearDown() = scope.cancel()
 
-    private fun createPhoto(title: String = "My photo · 13 Oct") = runBlocking {
-        assertEquals(WriteResult.Written, store.createPhoto(photo, pattern, CanvasRecord(title, 1_000, 0), byteArrayOf(7)))
+    private fun createPhoto(title: String = "My photo · 13 Oct", colors: ColorChoice = ColorChoice.STANDARD) = runBlocking {
+        assertEquals(WriteResult.Written, store.createPhoto(photo, pattern, CanvasRecord(title, 1_000, 0), byteArrayOf(7), colors))
     }
 
     /** Opens, places [cells], waits for the closing write (progress, view and play time). */
@@ -100,12 +101,12 @@ class CanvasStoreTest {
 
     @Test
     fun startsAndFinishesAreCountedOnceWithSourceAndSize() = runBlocking<Unit> {
-        createPhoto()
-        createPhoto()
+        createPhoto(colors = ColorChoice.MORE)
+        createPhoto(colors = ColorChoice.MORE)
         assertEquals(
             listOf(
-                AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "other")),
-                AnalyticsEvent("photo_canvas_started"),
+                AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "other", "colors" to "more")),
+                AnalyticsEvent("photo_canvas_started", mapOf("colors" to "more")),
             ),
             events.toList(),
             "a repeated Start makes one canvas, counted once",

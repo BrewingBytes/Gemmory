@@ -74,6 +74,26 @@ class RemoteCatalogTest {
         assertEquals(2, assertIs<CatalogCheck.Ok>(check(older, appVersion = 13)).catalog.pictures.size)
     }
 
+    /** #29: up to the size's More cap, and above Standard only for apps that take it (versionCode 12+). */
+    @Test
+    fun colorsAboveStandardNeedTheMoreColorsApp() {
+        val rich = grid(CanvasSize.BIG, AspectRatio.PORTRAIT, colors = 60)
+        val richPicture = picture("rich-fox", rich, CanvasSize.BIG, AspectRatio.PORTRAIT, minAppVersion = RemoteCatalogs.MORE_COLORS_MIN_APP)
+        val ok = assertIs<CatalogCheck.Ok>(check(catalogJson(listOf(richPicture)), appVersion = 12)).catalog
+        assertEquals(listOf(richPicture), ok.pictures)
+        assertIs<GridCheck.Ok>(RemoteCatalogs.checkGrid(richPicture, rich))
+        // An app before #29 never reads it, so its catalog stays whole.
+        assertEquals(emptyList(), assertIs<CatalogCheck.Ok>(check(catalogJson(listOf(richPicture)), appVersion = 11)).catalog.pictures)
+        // Listed for older apps, it would make them refuse the whole catalog, so it's malformed here too.
+        val forOld = picture("rich-fox", grid(CanvasSize.BIG, AspectRatio.PORTRAIT, colors = 37), CanvasSize.BIG, AspectRatio.PORTRAIT, minAppVersion = 11)
+        assertIs<CatalogRefusal.Malformed>(refusal(check(catalogJson(listOf(forOld)), appVersion = 12)))
+        // Standard and below stay open to every app.
+        val standard = picture("std-fox", grid(CanvasSize.BIG, AspectRatio.PORTRAIT, colors = 36), CanvasSize.BIG, AspectRatio.PORTRAIT, minAppVersion = 11)
+        assertEquals(1, assertIs<CatalogCheck.Ok>(check(catalogJson(listOf(standard)), appVersion = 11)).catalog.pictures.size)
+        val quickMore = picture("quick-more", grid(CanvasSize.QUICK, AspectRatio.SQUARE, colors = 25), CanvasSize.QUICK, AspectRatio.SQUARE)
+        assertIs<CatalogRefusal.Malformed>(refusal(check(catalogJson(listOf(quickMore)))))
+    }
+
     @Test
     fun anOlderCatalogThanTheCachedOneIsRefused() {
         val bytes = catalogJson(pictures, issuedAt = 100)
@@ -99,7 +119,7 @@ class RemoteCatalogTest {
         // Field by field: a wrong type, size, shape, path or date refuses the whole catalog (it's signed: a tool bug).
         val edits = listOf(
             "\"width\": 106" to "\"width\": 107",
-            "\"colors\": 30" to "\"colors\": 40",
+            "\"colors\": 30" to "\"colors\": 61",
             "\"ratio\": \"3:4\"" to "\"ratio\": \"2:3\"",
             "\"size\": \"big\"" to "\"size\": \"huge\"",
             "\"grid\": \"grids/fox-in-snow.gmrg\"" to "\"grid\": \"https://evil.example/x.gmrg\"",

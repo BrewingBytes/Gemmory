@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -26,11 +27,13 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +45,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -50,18 +54,30 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.FaceCheck
 import com.brewingbytes.gemmory.converter.FaceHint
 import com.brewingbytes.gemmory.converter.GridSpec
+import com.brewingbytes.gemmory.converter.PhotoFlowRules
+import com.brewingbytes.gemmory.converter.PreviewPrimary
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.ui.AppTopBar
 import com.brewingbytes.gemmory.ui.Chip
 import com.brewingbytes.gemmory.ui.GemColors
+import com.brewingbytes.gemmory.ui.GemIcons
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.PrimaryButton
@@ -159,12 +175,34 @@ private fun CropFrame(source: Bitmap, ratio: AspectRatio, view: CropView, onView
 
 private val numbers: NumberFormat = NumberFormat.getIntegerInstance()
 
-/** "8,112 gems · 24 colors": the real palette once converted, else the size's cap. */
-internal fun summary(size: CanvasSize, ratio: AspectRatio, conversion: Conversion?): String {
-    val spec = GridSpec.of(size, ratio)
-    val colors = (conversion as? Conversion.Ready)?.pattern?.palette?.size ?: size.paletteCap
+/** "8,112 gems · 24 colors": the real palette once converted, else the cap for the size and color choice (#29). */
+internal fun summary(size: CanvasSize, ratio: AspectRatio, conversion: Conversion?, choice: ColorChoice = ColorChoice.STANDARD): String {
+    val spec = GridSpec.of(size, ratio, choice)
+    val colors = (conversion as? Conversion.Ready)?.pattern?.palette?.size ?: spec.paletteCap
     return "${numbers.format(spec.cellCount)} gems · $colors colors"
 }
+
+/**
+ * The line under Preview's size line (#29): what More needs while it's chosen without VIP, else the allowance line
+ * (design D5). Null when there's nothing to say (VIP).
+ */
+internal fun previewLine(allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean, kept: Int = 0): String? =
+    when (PhotoFlowRules.previewPrimary(allowance, choice, moreUnlocked)) {
+        PreviewPrimary.WATCH_FOR_COLORS -> "More colors: watch a video, or get VIP."
+        PreviewPrimary.WATCH_FOR_CANVAS ->
+            if (choice == ColorChoice.MORE && !moreUnlocked) "One video gets this canvas with more colors." else allowanceLine(allowance, kept)
+        PreviewPrimary.START -> allowanceLine(allowance, kept)
+    }
+
+internal fun primaryText(primary: PreviewPrimary): String = when (primary) {
+    PreviewPrimary.START -> "Start"
+    PreviewPrimary.WATCH_FOR_CANVAS -> "Watch a video"
+    PreviewPrimary.WATCH_FOR_COLORS -> "Watch a video for more colors"
+}
+
+/** A color trough's TalkBack line (#29): "More, 60 colors, needs a video or VIP". */
+internal fun colorTroughLabel(size: CanvasSize, choice: ColorChoice, needsVideo: Boolean): String =
+    "${choice.label}, ${size.cap(choice)} colors" + if (needsVideo) ", needs a video or VIP" else ""
 
 internal fun hintText(hint: FaceHint): String = when (hint) {
     FaceHint.LOOK_BEST_MEDIUM_OR_BIG -> "Faces look best at Medium or Big"
@@ -279,9 +317,15 @@ fun PreviewScreen(
     onBack: () -> Unit,
     /** Photo canvases kept in the inventory (#38), for "Uses a kept photo canvas (2 left)." */
     kept: Int = 0,
+    onChoice: (ColorChoice) -> Unit = {},
+    /** "Watch a video for more colors" (#29). */
+    onWatchColors: () -> Unit = {},
 ) {
-    val conversion = state.conversions[state.size]
+    val conversion = state.current
     val rules = state.rules
+    // While another color choice converts, the last preview stays, dimmed under a 2dp line (#29).
+    var lastReady by remember { mutableStateOf<Conversion.Ready?>(null) }
+    LaunchedEffect(conversion) { if (conversion is Conversion.Ready) lastReady = conversion }
     FlowScaffold("Preview", onBack) {
         Box(
             Modifier
@@ -291,18 +335,27 @@ fun PreviewScreen(
                 .feltGround(LocalFelt.current.deep),
             contentAlignment = Alignment.Center,
         ) {
-            when (conversion) {
-                is Conversion.Ready -> {
+            val previous = lastReady
+            when {
+                conversion is Conversion.Ready -> {
                     val bitmap = remember(conversion) { conversion.preview.asImageBitmap() }
                     GemImage(bitmap, "Gem preview", Modifier.fillMaxSize().padding(8.dp))
                 }
-                is Conversion.Failed -> Unit
+                conversion is Conversion.Failed -> Unit
+                previous != null && previous.pattern.width == GridSpec.of(state.size, state.ratio).width -> {
+                    val bitmap = remember(previous) { previous.preview.asImageBitmap() }
+                    GemImage(bitmap, "Updating gem preview", Modifier.fillMaxSize().padding(8.dp).alpha(0.35f))
+                    ThinProgress(Modifier.padding(horizontal = 24.dp))
+                }
                 else -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                     Text("Setting the gems…", style = GemType.body, color = GemColors.Bone)
                     Spacer(Modifier.height(12.dp))
                     ThinProgress()
                 }
             }
+        }
+        if (rules.startAllowed) {
+            ColorRow(state.size, state.choice, needsVideo = !PhotoFlowRules.colorsAllowed(ColorChoice.MORE, allowance, state.moreUnlocked), onChoice)
         }
         Spacer(Modifier.height(16.dp))
         when {
@@ -318,7 +371,7 @@ fun PreviewScreen(
             }
             else -> {
                 Text(
-                    "${state.size.label} · ${summary(state.size, state.ratio, conversion)}",
+                    "${state.size.label} · ${summary(state.size, state.ratio, conversion, state.choice)}",
                     style = GemType.body,
                     color = GemColors.Bone,
                 )
@@ -338,7 +391,7 @@ fun PreviewScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                allowanceLine(allowance, kept)?.let {
+                previewLine(allowance, state.choice, state.moreUnlocked, kept)?.let {
                     Text(
                         it,
                         style = GemType.label,
@@ -347,15 +400,67 @@ fun PreviewScreen(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                if (allowance == Allowance.WatchVideo) {
-                    PrimaryButton("Watch a video", onWatchVideo, Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("preview-primary"))
-                } else {
-                    PrimaryButton(
-                        "Start",
+                val primary = PhotoFlowRules.previewPrimary(allowance, state.choice, state.moreUnlocked)
+                val tag = Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("preview-primary")
+                when (primary) {
+                    PreviewPrimary.WATCH_FOR_CANVAS -> PrimaryButton(primaryText(primary), onWatchVideo, tag)
+                    PreviewPrimary.WATCH_FOR_COLORS -> PrimaryButton(primaryText(primary), onWatchColors, tag)
+                    PreviewPrimary.START -> PrimaryButton(
+                        primaryText(primary),
                         onStart,
                         enabled = state.canStart && allowance.canStart,
                         held = state.starting,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("preview-primary"),
+                        modifier = tag,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Fewer / Standard / More under the preview (#29): three troughs with the count in mono. The chosen one lifts 3dp with
+ * the lamp outline, as a tray trough does; More carries a play mark while it needs a video.
+ */
+@Composable
+private fun ColorRow(size: CanvasSize, choice: ColorChoice, needsVideo: Boolean, onChoice: (ColorChoice) -> Unit) {
+    Spacer(Modifier.height(12.dp))
+    Text("Colors", style = GemType.label, color = GemColors.Bone, modifier = Modifier.semantics { heading() })
+    Spacer(Modifier.height(6.dp))
+    Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ColorChoice.entries.forEach { c ->
+            val selected = c == choice
+            val locked = c == ColorChoice.MORE && needsVideo
+            val shape = RoundedCornerShape(8.dp)
+            Box(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 52.dp)
+                    .offset(y = if (selected) (-3).dp else 0.dp)
+                    .border(2.dp, if (selected) GemColors.Lamp else Color.Transparent, shape)
+                    .clip(shape)
+                    .feltGround(LocalFelt.current.deep)
+                    .selectable(selected = selected, role = Role.RadioButton) { onChoice(c) }
+                    // The tag goes before the clear, which drops semantics set after it (lessons, #35).
+                    .testTag("colors-${c.param}")
+                    .clearAndSetSemantics {
+                        contentDescription = colorTroughLabel(size, c, locked)
+                        this.selected = selected
+                        role = Role.RadioButton
+                    }
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(c.label, style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
+                    Text("${size.cap(c)}", style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.TextMuted)
+                }
+                if (locked) {
+                    Image(
+                        GemIcons.Play,
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(GemColors.Bone),
+                        modifier = Modifier.align(Alignment.TopEnd).size(10.dp),
                     )
                 }
             }

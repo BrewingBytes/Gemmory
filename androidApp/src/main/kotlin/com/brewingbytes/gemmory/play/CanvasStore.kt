@@ -4,6 +4,7 @@ import android.os.SystemClock
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasState
@@ -170,15 +171,24 @@ class CanvasStore(
         }
     }
 
-    /** Photo canvas from Start (design D4). Idempotent per [ref], so a repeated Start makes one canvas (eng E4a). */
-    suspend fun createPhoto(ref: CanvasRef, pattern: Pattern, record: CanvasRecord, sourceJpeg: ByteArray): WriteResult {
+    /**
+     * Photo canvas from Start (design D4). Idempotent per [ref], so a repeated Start makes one canvas (eng E4a).
+     * [colors] is the Preview choice it was made with (#29), for the start events only.
+     */
+    suspend fun createPhoto(
+        ref: CanvasRef,
+        pattern: Pattern,
+        record: CanvasRecord,
+        sourceJpeg: ByteArray,
+        colors: ColorChoice = ColorChoice.STANDARD,
+    ): WriteResult {
         swept.join()
         return withContext(writer) {
             if (repository.dirOf(ref).isDirectory) return@withContext WriteResult.Written
             repository.create(ref, GridCodec.encode(pattern), record, sourceJpeg).also {
                 if (it == WriteResult.Written) {
-                    analytics.log(AnalyticsEvent.canvasStarted(ref, pattern.width, pattern.height))
-                    analytics.log(AnalyticsEvent.photoCanvasStarted)
+                    analytics.log(AnalyticsEvent.canvasStarted(ref, pattern.width, pattern.height, colors))
+                    analytics.log(AnalyticsEvent.photoCanvasStarted(colors))
                 }
             }
         }

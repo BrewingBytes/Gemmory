@@ -197,6 +197,37 @@ class ConverterTest {
         assertEquals(2, convert(img, w, w, spec, 0, ConverterOptions(sharpen = 0.0)).palette.size, "merging is off by default")
     }
 
+    /** Two shades a hair apart (ΔL 1) and a far one: More merges the twins, the plain converter keeps them. */
+    @Test
+    fun minColorDistanceMergesNearTwins() {
+        val twinA = 0xFF808080.toInt()
+        val twinB = 0xFF838383.toInt()
+        val far = 0xFF2050C0.toInt()
+        val img = IntArray(30 * 30) { i -> when ((i % 30) / 10) { 0 -> twinA; 1 -> twinB; else -> far } }
+        val spec = GridSpec("twins", 30, 30, 8)
+        val plain = convert(img, 30, 30, spec, seed = 1, ConverterOptions(sharpen = 0.0))
+        val merged = convert(img, 30, 30, spec, seed = 1, ConverterOptions(sharpen = 0.0, minColorDistance = 5.0))
+        assertEquals(3, plain.palette.size)
+        assertEquals(2, merged.palette.size)
+        assertWellFormed(merged, spec)
+        // The twins become one color between them, weighted by their cells (equal here).
+        val gray = merged.palette.first { it.argb != far }
+        val expected = ColorSpace.argbToLab(twinA).l / 2 + ColorSpace.argbToLab(twinB).l / 2
+        assertTrue(abs(gray.lab.l - expected) < 0.01, "merged L ${gray.lab.l}, expected $expected")
+        assertEquals(merged, convert(img, 30, 30, spec, seed = 1, ConverterOptions(sharpen = 0.0, minColorDistance = 5.0)))
+    }
+
+    @Test
+    fun moreStaysWithinItsCap() {
+        val img = noisyImage(256, 256)
+        for (size in CanvasSize.entries) {
+            val spec = GridSpec.of(size, AspectRatio.SQUARE, ColorChoice.MORE)
+            val p = convert(img, 256, 256, spec, seed = 1, ConverterOptions.of(ColorChoice.MORE))
+            assertTrue(p.palette.size <= size.moreCap, "${spec.id}: ${p.palette.size} > ${size.moreCap}")
+            assertWellFormed(p, spec)
+        }
+    }
+
     private fun assertColorClose(expected: Int, actual: Int, tolerance: Int = 2) {
         for (shift in intArrayOf(16, 8, 0)) {
             val e = (expected shr shift) and 0xFF
@@ -215,6 +246,30 @@ class GridSpecTest {
             "big-1:1" to Triple(122, 122, 36), "big-3:4" to Triple(106, 142, 36), "big-4:3" to Triple(142, 106, 36),
         )
         assertEquals(expected, GridSpec.PICKER.associate { it.id to Triple(it.width, it.height, it.paletteCap) })
+    }
+
+    @Test
+    fun colorChoicesPerSize() {
+        val caps = CanvasSize.entries.associateWith { size -> ColorChoice.entries.map(size::cap) }
+        assertEquals(
+            mapOf(CanvasSize.QUICK to listOf(12, 16, 24), CanvasSize.MEDIUM to listOf(16, 24, 40), CanvasSize.BIG to listOf(24, 36, 60)),
+            caps,
+        )
+        for (size in CanvasSize.entries) {
+            assertEquals(size.paletteCap, size.cap(ColorChoice.STANDARD), "Standard is the cap from before #29")
+            assertTrue(size.moreCap <= 255, "GridCodec stores one u8 slot per cell")
+            for (ratio in AspectRatio.entries) {
+                val more = GridSpec.of(size, ratio, ColorChoice.MORE)
+                assertEquals(GridSpec.of(size, ratio).copy(paletteCap = size.moreCap), more, "same grid and id, only the cap moves")
+            }
+        }
+    }
+
+    @Test
+    fun onlyMoreMergesNearTwinColors() {
+        assertEquals(ConverterOptions(), ConverterOptions.of(ColorChoice.FEWER))
+        assertEquals(ConverterOptions(), ConverterOptions.of(ColorChoice.STANDARD))
+        assertEquals(ConverterOptions.MORE_MIN_COLOR_DISTANCE, ConverterOptions.of(ColorChoice.MORE).minColorDistance)
     }
 
     @Test

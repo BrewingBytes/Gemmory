@@ -40,7 +40,7 @@ import kotlin.math.sin
  * navigates the same way on every renderer. Logs per-phase frame durations under [TAG]; it asserts nothing, since an
  * emulator's numbers only compare builds. Left out of connectedDebugAndroidTest; run it with
  * `am instrument -w -e class com.brewingbytes.gemmory.play.CanvasFrameTimingTest ...`; `-e highlight outline|dim`
- * times another Selected color style (#19, default tint).
+ * times another Selected color style (#19, default tint), and `-e colors 60` a More colors canvas (#29, default 36).
  */
 @PerfTest
 @RunWith(AndroidJUnit4::class)
@@ -62,7 +62,9 @@ class CanvasFrameTimingTest {
         instrumentation.runOnMainSync { app.settings.setHighlight(style) }
         Log.i(TAG, "style ${style.key}")
         val store = app.store
-        runBlocking { store.create(ref, bigPattern()) }
+        val colors = InstrumentationRegistry.getArguments().getString("colors")?.toInt() ?: 36
+        Log.i(TAG, "colors $colors")
+        runBlocking { store.create(ref, bigPattern(colors)) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
     }
 
@@ -194,10 +196,10 @@ class CanvasFrameTimingTest {
     }
 
     /** Big portrait (106×142), 36 colors in soft blobs, like a converted photo. */
-    private fun bigPattern(): Pattern {
+    private fun bigPattern(colors: Int): Pattern {
         val w = 106
         val h = 142
-        val palette = List(36) { i ->
+        val palette = List(colors) { i ->
             val r = (40 + i * 37) % 256
             val g = (90 + i * 53) % 256
             val b = (150 + i * 71) % 256
@@ -207,7 +209,7 @@ class CanvasFrameTimingTest {
             val x = index % w
             val y = index / w
             val v = sin(x / 7.0) + sin(y / 9.0) + sin((x + y) / 13.0) + ((x * 31 + y * 17) % 5) * 0.08
-            (((v + 3.4) / 6.8) * 36).toInt().coerceIn(0, 35)
+            (((v + 3.4) / 6.8) * colors).toInt().coerceIn(0, colors - 1)
         }
         return Pattern(w, h, palette, cells)
     }

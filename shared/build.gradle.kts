@@ -143,6 +143,7 @@ fun remoteToolArgs(mode: String): List<String> {
         "source=${p("source")?.let { root.file(it).asFile.path }.orEmpty()}",
         "spec=${p("spec").orEmpty()}",
         "focus=${p("focus") ?: "0.5"}",
+        "colors=${p("colors") ?: "standard"}",
         "locked=${p("locked") ?: "true"}",
         "provenance=${p("provenance").orEmpty()}",
         "contentChecked=${p("contentChecked").orEmpty()}",

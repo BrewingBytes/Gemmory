@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.telemetry
 import com.brewingbytes.gemmory.billing.PlayBillingBackend
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.photo.ConverterException
 import com.brewingbytes.gemmory.photo.FaceDetectorException
 import com.brewingbytes.gemmory.policy.ConsentModeV2
@@ -84,7 +85,9 @@ class TelemetryTest {
     @Test
     fun converterAndFaceReportsCarrySizesAndStagesOnly() {
         val e = ConverterException(CanvasSize.MEDIUM, AspectRatio.PORTRAIT, 768, 1024, OutOfMemoryError())
-        assertEquals("convert medium 3:4 from 768x1024 failed", e.message)
+        assertEquals("convert medium 3:4 standard from 768x1024 failed", e.message)
+        val more = ConverterException(CanvasSize.BIG, AspectRatio.SQUARE, 1024, 1024, OutOfMemoryError(), ColorChoice.MORE)
+        assertEquals("convert big 1:1 more from 1024x1024 failed", more.message)
         assertIs<OutOfMemoryError>(e.cause)
         assertEquals("face detection init failed", FaceDetectorException("init", IllegalStateException()).message)
     }
@@ -155,7 +158,13 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("interstitial_shown"), AnalyticsEvent.interstitialShown)
         assertEquals(AnalyticsEvent("vip_purchased", mapOf("period" to "weekly")), AnalyticsEvent.vipPurchased("weekly"))
         assertEquals(AnalyticsEvent("remove_ads_purchased"), AnalyticsEvent.removeAdsPurchased)
-        assertEquals(AnalyticsEvent("photo_canvas_started"), AnalyticsEvent.photoCanvasStarted)
+        // #29: a photo canvas carries its color choice; a picture has none.
+        assertEquals(AnalyticsEvent("photo_canvas_started", mapOf("colors" to "fewer")), AnalyticsEvent.photoCanvasStarted(ColorChoice.FEWER))
+        assertEquals(
+            AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "big", "colors" to "more")),
+            AnalyticsEvent.canvasStarted(photo, 106, 142, ColorChoice.MORE),
+        )
+        assertEquals(AnalyticsEvent("rewarded_watched", mapOf("reward_type" to "colors")), AnalyticsEvent.rewardedWatched(RewardType.COLORS))
         assertEquals(AnalyticsEvent("streak_day", mapOf("length" to 3L)), AnalyticsEvent.streakDay(3))
         assertEquals(
             AnalyticsEvent("todays_picture_started", mapOf("size" to "medium", "tier" to "free")),
