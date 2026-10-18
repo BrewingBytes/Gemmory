@@ -7,6 +7,7 @@ import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.PlacementTool
+import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.save.ViewState
@@ -44,6 +45,7 @@ class CanvasStoreTest {
     private var now = 0L
     private val cancelled = mutableListOf<CanvasRef>()
     private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
+    private val earned = java.util.Collections.synchronizedList(mutableListOf<GameEvent>())
 
     private val pattern = Pattern(
         width = 4,
@@ -76,6 +78,7 @@ class CanvasStoreTest {
                     events += event
                 }
             },
+            achievements = { earned += it },
         )
     }
 
@@ -97,6 +100,17 @@ class CanvasStoreTest {
         session.viewport.onLayout(400, 300, 1f)
         session.close()
         store.open(ref) // joins the closing write
+    }
+
+    @Test
+    fun aFreshFinishIsCountedForAchievementsOnce() = runBlocking<Unit> {
+        play(starter, *(0 until 12).toList().toIntArray())
+        createPhoto()
+        play(photo, *(0 until 12).toList().toIntArray())
+        play(starter)
+        play(photo)
+        // The test grid is 4×3, no picker size; the starter has none either (#49).
+        assertEquals(listOf(GameEvent.Finished(null, photo = false), GameEvent.Finished(null, photo = true)), earned.toList())
     }
 
     @Test

@@ -1,13 +1,13 @@
 # Gemmory privacy policy
 
-Effective date: 17 October 2026
+Effective date: 18 October 2026
 
 Gemmory: Photo Diamond Art ("Gemmory", "the app") is made by BrewingBytes ("we", "us"). This policy explains what data the app handles, why, who receives it and how long it is kept. Contact: andrei.serban@brewingbytes.com.
 
 ## The short version
 
 - **Your photos never leave your phone.** We have no servers for your pictures, and the app never uploads them.
-- There are no accounts. We don't ask for your name, email or phone number, and we never attach a user ID to anything the app sends.
+- There are no Gemmory accounts. We don't ask for your name, email or phone number, and we never attach a user ID to anything the app sends. If you use Google Play Games, the app tells Play Games which achievements you earned, under your Play Games profile (see "Achievements").
 - The app sends Google three kinds of data: **crash reports** (always, to keep the app working), **usage statistics** (only where you allow them) and the **data Google AdMob uses to show ads**.
 - Purchases go through Google Play. We never see your payment details.
 - Once a day the app downloads the list of new pictures from **GitHub** (Microsoft). That request carries nothing about you.
@@ -31,6 +31,15 @@ We publish new built-in pictures without an app update. About once a day, while 
 - **What GitHub receives:** what every web request carries: your phone's IP address and a user agent naming the Android version and device model. The app adds no identifier, cookie, account or anything about you or your photos, and sends nothing to GitHub.
 - **What it's used for:** only to deliver the files. GitHub's handling of requests is covered by the GitHub General Privacy Statement.
 - The pictures are images with no code. The app checks every file's signature and checksum and refuses anything that doesn't match.
+
+## Achievements (Google Play Games)
+
+Gemmory has achievements in Google Play Games, for example "Finish your first picture". If you use Play Games, it signs you in by itself when the app starts (the app shows no sign-in screen), and the app tells Play Games which achievements you earned. You can also sign in from Settings → Achievements.
+
+- **What Play Games receives:** which achievement you unlocked, or how far you are with one (for example 3 of 5 pictures finished), linked to your Play Games profile, and Play Games' own diagnostics. **Never** your photos, the pictures, their names or your progress on a picture. Google gives the app your Play Games player ID, which the app keeps on your phone to remember which achievements Play Games already confirmed.
+- **When:** achievements are counted on your phone as you play, and sent while you're in the gallery or Settings. If you're offline or not signed in, they wait on your phone and are sent later.
+- **If you don't use Play Games:** nothing is sent, and the app works the same.
+- **Who sees them:** you, and whoever your Play Games profile settings allow (friends, everyone or only you). Google Play Games is run by Google under Google's privacy policy. You can delete your Play Games data, for one game or all of it, from your Play Games profile (https://play.google.com/games/profile) or your Google Account.
 
 ## Crash reports (Firebase Crashlytics)
 
@@ -78,11 +87,11 @@ VIP (weekly or yearly) and "Remove ads" are sold through Google Play Billing. Go
 
 We don't run servers that store your data. What the app keeps (your canvases, progress, settings, the daily photo canvas counter, ad limits and your purchase status) stays on your phone.
 
-If Android backup is on, Android may include some of it in your own Google backup and restore it on a new phone: your settings, your progress on the built-in pictures (including the ones downloaded from GitHub), your inventory (fills, kept photo canvases and unlock tokens), and your consent choice. **Never included:** photo canvases and their progress, the daily photo canvas counter, ad limits, your purchase status, the downloaded list of new pictures (it's fetched again), and the Crashlytics and Analytics identifiers.
+If Android backup is on, Android may include some of it in your own Google backup and restore it on a new phone: your settings, your progress on the built-in pictures (including the ones downloaded from GitHub), your inventory (fills, kept photo canvases and unlock tokens), your achievements progress (what you earned and which Play Games player ID it was sent for), and your consent choice. **Never included:** photo canvases and their progress, the daily photo canvas counter, ad limits, your purchase status, the downloaded list of new pictures (it's fetched again), and the Crashlytics and Analytics identifiers.
 
 ## Who receives data
 
-Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Google Play for purchases. And GitHub (Microsoft), which receives your IP address and user agent when the app downloads new pictures (see "New pictures"). We don't sell your data, and we don't give it to anyone else. Google and GitHub may process data outside your country, including in the United States, with the safeguards described in their privacy policies and data processing terms. All of it is sent encrypted (HTTPS/TLS).
+Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Google Play for purchases; Google Play Games for achievements, only if you use Play Games. And GitHub (Microsoft), which receives your IP address and user agent when the app downloads new pictures (see "New pictures"). We don't sell your data, and we don't give it to anyone else. Google and GitHub may process data outside your country, including in the United States, with the safeguards described in their privacy policies and data processing terms. All of it is sent encrypted (HTTPS/TLS).
 
 ## Your choices and rights
 

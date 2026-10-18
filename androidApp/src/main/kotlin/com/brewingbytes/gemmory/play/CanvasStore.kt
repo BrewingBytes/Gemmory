@@ -8,6 +8,8 @@ import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasState
+import com.brewingbytes.gemmory.policy.AchievementRules
+import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.remote.RemoteCatalogView
 import com.brewingbytes.gemmory.remote.RemotePictureRules
 import com.brewingbytes.gemmory.save.CanvasRecord
@@ -83,6 +85,8 @@ class CanvasStore(
     private val analytics: Analytics = Analytics.None,
     /** Remote pictures (#43): listed in the gallery like bundled ones, their grids copied in on first open. */
     private val remote: RemoteCatalogView = RemoteCatalogView.None,
+    /** Play Games achievements (#49): a fresh finish is counted here, with the canvas's size and kind. */
+    private val achievements: (GameEvent) -> Unit = {},
 ) {
     val repository = CanvasRepository(filesDir, reporter)
     private val swept: Job = scope.launch(writer) { repository.sweep() }
@@ -142,7 +146,9 @@ class CanvasStore(
             clock = clock,
             onStopped = { played -> scope.launch(writer) { writePlayTime(ref, opened.record, played) } },
             onPictureFinished = {
-                analytics.log(AnalyticsEvent.canvasFinished(ref, opened.grid.pattern.width, opened.grid.pattern.height))
+                val pattern = opened.grid.pattern
+                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height))
+                achievements(GameEvent.Finished(sizeOf(ref, pattern), ref.kind == CanvasKind.PHOTO))
             },
             onPlaced = { encodes.onPlaced(ref) },
             // VIP uses the tools without limit; anyone else pays with fills (#38).
@@ -352,6 +358,10 @@ class CanvasStore(
         CanvasSummary.Damaged(ref, title, record?.createdAtMillis ?: 0L, repository.thumbFile(ref).takeIf { it.isFile }, size, locked)
 
     private fun CanvasSummary.Playable.withSize(size: CanvasSize?) = CanvasSummary.Playable(ref, title, state, createdAtMillis, size, locked)
+
+    /** A canvas's size for achievements: a bundled picture's catalog size, else its grid's shape (null for the starter). */
+    private fun sizeOf(ref: CanvasRef, pattern: Pattern): CanvasSize? =
+        if (ref.kind == CanvasKind.BUNDLED) BundledPictures.canvasSizeOf(ref.id) else AchievementRules.sizeOf(pattern.width, pattern.height)
 
     /** A withdrawn remote picture's size, from its grid's shape. */
     private fun sizeOfGrid(state: CanvasState): CanvasSize? {

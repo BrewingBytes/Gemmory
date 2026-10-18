@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.achievements.AchievementsRow
 import com.brewingbytes.gemmory.billing.BillingCopy
 import com.brewingbytes.gemmory.billing.RestoreUi
 import com.brewingbytes.gemmory.billing.subscriptionPage
@@ -58,7 +59,7 @@ const val PRIVACY_POLICY_URL = "https://github.com/BrewingBytes/Gemmory/blob/mai
 
 /**
  * Settings (design system, Settings): Sound, Haptics, Milestones (#35), Selected color (#19, opens its sheet),
- * Membership, Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (only when UMP says
+ * Achievements (#49, only where Play Games can run), Membership, Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (only when UMP says
  * privacy options are required, design D3), Delete all photo canvases, Privacy policy, Version. [onMembership] opens the paywall, or Play's subscription page for VIP.
  */
 @Composable
@@ -112,6 +113,8 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     modifier = Modifier.weight(1f).testTag("settings-highlight-value"),
                 )
             }
+            // Play Games achievements (#49): only where Play Games can run.
+            AchievementsRow(app.achievements)
             Row(
                 Modifier
                     .fillMaxWidth()

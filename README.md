@@ -43,6 +43,7 @@ Debug build switches (`-P…`):
 
 - `gemmory.fakeBilling` (default `true`) uses a fake Play Billing backend.
 - `gemmory.firebaseInDebug=true` sends Crashlytics/Analytics from debug builds. By default they only log to Logcat.
+- `gemmory.playGames=true` turns Play Games achievements on in a debug build (#49). By default debug builds keep earned achievements in the ledger and hide the Settings row. It needs the debug key's SHA-1 on a Play Games OAuth client and a tester account (Play Games setup below).
 - `gemmory.umpDebugEea=true` and `gemmory.umpTestDevice=…` show the EEA consent form.
 - `android.testInstrumentationRunnerArguments.deviceChecks=true` runs the `@DeviceCheck` walkthroughs. `@PerfTest` classes (canvas frame timing, gallery load timing) run only on request via `am instrument -e class …`.
 
@@ -70,6 +71,40 @@ Debug build switches (`-P…`):
 `./gradlew :androidApp:bundleRelease` builds an R8-shrunk AAB. It's signed with the upload key when `local.properties` (git-ignored) sets `gemmory.upload.storeFile`, `gemmory.upload.storePassword`, `gemmory.upload.keyAlias` and `gemmory.upload.keyPassword`. The keystore lives outside the repo, and keystores, passwords and service-account files are never committed. The Play Console answers and the production gate are in [docs/play-compliance.md](docs/play-compliance.md).
 
 A release candidate is the `main` commit with the version bump: tag it `v<versionName>` (`git tag v0.3.2 && git push origin v0.3.2`). The tag starts the Test Lab encoder smoke; upload the AAB to Play only after it passes.
+
+## Play Games setup
+
+Achievements (#49, no leaderboards) go through Play Games Services v2. The founder does the Play Console part; the app needs only `androidApp/src/main/res/values/games-ids.xml`. While its `game_services_project_id` is blank, Play Games stays off: no SDK start, no Settings row, and what players earn waits in the ledger (`filesDir/achievements/state`) for a build with the ids.
+
+1. **Project.** Play Console → Gemmory → Grow users → Play Games Services → Setup and management → Configuration. Create the Play Games Services project (Gemmory's is project 121638784035, its own Cloud project; Firebase isn't linked and doesn't need to be).
+2. **OAuth consent screen** (Cloud Console, only if Play Console asks): External, app name Gemmory, the support email, no extra scopes.
+3. **Credentials.** Configuration → Credentials → Add credential → Android, one per signing key, package `com.brewingbytes.gemmory`:
+   - the **app signing key** SHA-1 (Protected with Play → Play Store protection → Manage Play app signing): every install from Play. Gemmory's: `60:28:23:2B:95:9E:A8:57:B7:5D:2B:FC:32:C9:F0:13:0E:B9:7F:D1`;
+   - the **upload key** SHA-1 (same page): builds signed locally with the upload key. Gemmory's: `97:F7:D0:BA:23:7F:4C:58:03:B3:24:DA:7A:87:AF:B0:61:C7:0B:45`;
+   - optionally the **debug key** SHA-1 (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`), for `-Pgemmory.playGames=true`.
+4. **Achievements.** Setup and management → Achievements → Add (Save as draft), in this order, initial state Revealed. Icons are `tools/achievements/<name>.png` (512×512 PNG; Play Games greys the revealed one itself and masks the pop-up's icon to a circle, so the art stays in the middle).
+
+   | Name | Description | Incremental (steps) | Points | Icon |
+   |---|---|---|---|---|
+   | First Sparkle | Finish your first picture. | no | 25 | first_sparkle |
+   | Quick Study | Finish a Quick picture. | no | 25 | quick_study |
+   | Steady Hands | Finish a Medium picture. | no | 50 | steady_hands |
+   | The Long Evening | Finish a Big picture. | no | 100 | the_long_evening |
+   | Your Own Gem | Finish a canvas made from one of your photos. | no | 50 | your_own_gem |
+   | Show and Tell | Share a finished picture. | no | 25 | show_and_tell |
+   | Work in Progress | Share a picture before its last gem. | no | 25 | work_in_progress |
+   | Tray Regular | Finish 5 pictures. | yes (5) | 50 | tray_regular |
+   | Gallery Wall | Finish 25 pictures. | yes (25) | 150 | gallery_wall |
+   | Photo Album | Finish 5 canvases made from your photos. | yes (5) | 100 | photo_album |
+   | A Week of Gems | Finish a picture 7 days in a row. | yes (7) | 100 | a_week_of_gems |
+   | A Month of Gems | Finish a picture 30 days in a row. | yes (30) | 150 | a_month_of_gems |
+
+   850 of the 2,000 points; the rest stays in reserve. The rules behind each one are `AchievementRules` (`shared/…/policy/Achievements.kt`). To redraw an icon, edit `tools/achievements/icons.html` and run `brave --headless=new --allow-file-access-from-files --hide-scrollbars --window-size=512,512 --virtual-time-budget=2000 --screenshot=$PWD/<name>.png "file://$PWD/icons.html#<key>"` in that folder (keys are in the file's `ICONS`).
+5. **Resources.** Achievements → Get resources → Android (XML). Put the export's app id in `game_services_project_id` and each achievement id in the `achievement_*` string of the same name (the names match the export). The ids aren't secret; commit them.
+6. **Testers.** Setup and management → Testers → add the closed-test accounts. While Play Games Services is unpublished, only testers can sign in and unlock.
+7. **Publish** (Review and publish → Play Games Services) once a closed-test build shows the achievements unlocking. Achievements can be added later. Once published, an achievement can't be deleted, and its initial state and its type (incremental or not) are fixed. Player progress can be reset only on draft achievements.
+
+How it behaves: Play Games signs the player in on its own at app start, with no sign-in screen; when that fails or the player declines, nothing is shown. Unlocks are counted on the phone as they happen and sent only while the Gallery or Settings shows, so Play Games' own "Achievement unlocked" pop-up never covers the canvas or the completion screen. Settings → Achievements opens Play Games' achievements screen (signing in first if needed). A player without a Play Games profile sees Play Games' own "Create a Play Games profile" sheet once, at the first start. On a google_apis emulator image Play Games can't run (its Google Play services module never downloads); use a Play Store image (`gemmory_play`, lessons) or a phone, with the upload-signed release build and a tester account.
 
 ## Adding a bundled picture
 

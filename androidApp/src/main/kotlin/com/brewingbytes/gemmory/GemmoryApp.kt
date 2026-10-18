@@ -5,6 +5,9 @@ import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.brewingbytes.gemmory.achievements.Achievements
+import com.brewingbytes.gemmory.achievements.GamesBackend
+import com.brewingbytes.gemmory.achievements.PlayGamesBackend
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.AdMobGateway
 import com.brewingbytes.gemmory.ads.ConsentManager
@@ -16,10 +19,15 @@ import com.brewingbytes.gemmory.billing.BillingRepository
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.play.PlayStreak
+import com.brewingbytes.gemmory.policy.Achievement
+import com.brewingbytes.gemmory.policy.AchievementCodec
+import com.brewingbytes.gemmory.policy.AchievementRules
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
+import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.remote.HttpRemoteSource
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePictures
@@ -63,6 +71,12 @@ class GemmoryApp : Application() {
     /** The daily play streak (#33). */
     lateinit var streak: PlayStreak
         private set
+
+    /** Play Games achievements (#49): counted on the phone, sent while the Gallery or Settings shows. */
+    lateinit var achievements: Achievements
+        private set
+
+    private lateinit var games: GamesBackend
 
     /** Today's picture (#34). */
     lateinit var todays: TodaysPictures
@@ -170,12 +184,43 @@ class GemmoryApp : Application() {
         reporter = reporter,
         analytics = analytics,
         remote = remote,
+        achievements = { achievements.record(it) },
     )
 
     private val storeWriter = Dispatchers.IO.limitedParallelism(1)
 
     private fun newStreak() =
-        PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics) { monetization.onStreakDay(it) }
+        PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics) {
+            monetization.onStreakDay(it)
+            achievements.record(GameEvent.StreakDay(it))
+        }
+
+    private fun newAchievements(backend: GamesBackend, ids: (Achievement) -> String = { getString(achievementId(it)) }) = Achievements(
+        store = FileStateStore(File(filesDir, StorageLayout.ACHIEVEMENTS), AchievementCodec::encode, AchievementCodec::decode, reporter),
+        backend = backend,
+        ids = ids,
+        scope = appScope,
+        worker = Dispatchers.IO.limitedParallelism(1),
+    )
+
+    /**
+     * Connected tests only (#49): achievements sent to [backend] (a fake games client) under [ids] (the real ones are
+     * blank until Play Console is set up), re-read from their file, which the test cleared or seeded. No argument puts
+     * the build's backend and ids back.
+     */
+    @VisibleForTesting
+    internal fun resetAchievementsForTest(backend: GamesBackend? = null, ids: ((Achievement) -> String)? = null) {
+        achievements = if (backend == null) newAchievements(games) else newAchievements(backend, ids ?: { getString(achievementId(it)) })
+    }
+
+    /** Every canvas finished on the phone, for the one-time achievements backfill (founder, 2026-10-18). */
+    private suspend fun finishedOnPhone(): List<GameEvent.Finished> {
+        val (pictures, photos) = store.summaries()
+        return (pictures + photos).filterIsInstance<CanvasSummary.Playable>().filter { it.state.isFinished }.map {
+            val pattern = it.state.pattern
+            GameEvent.Finished(it.size ?: AchievementRules.sizeOf(pattern.width, pattern.height), it.ref.kind == CanvasKind.PHOTO)
+        }
+    }
 
     /**
      * Connected tests only (#32): runs the ads on [ads] (AdMob by default) and re-reads the ledger and the unlocks from
@@ -188,6 +233,22 @@ class GemmoryApp : Application() {
         monetization.close()
         monetization = newMonetization(processStart = false)
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
+    }
+
+    /** An achievement's Play Console id resource (games-ids.xml, named as Play Console exports them). */
+    private fun achievementId(achievement: Achievement): Int = when (achievement) {
+        Achievement.FIRST_SPARKLE -> R.string.achievement_first_sparkle
+        Achievement.QUICK_STUDY -> R.string.achievement_quick_study
+        Achievement.STEADY_HANDS -> R.string.achievement_steady_hands
+        Achievement.THE_LONG_EVENING -> R.string.achievement_the_long_evening
+        Achievement.YOUR_OWN_GEM -> R.string.achievement_your_own_gem
+        Achievement.SHOW_AND_TELL -> R.string.achievement_show_and_tell
+        Achievement.WORK_IN_PROGRESS -> R.string.achievement_work_in_progress
+        Achievement.TRAY_REGULAR -> R.string.achievement_tray_regular
+        Achievement.GALLERY_WALL -> R.string.achievement_gallery_wall
+        Achievement.PHOTO_ALBUM -> R.string.achievement_photo_album
+        Achievement.A_WEEK_OF_GEMS -> R.string.achievement_a_week_of_gems
+        Achievement.A_MONTH_OF_GEMS -> R.string.achievement_a_month_of_gems
     }
 
     override fun onCreate() {
@@ -223,6 +284,10 @@ class GemmoryApp : Application() {
         )
         monetization = newMonetization()
         todays = newTodays()
+        games = if (BuildConfig.PLAY_GAMES) PlayGamesBackend(this, getString(R.string.game_services_project_id), reporter) else GamesBackend.Off
+        achievements = newAchievements(games)
+        val streakNow = streak.current()
+        achievements.backfill { finishedOnPhone() to streakNow }
         consent = ConsentManager(this)
         // Consent Mode v2 from the UMP result, now and on every change (R3-7).
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }

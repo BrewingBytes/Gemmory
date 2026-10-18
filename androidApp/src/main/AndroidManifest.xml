@@ -51,6 +51,12 @@
             android:name="google_analytics_default_allow_ad_personalization_signals"
             android:value="false" />
 
+        <!-- Play Games Services achievements (#49): the Play Console project id (res/values/games-ids.xml). Blank keeps
+             Play Games off. Achievements carry event ids only, never photos or titles. -->
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="@string/game_services_project_id" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play Games Services (#49): the project id and achievement ids from Play Console (Play Games Services → Setup and
+     management → Configuration → Get resources → Android). The export's app_id is game_services_project_id here; the
+     achievement names match the export. Not secret. A blank project id turns Play Games off (no SDK start, no Settings
+     row) while earned achievements wait in the ledger. README → Play Games setup. -->
+<resources>
+    <string name="game_services_project_id" translatable="false">121638784035</string>
+    <string name="achievement_first_sparkle" translatable="false">CgkIo5jykcUDEAIQAg</string>
+    <string name="achievement_quick_study" translatable="false">CgkIo5jykcUDEAIQCA</string>
+    <string name="achievement_steady_hands" translatable="false">CgkIo5jykcUDEAIQDA</string>
+    <string name="achievement_the_long_evening" translatable="false">CgkIo5jykcUDEAIQAw</string>
+    <string name="achievement_your_own_gem" translatable="false">CgkIo5jykcUDEAIQDQ</string>
+    <string name="achievement_show_and_tell" translatable="false">CgkIo5jykcUDEAIQBA</string>
+    <string name="achievement_work_in_progress" translatable="false">CgkIo5jykcUDEAIQBg</string>
+    <string name="achievement_tray_regular" translatable="false">CgkIo5jykcUDEAIQCw</string>
+    <string name="achievement_gallery_wall" translatable="false">CgkIo5jykcUDEAIQBQ</string>
+    <string name="achievement_photo_album" translatable="false">CgkIo5jykcUDEAIQBw</string>
+    <string name="achievement_a_week_of_gems" translatable="false">CgkIo5jykcUDEAIQCg</string>
+    <string name="achievement_a_month_of_gems" translatable="false">CgkIo5jykcUDEAIQCQ</string>
+</resources>

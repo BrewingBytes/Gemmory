@@ -32,6 +32,9 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.achievements.ACHIEVEMENTS_TAG
+import com.brewingbytes.gemmory.achievements.AchievementsCopy
+import com.brewingbytes.gemmory.achievements.FakeGames
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.ads.RewardPhase
 import com.brewingbytes.gemmory.ads.RewardTarget
@@ -190,6 +193,25 @@ class AccessibilityChecksTest {
         compose.onNodeWithTag("settings-delete-all").performClick()
         waitForText("Delete all photo canvases?")
         scan()
+    }
+
+    @Test
+    fun settingsWithPlayGamesAndItsFailedLine() {
+        // A fake Play Games (#49): the row shows, and its achievements screen can't open, so the failure line shows.
+        val app = context.applicationContext as GemmoryApp
+        app.resetAchievementsForTest(FakeGames()) { it.name.lowercase() }
+        try {
+            scenario = ActivityScenario.launch(MainActivity::class.java)
+            waitForTag("tile-bundled-starter")
+            compose.onNodeWithContentDescription("Settings").performClick()
+            waitForTag(ACHIEVEMENTS_TAG)
+            scan()
+            compose.onNodeWithTag(ACHIEVEMENTS_TAG).performClick()
+            waitForText(AchievementsCopy.FAILED)
+            scan()
+        } finally {
+            app.resetAchievementsForTest()
+        }
     }
 
     @Test

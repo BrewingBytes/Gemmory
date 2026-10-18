@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.brewingbytes.gemmory.achievements.SendAchievementsWhileShown
 import com.brewingbytes.gemmory.ads.RewardTarget
 import com.brewingbytes.gemmory.ads.RewardedEvent
 import com.brewingbytes.gemmory.ads.RewardedSheet
@@ -194,6 +195,7 @@ class MainActivity : ComponentActivity() {
         when (top) {
             Route.Gallery -> {
                 LaunchedEffect(Unit) { if (!flow.decoding) photoFlow.clearDraft() }
+                SendAchievementsWhileShown(app.achievements)
                 GalleryScreen(
                     vm = gallery,
                     decodeFailed = flow.decodeFailed,
@@ -217,7 +219,10 @@ class MainActivity : ComponentActivity() {
                     },
                 )
             }
-            Route.Settings -> SettingsScreen(onBack = { stack.pop() }, onMembership = { openVip(MEMBERSHIP_TAG) })
+            Route.Settings -> {
+                SendAchievementsWhileShown(app.achievements)
+                SettingsScreen(onBack = { stack.pop() }, onMembership = { openVip(MEMBERSHIP_TAG) })
+            }
             Route.Paywall -> {
                 val prices by app.billing.prices.collectAsStateWithLifecycle()
                 val purchase by app.billing.purchase.collectAsStateWithLifecycle()
