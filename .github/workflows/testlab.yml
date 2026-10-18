@@ -1,6 +1,8 @@
 # Encoder smoke on real phones (#11, design doc D7): TimelapseEncoderSmokeTest + EncodeCancelTest on Firebase Test
-# Lab, one matrix over three chip families. A release candidate is a pushed `v*` tag; it also runs by hand from the
-# Actions tab. Setup, quota and how to read the results: README → "Encoder smoke on Firebase Test Lab".
+# Lab, one matrix over three chip families. Frame timing (#54): CanvasFrameTimingTest on the low-end phone alone, a
+# second matrix. A release candidate is a pushed `v*` tag and runs both (4 of the 5 daily runs); each also runs by
+# hand from the Actions tab. Setup, quota and results: README → "Encoder smoke on Firebase Test Lab" and
+# "Frame timing on Firebase Test Lab".
 name: Test Lab
 
 on:
@@ -9,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       phones:
-        description: Phones to run on (a tag runs all three; one phone re-checks a failure with the quota left today)
+        description: Encoder smoke on all three phones or one (a re-check with the quota left today), or frames for the frame-timing check on the low-end phone (1 run)
         type: choice
-        options: [all, pixel, samsung, mediatek]
+        options: [all, pixel, samsung, mediatek, frames]
         default: all
       list_models:
         description: Only print the physical-device catalog (no test run, no quota used)
@@ -35,6 +37,8 @@ env:
   MEDIATEK: model=a06,version=35
   TEST_TARGETS: >-
     class com.brewingbytes.gemmory.timelapse.TimelapseEncoderSmokeTest,class com.brewingbytes.gemmory.timelapse.EncodeCancelTest
+  # @PerfTest is left out of connectedDebugAndroidTest by a runner argument, which Test Lab doesn't get: name the class.
+  FRAME_TARGETS: class com.brewingbytes.gemmory.play.CanvasFrameTimingTest
 
 jobs:
   encoder-smoke:
@@ -72,7 +76,7 @@ jobs:
         run: ./gradlew :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest
 
       - name: Run on Test Lab
-        if: ${{ !inputs.list_models }}
+        if: ${{ !inputs.list_models && inputs.phones != 'frames' }}
         run: |
           # stdout is the per-device outcome (JSON); stderr is the progress, the console link and the bucket link.
           # gcloud exits non-zero when any device fails (10) or is inconclusive (15), which fails the job.
@@ -95,33 +99,64 @@ jobs:
             --client-details "matrixLabel=$GITHUB_REF_NAME ${GITHUB_SHA::7}" \
             --format json > outcome.json 2> >(tee testlab.log >&2)
 
+      # Runs even when the encoder smoke failed, so a release candidate always gets its frame numbers.
+      - name: Frame timing on Test Lab
+        if: ${{ !inputs.list_models && !cancelled() && (github.event_name == 'push' || inputs.phones == 'frames') }}
+        run: |
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app androidApp/build/outputs/apk/debug/androidApp-debug.apk \
+            --test androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk \
+            --test-targets "$FRAME_TARGETS" \
+            --device "$MEDIATEK" \
+            --timeout 10m \
+            --num-flaky-test-attempts 0 \
+            --results-history-name 'Gemmory frame timing' \
+            --results-dir "frame-timing/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --client-details "matrixLabel=$GITHUB_REF_NAME ${GITHUB_SHA::7}" \
+            --format json > frames-outcome.json 2> >(tee frames.log >&2)
+
       - name: Summary and videos
         if: ${{ !inputs.list_models && !cancelled() }}
         run: |
-          console=$(grep -o 'https://console.firebase.google.com[^] ]*' testlab.log | head -1 || true)
-          bucket=$(grep -o 'https://console.developers.google.com/storage/browser/[^] ]*' testlab.log | head -1 || true)
-          {
-            echo '### Encoder smoke on Test Lab'
-            echo "Results, videos and logcat per device: ${console:-no console link, see the Run on Test Lab log}"
-            echo
-            echo '| Device | Outcome | Details |'
-            echo '|---|---|---|'
-            jq -r '.[]? | "| \(.axis_value) | \(.outcome) | \(.test_details) |"' outcome.json 2>/dev/null || true
-            if grep -q TEST_QUOTA_EXCEEDED testlab.log; then
-              echo
-              echo "**Not run: today's Test Lab quota is used up.** Spark allows 5 physical-device runs a day and this matrix didn't fit what was left, so it was refused whole and nothing ran. Re-run tomorrow, or pick one phone if only one needs a re-check and runs are left."
+          # One block per matrix that ran: its log, its outcome JSON, its heading and where its files go.
+          report() {
+            local log=$1 outcome=$2 title=$3 dir=$4
+            [ -f "$log" ] || return 0
+            console=$(grep -o 'https://console.firebase.google.com[^] ]*' "$log" | head -1 || true)
+            bucket=$(grep -o 'https://console.developers.google.com/storage/browser/[^] ]*' "$log" | head -1 || true)
+            # Copy each device's video and logcat next to the run, so they open without the Firebase Console.
+            if [ -n "$bucket" ]; then
+              gs="gs://${bucket#https://console.developers.google.com/storage/browser/}"
+              gs="${gs%/}"
+              for device in $(gcloud storage ls "$gs/" | grep '/$'); do
+                name=$(basename "$device")
+                mkdir -p "$dir/$name"
+                gcloud storage cp "${device}video.mp4" "${device}logcat" "$dir/$name/" || true
+              done
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
-          # Copy each device's video and logcat next to the run, so they open without the Firebase Console.
-          if [ -n "$bucket" ]; then
-            gs="gs://${bucket#https://console.developers.google.com/storage/browser/}"
-            gs="${gs%/}"
-            for device in $(gcloud storage ls "$gs/" | grep '/$'); do
-              name=$(basename "$device")
-              mkdir -p "results/$name"
-              gcloud storage cp "${device}video.mp4" "${device}logcat" "results/$name/" || true
-            done
-          fi
+            {
+              echo "### $title on Test Lab"
+              echo "Results, videos and logcat per device: ${console:-no console link, see the Run step log}"
+              echo
+              echo '| Device | Outcome | Details |'
+              echo '|---|---|---|'
+              jq -r '.[]? | "| \(.axis_value) | \(.outcome) | \(.test_details) |"' "$outcome" 2>/dev/null || true
+              if grep -q TEST_QUOTA_EXCEEDED "$log"; then
+                echo
+                echo "**Not run: today's Test Lab quota is used up.** Spark allows 5 physical-device runs a day and this matrix didn't fit what was left, so it was refused whole and nothing ran. Re-run tomorrow, or pick one phone if only one needs a re-check and runs are left."
+              fi
+              # The frame-timing check logs one line per phase (frames, percentiles, missed); show them here.
+              if grep -qh 'CanvasFrameTiming:' "$dir"/*/logcat 2>/dev/null; then
+                echo
+                echo '```'
+                grep -h 'CanvasFrameTiming:' "$dir"/*/logcat | grep -v -e 'stage medians' -e 'zoom now' | sed 's/^.*CanvasFrameTiming: //'
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+          report testlab.log outcome.json 'Encoder smoke' results
+          report frames.log frames-outcome.json 'Frame timing' results-frames
 
       - uses: actions/upload-artifact@v5
         if: ${{ !inputs.list_models && !cancelled() }}
@@ -129,6 +164,9 @@ jobs:
           name: test-lab-results
           path: |
             results/
+            results-frames/
             testlab.log
             outcome.json
+            frames.log
+            frames-outcome.json
           if-no-files-found: warn
