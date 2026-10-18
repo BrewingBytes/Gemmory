@@ -53,6 +53,8 @@ android {
         // Remote pictures (#43): the catalog folder (pictures/v1/ on main), checked once a day. Debug builds can point it
         // elsewhere with `-Pgemmory.remotePicturesUrl=…` (a local test server, say).
         buildConfigField("String", "REMOTE_PICTURES_URL", "\"$REMOTE_PICTURES_URL\"")
+        // Play Games achievements (#49): on in release builds once games-ids.xml has the project id.
+        buildConfigField("boolean", "PLAY_GAMES", "true")
     }
 
     signingConfigs {
@@ -79,6 +81,9 @@ android {
             manifestPlaceholders["firebaseEnabled"] = firebaseInDebug
             val remoteUrl = providers.gradleProperty("gemmory.remotePicturesUrl").getOrElse(REMOTE_PICTURES_URL)
             buildConfigField("String", "REMOTE_PICTURES_URL", "\"$remoteUrl\"")
+            // Debug builds log achievements to Logcat and hide the Settings row unless `-Pgemmory.playGames=true`, which
+            // also needs the debug key's SHA-1 on a Play Games OAuth client (README → Play Games setup).
+            buildConfigField("boolean", "PLAY_GAMES", providers.gradleProperty("gemmory.playGames").getOrElse("false"))
         }
         release {
             // R8: the mapping file goes into the App Bundle, so Play Console shows readable stack traces for crashes
@@ -122,6 +127,8 @@ dependencies {
     implementation(libs.ump)
     // Play Billing (#8): VIP subscriptions and remove_ads. Its manifest adds com.android.vending.BILLING.
     implementation(libs.play.billing.ktx)
+    // Play Games Services v2 (#49): achievements only, automatic sign-in. No leaderboards or friends.
+    implementation(libs.play.services.games.v2)
     // Bundled (on-device) model: the face check never sends the photo anywhere (design doc, photo privacy).
     implementation(libs.mlkit.face.detection)
     // Crash + non-fatal reports (always on, D17) and Analytics events under UMP consent (Consent Mode v2, R3-7).

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.ShareLink
@@ -39,12 +40,15 @@ object ShareIntents {
     }
 }
 
-/** Logs share_completed with the canvas's source, size and share kind (#36); which app was picked isn't recorded. */
+/** Logs share_completed (and counts the share for achievements, #49) with the canvas's source, size and share kind (#36); which app was picked isn't recorded. */
 class ShareCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val source = intent.getStringExtra(AnalyticsEvent.SOURCE) ?: return
         val size = intent.getStringExtra(AnalyticsEvent.SIZE) ?: return
         val kind = intent.getStringExtra(AnalyticsEvent.KIND) ?: AnalyticsEvent.kind(progress = false)
-        (context.applicationContext as GemmoryApp).analytics.log(AnalyticsEvent.shareCompleted(source, size, kind))
+        val app = context.applicationContext as GemmoryApp
+        app.analytics.log(AnalyticsEvent.shareCompleted(source, size, kind))
+        // Show and Tell / Work in Progress (#49): counted now, sent once the Gallery shows.
+        app.achievements.record(GameEvent.Shared(progress = kind == AnalyticsEvent.kind(progress = true)))
     }
 }

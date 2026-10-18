@@ -2,10 +2,10 @@
 
 What Gemmory declares in Play Console, Firebase and Google Cloud, why, and how the founder decides when production can open (#5 T5, design doc D10, D17, D18). The founder enters every Console answer by hand. Keep this file in step with the app: when an SDK, an event, a permission or a backup rule changes, update the matching row here, then [privacy-policy.md](privacy-policy.md), then the Console.
 
-Facts the answers rest on (checked 2026-10-15 on 0.2.4 (6), Firebase BOM 34.19.0, Google Mobile Ads 25.5.0, UMP 4.0.0, ML Kit face detection 16.1.7, Play Billing 9.1.0, targetSdk 37):
+Facts the answers rest on (checked 2026-10-15 on 0.2.4 (6), Firebase BOM 34.19.0, Google Mobile Ads 25.5.0, UMP 4.0.0, ML Kit face detection 16.1.7, Play Billing 9.1.0, targetSdk 37; Play Games Services v2 22.1.0 added 2026-10-18, #49):
 
 - Photos are processed only on the phone. Nothing in the app uploads them (AGENTS.md).
-- No accounts, no login, no user IDs anywhere (`setUserId` is never called).
+- No accounts, no login, no user IDs anywhere (`setUserId` is never called). Play Games (#49) signs the player in with their own Google Play Games profile; the app only reads the Play Games player ID to remember what Play Games confirmed, and never sends it to anyone else.
 - Crashlytics is on for everyone in release builds (D17). Non-fatals: converter, ML Kit, encoder, billing, canvas save/load, FileStateStore. Paths and `content://` URIs are scrubbed before sending.
 - Firebase Analytics starts off with every consent type denied. It turns on only when the UMP result grants `analytics_storage`. Outside GDPR regions UMP grants everything, so Analytics is on by default there. Events: design doc → Analytics.
 - AdMob: rewarded + interstitial. The merged manifest declares `com.google.android.gms.permission.AD_ID`.
@@ -25,9 +25,9 @@ Play Console → Policy and programs → App content → Data safety.
 
 | Question | Answer | Why |
 |---|---|---|
-| Does your app collect or share any of the required user data types? | **Yes** | Crashlytics, Analytics, AdMob and ML Kit send data off the phone. |
-| Is all of the user data collected by your app encrypted in transit? | **Yes** | Firebase and ML Kit use HTTPS, AdMob uses TLS (Google's SDK disclosures). |
-| Account creation | **My app does not allow users to create an account** | No accounts or login. |
+| Does your app collect or share any of the required user data types? | **Yes** | Crashlytics, Analytics, AdMob, ML Kit and Play Games Services send data off the phone. |
+| Is all of the user data collected by your app encrypted in transit? | **Yes** | Firebase, ML Kit and Play Games Services use HTTPS, AdMob uses TLS (Google's SDK disclosures). |
+| Account creation | **My app does not allow users to create an account** | No accounts or login. Play Games sign-in (#49) uses the player's Google Play Games profile, which Google runs; the app creates no account. Re-check the wording when the Console shows it. |
 | Do you provide a way for users to request that their data is deleted? | **No** | Nothing we hold links data to a person. The policy explains uninstall/clear storage resets the IDs and the retention periods (founder call, #5). |
 | Independent security review | Leave unchecked | Not done. |
 
@@ -41,20 +41,24 @@ Declare only these. Everything else is **not collected**.
 | Financial info → **Purchase history** | Yes | No | No | Required | Analytics | — | Analytics logs Play purchase events (product, price, currency) automatically, plus our `vip_purchased` / `remove_ads_purchased`. Required because outside the EEA/UK/CH there is no opt-out. Payment details are Google Play's, not ours: not declared. |
 | App activity → **App interactions** | Yes | Yes | No | Required | Analytics; Advertising or marketing; Fraud prevention, security, and compliance | Advertising or marketing; Analytics; Fraud prevention, security, and compliance | Analytics events (canvas started/finished, with a photo canvas's color choice, share, rewarded, interstitial, time-lapse, daily streak length, today's picture started, fill tool used, inventory items earned and spent). AdMob collects and shares "app launch, taps, and video views". |
 | App info and performance → **Crash logs** | Yes | No | No | Required | Analytics | — | Crashlytics stack traces, always on (D17). Play's "Analytics" purpose includes diagnosing and fixing crashes. |
-| App info and performance → **Diagnostics** | Yes | Yes | No | Required | Analytics; Advertising or marketing; Fraud prevention, security, and compliance | Advertising or marketing; Analytics; Fraud prevention, security, and compliance | Crashlytics non-fatals and device state at crash time; ML Kit performance metrics and error codes; AdMob "performance of your app and the SDK" (shared). |
+| App info and performance → **Diagnostics** | Yes | Yes | No | Required | Analytics; Advertising or marketing; Fraud prevention, security, and compliance | Advertising or marketing; Analytics; Fraud prevention, security, and compliance | Crashlytics non-fatals and device state at crash time; ML Kit performance metrics and error codes; AdMob "performance of your app and the SDK" (shared); Play Games Services' own SDK analytics and diagnostics (#49). |
+| Personal info → **User IDs** | Yes | No | No | Optional | App functionality | — | Play Games Services (#49): the player's Play Games identity (player ID, gamertag, avatar) is collected by Google's SDK when they use Play Games; the app reads only the player ID and keeps it on the phone. Optional: a player who doesn't use Play Games sends none. |
+| App activity → **Other actions** | Yes | No | No | Optional | App functionality | — | Play Games Services (#49): unlocked achievements and steps of incremental ones (gameplay progress, event ids only), stored by Google for the player's Play Games profile. Optional for the same reason. |
 | Device or other IDs → **Device or other IDs** | Yes | Yes | No | Required | Analytics; Advertising or marketing; Fraud prevention, security, and compliance | Advertising or marketing; Analytics; Fraud prevention, security, and compliance | AdMob: advertising ID and app set ID (shared). Analytics: app instance ID (+ advertising ID when ad storage is granted). Crashlytics installation UUID, Firebase installation ID, ML Kit per-installation ID. |
 
 **Not declared, and why:**
 
 - **Photos and videos:** the photo is read and converted on the phone and never transmitted. Play counts data as collected only when it leaves the device. Sharing the time-lapse is a user-initiated transfer to the app the player picks, which Play excludes from "shared".
-- **Personal info (name, email, user IDs, address, phone):** none. No accounts, `setUserId` never called.
+- **Personal info (name, email, address, phone):** none. No accounts, `setUserId` never called. User IDs are declared only for Play Games (#49, above).
 - **Financial info → payment info / credit card:** Google Play handles payment; the app never receives it.
-- **Precise location, messages, contacts, calendar, audio, files, health, web browsing, in-app search, other user-generated content, other actions:** not collected.
+- **Precise location, messages, contacts, calendar, audio, files, health, web browsing, in-app search, other user-generated content:** not collected. (Other actions is declared for Play Games achievements, #49.)
 - **App info and performance → Other app performance data:** nothing beyond crash logs and diagnostics.
 
 **Remote pictures (#43), re-checked 2026-10-17: no change.** Once a day the app GETs a signed catalog and grid files from `raw.githubusercontent.com` (GitHub, Microsoft). The request carries no identifier, cookie, account or user content (plain `HttpURLConnection`, the platform's default user agent), and the app sends nothing in a body. GitHub sees the IP address and user agent that any download carries, and uses them only to serve the file. No new data type is collected: the app derives nothing from the request, and Approximate location is already declared for AdMob and Analytics. The privacy policy names GitHub under "Who receives data" and in its own "New pictures" section. The files are data (finished GMRY grids, signed), never code, which keeps the download within Play's Device and Network Abuse policy.
 
 **More colors (#29), re-checked 2026-10-18: no change.** `canvas_started` and `photo_canvas_started` gain `colors` (fewer | standard | more, the player's choice, not the palette) and `reward_type` gains `colors`. Both are App interactions, already declared; no new data type. The privacy policy's event list names them (republish pending with the rest).
+
+**Play Games achievements (#49), checked 2026-10-18: two new types, both optional.** Source: Google's Play Games Services data disclosure (developer.android.com/games/pgs/data-collection, latest SDK): it collects the Games account identity (gamertag, avatar) automatically, SDK analytics and diagnostics, and, depending on use, "unlocked achievements" as game service data, all over HTTPS; players delete it from their Play Games profile. The app uses achievements only (no leaderboards, friends, saved games or events), so the friends list is never requested. Declared as Personal info → User IDs and App activity → Other actions, collected, not shared (Google stores them for the player's own profile; nothing goes to a third party), Optional (only players who use Play Games), purpose App functionality. Diagnostics already covers the SDK's own diagnostics. Achievements carry event ids only: no photo, title or canvas data. No new Analytics event (founder, 2026-10-18), so App interactions is unchanged. Target audience (18+) and the ads answers don't change. The privacy policy has an "Achievements" section and names Play Games under "Who receives data". "Do you provide a way for users to request that their data is deleted?" stays **No** for our own data; Play Games data is deleted by the player in their Play Games profile, which the policy points to.
 
 **"Shared" vs "service provider":** Crashlytics, Analytics (with sharing settings off, see Firebase Console below) and ML Kit process data for us, so they are not "shared". AdMob's disclosure says it "collects and shares" its four types, so every type AdMob touches is marked shared.
 

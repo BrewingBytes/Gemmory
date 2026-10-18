@@ -54,4 +54,10 @@ object StorageLayout {
      * transferred (no user content), like the picture unlocks, so a new phone keeps what was earned.
      */
     const val INVENTORY = "inventory/items"
+
+    /**
+     * Play Games achievements (#49), "GMRA": what this phone earned and what Play Games confirmed. Backed up and
+     * transferred like the streak (no user content): a new phone doesn't resend what was confirmed, nor lose what wasn't.
+     */
+    const val ACHIEVEMENTS = "achievements/state"
 }
