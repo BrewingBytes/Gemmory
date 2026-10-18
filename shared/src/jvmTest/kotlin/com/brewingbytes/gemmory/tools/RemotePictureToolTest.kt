@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.tools
 
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.remote.CatalogCheck
 import com.brewingbytes.gemmory.remote.CryptoAgainstJdkTest
 import com.brewingbytes.gemmory.remote.GridCheck
@@ -32,13 +33,20 @@ class RemotePictureToolTest {
     private val pair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
     private val trusted = listOf(CryptoAgainstJdkTest.rawPublicKey(pair.public as EdECPublicKey))
 
-    private fun request(id: String, key: File = keyFile(pair), now: Long = 1_792_000_000, reserved: Set<String> = setOf("starter")) =
-        RemotePictureTool.Request(
-            dir = dir, id = id, title = "Night $id", source = source, spec = "quick-3:4", focus = 0.5, locked = true,
-            minAppVersion = 12, addedAt = LocalDate(2026, 10, 18), nowSeconds = now, signingKey = key,
-            provenance = "starry.jpg (Wikimedia Commons) | Vincent van Gogh, 1889 | Public domain", provenanceFile = provenance,
-            reviewPng = File(root, "$id.review.png"), reservedIds = reserved, trustedKeys = trusted,
-        )
+    private fun request(
+        id: String,
+        key: File = keyFile(pair),
+        now: Long = 1_792_000_000,
+        reserved: Set<String> = setOf("starter"),
+        spec: String = "quick-3:4",
+        minAppVersion: Int = 12,
+        colors: ColorChoice = ColorChoice.STANDARD,
+    ) = RemotePictureTool.Request(
+        dir = dir, id = id, title = "Night $id", source = source, spec = spec, focus = 0.5, locked = true,
+        minAppVersion = minAppVersion, addedAt = LocalDate(2026, 10, 18), nowSeconds = now, signingKey = key,
+        provenance = "starry.jpg (Wikimedia Commons) | Vincent van Gogh, 1889 | Public domain", provenanceFile = provenance,
+        reviewPng = File(root, "$id.review.png"), reservedIds = reserved, trustedKeys = trusted, colors = colors,
+    )
 
     private fun check() = RemoteCatalogs.check(
         File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, 12, null, setOf("starter"),
@@ -59,6 +67,21 @@ class RemotePictureToolTest {
         assertEquals(listOf("night-one", "night-two"), two.pictures.map { it.id })
         assertTrue(two.issuedAt > catalog.issuedAt, "issuedAt only moves forward, even with a clock behind")
         assertEquals(2, provenance.readLines().count { it.startsWith("| Night ") }, "rows appended, none lost")
+    }
+
+    /** #29: More colors converts at the size's More cap, and refuses an app version older apps would choke on. */
+    @Test
+    fun moreColorsNeedsTheMoreColorsApp() {
+        val error = assertFailsWith<IllegalArgumentException> {
+            RemotePictureTool.publish(request("night-rich", spec = "big-3:4", minAppVersion = 11, colors = ColorChoice.MORE))
+        }
+        assertTrue("-PminAppVersion=12" in error.message.orEmpty(), error.message)
+        assertFalse(File(dir, "catalog.json").exists())
+
+        val picture = RemotePictureTool.publish(request("night-rich", spec = "big-3:4", colors = ColorChoice.MORE))
+        assertTrue(picture.colors in 37..60, "${picture.colors} colors")
+        assertEquals(listOf(picture), assertIs<CatalogCheck.Ok>(check()).catalog.pictures)
+        assertTrue(provenance.readText().contains("colors more), focus 0.5"))
     }
 
     @Test

@@ -26,6 +26,8 @@ import com.brewingbytes.gemmory.ads.RewardedViewModel
 import com.brewingbytes.gemmory.billing.BillingCopy
 import com.brewingbytes.gemmory.billing.PaywallScreen
 import com.brewingbytes.gemmory.billing.subscriptionPage
+import com.brewingbytes.gemmory.converter.PhotoFlowRules
+import com.brewingbytes.gemmory.converter.PreviewPrimary
 import com.brewingbytes.gemmory.gallery.INVENTORY_TAG
 import com.brewingbytes.gemmory.gallery.VIP_ACTION_TAG
 import com.brewingbytes.gemmory.policy.Membership
@@ -159,9 +161,11 @@ class MainActivity : ComponentActivity() {
                 app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
             }
         }
-        // Ads are preloaded: the extra-canvas video starts loading as soon as Preview offers it.
-        LaunchedEffect(top == Route.Preview && allowance == Allowance.WatchVideo) {
-            if (top == Route.Preview && allowance == Allowance.WatchVideo) {
+        // Ads are preloaded: the extra-canvas or More colors video (#29) starts loading as soon as Preview offers it.
+        val previewVideo = top == Route.Preview &&
+            PhotoFlowRules.previewPrimary(allowance, flow.choice, flow.moreUnlocked) != PreviewPrimary.START
+        LaunchedEffect(previewVideo) {
+            if (previewVideo) {
                 app.ads.start()
                 app.ads.preloadRewarded()
             }
@@ -170,7 +174,11 @@ class MainActivity : ComponentActivity() {
             when (val event = rewarded.event) {
                 null -> return@LaunchedEffect
                 is RewardedEvent.OpenPicture -> stack.openTile(app.pictureRef(event.id), app.store::isFinished)
-                RewardedEvent.StartPhotoCanvas -> photoFlow.start()
+                RewardedEvent.StartPhotoCanvas -> {
+                    photoFlow.onMoreColorsUnlocked()
+                    photoFlow.start()
+                }
+                RewardedEvent.MoreColorsUnlocked -> photoFlow.onMoreColorsUnlocked()
             }
             rewarded.onEventHandled()
         }
@@ -243,6 +251,8 @@ class MainActivity : ComponentActivity() {
                 kept = inventory.canvases,
                 onStart = photoFlow::start,
                 onWatchVideo = { rewarded.open(RewardTarget.PhotoCanvas, this@MainActivity) },
+                onChoice = photoFlow::onChoice,
+                onWatchColors = { rewarded.open(RewardTarget.Colors, this@MainActivity) },
                 onChooseAnother = {
                     stack.popToGallery()
                     pickPhoto()
@@ -280,7 +290,7 @@ class MainActivity : ComponentActivity() {
                     openVip(
                         when (val target = ui.target) {
                             is RewardTarget.Picture -> tileTag(app.pictureRef(target.id))
-                            RewardTarget.PhotoCanvas -> "preview-primary"
+                            RewardTarget.PhotoCanvas, RewardTarget.Colors -> "preview-primary"
                             RewardTarget.Fills -> INVENTORY_TAG
                         },
                     )
@@ -289,7 +299,7 @@ class MainActivity : ComponentActivity() {
                 // TalkBack focus goes back to the locked tile or Preview's "Watch a video" (design D19).
                 returnFocusTo = when (val target = ui.target) {
                     is RewardTarget.Picture -> tileTag(app.pictureRef(target.id))
-                    RewardTarget.PhotoCanvas -> "preview-primary"
+                    RewardTarget.PhotoCanvas, RewardTarget.Colors -> "preview-primary"
                     RewardTarget.Fills -> INVENTORY_TAG
                 },
                 // Unlock tokens (#38) on a locked picture's sheet.

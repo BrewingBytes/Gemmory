@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.converter
 
+import com.brewingbytes.gemmory.policy.Allowance
+
 /**
  * The smallest size a face photo may use, set by the spike gate (design doc, faceMinSize table). The gate said GO
  * with Quick untested for faces, so the app ships [MEDIUM].
@@ -23,6 +25,18 @@ data class SizeRules(
     /** False only when faces are disabled outright: Preview replaces Start with "Choose another photo". */
     val startAllowed: Boolean,
 )
+
+/** What Preview's primary button does (design D5, #29). */
+enum class PreviewPrimary {
+    /** "Start". */
+    START,
+
+    /** "Watch a video": today's free canvas is used. One video also unlocks More colors for this photo. */
+    WATCH_FOR_CANVAS,
+
+    /** "Watch a video for more colors": More is chosen, without VIP and not unlocked for this photo yet. */
+    WATCH_FOR_COLORS,
+}
 
 object PhotoFlowRules {
     /** What the app ships with after the spike GO (2026-10-13). */
@@ -67,5 +81,19 @@ object PhotoFlowRules {
     fun selectionAfterCheck(current: CanvasSize, pickedByPlayer: Boolean, rules: SizeRules): CanvasSize {
         if (pickedByPlayer && current !in rules.disabled) return current
         return rules.preselect ?: current
+    }
+
+    /** The color choice can start: Fewer and Standard always; More for VIP, or once a video unlocked it for this photo. */
+    fun colorsAllowed(choice: ColorChoice, allowance: Allowance, moreUnlocked: Boolean): Boolean =
+        choice != ColorChoice.MORE || moreUnlocked || allowance == Allowance.Unlimited
+
+    /**
+     * Preview's primary (#29). A canvas video comes first when today's free one is used, and its reward also unlocks
+     * More, so nobody watches two videos for one canvas.
+     */
+    fun previewPrimary(allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean): PreviewPrimary = when {
+        allowance == Allowance.WatchVideo -> PreviewPrimary.WATCH_FOR_CANVAS
+        !colorsAllowed(choice, allowance, moreUnlocked) -> PreviewPrimary.WATCH_FOR_COLORS
+        else -> PreviewPrimary.START
     }
 }

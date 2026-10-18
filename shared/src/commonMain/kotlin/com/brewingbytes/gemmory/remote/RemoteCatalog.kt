@@ -103,6 +103,13 @@ object RemoteCatalogs {
 
     const val MAX_TITLE = 60
 
+    /**
+     * The first app (versionCode) that takes more colors than a size's Standard cap, up to its More cap (#29). An
+     * older app reads such an entry as malformed and refuses the whole catalog, so a picture above Standard must
+     * name this or a later version; the same entry with an older one is malformed here too.
+     */
+    const val MORE_COLORS_MIN_APP = 12
+
     fun gridPath(id: String): String = "grids/$id.gmrg"
 
     /**
@@ -177,12 +184,13 @@ object RemoteCatalogs {
         val spec = GridSpec.of(size, ratio)
         val width = o.long("width")?.takeIf { it == spec.width.toLong() } ?: return null
         val height = o.long("height")?.takeIf { it == spec.height.toLong() } ?: return null
-        val colors = o.long("colors")?.takeIf { it in 1..size.paletteCap } ?: return null
+        val minApp = o.long("minAppVersion") ?: return null
+        val colors = o.long("colors")?.takeIf { it in 1..size.moreCap } ?: return null
+        if (colors > size.paletteCap && minApp < MORE_COLORS_MIN_APP) return null
         val grid = o.string("grid")?.takeIf { it == gridPath(id) } ?: return null
         val sha = o.string("sha256")?.takeIf { s -> s.length == 64 && s.all { it in '0'..'9' || it in 'a'..'f' } } ?: return null
         val crc = o.string("crc32")?.takeIf { it.length == 8 }?.let { hexToBytes(it) } ?: return null
         val locked = (o.fields["locked"] as? Json.Bool)?.value ?: return null
-        val minApp = o.long("minAppVersion") ?: return null
         val added = o.string("addedAt")?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
         val crc32 = crc.fold(0) { acc, b -> (acc shl 8) or (b.toInt() and 0xFF) }
         return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added)

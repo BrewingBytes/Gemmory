@@ -7,11 +7,36 @@ enum class AspectRatio(val width: Int, val height: Int, val label: String) {
     LANDSCAPE(4, 3, "4:3"),
 }
 
-/** Canvas sizes shown in the size picker, with their palette caps (design doc R3-11). */
-enum class CanvasSize(val label: String, val paletteCap: Int) {
-    QUICK("Quick", 16),
-    MEDIUM("Medium", 24),
-    BIG("Big", 36),
+/**
+ * The color-count choice on Preview (#29). [STANDARD] is the size's original cap; [MORE] is VIP, or one rewarded
+ * video per photo canvas.
+ */
+enum class ColorChoice(val label: String) {
+    FEWER("Fewer"),
+    STANDARD("Standard"),
+    MORE("More"),
+    ;
+
+    /** The analytics value (`fewer` | `standard` | `more`). */
+    val param: String get() = name.lowercase()
+}
+
+/**
+ * Canvas sizes shown in the size picker (design doc R3-11). [paletteCap] is the Standard cap, the only one before
+ * #29, which bundled pictures and every app before versionCode 12 use; [fewerCap] and [moreCap] are the other two
+ * color choices.
+ */
+enum class CanvasSize(val label: String, val fewerCap: Int, val paletteCap: Int, val moreCap: Int) {
+    QUICK("Quick", 12, 16, 24),
+    MEDIUM("Medium", 16, 24, 40),
+    BIG("Big", 24, 36, 60),
+    ;
+
+    fun cap(choice: ColorChoice): Int = when (choice) {
+        ColorChoice.FEWER -> fewerCap
+        ColorChoice.STANDARD -> paletteCap
+        ColorChoice.MORE -> moreCap
+    }
 }
 
 /** Grid dimensions and palette cap that a conversion targets. */
@@ -47,12 +72,12 @@ data class GridSpec(
             ),
         )
 
-        fun of(size: CanvasSize, ratio: AspectRatio): GridSpec {
+        fun of(size: CanvasSize, ratio: AspectRatio, choice: ColorChoice = ColorChoice.STANDARD): GridSpec {
             val (w, h) = DIMENSIONS.getValue(size).getValue(ratio)
-            return GridSpec("${size.name.lowercase()}-${ratio.label}", w, h, size.paletteCap)
+            return GridSpec("${size.name.lowercase()}-${ratio.label}", w, h, size.cap(choice))
         }
 
-        /** The 9 specs the size picker can produce (3 sizes × 3 ratios). */
+        /** The 9 specs the size picker can produce (3 sizes × 3 ratios), at the Standard colors. */
         val PICKER: List<GridSpec> = CanvasSize.entries.flatMap { size ->
             AspectRatio.entries.map { ratio -> of(size, ratio) }
         }

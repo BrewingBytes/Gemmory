@@ -2,6 +2,8 @@ package com.brewingbytes.gemmory.tools
 
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.ColorChoice
+import com.brewingbytes.gemmory.converter.ConverterOptions
 import com.brewingbytes.gemmory.remote.CatalogCheck
 import com.brewingbytes.gemmory.remote.GridCheck
 import com.brewingbytes.gemmory.remote.Json
@@ -58,6 +60,8 @@ object RemotePictureTool {
         val reviewPng: File?,
         val reservedIds: Set<String>,
         val trustedKeys: List<ByteArray> = RemoteKeys.PRODUCTION,
+        /** The photo flow's color choice (#29); above Standard needs [RemoteCatalogs.MORE_COLORS_MIN_APP]. */
+        val colors: ColorChoice = ColorChoice.STANDARD,
     )
 
     fun publish(r: Request): RemotePicture {
@@ -71,16 +75,21 @@ object RemotePictureTool {
         val gridFile = File(r.dir, RemoteCatalogs.gridPath(r.id))
         require(!gridFile.exists()) { "$gridFile exists; ids are never reused" }
 
+        val (sizeName, ratioLabel) = spec.id.split('-')
+        val size = CanvasSize.valueOf(sizeName.uppercase())
         val image = ImageIO.read(r.source) ?: error("cannot read image ${r.source}")
-        val pattern = BundledGridTool.convertImage(image, spec, r.focus)
+        val pattern = BundledGridTool.convertImage(image, spec.copy(paletteCap = size.cap(r.colors)), r.focus, ConverterOptions.of(r.colors))
+        require(pattern.palette.size <= size.paletteCap || r.minAppVersion >= RemoteCatalogs.MORE_COLORS_MIN_APP) {
+            "${pattern.palette.size} colors is above ${size.label}'s Standard ${size.paletteCap}: older apps would refuse the " +
+                "whole catalog, so run with -PminAppVersion=${RemoteCatalogs.MORE_COLORS_MIN_APP} or later"
+        }
         val grid = GridCodec.encode(pattern)
         val crc = (GridCodec.decode(grid) as Decoded.Ok).value.crc32
-        val (sizeName, ratioLabel) = spec.id.split('-')
         val picture = RemotePicture(
             id = r.id,
             title = r.title,
             ratio = AspectRatio.entries.first { it.label == ratioLabel },
-            size = CanvasSize.valueOf(sizeName.uppercase()),
+            size = size,
             width = pattern.width,
             height = pattern.height,
             colors = pattern.palette.size,
@@ -101,7 +110,7 @@ object RemotePictureTool {
         File(r.dir, "catalog.json").writeBytes(catalog)
         File(r.dir, "catalog.json.sig").writeText(RemoteCatalogs.encodeSignature(signature))
         r.reviewPng?.let { it.parentFile?.mkdirs(); ImageIO.write(BundledGridTool.preview(pattern), "png", it) }
-        appendProvenance(r.provenanceFile, picture, r.provenance, r.spec, r.focus)
+        appendProvenance(r.provenanceFile, picture, r.provenance, r.spec, r.focus, r.colors)
         return picture
     }
 
@@ -172,10 +181,11 @@ object RemotePictureTool {
     }
 
     /** Read first, then write (lessons, #31: a one-liner once truncated PROVENANCE.md). */
-    private fun appendProvenance(file: File, p: RemotePicture, provenance: String, spec: String, focus: Double) {
+    private fun appendProvenance(file: File, p: RemotePicture, provenance: String, spec: String, focus: Double, colors: ColorChoice) {
         val before = if (file.exists()) file.readText() else HEADER
         val (source, author, license) = provenance.split('|').map { it.trim() }
-        val row = "| ${p.title} | `${p.id}` | $source | $author | $license | spec `$spec` (${p.width}×${p.height}, ${p.colors} colors), focus $focus, seed 0x474D5259 | ${p.addedAt} | ${if (p.locked) "locked" else "free"}, min app ${p.minAppVersion}, CRC `${p.crc32.toUInt().toString(16).padStart(8, '0')}` |\n"
+        val choice = if (colors == ColorChoice.STANDARD) "" else ", colors ${colors.param}"
+        val row = "| ${p.title} | `${p.id}` | $source | $author | $license | spec `$spec` (${p.width}×${p.height}, ${p.colors} colors$choice), focus $focus, seed 0x474D5259 | ${p.addedAt} | ${if (p.locked) "locked" else "free"}, min app ${p.minAppVersion}, CRC `${p.crc32.toUInt().toString(16).padStart(8, '0')}` |\n"
         file.parentFile?.mkdirs()
         file.writeText(before.trimEnd('\n') + "\n" + row)
     }
@@ -185,7 +195,8 @@ object RemotePictureTool {
 
         Every remote picture (#43) published to `pictures/v1/`: source, license, freeze settings and when it went out.
         Rows are added by `./gradlew :shared:publishRemotePicture` (README → Publishing remote pictures). A withdrawn
-        picture keeps its row, marked withdrawn. Grids are never re-frozen: a fix is a new id.
+        picture keeps its row, marked withdrawn. Grids are never re-frozen: a fix is a new id. A picture made with
+        `-Pcolors=more` or `fewer` (#29) says so in its Freeze column.
 
         | Picture | Id | Source | Author, date | License | Freeze | Added | Catalog |
         |---|---|---|---|---|---|---|---|
@@ -228,6 +239,7 @@ object RemotePictureTool {
                 provenanceFile = File(arg("provenanceFile")),
                 reviewPng = File(arg("reviewDir"), "$id.review.png"),
                 reservedIds = reserved,
+                colors = ColorChoice.valueOf(a["colors"]?.takeIf { it.isNotBlank() }?.uppercase() ?: "STANDARD"),
             ),
         )
         println("published ${picture.id} (${picture.width}×${picture.height}, ${picture.colors} colors, CRC ${picture.crc32.toUInt().toString(16)}) → $dir")

@@ -24,11 +24,32 @@ data class ConverterOptions(
     /** Unsharp-mask amount on L at grid resolution (3×3 box blur). Recovers edges lost to area averaging. 0 = off. */
     val sharpen: Double = 0.65,
     val maxIterations: Int = 24,
+    /**
+     * Palette colors closer than this in the clustering space (Lab with L scaled by [lightnessWeight]) merge into one,
+     * so two near-identical shades never become two numbers (#29). 0 = off, as before #29.
+     */
+    val minColorDistance: Double = 0.0,
 ) {
     init {
         require(contrast > 0.0 && saturation >= 0.0) { "contrast must be > 0 and saturation >= 0" }
         require(lightnessWeight > 0.0 && sharpen >= 0.0) { "lightnessWeight must be > 0 and sharpen >= 0" }
-        require(minRegionCells >= 1 && maxIterations >= 1)
+        require(minRegionCells >= 1 && maxIterations >= 1 && minColorDistance >= 0.0)
+    }
+
+    companion object {
+        /**
+         * The options for a photo canvas's color choice (#29). Only More merges near-twin colors: Fewer and Standard
+         * convert exactly as before, so their output (and the converter goldens) stays the same.
+         */
+        fun of(choice: ColorChoice): ConverterOptions =
+            if (choice == ColorChoice.MORE) ConverterOptions(minColorDistance = MORE_MIN_COLOR_DISTANCE) else ConverterOptions()
+
+        /**
+         * Tuned on the face, pet and landscape fixtures at Big 60 (#29): 60 → 60, 47 and 52 colors, closest plain
+         * ΔE76 pair 2.1 or more, with no visible loss; 6 began to band the sky, and plain ΔE76 (unweighted) flattened
+         * the black puppy's fur.
+         */
+        const val MORE_MIN_COLOR_DISTANCE = 5.0
     }
 }
 
@@ -38,7 +59,8 @@ data class ConverterOptions(
  * 1. Area-average the source to grid resolution in Lab (transparent pixels are composited over white).
  * 2. Optional contrast/saturation boost and lightness sharpening.
  * 3. Seeded k-means++ on the grid samples, at most [GridSpec.paletteCap] colors (no dithering),
- *    optionally weighting lightness over hue.
+ *    optionally weighting lightness over hue, then optionally merging centers closer than
+ *    [ConverterOptions.minColorDistance].
  * 4. Optionally merge tiny same-color regions into their dominant neighbor (off by default).
  * 5. Number the slots by cell count, most common first.
  *
@@ -62,6 +84,7 @@ fun convert(
     val w = options.lightnessWeight
     val weighted = if (w == 1.0) samples else samples.map { Lab(it.l * w, it.a, it.b) }
     val weightedCenters = clusterCenters(weighted, spec.paletteCap, seed, options.maxIterations)
+        .let { if (options.minColorDistance > 0.0) mergeClose(weighted, it, options.minColorDistance) else it }
     val assignment = IntArray(weighted.size) { nearest(weighted[it], weightedCenters) }
     val centers = if (w == 1.0) weightedCenters else weightedCenters.map { Lab(it.l / w, it.a, it.b) }
     if (options.minRegionCells > 1) {
@@ -189,6 +212,44 @@ private fun clusterCenters(samples: List<Lab>, k: Int, seed: Long, maxIterations
         }
     }
     return centers
+}
+
+/**
+ * Merges the closest pair of centers while it's nearer than [minDistance]: the pair becomes their cell-weighted mean.
+ * Ties go to the lowest indices, so the result is deterministic.
+ */
+private fun mergeClose(samples: List<Lab>, centers: List<Lab>, minDistance: Double): List<Lab> {
+    val merged = centers.toMutableList()
+    val weights = DoubleArray(centers.size).also { w -> samples.forEach { w[nearest(it, centers)] += 1.0 } }.toMutableList()
+    val limit = minDistance * minDistance
+    while (merged.size > 1) {
+        var a = -1
+        var b = -1
+        var best = limit
+        for (i in merged.indices) {
+            for (j in i + 1 until merged.size) {
+                val d = merged[i].distanceSquared(merged[j])
+                if (d < best) {
+                    best = d
+                    a = i
+                    b = j
+                }
+            }
+        }
+        if (a < 0) break
+        // Two empty centers (no cell nearest) merge as a plain mean.
+        val empty = weights[a] + weights[b] == 0.0
+        val wa = if (empty) 1.0 else weights[a]
+        val wb = if (empty) 1.0 else weights[b]
+        val total = wa + wb
+        val ca = merged[a]
+        val cb = merged[b]
+        merged[a] = Lab((ca.l * wa + cb.l * wb) / total, (ca.a * wa + cb.a * wb) / total, (ca.b * wa + cb.b * wb) / total)
+        weights[a] = weights[a] + weights[b]
+        merged.removeAt(b)
+        weights.removeAt(b)
+    }
+    return merged
 }
 
 private fun nearest(lab: Lab, centers: List<Lab>): Int {

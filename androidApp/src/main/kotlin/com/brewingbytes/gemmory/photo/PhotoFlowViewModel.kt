@@ -12,6 +12,8 @@ import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.ColorChoice
+import com.brewingbytes.gemmory.converter.ConverterOptions
 import com.brewingbytes.gemmory.converter.FaceCheck
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.converter.Pattern
@@ -73,15 +75,31 @@ data class PhotoFlowState(
     val size: CanvasSize = CanvasSize.MEDIUM,
     val pickedByPlayer: Boolean = false,
     val faceCheck: FaceCheck = FaceCheck.RUNNING,
+    /** Every size at Standard colors, for the size picker. */
     val conversions: Map<CanvasSize, Conversion> = emptyMap(),
+    /** The color choice on Preview (#29), kept for the whole draft. */
+    val choice: ColorChoice = ColorChoice.STANDARD,
+    /** Fewer and More, converted on Preview when chosen (#29). */
+    val others: Map<Pair<CanvasSize, ColorChoice>, Conversion> = emptyMap(),
+    /** A video unlocked More for this photo (#29): the colors video, or a canvas video watched on this Preview. */
+    val moreUnlocked: Boolean = false,
     val starting: Boolean = false,
     val startFailed: Boolean = false,
     val nav: PhotoNav? = null,
 ) {
     val rules: SizeRules get() = PhotoFlowRules.sizeRules(faceCheck)
 
-    /** Start waits for the face check, so the face rule always applies to the size it starts (design D4). */
-    val canStart: Boolean get() = PhotoFlowRules.canStart(faceCheck, size, converted = conversions[size] is Conversion.Ready)
+    fun conversion(size: CanvasSize, choice: ColorChoice): Conversion? =
+        if (choice == ColorChoice.STANDARD) conversions[size] else others[size to choice]
+
+    /** What Preview shows and Start makes: the chosen size at the chosen colors. */
+    val current: Conversion? get() = conversion(size, choice)
+
+    /**
+     * Start waits for the face check, so the face rule always applies to the size it starts (design D4). Whether the
+     * color choice is allowed is Preview's primary (#29), checked again in [PhotoFlowViewModel.start].
+     */
+    val canStart: Boolean get() = PhotoFlowRules.canStart(faceCheck, size, converted = current is Conversion.Ready)
 }
 
 /**
@@ -150,6 +168,23 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         handle[KEY_SIZE] = size.name
         handle[KEY_PICKED] = true
         _state.update { it.copy(size = size, pickedByPlayer = true) }
+        convertChoice()
+    }
+
+    /** Fewer / Standard / More on Preview (#29): converts that size at those colors once, then swaps the preview. */
+    fun onChoice(choice: ColorChoice) {
+        handle[KEY_CHOICE] = choice.name
+        _state.update { it.copy(choice = choice) }
+        convertChoice()
+    }
+
+    /**
+     * A rewarded video for this photo landed (#29): the colors video, or a canvas video (one video gets the canvas
+     * with more colors, so nobody watches two). Kept for this draft only.
+     */
+    fun onMoreColorsUnlocked() {
+        handle[KEY_MORE] = true
+        _state.update { it.copy(moreUnlocked = true) }
     }
 
     /**
@@ -159,10 +194,11 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
      */
     fun start() {
         val s = _state.value
-        val ready = s.conversions[s.size] as? Conversion.Ready ?: return
+        val ready = s.current as? Conversion.Ready ?: return
         val photo = s.cropped ?: return
         val id = handle.get<String>(KEY_DRAFT) ?: return
         if (!s.canStart || s.starting) return
+        if (!PhotoFlowRules.colorsAllowed(s.choice, app.monetization.allowance.value, s.moreUnlocked)) return
         _state.update { it.copy(starting = true, startFailed = false) }
         viewModelScope.launch {
             if (app.monetization.consume(id) == ConsumeResult.NoneLeft) {
@@ -173,7 +209,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
             val now = System.currentTimeMillis()
             val jpeg = withContext(Dispatchers.Default) { photo.toJpeg() }
             val record = CanvasRecord(PhotoTitles.default(now, Locale.getDefault()), now, 0L)
-            val result = app.store.createPhoto(ref, ready.pattern, record, jpeg)
+            val result = app.store.createPhoto(ref, ready.pattern, record, jpeg, s.choice)
             if (result == WriteResult.Written) {
                 clearDraft()
                 _state.value = PhotoFlowState(nav = PhotoNav.Started(ref))
@@ -188,7 +224,9 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
     fun clearDraft() {
         work.forEach { it.cancel() }
         work = emptyList()
-        for (key in listOf(KEY_DRAFT, KEY_RATIO, KEY_CROP_VIEW, KEY_CROP_RECT, KEY_SIZE, KEY_PICKED)) handle.remove<Any>(key)
+        for (key in listOf(KEY_DRAFT, KEY_RATIO, KEY_CROP_VIEW, KEY_CROP_RECT, KEY_SIZE, KEY_PICKED, KEY_CHOICE, KEY_MORE)) {
+            handle.remove<Any>(key)
+        }
         draftDir.deleteRecursively()
         val decodeFailed = _state.value.decodeFailed
         _state.value = PhotoFlowState(decodeFailed = decodeFailed)
@@ -209,6 +247,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
                 pickedByPlayer = pickedByPlayer,
                 faceCheck = FaceCheck.RUNNING,
                 conversions = CanvasSize.entries.associateWith { Conversion.Running },
+                others = emptyMap(),
                 starting = false,
                 startFailed = false,
             )
@@ -225,22 +264,40 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         }
         work = listOf(faceJob) + CanvasSize.entries.map { s ->
             viewModelScope.launch {
-                val result = withContext(Dispatchers.Default) {
-                    runCatching {
-                        val pixels = IntArray(cropped.width * cropped.height)
-                        cropped.getPixels(pixels, 0, cropped.width, 0, 0, cropped.width, cropped.height)
-                        val pattern = convert(pixels, cropped.width, cropped.height, GridSpec.of(s, ratio), SEED)
-                        Conversion.Ready(pattern, GemRenderer.render(pattern, cellPx = PREVIEW_CELL_PX))
-                    }.getOrElse {
-                        if (it is CancellationException) throw it
-                        app.reporter.report(ConverterException(s, ratio, cropped.width, cropped.height, it))
-                        Conversion.Failed
-                    }
-                }
+                val result = convertOne(cropped, s, ratio, ColorChoice.STANDARD)
                 _state.update { it.copy(conversions = it.conversions + (s to result)) }
             }
         }
+        convertChoice()
     }
+
+    /** The chosen size at the chosen colors, when it's Fewer or More and not converted yet (#29). */
+    private fun convertChoice() {
+        val s = _state.value
+        val cropped = s.cropped ?: return
+        if (s.choice == ColorChoice.STANDARD || s.conversion(s.size, s.choice) != null) return
+        val key = s.size to s.choice
+        _state.update { it.copy(others = it.others + (key to Conversion.Running)) }
+        work = work + viewModelScope.launch {
+            val result = convertOne(cropped, key.first, s.ratio, key.second)
+            _state.update { it.copy(others = it.others + (key to result)) }
+        }
+    }
+
+    private suspend fun convertOne(cropped: Bitmap, size: CanvasSize, ratio: AspectRatio, choice: ColorChoice): Conversion =
+        withContext(Dispatchers.Default) {
+            runCatching {
+                val pixels = IntArray(cropped.width * cropped.height)
+                cropped.getPixels(pixels, 0, cropped.width, 0, 0, cropped.width, cropped.height)
+                val spec = GridSpec.of(size, ratio, choice)
+                val pattern = convert(pixels, cropped.width, cropped.height, spec, SEED, ConverterOptions.of(choice))
+                Conversion.Ready(pattern, GemRenderer.render(pattern, cellPx = PREVIEW_CELL_PX))
+            }.getOrElse {
+                if (it is CancellationException) throw it
+                app.reporter.report(ConverterException(size, ratio, cropped.width, cropped.height, it, choice))
+                Conversion.Failed
+            }
+        }
 
     private fun restoreDraft() {
         val id = handle.get<String>(KEY_DRAFT) ?: return
@@ -256,7 +313,9 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
             FaceDetector.warmUp(app.reporter)
             val ratio = handle.get<String>(KEY_RATIO)?.let(AspectRatio::valueOf) ?: AspectRatio.SQUARE
             val crop = handle.get<FloatArray>(KEY_CROP_VIEW)?.let { CropView(it[0], it[1], it[2]) } ?: CropView()
-            _state.value = PhotoFlowState(source = bitmap, ratio = ratio, crop = crop)
+            val choice = handle.get<String>(KEY_CHOICE)?.let(ColorChoice::valueOf) ?: ColorChoice.STANDARD
+            val more = handle.get<Boolean>(KEY_MORE) ?: false
+            _state.value = PhotoFlowState(source = bitmap, ratio = ratio, crop = crop, choice = choice, moreUnlocked = more)
             val rect = handle.get<IntArray>(KEY_CROP_RECT) ?: return@launch
             val size = handle.get<String>(KEY_SIZE)?.let(CanvasSize::valueOf) ?: CanvasSize.MEDIUM
             cropAndConvert(Rect(rect[0], rect[1], rect[2], rect[3]), size, handle.get<Boolean>(KEY_PICKED) ?: false)
@@ -302,6 +361,8 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         const val KEY_CROP_RECT = "cropRect"
         const val KEY_SIZE = "size"
         const val KEY_PICKED = "picked"
+        const val KEY_CHOICE = "colors"
+        const val KEY_MORE = "moreUnlocked"
     }
 }
 
@@ -324,6 +385,12 @@ object PhotoTitles {
     const val MAX_CHARS = 60
 }
 
-/** The converter failed on a photo (#12): the size, ratio and crop dimensions only, never the photo. */
-class ConverterException(size: CanvasSize, ratio: AspectRatio, width: Int, height: Int, cause: Throwable) :
-    Exception("convert ${size.name.lowercase()} ${ratio.label} from ${width}x$height failed", cause)
+/** The converter failed on a photo (#12): the size, ratio, colors and crop dimensions only, never the photo. */
+class ConverterException(
+    size: CanvasSize,
+    ratio: AspectRatio,
+    width: Int,
+    height: Int,
+    cause: Throwable,
+    choice: ColorChoice = ColorChoice.STANDARD,
+) : Exception("convert ${size.name.lowercase()} ${ratio.label} ${choice.param} from ${width}x$height failed", cause)

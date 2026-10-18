@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.telemetry
 
 import android.util.Log
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.policy.ConsentModeV2
 import com.brewingbytes.gemmory.policy.EarnSource
@@ -16,11 +17,13 @@ import com.brewingbytes.gemmory.storage.CanvasRef
  */
 data class AnalyticsEvent(val name: String, val params: Map<String, Any> = emptyMap()) {
     companion object {
-        fun canvasStarted(ref: CanvasRef, width: Int, height: Int) = AnalyticsEvent("canvas_started", canvas(ref, width, height))
+        /** [colors]: a photo canvas's color choice on Preview (#29); pictures have none. */
+        fun canvasStarted(ref: CanvasRef, width: Int, height: Int, colors: ColorChoice? = null) =
+            AnalyticsEvent("canvas_started", canvas(ref, width, height) + colors(colors))
 
         fun canvasFinished(ref: CanvasRef, width: Int, height: Int) = AnalyticsEvent("canvas_finished", canvas(ref, width, height))
 
-        val photoCanvasStarted = AnalyticsEvent("photo_canvas_started")
+        fun photoCanvasStarted(colors: ColorChoice) = AnalyticsEvent("photo_canvas_started", colors(colors))
 
         /** [progress]: shared before the last gem (#36), from the canvas or the gallery tile. */
         fun shareTapped(ref: CanvasRef, width: Int, height: Int, progress: Boolean) =
@@ -103,6 +106,9 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         private fun canvas(ref: CanvasRef, width: Int, height: Int) = mapOf(SOURCE to source(ref), SIZE to size(ref, width, height))
 
         private fun reward(type: RewardType) = mapOf("reward_type" to type.name.lowercase())
+
+        /** `colors` = `fewer` | `standard` | `more` (#29): the choice, never the palette or the count. */
+        private fun colors(choice: ColorChoice?): Map<String, Any> = choice?.let { mapOf("colors" to it.param) }.orEmpty()
     }
 }
 

@@ -102,6 +102,7 @@ To publish a picture:
      -Pprovenance="<source link> | <author, date> | <license or terms URL>" -PcontentChecked=yes
    ```
    The task freezes the grid like `freezeBundledGrid` and writes `pictures/v1/grids/<id>.gmrg`. It adds the catalog entry (CRC, SHA-256, size, colors, `addedAt`, and `minAppVersion`, which defaults to the app's current versionCode; pass `-PminAppVersion=` for an older one). Then it signs `catalog.json` and checks the result with the app's own verifier and the app's public key before writing anything. Last, it writes `tools/remote/<id>.review.png` and appends the provenance row.
+   For a richer picture, add `-Pcolors=more` (or `fewer`): it converts at the size's More cap like the photo flow (#29: Quick 24, Medium 40, Big 60, with near-twin shades merged). A picture above the size's Standard count (16 / 24 / 36) needs `-PminAppVersion=12` or later: an older app would refuse the whole catalog over it, so the task stops without it.
 3. Look at the review PNG, then commit `pictures/v1/` and `tools/remote/`, and open a PR. Phones pick the picture up within a day of the merge.
 
 To withdraw a picture, run `./gradlew :shared:withdrawRemotePicture -Pid=<id>`, mark its provenance row withdrawn, and open a PR. The picture leaves every phone that hasn't started it. Never edit `catalog.json` by hand (the signature would no longer match and every phone would refuse it), and never re-freeze a published grid. A fix is a new id.
