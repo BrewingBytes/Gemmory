@@ -26,6 +26,7 @@ import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.WriteResult
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +56,22 @@ sealed interface CanvasSummary {
         override val size: CanvasSize? = null,
         override val locked: Boolean = false,
     ) : CanvasSummary
+
+    /**
+     * A remote picture never opened (T36, eng D12), from its catalog entry alone: nothing is decoded until its
+     * thumbnail is drawn ([CanvasStore.pattern]), so a year of daily drops doesn't slow the gallery. [width] ×
+     * [height] is its grid.
+     */
+    class Listed(
+        override val ref: CanvasRef,
+        override val title: String,
+        val width: Int,
+        val height: Int,
+        override val size: CanvasSize?,
+        override val locked: Boolean,
+    ) : CanvasSummary {
+        override val createdAtMillis: Long get() = 0L
+    }
 
     /** "Can't open" (design D9): [thumb] is the last thumbnail, if one was ever written. */
     class Damaged(
@@ -100,14 +117,20 @@ class CanvasStore(
             val state: CanvasState,
             val view: ViewState?,
             val record: CanvasRecord?,
+            /** Where the player opened it from, for the canvas events (T36). */
+            val entry: CanvasEntry = CanvasEntry.GALLERY,
         ) : Opened
 
         /** "Can't open" (design D9). */
         data class Damaged(val problem: LoadProblem?) : Opened
     }
 
-    /** Loads a canvas, copying a bundled or remote picture's frozen grid in first if it was never opened. */
-    suspend fun open(ref: CanvasRef): Opened {
+    /**
+     * Loads a canvas, copying a bundled or remote picture's frozen grid in first if it was never opened. A remote
+     * picture that isn't listed (a dated drop before its date, T36) can't be copied in, so it's Damaged and the
+     * canvas screen goes back to the gallery.
+     */
+    suspend fun open(ref: CanvasRef, entry: CanvasEntry = CanvasEntry.GALLERY): Opened {
         settle(ref)
         return withContext(writer) {
             val started = ensurePicture(ref)
@@ -116,11 +139,14 @@ class CanvasStore(
                 is LoadResult.RecoveredFromLastGood -> r.grid to r.log
                 is LoadResult.Damaged -> return@withContext Opened.Damaged(r.problem)
             }
-            if (started) analytics.log(AnalyticsEvent.canvasStarted(ref, grid.pattern.width, grid.pattern.height))
+            if (started) {
+                val days = remote.daysSinceAvailable(ref.id).takeIf { ref.kind == CanvasKind.REMOTE }
+                analytics.log(AnalyticsEvent.canvasStarted(ref, grid.pattern.width, grid.pattern.height, entry = entry, daysSinceAvailable = days))
+            }
             // The codec already refused duplicate and out-of-range logs, so a replay can't fail here.
             val state = CanvasState.restore(grid.pattern, log) ?: return@withContext Opened.Damaged(null)
             val record = repository.readRecord(ref)
-            Opened.Ready(ref, titleOf(ref, record), grid, state, repository.readView(ref, grid.pattern.palette.size), record)
+            Opened.Ready(ref, titleOf(ref, record), grid, state, repository.readView(ref, grid.pattern.palette.size), record, entry)
         }
     }
 
@@ -147,7 +173,8 @@ class CanvasStore(
             onStopped = { played -> scope.launch(writer) { writePlayTime(ref, opened.record, played) } },
             onPictureFinished = {
                 val pattern = opened.grid.pattern
-                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height))
+                val days = remote.daysSinceAvailable(ref.id).takeIf { ref.kind == CanvasKind.REMOTE }
+                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height, opened.entry, days))
                 achievements(GameEvent.Finished(sizeOf(ref, pattern), ref.kind == CanvasKind.PHOTO))
             },
             onPlaced = { encodes.onPlaced(ref) },
@@ -193,7 +220,7 @@ class CanvasStore(
             if (repository.dirOf(ref).isDirectory) return@withContext WriteResult.Written
             repository.create(ref, GridCodec.encode(pattern), record, sourceJpeg).also {
                 if (it == WriteResult.Written) {
-                    analytics.log(AnalyticsEvent.canvasStarted(ref, pattern.width, pattern.height, colors))
+                    analytics.log(AnalyticsEvent.canvasStarted(ref, pattern.width, pattern.height, colors, CanvasEntry.GALLERY))
                     analytics.log(AnalyticsEvent.photoCanvasStarted(colors))
                 }
             }
@@ -213,6 +240,7 @@ class CanvasStore(
     /**
      * Every picture in catalog order (bundled, with remote pictures merged into their size, #43), then photo
      * canvases newest first. A remote picture shows while the catalog lists it, or once started (the withdraw rule).
+     * One never opened is [CanvasSummary.Listed], from its catalog entry (T36, eng D12).
      */
     suspend fun summaries(): Pair<List<CanvasSummary>, List<CanvasSummary>> {
         swept.join()
@@ -231,14 +259,12 @@ class CanvasStore(
             val listed = remote.listed()
             val listedIds = listed.map { it.id }.toSet()
             val added = listed.associate { it.id to it.addedAt }
-            val inCatalog = listed.mapNotNull { picture ->
+            val inCatalog = listed.map { picture ->
                 val ref = CanvasRef(CanvasKind.REMOTE, picture.id)
                 if (repository.dirOf(ref).isDirectory) {
                     summarize(ref, picture.size, picture.locked)
                 } else {
-                    val bytes = remote.grid(picture.id) ?: return@mapNotNull null
-                    val grid = (GridCodec.decode(bytes) as? Decoded.Ok)?.value ?: return@mapNotNull null
-                    CanvasSummary.Playable(ref, picture.title, CanvasState.empty(grid.pattern), 0L, picture.size, picture.locked)
+                    CanvasSummary.Listed(ref, picture.title, picture.width, picture.height, picture.size, picture.locked)
                 }
             }
             // Withdrawn from the catalog (or a restored save before the first check): shown only once started.
@@ -253,6 +279,16 @@ class CanvasStore(
                 .sortedByDescending { it.createdAtMillis }
             pictures to photos
         }
+    }
+
+    /**
+     * The finished picture of a [CanvasSummary.Listed] remote picture, for its thumbnail or the Today card (T36, eng
+     * D12); null when it isn't listed any more or its grid was refused. Reads only the download cache, never a canvas,
+     * so it stays off [writer]: call it on an IO thread.
+     */
+    fun pattern(ref: CanvasRef): Pattern? {
+        if (ref.kind != CanvasKind.REMOTE) return null
+        return remote.grid(ref.id)?.let { (GridCodec.decode(it) as? Decoded.Ok)?.value?.pattern }
     }
 
     /**

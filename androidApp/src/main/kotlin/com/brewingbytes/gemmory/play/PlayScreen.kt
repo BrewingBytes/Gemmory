@@ -114,6 +114,7 @@ import com.brewingbytes.gemmory.game.TapAction
 import com.brewingbytes.gemmory.game.TapOutcome
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
@@ -140,8 +141,14 @@ import kotlin.math.ceil
  * slides away over 250ms and [onFinished] hands over to the completion screen ("lights down").
  */
 @Composable
-fun PlayScreen(ref: CanvasRef, onBack: () -> Unit, onFinished: () -> Unit, vm: PlayViewModel = viewModel()) {
-    LaunchedEffect(ref) { vm.open(ref) }
+fun PlayScreen(
+    ref: CanvasRef,
+    onBack: () -> Unit,
+    onFinished: () -> Unit,
+    vm: PlayViewModel = viewModel(),
+    entry: CanvasEntry = CanvasEntry.GALLERY,
+) {
+    LaunchedEffect(ref) { vm.open(ref, entry) }
     LifecycleEventEffect(Lifecycle.Event.ON_START) { vm.onStart() }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { vm.onStop() }
     val leave = {

@@ -19,7 +19,7 @@ class GalleryOrderTest {
         unlocked: Set<String> = emptySet(),
         entitlements: Entitlements = Entitlements.FREE,
         started: Set<String> = emptySet(),
-        todayFree: String? = null,
+        todayFree: Set<String> = emptySet(),
     ): List<String> = picturesInOrder(tiles(started), unlocked, entitlements, todayFree).map { it.ref.id }
 
     /** The locked pictures in catalog order, less [open]. */
@@ -49,8 +49,8 @@ class GalleryOrderTest {
     @Test
     fun todaysFreePictureJoinsTheOpenOnesInItsSize() {
         val open = listOf("starter", "lemons", "balloon", "the-kiss", "cherries", "tuscan-hills", "puppy", "cat")
-        assertEquals(open + lockedExcept("the-kiss"), order(todayFree = "the-kiss"))
-        assertEquals(BundledPictures.ALL.map { it.id }, order(entitlements = Entitlements(plan = VipPlan.YEARLY), todayFree = "the-kiss"))
+        assertEquals(open + lockedExcept("the-kiss"), order(todayFree = setOf("the-kiss")))
+        assertEquals(BundledPictures.ALL.map { it.id }, order(entitlements = Entitlements(plan = VipPlan.YEARLY), todayFree = setOf("the-kiss")))
     }
 
     /** #43: a remote picture follows the same rule by its catalog flag: open ones with the open, locked ones after. */

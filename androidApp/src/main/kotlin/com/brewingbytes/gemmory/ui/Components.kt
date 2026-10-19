@@ -1,10 +1,10 @@
 package com.brewingbytes.gemmory.ui
 
 import android.provider.Settings
-import androidx.compose.foundation.background
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,9 +49,11 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -448,3 +450,36 @@ fun rememberReducedMotion(): Boolean {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     }
 }
+
+/** How long a [GemToast] stays (T36, plan-design-review D8). */
+const val TOAST_MS = 4_000L
+
+/**
+ * A short, passive line (T36's "Opens tomorrow", plan-design-review D8): Figtree 16sp `bone` on `felt-deep`, `sm`
+ * radius, 12/8dp padding, a polite live region. It fades in over 150ms and goes after [TOAST_MS]; [onGone] then clears
+ * it. A new [key] restarts the time. The caller places it.
+ */
+@Composable
+fun GemToast(text: String, key: Any, onGone: () -> Unit, modifier: Modifier = Modifier) {
+    val alpha = remember { Animatable(0f) }
+    val gone by rememberUpdatedState(onGone)
+    LaunchedEffect(key) {
+        alpha.snapTo(0f)
+        withFullMotion { alpha.animateTo(1f, tween(TOAST_FADE_MS)) }
+        delay(TOAST_MS)
+        gone()
+    }
+    Text(
+        text,
+        style = GemType.body,
+        color = GemColors.Bone,
+        modifier = modifier
+            .graphicsLayer { this.alpha = alpha.value }
+            .clip(RoundedCornerShape(4.dp))
+            .background(LocalFelt.current.deep)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
+
+private const val TOAST_FADE_MS = 150

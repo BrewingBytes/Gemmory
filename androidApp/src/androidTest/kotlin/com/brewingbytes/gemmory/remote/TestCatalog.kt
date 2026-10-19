@@ -16,17 +16,28 @@ class TestCatalog(private val seed: ByteArray = SEED) {
     val pictures = mutableListOf<RemotePicture>()
     var issuedAt = 1_792_000_000L
 
-    fun add(id: String, size: CanvasSize = CanvasSize.QUICK, locked: Boolean = true, addedAt: String = "2026-10-18", salt: Int = id.hashCode()): RemotePicture {
+    /** [availableFrom] makes it a dated drop (T36), for an app that knows drops. */
+    fun add(
+        id: String,
+        size: CanvasSize = CanvasSize.QUICK,
+        locked: Boolean = true,
+        addedAt: String = "2026-10-18",
+        salt: Int = id.hashCode(),
+        availableFrom: String? = null,
+        /** False to add many pictures and sign once, with [publish]. */
+        publish: Boolean = true,
+    ): RemotePicture {
         val grid = grid(size, salt)
         val file = (GridCodec.decode(grid) as Decoded.Ok).value
         val p = RemotePicture(
             id, id.replace('-', ' ').replaceFirstChar { it.uppercase() }, AspectRatio.SQUARE, size, file.pattern.width,
             file.pattern.height, file.pattern.palette.size, RemoteCatalogs.gridPath(id), Sha256.digest(grid).toHex(),
-            file.crc32, locked, 1, LocalDate.parse(addedAt),
+            file.crc32, locked, if (availableFrom == null) 1 else RemoteCatalogs.DROPS_MIN_APP, LocalDate.parse(addedAt),
+            availableFrom?.let(LocalDate::parse),
         )
         pictures += p
         files[p.grid] = grid
-        publish()
+        if (publish) publish()
         return p
     }
 

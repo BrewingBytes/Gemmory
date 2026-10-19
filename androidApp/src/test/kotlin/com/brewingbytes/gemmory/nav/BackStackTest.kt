@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.nav
 
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -130,5 +131,20 @@ class BackStackTest {
         assertEquals(null, Route.decode("canvas:NOPE:x"))
         assertEquals(null, Route.decode("gallery:extra"))
         assertEquals(listOf(Route.Gallery, Route.Settings), BackStack(listOf(Route.Settings)).routes)
+    }
+
+    /** T36: the canvas keeps where it was opened from across process death; a route saved before T36 is the gallery's. */
+    @Test
+    fun theCanvasEntryIsSavedAndAnOldRouteReadsAsTheGallerys() = runTest {
+        val stack = BackStack()
+        stack.openTile(starter, CanvasEntry.TODAY_CARD) { false }
+        assertEquals(Route.Canvas(starter, CanvasEntry.TODAY_CARD), stack.top)
+        assertEquals(Route.Canvas(starter, CanvasEntry.TODAY_CARD), Route.decode(Route.encode(stack.top)))
+        assertEquals(Route.Canvas(starter, CanvasEntry.GALLERY), Route.decode("canvas:BUNDLED:starter"))
+        assertEquals(null, Route.decode("canvas:BUNDLED:starter:NOPE"))
+        assertEquals(null, Route.decode("canvas:BUNDLED:starter:GALLERY:x"))
+        // The last gem turns it into its completion whatever the entry.
+        stack.finished(starter)
+        assertEquals(Route.Completion(starter, fresh = true), stack.top)
     }
 }

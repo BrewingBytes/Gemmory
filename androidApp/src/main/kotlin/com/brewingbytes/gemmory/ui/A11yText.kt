@@ -51,12 +51,17 @@ object A11yText {
     fun trough(color: Int, left: Int, format: NumberFormat = NumberFormat.getIntegerInstance()): String =
         if (left == 0) "Color $color, done" else "Color $color, ${format.format(left)} left"
 
+    /** The Tomorrow line (T36): one node, no name. */
+    const val TOMORROW = "Tomorrow's picture, opens tomorrow"
+
     /**
      * Today's picture card (#34), one node: "Today's picture: Sunflowers, Medium, free to start today" / "Today's pick:
      * Sunflowers, Medium" (VIP) / "Today's picture: Sunflowers, 12% done" / "…, done".
      */
-    fun today(title: String, size: String, vip: Boolean, free: Boolean, started: Boolean, percent: Int, done: Boolean): String {
-        val head = "${if (vip) "Today's pick" else "Today's picture"}: $title"
+
+    fun today(title: String, size: String, vip: Boolean, free: Boolean, started: Boolean, percent: Int, done: Boolean, drop: Boolean = false): String {
+        // Today's drop (T36) folds its "New today" chip in: "Today's picture, new today: Lighthouse, …".
+        val head = "${if (vip) "Today's pick" else "Today's picture"}${if (drop) ", new today" else ""}: $title"
         return when {
             done -> "$head, done"
             started -> "$head, $percent% done"

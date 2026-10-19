@@ -14,6 +14,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -33,11 +34,13 @@ class TodaysPicturesTest {
             saved = value
         }
     }
+    /** Today's drops (T36), as the remote pictures would answer for the clock's date. */
+    private var drops = emptySet<String>()
     private val todays = TodaysPictures(DayClock({ now }) { zone }, store, { unlocks }, object : Analytics {
         override fun log(event: AnalyticsEvent) {
             events += event
         }
-    })
+    }, todaysDrops = { drops })
 
     private fun at(local: String) = LocalDateTime.parse(local).toInstant(zone).toEpochMilliseconds()
 
@@ -70,5 +73,42 @@ class TodaysPicturesTest {
         assertNotNull(todays.opened(ref(id), vip = true)).placed(78, 104)
         assertTrue(unlocks.unlocked.value.isEmpty())
         assertEquals("vip", events.single().params["tier"])
+    }
+
+    /**
+     * T36, eng D9: the morning pick, then an evening drop. Both are free today, both unlock on their first gem, and
+     * the pick never moves (R1).
+     */
+    @Test
+    fun aMorningPickAndAnEveningDropAreBothFree() {
+        now = at("2026-11-02T08:00")
+        val pick = assertNotNull(todays.pick(started = emptySet(), vip = false))
+        val drop = CanvasRef(CanvasKind.REMOTE, "harbor-drop")
+        assertFalse(todays.isFreeToday(drop), "not here yet")
+
+        now = at("2026-11-02T20:30")
+        drops = setOf("harbor-drop")
+        val pictures = BundledPictures.ALL.map { TodayOption(it.id, it.locked) } + TodayOption("harbor-drop", locked = true)
+        assertEquals(pick, todays.pick(started = emptySet(), vip = false, pictures = pictures) { it == "harbor-drop" }, "the pick doesn't move")
+        assertTrue(todays.isFreeToday(ref(pick)))
+        assertTrue(todays.isFreeToday(drop))
+        assertEquals(setOf(pick, "harbor-drop"), todays.freeToday())
+        assertFalse(todays.isFreeToday(CanvasRef(CanvasKind.BUNDLED, "harbor-drop")), "only the remote picture of that id")
+
+        assertNotNull(todays.opened(ref(pick), vip = false)).placed(104, 78)
+        assertNotNull(todays.opened(drop, vip = false)).placed(90, 90)
+        assertEquals(setOf(pick, "harbor-drop"), unlocks.unlocked.value, "both unlocked for good")
+    }
+
+    /** T36, eng D4: a drop is free on its date only; the next day its catalog lock applies again. */
+    @Test
+    fun aDropIsNotFreeTheDayAfter() {
+        val drop = CanvasRef(CanvasKind.REMOTE, "harbor-drop")
+        drops = setOf("harbor-drop")
+        assertTrue(todays.isFreeToday(drop))
+        assertNotNull(todays.opened(drop, vip = false), "opened on its date: the grant holds past midnight")
+        drops = emptySet()
+        assertFalse(todays.isFreeToday(drop))
+        assertNull(todays.opened(drop, vip = false))
     }
 }

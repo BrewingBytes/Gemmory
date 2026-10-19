@@ -1,11 +1,13 @@
 package com.brewingbytes.gemmory.remote
 
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.policy.FakeClock
 import com.brewingbytes.gemmory.remote.RemoteSchedule.DAY_MILLIS
 import com.brewingbytes.gemmory.remote.RemoteSchedule.RETRY_MILLIS
 import com.brewingbytes.gemmory.save.Decoded
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -84,6 +86,75 @@ class RemoteStateTest {
     fun todaysPicturePrefersNewOnes() {
         assertEquals(listOf("b"), RemotePictureRules.todayCandidates(listOf("a", "b", "c")) { it == "b" })
         assertEquals(listOf("a", "c"), RemotePictureRules.todayCandidates(listOf("a", "c")) { it == "b" })
+    }
+
+    /** T36: a drop is New from its own date, not the day it reached the phone (often weeks ahead). */
+    @Test
+    fun aDropIsNewFromItsDateNotTheFetchDay() {
+        fun drop(id: String, from: String) = RemoteFixtures.picture(id, RemoteFixtures.grid(), minAppVersion = 13, availableFrom = from)
+        val first = RemoteState().succeeded(t0, day1, null, catalog("a"))
+        val ahead = RemoteCatalog(2, catalog("a").pictures + drop("nov2", "2026-11-02") + drop("oct15", "2026-10-15"))
+        val state = first.succeeded(t0 + DAY_MILLIS, day1.plus(1, DateTimeUnit.DAY), null, ahead)
+        assertFalse(state.isNew("nov2", LocalDate(2026, 11, 1)), "stored a fortnight ahead, not New before its date")
+        assertTrue(state.isNew("nov2", LocalDate(2026, 11, 2)))
+        assertTrue(state.isNew("nov2", LocalDate(2026, 11, 8)))
+        assertFalse(state.isNew("nov2", LocalDate(2026, 11, 9)))
+        // Reached the phone late: still counted from its date, so New for what's left of its 7 days.
+        assertTrue(state.isNew("oct15", LocalDate(2026, 10, 19)))
+        assertFalse(state.isNew("oct15", LocalDate(2026, 10, 22)))
+        // R1: an undated picture keeps the fetch-day rule.
+        val undated = state.succeeded(t0 + 2 * DAY_MILLIS, day1.plus(2, DateTimeUnit.DAY), null, RemoteCatalog(3, ahead.pictures + catalog("b").pictures))
+        assertTrue(undated.isNew("b", day1.plus(2, DateTimeUnit.DAY)))
+        assertEquals(day1.plus(2, DateTimeUnit.DAY).toEpochDays(), undated.firstSeen["b"])
+    }
+
+    /** T36: a new install sees today's drop as New, but not the drops whose dates had already passed. */
+    @Test
+    fun aNewInstallSeesOnlyTodaysDropAsNew() {
+        fun drop(id: String, from: String) = RemoteFixtures.picture(id, RemoteFixtures.grid(), minAppVersion = 13, availableFrom = from)
+        val catalog = RemoteCatalog(1, listOf(drop("past", "2026-10-15"), drop("today", "2026-10-18"), drop("next", "2026-10-19")))
+        val state = RemoteState().succeeded(t0, day1, null, catalog)
+        assertFalse(state.isNew("past", day1))
+        assertTrue(state.isNew("today", day1))
+        assertTrue(state.isNew("next", day1.plus(1, DateTimeUnit.DAY)))
+    }
+
+    @Test
+    fun todaysDropIsPreferredOverOtherNewPictures() {
+        assertEquals(listOf("d"), RemotePictureRules.todayCandidates(listOf("a", "b", "d"), isDrop = { it == "d" }) { it == "b" })
+        assertEquals(listOf("b"), RemotePictureRules.todayCandidates(listOf("a", "b"), isDrop = { it == "d" }) { it == "b" })
+        assertEquals(listOf("a"), RemotePictureRules.todayCandidates(listOf("a"), isDrop = { it == "d" }) { it == "b" })
+    }
+
+    /** T36 drop rules (eng D4): hidden before its date, free on that date only, its catalog lock from the day after. */
+    @Test
+    fun aDropIsHiddenBeforeItsDateAndFreeOnItOnly() {
+        val date = LocalDate(2026, 11, 2)
+        val eve = LocalDate(2026, 11, 1)
+        val after = LocalDate(2026, 11, 3)
+        assertFalse(RemotePictureRules.isVisible(date, eve))
+        assertTrue(RemotePictureRules.isVisible(date, date))
+        assertTrue(RemotePictureRules.isVisible(date, after))
+        assertTrue(RemotePictureRules.isVisible(null, eve), "undated pictures always show")
+        assertTrue(RemotePictureRules.isTodaysDrop(date, date))
+        assertFalse(RemotePictureRules.isTodaysDrop(date, eve))
+        assertFalse(RemotePictureRules.isTodaysDrop(date, after), "a drop seen first on date+1 follows its catalog lock")
+        assertFalse(RemotePictureRules.isTodaysDrop(null, date))
+        assertTrue(RemotePictureRules.isTomorrowsDrop(date, eve))
+        assertFalse(RemotePictureRules.isTomorrowsDrop(date, date))
+        assertFalse(RemotePictureRules.isTomorrowsDrop(null, eve))
+    }
+
+    /** T36: "its date" is the phone's local date, so a time-zone change moves it with the clock (accepted risk). */
+    @Test
+    fun aDropOpensAtLocalMidnightInTheCurrentZone() {
+        val clock = FakeClock("2026-11-01T23:30")
+        fun today() = LocalDate.fromEpochDays(clock.day.today())
+        val date = LocalDate(2026, 11, 2)
+        assertFalse(RemotePictureRules.isVisible(date, today()))
+        clock.zone = TimeZone.of("Asia/Tokyo")
+        assertTrue(RemotePictureRules.isVisible(date, today()), "already the 2nd in Tokyo")
+        assertTrue(RemotePictureRules.isTodaysDrop(date, today()))
     }
 
     @Test

@@ -19,27 +19,31 @@ data class TodayOption(val id: String, val locked: Boolean)
 
 /**
  * Pictures a [TodaysPicture] may pick from, in catalog order (#34): for a free player the locked ones neither
- * unlocked nor started, for VIP every picture not started. Never the starter. When any of them is a remote picture
- * still marked "New" ([isNew]), only those (#43).
+ * unlocked nor started, for VIP every picture not started. Never the starter. When any of them is today's drop
+ * ([isDrop], T36), only those; else when any is a remote picture still marked "New" ([isNew]), only those (#43).
  */
 internal fun todayCandidates(
     started: Set<String>,
     unlocked: Set<String>,
     vip: Boolean,
     pictures: List<TodayOption> = BundledPictures.ALL.map { TodayOption(it.id, it.locked) },
+    isDrop: (String) -> Boolean = { false },
     isNew: (String) -> Boolean = { false },
 ): List<String> {
     val eligible = pictures
         .filter { it.id != BundledPictures.STARTER.id && it.id !in started }
         .filter { vip || (it.locked && it.id !in unlocked) }
         .map { it.id }
-    return RemotePictureRules.todayCandidates(eligible, isNew)
+    return RemotePictureRules.todayCandidates(eligible, isDrop, isNew)
 }
 
 /**
  * Today's picture (#34) on this phone. The day's pick lives in the "today" preferences (an id and a day, no user
  * content). A free player's pick opens without a video today, and its first gem unlocks it for good, in the same
  * unlocks a video writes (founder, 2026-10-17), so a Start over or a reinstall keeps it.
+ *
+ * Today's drop (T36, eng D9) has its own grant beside the pick: free to start on its date, unlocked by its first gem
+ * the same way, while the pick never moves. [todaysDrops] is read on each use, so the grant ends at local midnight.
  */
 class TodaysPictures(
     clock: DayClock,
@@ -49,15 +53,24 @@ class TodaysPictures(
     private val analytics: Analytics,
     /** False only in connected tests that assert which pictures are locked, so no daily pick moves them. */
     private val enabled: Boolean = true,
+    /** Remote pictures whose drop date is today (T36). */
+    private val todaysDrops: () -> Set<String> = { emptySet() },
 ) {
-    constructor(context: Context, clock: DayClock, unlocks: () -> PictureUnlocks, analytics: Analytics, enabled: Boolean = true) :
-        this(clock, PrefsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)), unlocks, analytics, enabled)
+    constructor(
+        context: Context,
+        clock: DayClock,
+        unlocks: () -> PictureUnlocks,
+        analytics: Analytics,
+        enabled: Boolean = true,
+        todaysDrops: () -> Set<String> = { emptySet() },
+    ) : this(clock, PrefsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)), unlocks, analytics, enabled, todaysDrops)
 
     private val today = TodaysPicture(clock, store)
 
     /**
      * Today's picture id, picking it on the day's first call. [started]: pictures with a gem placed; [pictures]: the
-     * gallery's pictures in order; [isNew]: a remote picture's "New" mark (#43), preferred when one is eligible.
+     * gallery's pictures in order; [isNew]: a remote picture's "New" mark (#43), preferred when one is eligible, after
+     * today's drop (T36).
      */
     @Synchronized
     fun pick(
@@ -65,20 +78,34 @@ class TodaysPictures(
         vip: Boolean,
         pictures: List<TodayOption> = BundledPictures.ALL.map { TodayOption(it.id, it.locked) },
         isNew: (String) -> Boolean = { false },
-    ): String? = if (enabled) today.pick(todayCandidates(started, unlocks().unlocked.value, vip, pictures, isNew), vip) else null
+    ): String? {
+        if (!enabled) return null
+        val drops = todaysDrops()
+        return today.pick(todayCandidates(started, unlocks().unlocked.value, vip, pictures, { it in drops }, isNew), vip)
+    }
 
-    /** Whether [ref] is today's free picture right now: it opens without a video. False once the day is over. */
-    fun isFreeToday(ref: CanvasRef): Boolean = isToday(ref, vip = false)
+    /**
+     * Whether [ref] is free to start today without a video: today's picture, or today's drop (T36). False once the
+     * day is over.
+     */
+    fun isFreeToday(ref: CanvasRef): Boolean = isToday(ref, vip = false) || isTodaysDrop(ref)
+
+    /** The ids [isFreeToday] grants now, for the gallery's order and locked labels. */
+    @Synchronized
+    fun freeToday(): Set<String> = if (enabled) setOfNotNull(today.picked(vip = false)) + todaysDrops() else emptySet()
 
     /** Whether [ref] is today's picture (or pick) for this tier right now. */
     @Synchronized
     fun isToday(ref: CanvasRef, vip: Boolean): Boolean = enabled && ref.kind != CanvasKind.PHOTO && today.picked(vip) == ref.id
 
+    /** Whether [ref] is a remote picture whose drop date is today (T36). */
+    fun isTodaysDrop(ref: CanvasRef): Boolean = enabled && ref.kind == CanvasKind.REMOTE && ref.id in todaysDrops()
+
     /**
-     * A canvas opened with no gem placed: if it's today's picture now, the grant is decided here, so its first gem
-     * still unlocks it when it lands after midnight. Null when it isn't today's.
+     * A canvas opened with no gem placed: if it's today's picture or today's drop now, the grant is decided here, so
+     * its first gem still unlocks it when it lands after midnight. Null when it's neither.
      */
-    fun opened(ref: CanvasRef, vip: Boolean): FirstGem? = if (isToday(ref, vip)) FirstGem(ref, vip) else null
+    fun opened(ref: CanvasRef, vip: Boolean): FirstGem? = if (isToday(ref, vip) || isTodaysDrop(ref)) FirstGem(ref, vip) else null
 
     /** Today's picture, opened while it was today's. */
     inner class FirstGem internal constructor(private val ref: CanvasRef, private val vip: Boolean) {

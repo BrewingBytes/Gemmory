@@ -119,7 +119,7 @@ class CanvasStoreTest {
         createPhoto(colors = ColorChoice.MORE)
         assertEquals(
             listOf(
-                AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "other", "colors" to "more")),
+                AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "other", "colors" to "more", "entry" to "gallery")),
                 AnalyticsEvent("photo_canvas_started", mapOf("colors" to "more")),
             ),
             events.toList(),
@@ -127,10 +127,10 @@ class CanvasStoreTest {
         )
         events.clear()
         play(starter, 0, 1)
-        assertEquals(listOf(AnalyticsEvent("canvas_started", mapOf("source" to "bundled", "size" to "starter"))), events.toList())
+        assertEquals(listOf(AnalyticsEvent("canvas_started", mapOf("source" to "bundled", "size" to "starter", "entry" to "gallery"))), events.toList())
         events.clear()
         play(starter, *(2 until 12).toList().toIntArray())
-        assertEquals(listOf(AnalyticsEvent("canvas_finished", mapOf("source" to "bundled", "size" to "starter"))), events.toList())
+        assertEquals(listOf(AnalyticsEvent("canvas_finished", mapOf("source" to "bundled", "size" to "starter", "entry" to "gallery"))), events.toList())
         events.clear()
         play(starter)
         assertTrue(events.isEmpty(), "reopening a finished canvas counts nothing")

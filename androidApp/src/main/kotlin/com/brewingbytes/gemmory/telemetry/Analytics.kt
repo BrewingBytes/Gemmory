@@ -17,11 +17,27 @@ import com.brewingbytes.gemmory.storage.CanvasRef
  */
 data class AnalyticsEvent(val name: String, val params: Map<String, Any> = emptyMap()) {
     companion object {
-        /** [colors]: a photo canvas's color choice on Preview (#29); pictures have none. */
-        fun canvasStarted(ref: CanvasRef, width: Int, height: Int, colors: ColorChoice? = null) =
-            AnalyticsEvent("canvas_started", canvas(ref, width, height) + colors(colors))
+        /**
+         * [colors]: a photo canvas's color choice on Preview (#29); pictures have none. [entry]: where it was opened
+         * from (T36); [daysSinceAvailable]: local days since a dated drop's date, 0 on the day (T36).
+         */
+        fun canvasStarted(
+            ref: CanvasRef,
+            width: Int,
+            height: Int,
+            colors: ColorChoice? = null,
+            entry: CanvasEntry = CanvasEntry.GALLERY,
+            daysSinceAvailable: Long? = null,
+        ) = AnalyticsEvent("canvas_started", canvas(ref, width, height) + colors(colors) + opened(entry, daysSinceAvailable))
 
-        fun canvasFinished(ref: CanvasRef, width: Int, height: Int) = AnalyticsEvent("canvas_finished", canvas(ref, width, height))
+        fun canvasFinished(ref: CanvasRef, width: Int, height: Int, entry: CanvasEntry = CanvasEntry.GALLERY, daysSinceAvailable: Long? = null) =
+            AnalyticsEvent("canvas_finished", canvas(ref, width, height) + opened(entry, daysSinceAvailable))
+
+        /** The first gem placed on a local day, on any canvas (T36, eng D13): one a day, no ids. */
+        fun dayPlayed(entry: CanvasEntry) = AnalyticsEvent("day_played", mapOf(ENTRY to entry.param))
+
+        /** The Tomorrow line on the Today card was tapped (T36): "Opens tomorrow", nothing opens. */
+        val teaserTapped = AnalyticsEvent("teaser_tapped")
 
         fun photoCanvasStarted(colors: ColorChoice) = AnalyticsEvent("photo_canvas_started", colors(colors))
 
@@ -82,6 +98,8 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         const val SOURCE = "source"
         const val SIZE = "size"
         const val KIND = "kind"
+        const val ENTRY = "entry"
+        const val DAYS_SINCE_AVAILABLE = "days_since_available"
 
         /** The share's kind (#36): `progress` before the last gem, `finished` after it. */
         fun kind(progress: Boolean): String = if (progress) "progress" else "finished"
@@ -105,11 +123,27 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 
         private fun canvas(ref: CanvasRef, width: Int, height: Int) = mapOf(SOURCE to source(ref), SIZE to size(ref, width, height))
 
+        private fun opened(entry: CanvasEntry, daysSinceAvailable: Long?): Map<String, Any> =
+            mapOf<String, Any>(ENTRY to entry.param) + daysSinceAvailable?.let { mapOf(DAYS_SINCE_AVAILABLE to it) }.orEmpty()
+
         private fun reward(type: RewardType) = mapOf("reward_type" to type.name.lowercase())
 
         /** `colors` = `fewer` | `standard` | `more` (#29): the choice, never the palette or the count. */
         private fun colors(choice: ColorChoice?): Map<String, Any> = choice?.let { mapOf("colors" to it.param) }.orEmpty()
     }
+}
+
+/**
+ * Where a canvas was opened from (T36): the `entry` of `canvas_started`, `canvas_finished` and `day_played`. The
+ * gallery's grid (and My Photos, and Preview's Start) is [GALLERY], the Today's picture card [TODAY_CARD]; the rest
+ * come with the reminder (T35), collections (T37) and the weekly event (T38).
+ */
+enum class CanvasEntry(val param: String) {
+    GALLERY("gallery"),
+    TODAY_CARD("today_card"),
+    REMINDER("reminder"),
+    COLLECTION("collection"),
+    EVENT("event"),
 }
 
 /** Why no rewarded video was there (design doc: no_fill | offline | timeout), plus `error` for anything else. */

@@ -12,6 +12,7 @@ import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.share.ProgressSharing
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.drop
@@ -48,13 +49,16 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
     /** First-time hints (design D12); kept here so a rotation doesn't lose the one showing. */
     val hints = CoachHints(application)
 
-    /** Opens [ref] unless it's already open (a recreated screen after rotation calls this again). */
-    fun open(ref: CanvasRef) {
+    /**
+     * Opens [ref] unless it's already open (a recreated screen after rotation calls this again). [entry]: where it was
+     * opened from, for the canvas events and `day_played` (T36).
+     */
+    fun open(ref: CanvasRef, entry: CanvasEntry = CanvasEntry.GALLERY) {
         if (ref == this.ref) return
         close()
         this.ref = ref
         opening = viewModelScope.launch {
-            val opened = store.open(ref)
+            val opened = store.open(ref, entry)
             ui = when (opened) {
                 is CanvasStore.Opened.Ready -> PlayUi.Ready(store.start(opened))
                 is CanvasStore.Opened.Damaged -> PlayUi.Damaged
@@ -74,6 +78,14 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
                 launch {
                     snapshotFlow { session.placedCount > 0 }.first { it }
                     firstGem.placed(session.pattern.width, session.pattern.height)
+                }
+            }
+            // `day_played` (T36, eng D13): the day's first gem on any canvas, once a day, also across midnight.
+            launch {
+                var before = session.placedCount
+                snapshotFlow { session.placedCount }.collect { placed ->
+                    if (placed > before && app.dayPlayed.gemPlaced()) app.analytics.log(AnalyticsEvent.dayPlayed(entry))
+                    before = placed
                 }
             }
             // The daily play streak (#33) counts a day when a picture is finished here; reopening a finished one isn't.

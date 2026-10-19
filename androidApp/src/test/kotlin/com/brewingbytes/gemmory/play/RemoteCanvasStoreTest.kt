@@ -35,6 +35,7 @@ class RemoteCanvasStoreTest {
     private var listed = listOf<RemotePicture>()
     private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
     private val bundledGrid = TestCatalog.grid(CanvasSize.QUICK, 1)
+    private val gridReads = java.util.Collections.synchronizedList(mutableListOf<String>())
 
     private val store by lazy {
         CanvasStore(
@@ -54,7 +55,10 @@ class RemoteCanvasStoreTest {
             },
             remote = object : RemoteCatalogView {
                 override fun listed() = listed
-                override fun grid(id: String) = catalog.files["grids/$id.gmrg"].takeIf { listed.any { it.id == id } }
+                override fun grid(id: String): ByteArray? {
+                    gridReads += id
+                    return catalog.files["grids/$id.gmrg"].takeIf { listed.any { it.id == id } }
+                }
             },
         )
     }
@@ -86,7 +90,7 @@ class RemoteCanvasStoreTest {
         val opened = assertIs<CanvasStore.Opened.Ready>(store.open(ref("fox")))
         assertEquals("Fox", opened.title)
         assertEquals(fox.crc32, opened.grid.crc32)
-        assertEquals(listOf(AnalyticsEvent("canvas_started", mapOf("source" to "remote", "size" to "big"))), events.toList())
+        assertEquals(listOf(AnalyticsEvent("canvas_started", mapOf("source" to "remote", "size" to "big", "entry" to "gallery"))), events.toList())
         assertEquals("Fox", store.record(ref("fox")).first)
     }
 
@@ -107,5 +111,33 @@ class RemoteCanvasStoreTest {
         assertEquals(CanvasSize.BIG, kept.single().size, "sized by its grid")
         assertEquals(1, (kept.single() as CanvasSummary.Playable).state.placedCount)
         assertIs<CanvasStore.Opened.Ready>(store.open(ref("fox")), "still plays offline, from its own grid copy")
+    }
+
+    /** T36, eng D12: an unstarted remote picture is summarized from its catalog entry; its grid is read only to draw it. */
+    @Test
+    fun anUnstartedRemotePictureIsSummarizedWithoutItsGrid() = runBlocking<Unit> {
+        val fox = catalog.add("fox", CanvasSize.BIG)
+        listed = listOf(fox)
+        gridReads.clear()
+        val summary = assertIs<CanvasSummary.Listed>(store.summaries().first.single { it.ref.kind == CanvasKind.REMOTE })
+        assertEquals(listOf<String>(), gridReads.toList(), "no grid read for the gallery")
+        assertEquals(fox.width to fox.height, summary.width to summary.height)
+        assertEquals("Fox", summary.title)
+        assertEquals(CanvasSize.BIG, summary.size)
+        assertEquals(fox.colors, store.pattern(ref("fox"))?.palette?.size, "read when its thumbnail is drawn")
+        // Started, it's summarized from its own canvas like any other.
+        store.open(ref("fox"))
+        assertIs<CanvasSummary.Playable>(store.summaries().first.single { it.ref.kind == CanvasKind.REMOTE })
+    }
+
+    /** T36: an id the catalog doesn't list now (tomorrow's drop, crafted or stale) never gets a canvas. */
+    @Test
+    fun aHiddenPictureCantBeOpenedById() = runBlocking<Unit> {
+        catalog.add("lighthouse", availableFrom = "2026-11-02")
+        listed = emptyList()
+        assertIs<CanvasStore.Opened.Damaged>(store.open(ref("lighthouse")))
+        assertEquals(false, store.repository.dirOf(ref("lighthouse")).isDirectory, "nothing copied in")
+        assertEquals(null, store.pattern(ref("lighthouse")))
+        assertEquals(emptyList(), events.toList(), "no canvas_started")
     }
 }
