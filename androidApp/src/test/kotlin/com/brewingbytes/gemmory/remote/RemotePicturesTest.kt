@@ -9,7 +9,12 @@ import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import org.junit.Rule
 import org.junit.Test
@@ -227,6 +232,67 @@ class RemotePicturesTest {
         r.check(force = true)
         assertFalse(r.isNew("lanterns"))
         assertFalse(remote().isNew("lanterns"), "kept across launches")
+    }
+
+    /** The local date [days] from now, as the catalog writes it. */
+    private fun date(days: Int = 0): String = LocalDate.fromEpochDays(now / RemoteSchedule.DAY_MILLIS + days).toString()
+
+    /** T36: a drop published ahead is downloaded and verified at once, then hidden everywhere until its date. */
+    @Test
+    fun aDropIsStoredAheadAndHiddenUntilItsDate() = runBlocking {
+        catalog.add("fox")
+        val drop = catalog.add("lighthouse", availableFrom = date(1))
+        val r = remote(appVersion = RemoteCatalogs.DROPS_MIN_APP)
+        assertEquals(CheckOutcome.UPDATED, r.check())
+        assertTrue(File(tmp.root, "${StorageLayout.REMOTE_GRIDS}/lighthouse.gmrg").isFile, "prefetched")
+        assertEquals(listOf("fox"), r.ids())
+        assertNull(r.grid("lighthouse"), "a crafted open by id finds nothing")
+        assertNull(r.daysSinceAvailable("lighthouse"))
+        assertEquals(emptySet(), r.todaysDrops())
+        assertEquals("lighthouse", r.tomorrow()?.id)
+        assertContentEquals(catalog.files[drop.grid], r.tomorrowGrid())
+        // Local midnight: no check needed, the stored drop shows, free today.
+        day()
+        assertEquals(listOf("fox", "lighthouse"), r.ids())
+        assertContentEquals(catalog.files[drop.grid], r.grid("lighthouse"))
+        assertEquals(setOf("lighthouse"), r.todaysDrops())
+        assertEquals(0L, r.daysSinceAvailable("lighthouse"))
+        assertTrue(r.isNew("lighthouse"))
+        assertNull(r.tomorrow())
+        // The day after: still listed, no longer today's drop (its catalog lock applies, eng D4).
+        day()
+        assertEquals(emptySet(), r.todaysDrops())
+        assertEquals(1L, r.daysSinceAvailable("lighthouse"))
+        assertEquals(listOf("fox", "lighthouse"), remote(appVersion = RemoteCatalogs.DROPS_MIN_APP).ids(), "a new process too")
+    }
+
+    /** T36: a drop that isn't stored and verified by its date stays hidden, and the Tomorrow line never names it. */
+    @Test
+    fun aDropNotStoredYetStaysHidden() = runBlocking {
+        catalog.add("lighthouse", availableFrom = date(1))
+        source.cutShort = setOf(RemoteCatalogs.gridPath("lighthouse"))
+        val r = remote(appVersion = RemoteCatalogs.DROPS_MIN_APP)
+        r.check()
+        assertNull(r.tomorrow())
+        day()
+        assertEquals(emptyList(), r.ids())
+        assertEquals(emptySet(), r.todaysDrops())
+    }
+
+    /** T36: a background check that brings something new tells the gallery, which reloads. */
+    @Test
+    fun aCheckThatBringsSomethingNewIsAnnounced() = runBlocking {
+        catalog.add("fox")
+        val r = remote()
+        r.checkIfDue()
+        withTimeout(10_000) { r.updates.first { it == 1 } }
+        day()
+        r.checkIfDue()
+        // Unchanged (a 304): no reload. A forced check queues behind the background one on the io dispatcher.
+        withTimeout(10_000) { while (source.requests.size < 4) yield() }
+        r.check(force = true)
+        delay(200)
+        assertEquals(1, r.updates.value)
     }
 
     @Test

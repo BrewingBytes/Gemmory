@@ -12,7 +12,8 @@ import kotlin.io.encoding.Base64
 /**
  * One picture of the remote catalog (#43): a finished GMRY grid made by `freezeBundledGrid`, published to the content
  * repo and never changed (saves bind to [crc32]; a fix is a new id). [grid] is a path relative to the catalog.
- * [minAppVersion] is a versionCode.
+ * [minAppVersion] is a versionCode. [availableFrom] makes it a dated drop (T36): hidden on the phone before that local
+ * date, free to start on it.
  */
 data class RemotePicture(
     val id: String,
@@ -28,6 +29,7 @@ data class RemotePicture(
     val locked: Boolean,
     val minAppVersion: Int,
     val addedAt: LocalDate,
+    val availableFrom: LocalDate? = null,
 )
 
 /** A verified catalog. [issuedAt] (epoch seconds) only moves forward, so an old signed catalog can't be replayed. */
@@ -86,7 +88,7 @@ sealed interface GridCheck {
  *
  * Format v1 (`catalog.json`, UTF-8): `{"version": 1, "issuedAt": <epoch s>, "pictures": [{"id", "title", "ratio"
  * ("1:1" | "3:4" | "4:3"), "size" ("quick" | "medium" | "big"), "width", "height", "colors", "grid"
- * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD")}]}`.
+ * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD"), optional "availableFrom" ("YYYY-MM-DD", T36)}]}`.
  * Unknown fields are ignored. `catalog.json.sig` is the Ed25519 signature of the exact catalog bytes, in base64.
  */
 object RemoteCatalogs {
@@ -109,6 +111,12 @@ object RemoteCatalogs {
      * name this or a later version; the same entry with an older one is malformed here too.
      */
     const val MORE_COLORS_MIN_APP = 12
+
+    /**
+     * The first app (versionCode) that knows dated drops (T36). An older app would show a dated picture at once, so a
+     * dated entry must name this or a later version; one naming an older version is malformed.
+     */
+    const val DROPS_MIN_APP = 13
 
     fun gridPath(id: String): String = "grids/$id.gmrg"
 
@@ -191,9 +199,11 @@ object RemoteCatalogs {
         val sha = o.string("sha256")?.takeIf { s -> s.length == 64 && s.all { it in '0'..'9' || it in 'a'..'f' } } ?: return null
         val crc = o.string("crc32")?.takeIf { it.length == 8 }?.let { hexToBytes(it) } ?: return null
         val locked = (o.fields["locked"] as? Json.Bool)?.value ?: return null
-        val added = o.string("addedAt")?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
+        val added = o.string("addedAt")?.let(::date) ?: return null
+        val from = if ("availableFrom" in o.fields) o.string("availableFrom")?.let(::date) ?: return null else null
+        if (from != null && minApp < DROPS_MIN_APP) return null
         val crc32 = crc.fold(0) { acc, b -> (acc shl 8) or (b.toInt() and 0xFF) }
-        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added)
+        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added, from)
     }
 
     /** The publishing tool's catalog entry, fields in the documented order. */
@@ -212,8 +222,10 @@ object RemoteCatalogs {
             "locked" to Json.Bool(p.locked),
             "minAppVersion" to Json.Num(p.minAppVersion.toString()),
             "addedAt" to Json.Str(p.addedAt.toString()),
-        ),
+        ).apply { p.availableFrom?.let { put("availableFrom", Json.Str(it.toString())) } },
     )
+
+    private fun date(text: String): LocalDate? = runCatching { LocalDate.parse(text) }.getOrNull()
 
     private fun malformed(what: String) = CatalogCheck.Refused(CatalogRefusal.Malformed(what))
 

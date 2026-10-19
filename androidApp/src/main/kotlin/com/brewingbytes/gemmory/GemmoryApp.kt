@@ -25,6 +25,7 @@ import com.brewingbytes.gemmory.policy.Achievement
 import com.brewingbytes.gemmory.policy.AchievementCodec
 import com.brewingbytes.gemmory.policy.AchievementRules
 import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.policy.DayPlayed
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
 import com.brewingbytes.gemmory.policy.GameEvent
@@ -41,6 +42,8 @@ import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
 import com.brewingbytes.gemmory.telemetry.FirebaseAnalyticsLogger
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import com.brewingbytes.gemmory.telemetry.PLAYED_FILE
+import com.brewingbytes.gemmory.telemetry.PrefsDayStore
 import com.brewingbytes.gemmory.timelapse.EncodeManager
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -78,8 +81,23 @@ class GemmoryApp : Application() {
 
     private lateinit var games: GamesBackend
 
+    /** Connected tests only (T36): the wall time that dates drops, Today's picture and the gallery's midnight reload. */
+    @VisibleForTesting
+    @Volatile
+    internal var testNowMillis: (() -> Long)? = null
+
+    /**
+     * The local date of drops (T36), Today's picture, `day_played` and the gallery's midnight reload: one clock, so they
+     * all turn over together.
+     */
+    val dayClock = DayClock({ testNowMillis?.invoke() ?: System.currentTimeMillis() }) { TimeZone.currentSystemDefault() }
+
     /** Today's picture (#34). */
     lateinit var todays: TodaysPictures
+        private set
+
+    /** `day_played` (T36): the local day it was last logged, in the "played" preferences (a day, no user content). */
+    lateinit var dayPlayed: DayPlayed
         private set
 
     /** Remote pictures (#43): the signed catalog in the repo's `pictures/v1/`, checked once a day from the Gallery. */
@@ -140,10 +158,12 @@ class GemmoryApp : Application() {
 
     private fun newTodays(enabled: Boolean = true) = TodaysPictures(
         this,
-        DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
+        dayClock,
         { monetization.unlocks },
         analytics,
         enabled,
+        // Read on each use, so a connected test's replaced remote pictures count (T36).
+        { remote.todaysDrops() },
     )
 
     private fun newRemote(source: RemoteSource = HttpRemoteSource(BuildConfig.REMOTE_PICTURES_URL), keys: List<ByteArray> = RemoteKeys.PRODUCTION) =
@@ -153,7 +173,7 @@ class GemmoryApp : Application() {
             keys = keys,
             appVersion = BuildConfig.VERSION_CODE,
             reservedIds = BundledPictures.ALL.map { it.id }.toSet(),
-            clock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
+            clock = dayClock,
             scope = appScope,
             io = Dispatchers.IO.limitedParallelism(1),
             reporter = reporter,
@@ -174,6 +194,20 @@ class GemmoryApp : Application() {
     /** A picture's canvas by id: ids are unique across bundled and remote pictures (the catalog check refuses a clash). */
     fun pictureRef(id: String): CanvasRef =
         CanvasRef(if (BundledPictures.byId(id) == null && remote.listed().any { it.id == id }) CanvasKind.REMOTE else CanvasKind.BUNDLED, id)
+
+    /**
+     * [pictureRef] for an id from outside the gallery (a rewarded sheet, later a notification): null unless it's a
+     * bundled picture, a listed remote one, or a remote one already started. A dated drop before its date (T36) is
+     * none of these, so a crafted or stale id can't open it.
+     */
+    fun openableRef(id: String): CanvasRef? {
+        val ref = pictureRef(id)
+        return when {
+            ref.kind == CanvasKind.REMOTE || BundledPictures.byId(id) != null -> ref
+            store.repository.dirOf(CanvasRef(CanvasKind.REMOTE, id)).isDirectory -> CanvasRef(CanvasKind.REMOTE, id)
+            else -> null
+        }
+    }
 
     private fun newStore() = CanvasStore(
         filesDir = filesDir,
@@ -284,6 +318,7 @@ class GemmoryApp : Application() {
         )
         monetization = newMonetization()
         todays = newTodays()
+        dayPlayed = DayPlayed(dayClock, PrefsDayStore(this, PLAYED_FILE))
         games = if (BuildConfig.PLAY_GAMES) PlayGamesBackend(this, getString(R.string.game_services_project_id), reporter) else GamesBackend.Off
         achievements = newAchievements(games)
         val streakNow = streak.current()

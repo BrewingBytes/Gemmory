@@ -45,6 +45,15 @@ class TodayCandidatesTest {
         assertEquals(locked + "fox", todayCandidates(emptySet(), emptySet(), vip = false, pictures) { false })
     }
 
+    /** T36: today's drop, when eligible, comes before every other New remote picture. */
+    @Test
+    fun todaysDropIsPreferred() {
+        val pictures = BundledPictures.ALL.map { TodayOption(it.id, it.locked) } + TodayOption("fox", locked = true) + TodayOption("harbor-drop", locked = true)
+        val isNew = { id: String -> id == "fox" || id == "harbor-drop" }
+        assertEquals(listOf("harbor-drop"), todayCandidates(emptySet(), emptySet(), vip = false, pictures, isDrop = { it == "harbor-drop" }, isNew = isNew))
+        assertEquals(listOf("fox"), todayCandidates(setOf("harbor-drop"), emptySet(), vip = false, pictures, isDrop = { it == "harbor-drop" }, isNew = isNew))
+    }
+
     @Test
     fun everyCatalogPictureHasASize() {
         for (p in BundledPictures.ALL - BundledPictures.STARTER) assertTrue(BundledPictures.sizeOf(p.id) != null, p.id)

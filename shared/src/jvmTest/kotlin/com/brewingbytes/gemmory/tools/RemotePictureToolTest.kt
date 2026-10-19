@@ -41,11 +41,13 @@ class RemotePictureToolTest {
         spec: String = "quick-3:4",
         minAppVersion: Int = 12,
         colors: ColorChoice = ColorChoice.STANDARD,
+        availableFrom: LocalDate? = null,
     ) = RemotePictureTool.Request(
         dir = dir, id = id, title = "Night $id", source = source, spec = spec, focus = 0.5, locked = true,
         minAppVersion = minAppVersion, addedAt = LocalDate(2026, 10, 18), nowSeconds = now, signingKey = key,
         provenance = "starry.jpg (Wikimedia Commons) | Vincent van Gogh, 1889 | Public domain", provenanceFile = provenance,
         reviewPng = File(root, "$id.review.png"), reservedIds = reserved, trustedKeys = trusted, colors = colors,
+        availableFrom = availableFrom,
     )
 
     private fun check() = RemoteCatalogs.check(
@@ -82,6 +84,23 @@ class RemotePictureToolTest {
         assertTrue(picture.colors in 37..60, "${picture.colors} colors")
         assertEquals(listOf(picture), assertIs<CatalogCheck.Ok>(check()).catalog.pictures)
         assertTrue(provenance.readText().contains("colors more), focus 0.5"))
+    }
+
+    /** T36: a dated drop names its date and an app that knows drops; it sorts by the day it opens. */
+    @Test
+    fun aDatedDropNeedsTheDropsApp() {
+        val date = LocalDate(2026, 11, 2)
+        val error = assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(request("night-drop", availableFrom = date)) }
+        assertTrue("-PminAppVersion=${RemoteCatalogs.DROPS_MIN_APP}" in error.message.orEmpty(), error.message)
+        assertFalse(File(dir, "catalog.json").exists())
+
+        val picture = RemotePictureTool.publish(request("night-drop", minAppVersion = RemoteCatalogs.DROPS_MIN_APP, availableFrom = date))
+        assertEquals(date, picture.availableFrom)
+        assertEquals(date, picture.addedAt)
+        val catalog = File(dir, "catalog.json").readBytes()
+        val forDrops = RemoteCatalogs.check(catalog, File(dir, "catalog.json.sig").readBytes(), trusted, RemoteCatalogs.DROPS_MIN_APP, null, setOf("starter"))
+        assertEquals(listOf(picture), assertIs<CatalogCheck.Ok>(forDrops).catalog.pictures)
+        assertEquals(emptyList(), assertIs<CatalogCheck.Ok>(check()).catalog.pictures, "a 0.5.0 phone never sees it")
     }
 
     @Test

@@ -14,7 +14,7 @@ import kotlinx.datetime.LocalDate
  * This phone's view of the remote catalog (#43), kept beside the cached catalog under `remote/` (never backed up).
  * [etag] is the cached catalog's, sent as If-None-Match. Times are wall-clock millis. [firstSeen] is the local day
  * (epoch day) each picture id first came in a catalog here, [opened] the ids the player has opened since: together
- * they drive the gallery's "New" label.
+ * they drive the gallery's "New" label. A dated drop (T36) counts from its `availableFrom` instead of the day it came.
  */
 data class RemoteState(
     val etag: String? = null,
@@ -26,12 +26,23 @@ data class RemoteState(
 ) {
     /**
      * A catalog was accepted (or confirmed unchanged by a 304) and every grid it lists is on the phone. The first
-     * success ever records its pictures as seen before the player arrived, so a new install marks nothing "New".
+     * success ever records its pictures as seen before the player arrived, so a new install marks nothing "New". A
+     * dated drop (T36) is seen on its `availableFrom`, often days ahead, so it's New from its date (today's drop on a
+     * new install too); one whose date had already passed on the first success counts as seen before the player.
      */
     fun succeeded(nowMillis: Long, today: LocalDate, etag: String?, catalog: RemoteCatalog): RemoteState {
         val ids = catalog.pictures.map { it.id }.toSet()
-        val day = if (lastSuccessMillis == null) INSTALL_DAY else today.toEpochDays()
-        val seen = firstSeen.filterKeys { it in ids } + (ids - firstSeen.keys).associateWith { day }
+        val first = lastSuccessMillis == null
+        val day = if (first) INSTALL_DAY else today.toEpochDays()
+        val added = catalog.pictures.filter { it.id !in firstSeen }.associate { p ->
+            val from = p.availableFrom
+            p.id to when {
+                from == null -> day
+                first && from < today -> INSTALL_DAY
+                else -> from.toEpochDays()
+            }
+        }
+        val seen = firstSeen.filterKeys { it in ids } + added
         return copy(
             etag = etag,
             lastSuccessMillis = nowMillis,
@@ -46,7 +57,7 @@ data class RemoteState(
 
     fun opened(id: String): RemoteState = if (id in firstSeen && id !in opened) copy(opened = opened + id) else this
 
-    /** The "New" label: came in the last [NEW_DAYS] days and not opened yet. */
+    /** The "New" label: came (a drop: opened to all) in the last [NEW_DAYS] days and not opened yet. */
     fun isNew(id: String, today: LocalDate): Boolean {
         val day = firstSeen[id] ?: return false
         return id !in opened && today.toEpochDays() - day in 0 until NEW_DAYS
@@ -90,11 +101,27 @@ object RemotePictureRules {
     fun withdrawn(cachedGrids: Set<String>, catalog: RemoteCatalog): Set<String> = cachedGrids - catalog.pictures.map { it.id }.toSet()
 
     /**
-     * Today's picture (#34) candidates: the new remote ones when any is eligible, so new content gets the card
-     * without reordering the grid; otherwise all of them.
+     * Today's picture (#34) candidates: today's drop (T36) when one is eligible, else the new remote ones, so new
+     * content gets the card without reordering the grid; otherwise all of them.
      */
-    fun todayCandidates(eligible: List<String>, isNew: (String) -> Boolean): List<String> =
-        eligible.filter(isNew).ifEmpty { eligible }
+    fun todayCandidates(eligible: List<String>, isDrop: (String) -> Boolean = { false }, isNew: (String) -> Boolean): List<String> =
+        eligible.filter(isDrop).ifEmpty { eligible.filter(isNew) }.ifEmpty { eligible }
+
+    /**
+     * A dated drop (T36) shows from its [availableFrom] local date on; before it, it's stored but hidden everywhere
+     * (the gallery, Today's picture, an open by id). Undated pictures always show.
+     */
+    fun isVisible(availableFrom: LocalDate?, today: LocalDate): Boolean = availableFrom == null || availableFrom <= today
+
+    /**
+     * Today's drop (T36, eng D4): free to start without a video on its [availableFrom] local date only, beside Today's
+     * picture (eng D9). A drop that reaches the phone later follows its catalog lock.
+     */
+    fun isTodaysDrop(availableFrom: LocalDate?, today: LocalDate): Boolean = availableFrom == today
+
+    /** Tomorrow's drop (T36): the one the Tomorrow line frosts, once stored and verified. */
+    fun isTomorrowsDrop(availableFrom: LocalDate?, today: LocalDate): Boolean =
+        availableFrom != null && availableFrom.toEpochDays() == today.toEpochDays() + 1
 
     /**
      * The catalog order with remote pictures merged in: each joins its size's run of bundled pictures (Quick, Medium,

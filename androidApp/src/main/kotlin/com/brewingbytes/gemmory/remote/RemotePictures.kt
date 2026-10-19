@@ -9,6 +9,10 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
@@ -16,13 +20,19 @@ import java.io.File
 import java.io.IOException
 import kotlin.coroutines.coroutineContext
 
-/** What the canvas store needs of the remote catalog: the pictures ready to show and their verified grids. */
+/**
+ * What the canvas store needs of the remote catalog: the pictures ready to show and their verified grids. A dated drop
+ * (T36) is in neither before its local date, so no caller can show or open it early.
+ */
 interface RemoteCatalogView {
-    /** Catalog pictures (for this app version) whose grid is downloaded, in catalog order. */
+    /** Catalog pictures (for this app version) whose grid is downloaded and whose date has come, in catalog order. */
     fun listed(): List<RemotePicture>
 
     /** [id]'s downloaded grid, checked against its catalog entry; null when it isn't listed or the file was refused. */
     fun grid(id: String): ByteArray?
+
+    /** Local days since [id]'s drop date (T36), for Analytics; null for an undated or unlisted picture. */
+    fun daysSinceAvailable(id: String): Long? = null
 
     object None : RemoteCatalogView {
         override fun listed(): List<RemotePicture> = emptyList()
@@ -46,6 +56,9 @@ class RemotePictureException(message: String, cause: Throwable? = null) : IOExce
  * Grids download before the catalog is replaced; a grid the new catalog no longer lists is deleted (a started
  * picture keeps its own copy in its canvas). Refusals and HTTP errors go to Crashlytics; being offline doesn't.
  * All file work runs on [io], one call at a time.
+ *
+ * Dated drops (T36) are downloaded and verified ahead like any picture, then kept hidden until their local date:
+ * [listed] and [grid] leave them out, and only the Tomorrow line reads tomorrow's ([tomorrow], [tomorrowGrid]).
  */
 class RemotePictures internal constructor(
     filesDir: File,
@@ -73,12 +86,46 @@ class RemotePictures internal constructor(
 
     private var job: Job? = null
 
+    private val _updates = MutableStateFlow(0)
+
+    /** Counts background checks that brought something new (a catalog, a grid or a withdrawal): the gallery reloads. */
+    val updates: StateFlow<Int> = _updates.asStateFlow()
+
     private fun current(): Snapshot = snapshot ?: synchronized(this) { snapshot ?: load().also { snapshot = it } }
 
-    override fun listed(): List<RemotePicture> = current().let { s -> s.catalog?.pictures.orEmpty().filter { it.id in s.ready } }
+    /** Downloaded and verified, dated or not, hidden or not. */
+    private fun stored(): List<RemotePicture> = current().let { s -> s.catalog?.pictures.orEmpty().filter { it.id in s.ready } }
 
-    override fun grid(id: String): ByteArray? {
-        val picture = current().catalog?.pictures?.firstOrNull { it.id == id } ?: return null
+    override fun listed(): List<RemotePicture> {
+        val today = today()
+        return stored().filter { RemotePictureRules.isVisible(it.availableFrom, today) }
+    }
+
+    override fun grid(id: String): ByteArray? = listed().firstOrNull { it.id == id }?.let(::verifiedGrid)
+
+    override fun daysSinceAvailable(id: String): Long? =
+        listed().firstOrNull { it.id == id }?.availableFrom?.let { today().toEpochDays() - it.toEpochDays() }
+
+    /** Today's drops (T36): free to start today without a video, beside Today's picture (eng D4, D9). */
+    fun todaysDrops(): Set<String> {
+        val today = today()
+        return listed().filter { RemotePictureRules.isTodaysDrop(it.availableFrom, today) }.map { it.id }.toSet()
+    }
+
+    /** Every listed dated drop (T36), whatever its date: Today's picture prefers one on its own date only. */
+    fun drops(): Set<String> = listed().filter { it.availableFrom != null }.map { it.id }.toSet()
+
+    /** Tomorrow's drop (T36), stored and verified, still hidden: the Tomorrow line frosts it. Null when there's none. */
+    fun tomorrow(): RemotePicture? {
+        val today = today()
+        return stored().firstOrNull { RemotePictureRules.isTomorrowsDrop(it.availableFrom, today) }
+    }
+
+    /** [tomorrow]'s grid, read only to draw its frost; nothing opens it before its date. */
+    fun tomorrowGrid(): ByteArray? = tomorrow()?.let(::verifiedGrid)
+
+    private fun verifiedGrid(picture: RemotePicture): ByteArray? {
+        val id = picture.id
         val bytes = try {
             gridFile(id).takeIf { it.isFile }?.readBytes()
         } catch (e: IOException) {
@@ -107,7 +154,7 @@ class RemotePictures internal constructor(
     @Synchronized
     fun checkIfDue() {
         if (job?.isActive == true || !RemoteSchedule.isDue(current().state, clock.nowMillis())) return
-        job = scope.launch { check() }
+        job = scope.launch { if (check() == CheckOutcome.UPDATED) _updates.update { it + 1 } }
     }
 
     /** Stops a running check: a canvas is opening, and nothing downloads during play. It retries on the next Gallery visit. */

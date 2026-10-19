@@ -7,8 +7,10 @@ import com.brewingbytes.gemmory.remote.RemoteFixtures.catalogJson
 import com.brewingbytes.gemmory.remote.RemoteFixtures.grid
 import com.brewingbytes.gemmory.remote.RemoteFixtures.picture
 import com.brewingbytes.gemmory.remote.RemoteFixtures.sign
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 
 class RemoteCatalogTest {
@@ -134,6 +136,53 @@ class RemoteCatalogTest {
             assertIs<CatalogRefusal.Malformed>(refusedText(good.replaceFirst(from, to)), to)
         }
         assertIs<CatalogRefusal.Malformed>(refusal(check(ByteArray(RemoteCatalogs.MAX_CATALOG_BYTES + 1))))
+    }
+
+    /** T36: a dated drop names `availableFrom` and an app that knows drops; an undated entry is written as before. */
+    @Test
+    fun aDropsDateRoundTripsAndNeedsTheDropsApp() {
+        val drop = picture("lighthouse", lanterns, CanvasSize.MEDIUM, AspectRatio.LANDSCAPE, minAppVersion = RemoteCatalogs.DROPS_MIN_APP, availableFrom = "2026-11-02")
+        val bytes = catalogJson(pictures + drop)
+        assertEquals(pictures + drop, assertIs<CatalogCheck.Ok>(check(bytes, appVersion = RemoteCatalogs.DROPS_MIN_APP)).catalog.pictures)
+        assertFalse(catalogJson(pictures).decodeToString().contains("availableFrom"), "undated entries keep the 0.5.0 bytes")
+        val good = bytes.decodeToString()
+        for ((from, to) in listOf(
+            "\"availableFrom\": \"2026-11-02\"" to "\"availableFrom\": \"2026-11-31\"",
+            "\"availableFrom\": \"2026-11-02\"" to "\"availableFrom\": 20261102",
+            "\"availableFrom\": \"2026-11-02\"" to "\"availableFrom\": null",
+        )) {
+            check(good.contains(from)) { "fixture lacks $from" }
+            val edited = good.replaceFirst(from, to).encodeToByteArray()
+            assertIs<CatalogRefusal.Malformed>(refusal(check(edited, appVersion = RemoteCatalogs.DROPS_MIN_APP)), to)
+        }
+        // Listed for an app that doesn't know drops, it would show early there, so it's malformed here too.
+        val early = catalogJson(listOf(drop.copy(minAppVersion = RemoteCatalogs.DROPS_MIN_APP - 1)))
+        assertIs<CatalogRefusal.Malformed>(refusal(check(early, appVersion = RemoteCatalogs.DROPS_MIN_APP)))
+    }
+
+    /**
+     * R1 (eng D10): a 0.5.0 phone (versionCode 12) reading a catalog with dated drops sees only the undated pictures,
+     * so nothing it lists is new or early. The catalog below is pinned text, as T44 will publish it.
+     */
+    @Test
+    fun aZeroFiveZeroPhoneSeesNoDropInADatedCatalog() {
+        val golden = """
+            {
+              "version": 1,
+              "issuedAt": 1792000000,
+              "pictures": [
+                {"id": "harbor", "title": "Harbor", "ratio": "1:1", "size": "quick", "width": 56, "height": 56, "colors": 4,
+                 "grid": "grids/harbor.gmrg", "sha256": "${"0".repeat(64)}", "crc32": "0a0b0c0d", "locked": true,
+                 "minAppVersion": 12, "addedAt": "2026-10-18"},
+                {"id": "lighthouse", "title": "Lighthouse", "ratio": "1:1", "size": "quick", "width": 56, "height": 56, "colors": 4,
+                 "grid": "grids/lighthouse.gmrg", "sha256": "${"1".repeat(64)}", "crc32": "01020304", "locked": true,
+                 "minAppVersion": 13, "addedAt": "2026-11-02", "availableFrom": "2026-11-02"}
+              ]
+            }
+        """.trimIndent().encodeToByteArray()
+        assertEquals(listOf("harbor"), assertIs<CatalogCheck.Ok>(RemoteCatalogs.parse(golden, appVersion = 12)).catalog.pictures.map { it.id })
+        val now = assertIs<CatalogCheck.Ok>(RemoteCatalogs.parse(golden, appVersion = RemoteCatalogs.DROPS_MIN_APP)).catalog.pictures
+        assertEquals(listOf(null, LocalDate(2026, 11, 2)), now.map { it.availableFrom })
     }
 
     @Test

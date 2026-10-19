@@ -31,12 +31,13 @@ object RemoteFixtures {
         locked: Boolean = true,
         minAppVersion: Int = 12,
         addedAt: String = "2026-10-18",
+        availableFrom: String? = null,
     ): RemotePicture {
         val file = (GridCodec.decode(grid) as Decoded.Ok<GridFile>).value
         return RemotePicture(
             id, id.replaceFirstChar { it.uppercase() }, ratio, size, file.pattern.width, file.pattern.height,
             file.pattern.palette.size, RemoteCatalogs.gridPath(id), Sha256.digest(grid).toHex(), file.crc32, locked,
-            minAppVersion, LocalDate.parse(addedAt),
+            minAppVersion, LocalDate.parse(addedAt), availableFrom?.let(LocalDate::parse),
         )
     }
 

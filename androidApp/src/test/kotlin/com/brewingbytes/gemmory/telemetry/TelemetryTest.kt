@@ -129,13 +129,13 @@ class TelemetryTest {
 
     @Test
     fun canvasEventsCarrySourceAndSize() {
-        assertEquals(AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "quick")), AnalyticsEvent.canvasStarted(photo, 48, 64))
+        assertEquals(AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "quick", "entry" to "gallery")), AnalyticsEvent.canvasStarted(photo, 48, 64))
         // #43: a remote picture is its own source, sized by its grid like a bundled one.
         val fox = CanvasRef(CanvasKind.REMOTE, "fox-in-snow")
-        assertEquals(AnalyticsEvent("canvas_started", mapOf("source" to "remote", "size" to "big")), AnalyticsEvent.canvasStarted(fox, 106, 142))
-        assertEquals(AnalyticsEvent("canvas_finished", mapOf("source" to "remote", "size" to "big")), AnalyticsEvent.canvasFinished(fox, 106, 142))
+        assertEquals(AnalyticsEvent("canvas_started", mapOf("source" to "remote", "size" to "big", "entry" to "gallery")), AnalyticsEvent.canvasStarted(fox, 106, 142))
+        assertEquals(AnalyticsEvent("canvas_finished", mapOf("source" to "remote", "size" to "big", "entry" to "gallery")), AnalyticsEvent.canvasFinished(fox, 106, 142))
         assertEquals("remote/fox-in-snow", fox.reportLabel)
-        assertEquals(mapOf("source" to "photo", "size" to "medium"), AnalyticsEvent.canvasFinished(photo, 90, 90).params)
+        assertEquals(mapOf("source" to "photo", "size" to "medium", "entry" to "gallery"), AnalyticsEvent.canvasFinished(photo, 90, 90).params)
         assertEquals(mapOf("source" to "bundled", "size" to "big", "kind" to "finished"), AnalyticsEvent.shareTapped(puppy, 122, 122, progress = false).params)
         assertEquals(mapOf("source" to "photo", "size" to "quick", "kind" to "progress"), AnalyticsEvent.shareTapped(photo, 48, 64, progress = true).params)
         assertEquals("starter", AnalyticsEvent.size(starter, 24, 32), "the starter never counts as Quick")
@@ -144,6 +144,26 @@ class TelemetryTest {
             AnalyticsEvent("share_completed", mapOf("source" to "bundled", "size" to "big", "kind" to "progress")),
             AnalyticsEvent.shareCompleted("bundled", "big", "progress"),
         )
+    }
+
+    /** T36 (eng D13): where a canvas was opened from, a drop's age, and one `day_played` a day; never an id. */
+    @Test
+    fun dropEventsCarryEntryAndAgeButNoIds() {
+        val drop = CanvasRef(CanvasKind.REMOTE, "lighthouse")
+        assertEquals(
+            mapOf("source" to "remote", "size" to "medium", "entry" to "today_card", "days_since_available" to 0L),
+            AnalyticsEvent.canvasStarted(drop, 90, 90, entry = CanvasEntry.TODAY_CARD, daysSinceAvailable = 0).params,
+        )
+        assertEquals(
+            mapOf("source" to "remote", "size" to "medium", "entry" to "gallery", "days_since_available" to 3L),
+            AnalyticsEvent.canvasFinished(drop, 90, 90, CanvasEntry.GALLERY, daysSinceAvailable = 3).params,
+        )
+        assertEquals(AnalyticsEvent("day_played", mapOf("entry" to "today_card")), AnalyticsEvent.dayPlayed(CanvasEntry.TODAY_CARD))
+        assertEquals(AnalyticsEvent("teaser_tapped"), AnalyticsEvent.teaserTapped)
+        assertEquals(listOf("gallery", "today_card", "reminder", "collection", "event"), CanvasEntry.entries.map { it.param })
+        val params = listOf(AnalyticsEvent.dayPlayed(CanvasEntry.REMINDER), AnalyticsEvent.canvasStarted(drop, 90, 90, daysSinceAvailable = 1))
+            .flatMap { it.params.values }
+        assertTrue(params.none { it == "lighthouse" }, "no picture id in any param")
     }
 
     @Test
@@ -161,7 +181,7 @@ class TelemetryTest {
         // #29: a photo canvas carries its color choice; a picture has none.
         assertEquals(AnalyticsEvent("photo_canvas_started", mapOf("colors" to "fewer")), AnalyticsEvent.photoCanvasStarted(ColorChoice.FEWER))
         assertEquals(
-            AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "big", "colors" to "more")),
+            AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "big", "colors" to "more", "entry" to "gallery")),
             AnalyticsEvent.canvasStarted(photo, 106, 142, ColorChoice.MORE),
         )
         assertEquals(AnalyticsEvent("rewarded_watched", mapOf("reward_type" to "colors")), AnalyticsEvent.rewardedWatched(RewardType.COLORS))

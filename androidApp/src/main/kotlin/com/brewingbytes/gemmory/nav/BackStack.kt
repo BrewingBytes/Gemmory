@@ -5,6 +5,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 
 /** Screens of the navigation map (design D3). UMP consent and the rewarded sheet aren't routes. */
 sealed interface Route {
@@ -22,7 +23,8 @@ sealed interface Route {
 
     data object Preview : Route
 
-    data class Canvas(val ref: CanvasRef) : Route
+    /** [entry]: where it was opened from, for the canvas events (T36). */
+    data class Canvas(val ref: CanvasRef, val entry: CanvasEntry = CanvasEntry.GALLERY) : Route
 
     /** [fresh]: reached by finishing the picture just now (lights down); false for the completion still. */
     data class Completion(val ref: CanvasRef, val fresh: Boolean) : Route
@@ -39,13 +41,15 @@ sealed interface Route {
             Crop -> "crop"
             Size -> "size"
             Preview -> "preview"
-            is Canvas -> "canvas:${route.ref.kind.name}:${route.ref.id}"
+            is Canvas -> "canvas:${route.ref.kind.name}:${route.ref.id}:${route.entry.name}"
             is Completion -> "completion:${route.ref.kind.name}:${route.ref.id}"
         }
 
         fun decode(saved: String): Route? {
             val parts = saved.split(':')
             fun ref(): CanvasRef? = runCatching { CanvasRef(CanvasKind.valueOf(parts[1]), parts[2]) }.getOrNull()
+            // Saved before T36 without an entry: from the gallery.
+            fun entry(): CanvasEntry? = parts.getOrNull(3)?.let { e -> CanvasEntry.entries.firstOrNull { it.name == e } } ?: CanvasEntry.GALLERY.takeIf { parts.size == 3 }
             return when (parts[0]) {
                 "gallery" -> Gallery
                 "settings" -> Settings
@@ -53,10 +57,16 @@ sealed interface Route {
                 "crop" -> Crop
                 "size" -> Size
                 "preview" -> Preview
-                "canvas" -> ref()?.let(::Canvas)
+                "canvas" -> ref()?.let { ref -> entry()?.let { Canvas(ref, it) } }
                 "completion" -> ref()?.let { Completion(it, fresh = false) }
                 else -> null
-            }.takeIf { parts.size == if (parts[0] == "canvas" || parts[0] == "completion") 3 else 1 }
+            }.takeIf {
+                when (parts[0]) {
+                    "canvas" -> parts.size in 3..4
+                    "completion" -> parts.size == 3
+                    else -> parts.size == 1
+                }
+            }
         }
     }
 }
@@ -99,12 +109,12 @@ class BackStack(initial: List<Route> = listOf(Route.Gallery)) {
      * the canvas itself, not the tile, which can be stale right after a visit: a just-finished canvas opened as the
      * canvas finishes a second time (#50). Nothing opens if the player went elsewhere while it was read.
      */
-    suspend fun openTile(ref: CanvasRef, isFinished: suspend (CanvasRef) -> Boolean) {
+    suspend fun openTile(ref: CanvasRef, entry: CanvasEntry = CanvasEntry.GALLERY, isFinished: suspend (CanvasRef) -> Boolean) {
         val from = routes
         val finished = isFinished(ref)
         if (routes != from) return
         popToGallery()
-        push(if (finished) Route.Completion(ref, fresh = false) else Route.Canvas(ref))
+        push(if (finished) Route.Completion(ref, fresh = false) else Route.Canvas(ref, entry))
     }
 
     /** Start on Preview: the photo flow is replaced by the new canvas, so back goes to the Gallery. */
@@ -115,7 +125,7 @@ class BackStack(initial: List<Route> = listOf(Route.Gallery)) {
 
     /** The last gem placed: the canvas becomes its completion, so back and Done go to the Gallery. */
     fun finished(ref: CanvasRef) {
-        if (top == Route.Canvas(ref)) stack[stack.lastIndex] = Route.Completion(ref, fresh = true)
+        if ((top as? Route.Canvas)?.ref == ref) stack[stack.lastIndex] = Route.Completion(ref, fresh = true)
     }
 
     /** Play again on the completion still (after the Start over confirm). */

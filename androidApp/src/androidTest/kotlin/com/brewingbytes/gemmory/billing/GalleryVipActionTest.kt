@@ -51,7 +51,7 @@ class GalleryVipActionTest {
                     unlocked = emptySet(),
                     entitlements = Entitlements.FREE,
                     onNewFromPhoto = {},
-                    onOpen = {},
+                    onOpen = { _, _ -> },
                     onLocked = {},
                     onSettings = {},
                     showVip = showVip,

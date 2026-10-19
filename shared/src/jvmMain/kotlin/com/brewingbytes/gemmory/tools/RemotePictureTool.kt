@@ -62,6 +62,11 @@ object RemotePictureTool {
         val trustedKeys: List<ByteArray> = RemoteKeys.PRODUCTION,
         /** The photo flow's color choice (#29); above Standard needs [RemoteCatalogs.MORE_COLORS_MIN_APP]. */
         val colors: ColorChoice = ColorChoice.STANDARD,
+        /**
+         * A dated drop (T36): hidden on phones until this local date. Needs [RemoteCatalogs.DROPS_MIN_APP]; its
+         * `addedAt` is this date, so it sorts among the remote pictures by the day it opens (eng T13).
+         */
+        val availableFrom: LocalDate? = null,
     )
 
     fun publish(r: Request): RemotePicture {
@@ -69,6 +74,10 @@ object RemotePictureTool {
         require(r.id !in r.reservedIds) { "${r.id} is a bundled picture's id" }
         require(r.title.isNotBlank() && r.title.length <= RemoteCatalogs.MAX_TITLE) { "title must be 1-${RemoteCatalogs.MAX_TITLE} characters" }
         require(r.provenance.count { it == '|' } == 2) { "provenance must be \"<source> | <author, date> | <license>\"" }
+        require(r.availableFrom == null || r.minAppVersion >= RemoteCatalogs.DROPS_MIN_APP) {
+            "a dated drop would show at once on an app before versionCode ${RemoteCatalogs.DROPS_MIN_APP}, so run with " +
+                "-PminAppVersion=${RemoteCatalogs.DROPS_MIN_APP} or later"
+        }
         val spec = requireNotNull(BundledGridTool.SPECS[r.spec]?.takeIf { it.id != "starter-3:4" }) { "spec must be one of the picker's: ${BundledGridTool.SPECS.keys - "starter-3:4"}" }
         val (old, oldIssued) = current(r.dir, r.trustedKeys, r.reservedIds)
         require(old.none { it.id == r.id }) { "${r.id} is already published; grids are immutable, so use a new id" }
@@ -98,7 +107,8 @@ object RemotePictureTool {
             crc32 = crc,
             locked = r.locked,
             minAppVersion = r.minAppVersion,
-            addedAt = r.addedAt,
+            addedAt = r.availableFrom ?: r.addedAt,
+            availableFrom = r.availableFrom,
         )
         val issuedAt = maxOf(r.nowSeconds, (oldIssued ?: 0) + 1)
         val catalog = catalogBytes(RemoteCatalog(issuedAt, old + picture))
@@ -240,6 +250,7 @@ object RemotePictureTool {
                 reviewPng = File(arg("reviewDir"), "$id.review.png"),
                 reservedIds = reserved,
                 colors = ColorChoice.valueOf(a["colors"]?.takeIf { it.isNotBlank() }?.uppercase() ?: "STANDARD"),
+                availableFrom = a["availableFrom"]?.takeIf { it.isNotBlank() }?.let(LocalDate::parse),
             ),
         )
         println("published ${picture.id} (${picture.width}×${picture.height}, ${picture.colors} colors, CRC ${picture.crc32.toUInt().toString(16)}) → $dir")

@@ -174,7 +174,8 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(rewarded.event) {
             when (val event = rewarded.event) {
                 null -> return@LaunchedEffect
-                is RewardedEvent.OpenPicture -> stack.openTile(app.pictureRef(event.id), app.store::isFinished)
+                // A picture that isn't there (yet: a dated drop before its date, T36) leaves the player on the gallery.
+                is RewardedEvent.OpenPicture -> app.openableRef(event.id)?.let { stack.openTile(it, isFinished = app.store::isFinished) }
                 RewardedEvent.StartPhotoCanvas -> {
                     photoFlow.onMoreColorsUnlocked()
                     photoFlow.start()
@@ -203,7 +204,7 @@ class MainActivity : ComponentActivity() {
                     unlocked = unlocked,
                     entitlements = entitlements,
                     onNewFromPhoto = pickPhoto,
-                    onOpen = { tile -> scope.launch { stack.openTile(tile.ref, app.store::isFinished) } },
+                    onOpen = { tile, entry -> scope.launch { stack.openTile(tile.ref, entry, app.store::isFinished) } },
                     onLocked = { tile -> rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity) },
                     onSettings = { stack.push(Route.Settings) },
                     showVip = firstSessionOver,
@@ -266,6 +267,7 @@ class MainActivity : ComponentActivity() {
             )
             is Route.Canvas -> PlayScreen(
                 ref = top.ref,
+                entry = top.entry,
                 onBack = { stack.pop() },
                 onFinished = {
                     app.monetization.onPictureFinished()

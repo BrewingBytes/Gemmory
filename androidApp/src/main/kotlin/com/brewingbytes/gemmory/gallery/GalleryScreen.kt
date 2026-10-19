@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -39,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -48,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -71,8 +74,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.brewingbytes.gemmory.ads.isLocked
+import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.photo.allowanceLine
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.DailyStreak
@@ -82,6 +89,7 @@ import com.brewingbytes.gemmory.policy.WheelPrize
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.AppTopBar
 import com.brewingbytes.gemmory.ui.ConfirmSheet
@@ -89,6 +97,7 @@ import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
 import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.GemTextButton
+import com.brewingbytes.gemmory.ui.GemToast
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
@@ -98,6 +107,7 @@ import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.galleryColumns
 import com.brewingbytes.gemmory.ui.noteFitsBeside
+import kotlinx.coroutines.delay
 
 /** Which sheet the gallery shows; saved as a string so it survives rotation. */
 private sealed interface GallerySheet {
@@ -143,6 +153,15 @@ private sealed interface GallerySheet {
 const val VIP_ACTION_TAG = "gallery-vip"
 const val STREAK_TAG = "gallery-streak"
 const val TODAY_TAG = "gallery-today"
+
+/** The Tomorrow line (T36), in the Today card or on its own. */
+const val TOMORROW_TAG = "gallery-tomorrow"
+
+/** The "New today" chip on the Today card (T36). */
+const val NEW_TODAY_TAG = "gallery-new-today"
+
+/** The "Opens tomorrow" toast (T36). */
+const val TOAST_TAG = "gallery-toast"
 private const val SHARE_PROGRESS = "Share progress"
 
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
@@ -153,10 +172,10 @@ const val NEW_LABEL_TAG = "new-label"
 
 /**
  * Whether [this] tile is a locked picture the player hasn't unlocked (design D14). [todayFree], today's free picture
- * (#34), opens without a video today.
+ * (#34) and today's drop (T36), open without a video today.
  */
-internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, todayFree: String? = null): Boolean =
-    ref.kind != CanvasKind.PHOTO && ref.id != todayFree && isLocked(lockable, ref.id, unlocked, entitlements, started)
+internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, todayFree: Set<String> = emptySet()): Boolean =
+    ref.kind != CanvasKind.PHOTO && ref.id !in todayFree && isLocked(lockable, ref.id, unlocked, entitlements, started)
 
 /**
  * Gallery (design system, Layout and Gallery tile): tabs Pictures / My Photos, a 2-column staggered grid of tiles
@@ -170,7 +189,8 @@ fun GalleryScreen(
     unlocked: Set<String>,
     entitlements: Entitlements,
     onNewFromPhoto: () -> Unit,
-    onOpen: (Tile) -> Unit,
+    /** A tile or the Today card (T36: [CanvasEntry.TODAY_CARD]) opens a picture. */
+    onOpen: (Tile, CanvasEntry) -> Unit,
     onLocked: (Tile) -> Unit,
     onSettings: () -> Unit,
     showVip: Boolean = false,
@@ -183,6 +203,20 @@ fun GalleryScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
+    // Drops open at local midnight (T36): a gallery left showing reloads then, and one that comes back on a new day
+    // (the phone locked overnight) reloads as it resumes.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            vm.resumed()
+            while (true) {
+                delay(vm.millisUntilNextDay())
+                vm.refresh()
+            }
+        }
+    }
+    // "Opens tomorrow" (T36): a new tap restarts its 4s.
+    var toast by remember { mutableIntStateOf(0) }
     val tab = vm.tab
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
     // The Inventory sheet (#38) and its gift wheel: 0 none, 1 inventory, 2 wheel.
@@ -230,23 +264,36 @@ fun GalleryScreen(
             if (tab == 1 && state.loaded && tiles.isEmpty()) {
                 MyPhotosEmpty(onNewFromPhoto)
             } else {
-                // Today's free picture (#34) opens without a video; the tap re-checks it, so a gallery left open past
-                // midnight shows yesterday's card until the next visit but no longer grants it.
-                val todayFree = state.today?.takeIf { !it.vip }?.tile?.ref?.id
-                val open: (Tile) -> Unit = { tile ->
+                // Today's free picture (#34) and today's drop (T36) open without a video; the tap re-checks them, so a
+                // gallery left open past midnight no longer grants them.
+                val todayFree = state.todayFree
+                val open: (Tile, CanvasEntry) -> Unit = { tile, entry ->
                     vm.opened(tile)
                     when {
                         tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
-                        tile.locked(unlocked, entitlements, tile.ref.id.takeIf { vm.isFreeToday(tile) }) -> onLocked(tile)
-                        else -> onOpen(tile)
+                        tile.locked(unlocked, entitlements, setOfNotNull(tile.ref.id.takeIf { vm.isFreeToday(tile) })) -> onLocked(tile)
+                        else -> onOpen(tile, entry)
                     }
+                }
+                val tomorrowTapped: () -> Unit = {
+                    vm.teaserTapped()
+                    toast++
+                }
+                val today = state.today
+                val tomorrow = state.tomorrow
+                val header: (@Composable () -> Unit)? = when {
+                    tab != 0 -> null
+                    today != null -> { { TodayCardView(today, tomorrow, tomorrowTapped) { open(today.tile, CanvasEntry.TODAY_CARD) } } }
+                    tomorrow != null -> { { TomorrowCard(tomorrow, tomorrowTapped) } }
+                    else -> null
                 }
                 TileGrid(
                     tiles = tiles,
                     bottomPadding = gridBottom,
-                    header = state.today?.takeIf { tab == 0 }?.let { card -> { TodayCardView(card) { open(card.tile) } } },
+                    header = header,
                     isLocked = { it.locked(unlocked, entitlements, todayFree) },
-                    onOpen = open,
+                    onOpen = { open(it, CanvasEntry.GALLERY) },
+                    thumbnail = vm::thumbnail,
                     onShareProgress = { vm.shareProgress(it.ref) },
                     onRename = { sheet = GallerySheet.Rename(it.ref, it.title) },
                     onDelete = { sheet = GallerySheet.Delete(it.ref) },
@@ -265,6 +312,18 @@ fun GalleryScreen(
                     .fillMaxWidth()
                     .padding(16.dp)
                     .onSizeChanged { overlayHeight = it.height },
+            )
+        }
+        if (toast > 0) {
+            // Centred 16dp above New from photo (plan-design-review D8); the overlay's own 16dp padding is below it.
+            GemToast(
+                "Opens tomorrow",
+                key = toast,
+                onGone = { toast = 0 },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 16.dp, end = 16.dp, bottom = with(LocalDensity.current) { overlayHeight.toDp() } + 32.dp)
+                    .testTag(TOAST_TAG),
             )
         }
     }
@@ -424,52 +483,136 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int) {
 /**
  * Today's picture (#34): a felt-deep card above the Pictures grid with the finished picture (its real progress once
  * started), "Today's picture" ("Today's pick" for VIP), the title, the size and "free today", and a quiet Start
- * (Continue once started; none when done). The whole card opens it; TalkBack reads it as one node.
+ * (Continue once started; none when done). The whole card opens it; TalkBack reads it as one node. Today's drop (T36)
+ * swaps the label line for the "New today" chip; [tomorrow]'s frost adds the Tomorrow line at the bottom, its own node.
  */
 @Composable
-private fun TodayCardView(card: TodayCard, onOpen: () -> Unit) {
+private fun TodayCardView(card: TodayCard, tomorrow: ImageBitmap?, onTomorrow: () -> Unit, onOpen: () -> Unit) {
     val tile = card.tile
     val action = when {
         tile.done -> "Open"
         tile.started -> "Continue"
         else -> "Start"
     }
-    val description = A11yText.today(tile.title, card.size, card.vip, card.free, tile.started, tile.percent, tile.done)
-    Row(
+    val description = A11yText.today(tile.title, card.size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop)
+    Column(
         Modifier
             .fillMaxWidth()
             .padding(bottom = 6.dp)
-            .testTag(TODAY_TAG)
             .clip(RoundedCornerShape(12.dp))
-            .background(LocalFelt.current.deep)
-            .clickable(onClickLabel = action, onClick = onOpen)
-            .clearAndSetSemantics {
-                contentDescription = description
-                onClick(label = action) { onOpen(); true }
-            }
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .background(LocalFelt.current.deep),
     ) {
-        Box(
+        Row(
             Modifier
-                .width(TODAY_THUMB)
-                .aspectRatio(tile.aspect)
-                .clip(RoundedCornerShape(4.dp)),
+                .fillMaxWidth()
+                .testTag(TODAY_TAG)
+                .clickable(onClickLabel = action, onClick = onOpen)
+                .clearAndSetSemantics {
+                    contentDescription = description
+                    onClick(label = action) { onOpen(); true }
+                }
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            card.preview?.let {
-                Image(it, contentDescription = null, contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.None, modifier = Modifier.fillMaxSize())
+            Box(
+                Modifier
+                    .width(TODAY_THUMB)
+                    .aspectRatio(tile.aspect)
+                    .clip(RoundedCornerShape(4.dp)),
+            ) {
+                card.preview?.let {
+                    Image(it, contentDescription = null, contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.None, modifier = Modifier.fillMaxSize())
+                }
+            }
+            // Large screens (plan-design-review D19): the card spans the grid, its text at most 480dp wide.
+            Column(Modifier.weight(1f, fill = false).widthIn(max = 480.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                // text-muted and bone on felt-deep (6.30 and 7.58:1); lamp stays "the selected one" only.
+                if (card.drop) {
+                    NewTodayChip()
+                } else {
+                    Text(if (card.vip) "Today's pick" else "Today's picture", style = GemType.label, color = GemColors.TextMuted)
+                }
+                Text(tile.title, style = GemType.button, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(todayLine(card), style = GemType.label, color = GemColors.TextMuted)
+                if (!tile.done) {
+                    Spacer(Modifier.height(6.dp))
+                    QuietButton(action, onOpen)
+                }
             }
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            // text-muted and bone on felt-deep (6.30 and 7.58:1); lamp stays "the selected one" only.
-            Text(if (card.vip) "Today's pick" else "Today's picture", style = GemType.label, color = GemColors.TextMuted)
-            Text(tile.title, style = GemType.button, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(todayLine(card), style = GemType.label, color = GemColors.TextMuted)
-            if (!tile.done) {
-                Spacer(Modifier.height(6.dp))
-                QuietButton(action, onOpen)
-            }
+        if (tomorrow != null) {
+            // A 1dp hairline at 12% bone over the Tomorrow line (T36).
+            Box(Modifier.fillMaxWidth().height(1.dp).background(GemColors.Bone.copy(alpha = 0.12f)))
+            TomorrowLine(tomorrow, onTomorrow)
         }
+    }
+}
+
+/**
+ * "New today" (T36): today's drop on the Today card, in place of its label line. A `felt` chip with the spark and
+ * Figtree 13sp `bone` (5.68:1 on felt), one line at any font scale.
+ */
+@Composable
+private fun NewTodayChip() {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(LocalFelt.current.ground)
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .testTag(NEW_TODAY_TAG),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(GemIcons.Spark, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
+        Spacer(Modifier.width(4.dp))
+        Text("New today", style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * The Tomorrow line (T36, founder pick T2): tomorrow's drop as a 40dp frost, "Tomorrow" in the card's label style over
+ * "A new picture opens at midnight". No name, no countdown. 56dp at least, growing with its text at large font (D18).
+ * A tap says "Opens tomorrow" and opens nothing. TalkBack: one node, a button.
+ */
+@Composable
+private fun TomorrowLine(frost: ImageBitmap, onTap: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .testTag(TOMORROW_TAG)
+            .clickable(onClick = onTap)
+            .clearAndSetSemantics {
+                contentDescription = A11yText.TOMORROW
+                role = Role.Button
+                onClick { onTap(); true }
+            }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp))) {
+            Image(frost, contentDescription = null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
+            // The frost's felt-deep cover (design system, Hidden pictures), from the theme.
+            Box(Modifier.matchParentSize().background(LocalFelt.current.deep.copy(alpha = Frost.OVERLAY_ALPHA)))
+        }
+        Column(Modifier.widthIn(max = 480.dp)) {
+            Text("Tomorrow", style = GemType.label, color = GemColors.TextMuted)
+            Text("A new picture opens at midnight", style = GemType.label, color = GemColors.Bone)
+        }
+    }
+}
+
+/** The Tomorrow line on its own `felt-deep` card, when there's no Today card (T36). */
+@Composable
+private fun TomorrowCard(frost: ImageBitmap, onTap: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(LocalFelt.current.deep),
+    ) {
+        TomorrowLine(frost, onTap)
     }
 }
 
@@ -514,6 +657,8 @@ private fun TileGrid(
     header: (@Composable () -> Unit)?,
     isLocked: (Tile) -> Boolean,
     onOpen: (Tile) -> Unit,
+    /** An unstarted remote tile's thumbnail, drawn when it shows (T36, eng D12). */
+    thumbnail: suspend (Tile) -> ImageBitmap?,
     onShareProgress: (Tile) -> Unit,
     onRename: (Tile) -> Unit,
     onDelete: (Tile) -> Unit,
@@ -532,7 +677,7 @@ private fun TileGrid(
         // Today's picture (#34) spans the grid's width and scrolls with it, so it never holds space at 200% font.
         if (header != null) item(key = TODAY_TAG, span = StaggeredGridItemSpan.FullLine) { header() }
         items(tiles, key = { "${it.ref.kind}/${it.ref.id}" }) { tile ->
-            TileView(tile, isLocked(tile), onOpen, onShareProgress, onRename, onDelete, onStartOver)
+            TileView(tile, isLocked(tile), onOpen, thumbnail, onShareProgress, onRename, onDelete, onStartOver)
         }
     }
 }
@@ -543,6 +688,7 @@ private fun TileView(
     tile: Tile,
     locked: Boolean,
     onOpen: (Tile) -> Unit,
+    thumbnail: suspend (Tile) -> ImageBitmap?,
     onShareProgress: (Tile) -> Unit,
     onRename: (Tile) -> Unit,
     onDelete: (Tile) -> Unit,
@@ -584,7 +730,13 @@ private fun TileView(
                 .clip(RoundedCornerShape(4.dp))
                 .background(LocalFelt.current.deep),
         ) {
-            tile.image?.let {
+            // An unstarted remote picture (T36, eng D12) shows plain felt-deep until its thumbnail is drawn.
+            val image = if (tile.lazyImage && tile.image == null) {
+                produceState<ImageBitmap?>(null, tile.ref) { value = thumbnail(tile) }.value
+            } else {
+                tile.image
+            }
+            image?.let {
                 Image(
                     it,
                     contentDescription = null,
