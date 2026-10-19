@@ -24,6 +24,16 @@
 
 ## Game
 
+### Home-screen widget (round 2, E2)
+- **What:** A Jetpack Glance widget showing tonight's drop or Today's picture and the current canvas progress; a tap opens that picture's Preview. On-phone state only, never a photo canvas.
+- **Why:** A pull that needs no notification permission, for players who decline reminders.
+- **Pros:** Reaches the decliners; the art changes with each drop.
+- **Cons:** Few casual players add widgets; one more surface to design and keep fresh.
+- **Context:** Deferred at the round-2 CEO review on 2026-10-19 (E2, `docs/designs/gemmory-round2.md`), so T35's reminder data comes first.
+- **Effort estimate:** human M / CC S
+- **Priority:** P3
+- **Depends on / blocked by:** T35 live in production; reminder opt-in under 40% of prompts shown.
+
 ### "Gems today" / "best session" line on the completion screen
 - **What:** A mono line under the completion meta line, such as "2,140 gems today" or "Best session: 1 h 12 min".
 - **Why:** One more small win on long canvases, alongside the #35 milestones.
