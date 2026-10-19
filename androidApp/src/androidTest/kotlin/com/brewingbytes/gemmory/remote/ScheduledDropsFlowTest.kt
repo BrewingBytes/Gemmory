@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -172,6 +173,24 @@ class ScheduledDropsFlowTest {
         launch()
         compose.onNodeWithTag("gallery-grid").performScrollToNode(hasTestTag(tileTag(ref("harbor-lights"))))
         waitFor(hasTestTag(tileTag(ref("harbor-lights"))) and hasContentDescription("Harbor lights, new, locked, watch a video to unlock"))
+    }
+
+    /** The phone locked on the Gallery overnight (stopped, not destroyed): it reloads for the new day as it resumes. */
+    @Test
+    fun aGalleryComingBackAfterMidnightShowsTheNewDay() {
+        setClock(eve, LocalTime(22, 0))
+        publishDrop()
+        launch()
+        waitFor(hasTestTag(TOMORROW_TAG))
+        assertTrue(compose.onAllNodes(hasTestTag(NEW_TODAY_TAG), useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+
+        scenario.moveToState(Lifecycle.State.CREATED)
+        setClock(dropDay, LocalTime(8, 0))
+        scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitUntil("the drop after the night", 10_000) { tiles().any { it.ref.id == "harbor-lights" } }
+        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture, new today: Harbor lights, Quick, free to start today"))
+        compose.onNode(hasTestTag(NEW_TODAY_TAG), useUnmergedTree = true).assertExists()
+        assertTrue(compose.onAllNodes(hasTestTag(TOMORROW_TAG)).fetchSemanticsNodes().isEmpty(), "the Tomorrow line moved on")
     }
 
     @Test

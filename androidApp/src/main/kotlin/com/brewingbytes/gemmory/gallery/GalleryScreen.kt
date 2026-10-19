@@ -203,10 +203,12 @@ fun GalleryScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
-    // Drops open at local midnight (T36): a gallery left showing reloads then, while it's on screen.
+    // Drops open at local midnight (T36): a gallery left showing reloads then, and one that comes back on a new day
+    // (the phone locked overnight) reloads as it resumes.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            vm.resumed()
             while (true) {
                 delay(vm.millisUntilNextDay())
                 vm.refresh()

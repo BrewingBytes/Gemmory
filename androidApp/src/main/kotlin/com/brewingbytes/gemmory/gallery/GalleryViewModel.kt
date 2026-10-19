@@ -126,6 +126,19 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     /** Millis to the next local midnight, when the gallery reloads for the day's drop (T36). */
     fun millisUntilNextDay(): Long = app.dayClock.millisUntilNextDay()
 
+    /** The local day the last [refresh] read, so a return after midnight reloads (T36). */
+    @Volatile
+    private var loadedDay: Long? = null
+
+    /**
+     * The Gallery came back to the foreground (the phone unlocked, the app reopened): a new local day since the last
+     * load reloads it, so yesterday's drop, its "free today" and the Tomorrow line don't linger (T36). The daily
+     * catalog check runs either way when it's due.
+     */
+    fun resumed() {
+        if (loadedDay != null && loadedDay != app.dayClock.today()) refresh() else app.remote.checkIfDue()
+    }
+
     /**
      * Re-reads every canvas, each time the Gallery shows. The Pictures order is set here, from the unlocks and
      * entitlements of this moment, so a picture unlocked by a video moves up on the next visit, never under the
@@ -134,6 +147,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     fun refresh() {
         // Remote pictures (#43): a background check when one is due. What it brings shows on the next visit.
         app.remote.checkIfDue()
+        loadedDay = app.dayClock.today()
         viewModelScope.launch {
             val (pictures, photos) = store.summaries()
             val tiles = withContext(Dispatchers.Default) { pictures.map { tile(it) } to photos.map { tile(it) } }

@@ -144,6 +144,7 @@ fun remoteToolArgs(mode: String): List<String> {
         "spec=${p("spec").orEmpty()}",
         "focus=${p("focus") ?: "0.5"}",
         "colors=${p("colors") ?: "standard"}",
+        "availableFrom=${p("availableFrom").orEmpty()}",
         "locked=${p("locked") ?: "true"}",
         "provenance=${p("provenance").orEmpty()}",
         "contentChecked=${p("contentChecked").orEmpty()}",
