@@ -3,7 +3,8 @@
 Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decision ledger (Eng Review)" (E1-E7, D1-D20).
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
-Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35).
+Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)).
 
 ---
 
@@ -662,3 +663,262 @@ Labels: P2, ui
 **Done when:** a free player sees the starter and the 6 free pictures as the first 7 tiles, then the locked ones by size; a video unlock and VIP order correctly; unit tests cover the order for Free, Free with unlocks, a started locked picture, and VIP.
 
 Out of scope: which pictures are free (#32). Effort: human ~1-2h / CC ~15min.
+
+---
+
+# Round 2: a reason to come back tonight (eng review, 2026-10-19)
+
+Source: `docs/designs/gemmory-round2.md` → Recommended Approach (T35-T44, amended by the CEO review C1-C7, E1-E4, D14-D15) and "Eng Review (Phase 3)" (D1-D13, E1-E9, O1-O3, R1, required repairs). Build order (CEO C1): **1a** = T35, T36, T44; **1b** = T37, T38; **T39** is a launch item beside #74; **wave 2** (T40-T43) runs in parallel with 1b. One PR per issue. Every issue keeps the AGENTS.md rules: photos never leave the phone, no ads on the canvas, adults only, pure `commonMain`, UI follows `docs/design-system.md`.
+
+Shared rules for round 2 (eng): the reminder runs in the app process and reads through `CanvasStore`'s single writer (it never writes a save); every date is the phone's local date from `DayClock`; tests use an injected clock; R1's regression contract applies to every issue that touches its code.
+
+---
+
+## T35: Evening reminder: one opt-in local notification a day, about something real
+Labels: P1, game, ui, telemetry
+
+**Why:** nothing reaches a player between evenings (no notification code at all on 0.5.0). The wedge of round 2: one gentle, opt-in reminder at the player's evening time that names something real: tonight's drop, Today's picture, a streak that really breaks at midnight, or a canvas almost finished. Plan: T35 in `docs/designs/gemmory-round2.md`; eng D2, D3, D5, D6, D8, D11, D12.
+
+**Scope**
+- **Prompt:** an in-app sheet after the first finished picture, never at first launch: title "Remind me in the evening?", a body naming the reminder time and every reason it can send, "a streak to keep" included (Phase 5 D10), primary "Yes, remind me", text button "Not now" (copy in `docs/design-system.md`, Evening reminder). It shows on the gallery after leaving the completion screen, under the one-interruption rule: at most one of the reminder ask, T39's review sheet and an interstitial per return, in that order. Yes → the system `POST_NOTIFICATIONS` dialog on Android 13+; on 12 and below Yes alone turns reminders on. Not now → asked once more after the 3rd finish, then never. A system denial (or Android's auto-deny or a dismissal, counted the same) → never again. Once reminders are on, one gallery line, once: "Reminders on, around 20:30. Change it in Settings."; nothing after a no (D12). A return that completes a collection or earns an event keepsake shows no ask, review or interstitial (D7). Channel "Evening reminder", default importance.
+- **Settings:** a Reminders toggle and a time picker (17:00-22:00, 15-minute steps, default 20:30, copy "We'll remind you around 20:30."). Blocked by the system or channel off → toggle off + "Notifications are off for Gemmory" + Open settings. Turning it on without permission asks (13+) or opens system settings.
+- **Scheduling (D8):** `AlarmManager.setAndAllowWhileIdle(RTC_WAKEUP)` at the chosen local time, no exact-alarm permission and no new dependency. A receiver does the work with `goAsync` (whole run ≤ 10 s). Rescheduled after every run, on boot, `MY_PACKAGE_REPLACED`, `TIME_SET`, `TIMEZONE_CHANGED`, any Settings change and every app start (a force-stop clears alarms). Promise: best effort, usually within an hour on Android 12+, no delivery guarantee.
+- **Background starts (D11):** the receivers are enabled only while reminders are on. `AdPolicy.onProcessStart` moves to the first foreground of a process, so a receiver-started process never ends a new player's ad-free first session. Billing, AdMob, Play Games and the achievements backfill wait for the first foreground.
+- **Consent (D6):** `ConsentManager` is built first in `GemmoryApp.onCreate` and `analytics.consent(consent.consentMode.value)` runs before any component that logs; changes are collected as today.
+- **Play-time state (D2):** a new "GMRT" v1 `play` file in each canvas directory: last gem time (millis) and first finished local day. Written on the writer thread with the save and on finish. Start over resets the last gem and keeps the first finished day; delete removes it with the directory. No migration; photo canvases stay out of backup with their directory. Pictures finished before T35 have no date.
+- **Late-run rule:** reasons are computed for the scheduled local date. A run more than 2 h after the chosen time, or on a later date, posts nothing and logs `reminder_late` (minutes late).
+- **Catalog check (D5):** when the remote check is due, the job starts or joins the gallery's guarded check (one job, `RemotePictures`), fetching the catalog plus today's grid only, cancelled after 8 s. Timeout or offline falls through.
+- **Today's picture (D3):** the job makes the day's pick through the same synchronized `TodaysPictures.pick`, with candidates from one shared function moved out of `GalleryViewModel.todayCard`, so the notification and the Today card always name the same picture.
+- **Reads (D12):** started canvases' saves + play files through `CanvasStore`; unstarted remote pictures from catalog metadata (no grid decode).
+- **Reasons, first that applies wins** (pure `ReminderReasons` in `commonMain`, an ordered list of small predicates):
+  1. Tonight's drop: a T36 drop whose `availableFrom` is today, stored and verified, not started (drop copy wins if it's also Today's picture).
+  2. Today's picture, not started.
+  3. Streak at risk: streak ≥ 2, nothing finished today, and it really breaks at midnight (`DailyStreak.shown(state, today + 1) == 0`).
+  4. Almost finished: an unfinished canvas past 50% played in the last 7 days (most recent wins): "You're 82% through Lighthouse"; a photo canvas is only "your photo canvas".
+  5. None: nothing is posted.
+- **Skip rule:** skipped while the app is in the foreground, or if a gem was placed in the 3 h before the run. A skip suppresses reasons 1, 2 and 4; reason 3 still applies while nothing is finished today.
+- **Tap:** drop or Today → that picture's Preview; streak → the most recently played unfinished canvas, else the gallery; almost finished → that canvas, else the gallery. Stale (after midnight, withdrawn, no longer free) → the gallery, no error. Explicit, immutable `PendingIntent`; the id is re-checked against the catalog and store.
+- **Large icon and copy:** the picture's flat preview (drop, Today, almost-finished bundled/remote); the app icon for a photo canvas or a streak. Copy names the picture ("Tonight: Lighthouse at Dusk"); calm, no urgency beyond the true streak fact. Exact titles and texts per reason, the small icon (a white square-gem outline, `patina` accent) and the channel description are in the design system's notification table (Phase 4; founder-approved in Phase 5 D21). Lock screen: `VISIBILITY_PUBLIC`, full text (D21). The design system's streak entry (#33) allows the streak fact in this opt-in note only (D10). Mystery handling arrives with T43: an unfinished mystery is "Tonight's mystery picture" / "A new picture, hidden until you finish it." with the frost as its large icon (D23).
+- **Events:** `reminder_prompt_shown` (attempt), `reminder_prompt_result` (granted | declined_in_app | denied_system), `reminder_settings_changed` (on, minutes since midnight), `reminder_shown` (reason, only when posted), `reminder_late` (minutes), `reminder_opened` (reason); `canvas_started` gains `entry` = reminder.
+
+**Docs this issue owns:** `docs/design-system.md` (reminder sheet, Settings rows and off state, notification copy and icon rules, navigation map, the #33 streak exception, the "Reminders on" line); `docs/privacy-policy.md` (notification events, reminder time stored on the phone); `docs/play-compliance.md` (Data safety: new app-activity events; `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`; no exact-alarm permission); `docs/designs/gemmory.md` architecture diagram entry.
+
+**Tests:** `ReminderReasonsTest` (each reason in priority order, none, skip + streak exception, late run, forgiven-day streak, photo copy), `PlayFileCodecTest` (round trip, CRC, newer, malformed), `ReminderSchedulerTest` (next trigger across DST and time-zone change), `ReminderReceiverTest` (8 s cancel), R1 rows (`TodaysPictureTest`, `TodayCandidatesTest`, `CanvasRepositoryTest`, `CanvasStoreTest` pause/release read, `AdPolicyTest`, `MonetizationTest`, `TelemetryTest`, `BackupRulesTest`); connected `ReminderFlowTest` (alarm → post with a test clock, reboot reschedule, tap routes, receiver start keeps the first session, cold start with consent denied logs nothing).
+
+**Done when:** a player who opts in gets at most one reminder a day around their chosen time naming a real picture or a true streak fact, the notification and the Today card agree, taps land where the table says, nothing posts when the app is open or a gem was placed in the last 3 h (except the streak case), a receiver start never ends the first session, consent is honored on a background start, and the docs above are updated.
+
+Depends on: T36 for reason 1 (the rest can land first). Effort: human ~3d / CC ~2h.
+
+---
+
+## T36: Scheduled drops: one new picture every date, a Tomorrow teaser and a "New today" chip
+Labels: P1, game, persistence, ui
+
+**Why:** about 48 bundled pictures (42 locked) run dry for a daily player in ~6 weeks, and `pictures/v1/` has 0 published. A drop every date (CEO C4) gives the reminder something real to say. Plan: T36; eng D4, D9, D12, D13, outside voice #5, #6.
+
+**Scope**
+- **Catalog:** optional `availableFrom` (local date) per remote picture. Hidden until that date; on it, the New label and preferred as Today's picture. For a dated picture, `isNew` and `todayCandidates` count from `availableFrom`, not the fetch day; today's drop is preferred over other New pictures. Old clients never see dated pictures (T44 stamps `minAppVersion`).
+- **Hidden means hidden:** `RemotePictures.listed()` (or the one wrapper every caller uses: `summaries`, `ensurePicture`, `pictureRef`, the backfill) leaves out future-dated pictures. A crafted or stale intent for tomorrow's drop opens the gallery.
+- **Prefetch:** a fetch downloads and verifies (sha256 + crc32) future drops' grids and keeps them hidden. A drop not stored by its date stays hidden until it is; the reminder never names it.
+- **Access (C2, D4, D9):** free to start on its `availableFrom` local date only; its first gem unlocks it for good (same path as Today's picture). After its date it follows its catalog `locked` flag (video, token or VIP). A drop that arrives after the day's Today pick is free beside that pick; the Today card shows the drop. Drops default to `locked = true` (T44 CSV).
+- **Tomorrow teaser (E3, Phase 4 D5 = T2):** not a grid tile. A line at the bottom of the Today card under a hairline (56dp minimum, growing with its text at large font; Phase 5 D18): a 40dp square frost of tomorrow's stored and verified drop, "Tomorrow" (13sp `text-muted`, the card's label style, so the Today title leads; D13) over "A new picture opens at midnight" (13sp `bone`). With no Today card it stands alone in its own `felt-deep` card. No name, no countdown. Tap → an "Opens tomorrow" toast (16sp body, 4s, centred 16dp above New from photo, polite live region; D8), nothing opens. The #58 grid order doesn't change. The frost is the design system's one hidden-picture look (averaged into 6 blocks across, blurred, 45% `felt-deep`), drawn from the grid on the phone. Drops open at local midnight. Event: `teaser_tapped`. TalkBack: "Tomorrow's picture, opens tomorrow".
+- **"New today" chip** on the Today card when it's a drop: a `felt` chip with the 12dp spark vector and "New today" (bone 13sp), replacing the "Today's picture" / "Today's pick" line; the tile keeps its ordinary New label; VIP sees it too. TalkBack folds it into the card: "Today's picture, new today: …".
+- **Gallery refresh:** reload at local midnight while the gallery shows, and after a check that brings something new.
+- **Large screens (D19):** the Today card spans the grid with its text column at most 480dp.
+- **Summaries (D12):** unstarted remote tiles built from catalog metadata; a grid is decoded only for its thumbnail or Preview.
+- **Integrity:** `issuedAt` anti-rollback and signatures unchanged. Moved clocks and public future art are accepted risks.
+- **Events:** `canvas_started` / `canvas_finished` gain `entry` (gallery | today_card | reminder | collection | event) and `days_since_available` for drops; new `day_played` (entry) once per local day on the first gem, no ids (D13).
+
+**Docs this issue owns:** `docs/design-system.md` (Tomorrow line, frost, "New today" chip and TalkBack labels, written in Phase 4; update if the build differs); `docs/privacy-policy.md` + `docs/play-compliance.md` (`day_played`, new params); `docs/designs/gemmory.md` (remote pictures section: dated drops).
+
+**Tests:** `RemoteCatalogTest` (`availableFrom` parse, malformed refusal, 0.5.0 golden shows nothing new), `RemoteStateTest` (New/Today from `availableFrom`, undated unchanged, today's drop preferred), drop rules in `RemotePictureRules` tests (hidden before date, free on date only, date+1 locked, time-zone change), `TodaysPicturesTest` (morning pick + evening drop both free), crafted-id redirect, `TelemetryTest` (`day_played` once a day), `GalleryLoadTimingTest` at 365 remote entries on the A06 line; connected midnight-rollover and teaser tests.
+
+**Done when:** a drop published weeks ahead appears on its date with New and the chip, is free that day only, the Today card shows tomorrow's frosted Tomorrow line, a crafted id can't open a future drop, the gallery refreshes at midnight, gallery load holds at 365 remote pictures, and the docs above are updated.
+
+Depends on: none (1a). Ship this build to production before the first dated publish (deploy order, CEO Section 9). Effort: human ~2.5d / CC ~1.5h.
+
+---
+
+## T37: Themed collections with a keepsake picture and a token
+Labels: P2, game, ui
+
+**Why:** collections are the category's second return hook (trophies, "3 of 7 finished"). Plan: T37; eng D7, outside voice #2.
+
+**Scope**
+- **Catalog (D7):** a top-level `collections` list in the signed catalog: `{id, title, members: [picture ids], event?: true}`. Members may be remote or bundled ids; picture entries carry no collection field. Collection and event ids share one namespace, separate from picture ids. Old clients ignore the key.
+- **Gallery (Phase 4 D6 = R1):** at most 2 rows above the grid, under the Today card: an event in its window first, then the newest collection not yet complete (a completed one stays 7 days, then leaves). Every collection is in an "All collections" sheet, opened by a text button right after the rows, before the grid (Phase 5 D3). Above 1.5× font scale only one row shows (D4). No rows and no link before the player's first finished picture (D5). A row: the name (16sp/600), "3 of 7 finished" (mono count), one line ("Finish all 7 for a keepsake picture."), then a sideways strip of 64dp member thumbnails with real progress and a check on finished ones. A thumbnail's tap is its tile's tap. Members not yet dropped (or dropped but not yet stored) count, and show as one recessed well, "2 more coming" (13sp, D14; above 1.5× font the well shows "+2" in mono and the words join the count line, D18). The keepsake is never shown before it's earned. No timer, progress bar or badge. A never-fetched phone shows no collection rows and no "All collections".
+- **States (D6):** the design system's row states table: never fetched → nothing; offline with a cached verified catalog → rows as usual and completion still works; damaged member → its tile's "Can't open" mark and sheet; keepsake earned but its grid not on the phone → "Keepsake earned. It arrives next time you're online." (disk full: "…when there's space on this phone."), the token at once, the picture and glint on the next successful check; All collections sheet strips scroll sideways without dragging the sheet.
+- **Large screens (D19):** rows span the grid, text column at most 480dp, the strip shows more without scrolling, rows stay stacked.
+- **Membership:** a withdrawn member never started leaves the collection and its size; a started one stays. Finishes made before the collection existed count, including pictures finished before T35 (finished state, no date needed).
+- **Access:** members keep their own rules (bundled lock, drop rules); finishing counts however the picture was opened.
+- **Reward (C6):** finishing every member earns a collection-only picture (`rewardOf` = the collection id, hidden until earned) and 1 unlock token (`inventory_earned` source = collection; VIP: picture only). Decided only against a fetched, verified catalog.
+- **Keepsake kept:** on earn, the reward's grid is copied into its canvas directory (existing create path) and its id goes into `PictureUnlocks` (backed up and transferred); an earned picture stays after the catalog withdraws it. `listed()` hides unearned rewards. It joins the end of the row's strip and, in the grid, the #58 order like any open picture, with New for 7 days (D25).
+- **Reward return (D7):** the return that completes a collection shows no interstitial, reminder ask or review (they wait for the next eligible finish); the gallery scrolls the row into view.
+- **Completion glint:** on the first gallery visit after completion, once the row is on screen, a `lamp` band (lamp's reward-moment meaning, D15) sweeps once across the row (900ms), then a 2dp `lamp` edge fades in and out (400ms). The line becomes "Keepsake added: <title>. 1 unlock token added." (VIP: no token). Reduced motion: no sweep or edge, the line just shows. TalkBack: the name line is a heading, "Seaside, 3 of 7 finished, 2 more coming"; on completion, polite "Seaside complete. Keepsake picture added."
+- **Rules** live in one pure `CollectionRules` (with T38's events and `rewardOf`).
+- **Events:** `canvas_*` gain `collection_id`; `collection_completed` (collection_id). Content ids are an explicit exception to the "no ids" rule in `Analytics.kt`.
+- **T44 CSV:** `rewardOf` column and a collections sheet (id, title, members).
+
+**Docs this issue owns:** `docs/design-system.md` (collection row, "2 more coming", glint, All collections sheet, states table, TalkBack, written in Phases 4-5; update if the build differs); `docs/privacy-policy.md` + `docs/play-compliance.md` (content ids in events); `docs/designs/gemmory.md` (catalog format).
+
+**Tests:** `RemoteCatalogTest` (collections parse, unknown members, event flag), `CollectionRulesTest` (complete → picture + token, VIP picture only, withdrawn unstarted member leaves, started stays, bundled-only phone never completes, pre-T35 finish counts), keepsake survives withdrawal, `BackupRulesTest` row; connected `CollectionsFlowTest` (1× and 2× font on 360dp, no rows before the first finish, offline completion, pending keepsake, reward return without an interstitial).
+
+**Done when:** a catalog collection shows its row with progress, completing it grants the keepsake and token once, the keepsake survives withdrawal and backup restore, and the docs above are updated.
+
+Depends on: T36. Lands by the Assignment's date 8 (or the founder publishes plain drops instead). Effort: human ~2d / CC ~1h.
+
+---
+
+## T38: Weekly event: 7 drops in 7 days, finish 3 for an exclusive picture
+Labels: P2, game, ui
+
+**Why:** a monthly themed week built from drops and collections, with a reward earned by playing (VIP too, C3). Plan: T38; eng D7.
+
+**Scope**
+- An event is a collection with `event: true` whose 7 members drop on 7 consecutive dates; `event_id` = the collection id.
+- **Window:** the first drop's `availableFrom` through the 6th day after it, inclusive, local dates.
+- **Reward:** 3 of the 7 finished inside the window (by the `play` file's first finished day) unlocks the week's exclusive (`rewardOf` = event id) for good. VIP earns it the same way; unearned it stays hidden, so "Every picture unlocked" stays true. It's the event's keepsake: no extra T37 keepsake, but all 7 still grant C6's token (not VIP). Keepsake kept as in T37.
+- **After the window:** the 7 stay under normal drop and lock rules; an unearned exclusive stays hidden. No timers on the canvas, no ads tied to it, no nag for a missed week.
+- **Row copy** (design system, Collection and event rows): in the window "One new picture a day. Finish any 3 this week for a keepsake picture." and "4 more coming, one a day"; at 3 "Keepsake earned: <title>."; after the window an ordinary collection row ("Finish all 7 for an unlock token."; VIP "Finish all 7 to complete it."), with no "missed", "ended" or dates. The event row comes first among the 2 rows during its window, and is the one row shown above 1.5× font (T37, Phase 5 D4). A return that earns the exclusive is a reward return (no interstitial, ask or review; the glint plays once the row is on screen, D7); an exclusive whose grid isn't on the phone yet uses T37's pending-keepsake line (D6).
+- **Events:** `canvas_*` gain `event_id`; `event_reward_unlocked` (event_id, finished_in_window).
+- **T44 CSV:** the `event` flag.
+
+**Docs this issue owns:** `docs/design-system.md` (event row copy, calm, no countdown or FOMO banner); `docs/privacy-policy.md` + `docs/play-compliance.md` (event ids); the C3 paywall copy (Phase 4 D7 = P2): the perk becomes "Every gallery picture unlocked", the rewarded grace text "Or get VIP: every gallery picture unlocked", and the success line "You're VIP. Every gallery picture is unlocked." (strings and their tests; already in `docs/design-system.md`).
+
+**Tests:** `CollectionRulesTest` event rows (3 in window, finish at 23:59 last day counts, 00:01 next day doesn't, VIP earns the same way, token for all 7 not VIP, no double keepsake); connected event row test.
+
+**Done when:** a 7-day event runs from the catalog alone, 3 finishes in the window reveal and unlock the exclusive for free and VIP players, nothing changes after the window, and the docs above are updated.
+
+Depends on: T37. Effort: human ~1d / CC ~45min.
+
+---
+
+## T39: In-app review prompt after a finished picture (production only)
+Labels: P2, game
+
+**Why:** installs this round come from the store page and ratings; reviews on a closed track are private, so this is a launch item beside #74 (CEO C1). Plan: T39.
+
+**Scope**
+- Play In-App Review API after a finished picture, switched on by `features.review` in the signed catalog (one AAB goes from closed to production, so a build flag can't separate them). Old clients ignore the key.
+- At most 3 calls per install (counter), attempt *n* at thresholds 3, 10, 25 finishes, at the first finish that is at or past the threshold, with the flag on, ≥ 14 days after the previous attempt, and not on the day of the first finish. One attempt at a time; a deferred attempt waits for the next eligible finish.
+- Never blocks the finish screen; an API error counts as an attempt. Never on the canvas. Only on the gallery after Done/back from a fresh finish (never the completion screen, Share or the completion still), under the one-interruption rule: after T35's reminder ask, and when an attempt is due it takes that return instead of the interstitial (order confirmed by the founder, Phase 5 D22). Never on a return that completes a collection or earns an event keepsake; the attempt waits for the next eligible finish (D7).
+- Event: `review_requested` (attempt).
+
+**Docs this issue owns:** `docs/play-compliance.md` (the flag, how it's flipped at production); `docs/design-system.md` (One interruption per return, written in Phase 4; update if the build differs).
+
+**Tests:** a pure gate table (thresholds, 14-day gap, first-finish day, flag off, already past a threshold when the flag flips); `TelemetryTest` row.
+
+**Done when:** with the flag off nothing is called; with it on, the gate fires at most 3 times per install by the rules above, and the docs above are updated.
+
+Depends on: production access (the 12 × 14 closed test and the D18 gate), beside #74. Effort: human ~4h / CC ~30min.
+
+---
+
+## T40: Gem redesign (founder: the current gems are ugly)
+Labels: P2, renderer, ui
+
+**Why:** the founder finds the flat cushions with a two-facet highlight ugly; this departs from the design system's cushion look with the founder's approval (office hours). Plan: T40.
+
+**Scope**
+- **Picked: the table cut** (Phase 4 D4, 2026-10-19; mockups `~/.gstack/projects/Gemmory/designs/t40-gem-redesign/index.html`). The whole cell, with no inset and no seam. A flat exact-color table inside four bevels: top 24% white, left 9% white, right 14% black, bottom 24% black. The bevel is 24% of the cell at 8-15dp and 20% from 16dp, never under 1.2dp. From 20dp, a 0.8dp catchlight at 38% white runs along the table's top edge. Flat below 8dp (below 8px off the canvas). The bevels replace D18's edges, and the Outline ring corner is 4%. One sprite per color per zoom bucket, as today. `GemRenderer` (Preview, tiles, completion, time-lapse), the confetti and the tray heaps draw the same gem. Spec: `docs/design-system.md`, Shapes and Play canvas.
+- **Achievement icons (Phase 5 D17):** redraw the 12 Play Games achievement icons (#49) as a patina table cut in `tools/achievements/icons.html`, regenerate the PNGs; the founder re-uploads them in Play Console. No cushion gem is left.
+- Must keep: no-gap tiling, the picture's exact colors, the 16dp placement floor, number legibility, the selected-color highlight modes.
+- Must hold up in the time-lapse frames, the finish confetti and the preview; recognizability of photo canvases must not regress (founder + 3 testers, before/after on the converter goldens' canvases).
+- Performance: the A06 frame-timing pass line (#54) stays green.
+
+**Docs this issue owns:** `docs/design-system.md` (gem spec and decisions log written in Phase 4; update if the build differs).
+
+**Tests:** existing renderer and frame-timing tests stay green; screenshot goldens updated deliberately; QA the hard-case strip (white, cream, light/mid/deep skin, near-black, mid violet placed beside their tints at 16 and 24dp) under all three Selected color styles; `CanvasFrameTimingTest` on the A06 at release.
+
+**Done when:** the chosen gem ships on canvas, preview, time-lapse and confetti, the achievement icons are regenerated as table cuts, frame timing holds, recognizability doesn't regress, and the design system says so.
+
+Depends on: nothing (picked 2026-10-19). Effort: design ~0.5d; build human ~1.5d / CC ~1h.
+
+---
+
+## T41: Better placing sounds
+Labels: P2, game
+
+**Why:** the founder finds the sounds thin (3 wavs today). Plan: T41.
+
+**Scope**
+- Sampled or carefully synthesized gem sounds, 3-5 variations per event on top of the random pitch, and a softer, layered tick when dragging. Events: a gem placed, a color done, a batch, a milestone, the finish.
+- Sources CC0 or made in-house, provenance recorded like the pictures (a provenance file next to the sounds).
+- The Sound toggle still governs all of it; `USAGE_GAME`, as today.
+
+**Docs this issue owns:** `docs/design-system.md` (Haptics and sound section); sound provenance file.
+
+**Tests:** `Feedback` keeps honoring the Sound toggle; no sound when off; variation selection is deterministic under a seeded random in a unit test.
+
+**Done when:** every listed event has the new sounds with variations, provenance is recorded, the toggle governs them, and the AAB size delta is noted in the PR.
+
+Depends on: sourced audio. Coordinate with T42 (both touch Settings and audio). Effort: human ~1d / CC ~45min plus sourcing.
+
+---
+
+## T42: Ambient music, on at 30%, silent in silent mode
+Labels: P2, game, ui
+
+**Why:** a calm loop makes the evening session feel good enough to repeat (CEO C5: on by default at 30%). Plan: T42; eng ringer rule.
+
+**Scope**
+- 2-4 calm CC0 or commissioned loops in the gallery and on the canvas, shipped compressed (Ogg/Opus, about 1 MB each [estimated]).
+- Settings: a Music switch after Haptics and, while it's on, a Music volume slider row (steps of 10%, mono value), separate from Sound; on at 30% by default. **First music (Phase 5 D24):** it first plays when the first canvas opens, never on the cold-opened gallery. On the next gallery visit while it plays (after any sheet on that return closes), a one-time `felt-deep` chip above New from photo, "Music is playing" (16sp body, D14) + a text button "Turn off". It goes on tap, on a tile tap or after 8s (no timeout while TalkBack is on, D20), never shows again, and isn't shown when music didn't start. "Turn off" switches Music off, with a polite line. TalkBack "Music, on, switch" / "Music volume, 30 percent, slider". Spec: design system, Settings → Music.
+- Silent mode: doesn't start while `AudioManager.ringerMode != RINGER_MODE_NORMAL`; pauses on `RINGER_MODE_CHANGED_ACTION`.
+- Audio focus: ducks or pauses for other audio; doesn't start if other media is playing. Pauses during interstitials, rewarded ads and the time-lapse export; stops in the background; never part of the time-lapse audio.
+- A loop that fails to decode turns music off for the session with a non-fatal.
+
+**Docs this issue owns:** `docs/design-system.md` (Settings rows and the first-launch chip written in Phase 4; audio rules); music provenance file.
+
+**Tests:** connected `MusicFlowTest` (silent cold open, 30% from the first canvas, chip without timeout under TalkBack, silent/vibrate → off, focus loss pauses, ad and export pause, background stops); decode-failure unit test.
+
+**Done when:** music plays at 30% by default, never in silent/vibrate, yields to other audio, ads and export, stops in the background, the toggle and volume work, and the AAB size delta is noted.
+
+Depends on: sourced audio; coordinate with T41. Effort: human ~1.5d / CC ~1h plus sourcing.
+
+---
+
+## T43: Mystery picture: a drop that stays hidden until it's finished
+Labels: P2, game, ui
+
+**Why:** a small novelty on drops (CEO C7: a catalog flag, never a player toggle). Plan: T43.
+
+**Scope**
+- A `mystery` flag on drops (T44 CSV column); old clients never see it (T44 stamps `minAppVersion`).
+- **Hidden until finished (founder, Phase 5 D23: "all hidden"):** title, art, canvas tints, Peek and Share stay hidden until the picture is finished; there is no reveal at 50%. Everywhere: the frost (design system, Hidden pictures: averaged into 6 blocks across, blurred, 45% `felt-deep`; tiles carry a "Mystery" label with a gem-outline vector in New's place, with the real % under the tile) and a neutral name ("Today's mystery picture" in the app on its date, "Tonight's mystery picture" only in the reminder, "Mystery picture" after its date; D11) in the teaser, Today card, chip, collection rows, Preview, reminder icon and copy, and TalkBack. The real title appears at the finish (completion meta line, then everywhere).
+- **Canvas (D9):** every unplaced cell is one neutral tint (`bone` mixed 20% toward `felt-deep`, number in `on-bone`), so the picture builds only from the gems placed; the tray and the Selected color style work as usual. The tints never come back: the finish celebration is the reveal.
+- **Peek and Share (D23):** the Peek eye, its TalkBack "Peek at picture" action, the canvas Share progress button and the tile ⋮ "Share progress" are hidden (not dimmed) until the finish; it's shared only from the completion screen. Milestone banners are the ordinary ones ("Halfway there"). Preview line: "Hidden until you finish it." TalkBack tile: "Mystery picture, hidden until finished, 12% done". This replaces the earlier 50% reveal rules (a fill crossing 50%, share only after 50%).
+- Whichever of T37 or T43 lands second applies the rule to collection rows; T43 applies it to the T35 reminder and the T36 teaser and chip.
+- Event: `canvas_started` gains `mystery`.
+
+**Docs this issue owns:** `docs/design-system.md` (mystery frost, names, neutral canvas tint, Peek/Share rule, TalkBack, written in Phases 4-5; update if the build differs).
+
+**Tests:** a pure "hidden?" rule (unfinished → hidden, finished → shown, including a batch that places the last gem); renderer test for the neutral tint; connected check that no surface shows the art or title and no Peek/Share path exists before the finish, TalkBack labels neutral.
+
+**Done when:** a mystery drop's art and title never show on any surface before it's finished, it can't be peeked or shared until then, the finish reveals it, and the docs above are updated.
+
+Depends on: T36 (and T35 for the reminder copy). Effort: human ~1d / CC ~45min.
+
+---
+
+## T44: Picture pipeline: a ChatGPT sheet prompt, a splitter and a dated batch publish
+Labels: P1, build, persistence
+
+**Why:** a drop every date needs ~31 pictures a month (CEO C4); by hand that doesn't happen. Plan: T44 (CEO E1); eng D7, outside voice #12.
+
+**Scope**
+- **Prompt:** a checked-in ChatGPT image prompt (`tools/remote/prompts/`) for a 2×3 sheet of 6 pictures in one theme, calm palette, one aspect per sheet (1:1, 3:4 or 4:3).
+- **Splitter:** finds the 6 tiles in a sheet, trims the gutters, crops each to the sheet's aspect and saves a source image; a sheet that doesn't split into 6 stops with a named error.
+- **Batch:** a folder + CSV (title, size with aspect e.g. `big-1:1`, colors, availableFrom, locked default `true`) → converter freeze → content-check gate (a yes per picture; `-PcontentChecked`, README.md:142-146) → provenance rows (AI-generated, model, prompt file, date; still refuses real people, brands and copyrighted characters) → `publishRemotePicture` with dates. Catalog, grids and provenance in one PR or nothing.
+- **Old-client guard (D14, D7):** stamps each picture's `minAppVersion` with the lowest versionCode that understands every hiding field it uses (`availableFrom`, `rewardOf`, `mystery`); collections never raise it. A publish test fails if one is too low. For a dated picture, `addedAt` = `availableFrom`.
+- **Calendar warnings:** the batch warns when fewer than 14 days are scheduled ahead; a scheduled CI job on `pictures/v1/catalog.json` fails below 7 days, once the catalog has any `availableFrom`.
+- Later columns ship with their issues: `rewardOf` + collections sheet (T37), `event` (T38), `mystery` (T43).
+- The prompt, splitter and freeze can merge first; the dated publish merges with or after T36.
+
+**Docs this issue owns:** README (how to run the pipeline), `tools/remote/PROVENANCE.md` (AI rows), `.github/workflows` (calendar check), `docs/agents/lessons.md` if the tooling teaches anything.
+
+**Tests:** `RemotePictureToolTest` rows (stamped versions, a field above its version fails, collections don't raise it, `addedAt` = `availableFrom`); splitter tests (6 tiles, 5 tiles error, gutter trim); calendar-check unit test (< 14 warn, < 7 fail, no `availableFrom` → pass).
+
+**Done when:** the founder turns 4 ChatGPT sheets into 24 dated, signed, provenance-recorded pictures in one PR, old clients see none of them early, and the calendar check runs daily.
+
+Depends on: T36 for the dated publish. Effort: human ~2d / CC ~1h.
