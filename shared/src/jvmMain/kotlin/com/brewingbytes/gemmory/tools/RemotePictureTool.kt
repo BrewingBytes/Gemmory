@@ -4,6 +4,7 @@ import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.ConverterOptions
+import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.remote.CatalogCheck
 import com.brewingbytes.gemmory.remote.GridCheck
 import com.brewingbytes.gemmory.remote.Json
@@ -16,6 +17,7 @@ import com.brewingbytes.gemmory.remote.toHex
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import kotlinx.datetime.LocalDate
+import java.awt.image.BufferedImage
 import java.io.File
 import java.security.KeyFactory
 import java.security.PrivateKey
@@ -50,7 +52,11 @@ object RemotePictureTool {
         val spec: String,
         val focus: Double,
         val locked: Boolean,
-        val minAppVersion: Int,
+        /**
+         * Null stamps [RemoteCatalogs.lowestApp] (D14). A version may raise the stamp, never lower it: an older app
+         * would refuse the catalog or show the picture early.
+         */
+        val minAppVersion: Int?,
         val addedAt: LocalDate,
         val nowSeconds: Long,
         val signingKey: File,
@@ -67,34 +73,73 @@ object RemotePictureTool {
          * `addedAt` is this date, so it sorts among the remote pictures by the day it opens (eng T13).
          */
         val availableFrom: LocalDate? = null,
+        /** An in-memory source (a sheet tile, T44), written to [source] as a JPEG only once the whole publish verifies. */
+        val sourceImage: BufferedImage? = null,
     )
 
-    fun publish(r: Request): RemotePicture {
+    fun publish(r: Request): RemotePicture = publish(listOf(r)).single()
+
+    /**
+     * Publishes [batch] as one signed catalog (T44): every picture is frozen, stamped and checked with the app's own
+     * verifier before anything is written, so a failure anywhere leaves the folder, the sources and the provenance
+     * file as they were. The batch shares the first request's folder, key, clock and provenance file.
+     */
+    fun publish(batch: List<Request>): List<RemotePicture> {
+        require(batch.isNotEmpty()) { "nothing to publish" }
+        val first = batch.first()
+        require(batch.all { it.dir == first.dir && it.signingKey == first.signingKey && it.provenanceFile == first.provenanceFile }) {
+            "a batch publishes into one folder with one key and one provenance file"
+        }
+        batch.map { it.id }.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let { error("$it is twice in the batch") }
+        val (old, oldIssued) = current(first.dir, first.trustedKeys, first.reservedIds)
+        val frozen = batch.map { freeze(it, old) }
+        val pictures = frozen.map { it.first }
+        val dates = (old + pictures).mapNotNull { it.availableFrom }
+        dates.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let {
+            error("two drops on $it: one picture opens per date (CEO C4)")
+        }
+        val issuedAt = maxOf(first.nowSeconds, (oldIssued ?: 0) + 1)
+        val catalog = catalogBytes(RemoteCatalog(issuedAt, old + pictures))
+        val signature = sign(catalog, first.signingKey)
+        verify(catalog, signature, oldIssued, first, frozen)
+
+        for ((r, f) in batch.zip(frozen)) {
+            val (picture, pattern, grid) = f
+            File(r.dir, picture.grid).apply { parentFile.mkdirs() }.writeBytes(grid)
+            r.sourceImage?.let { r.source.parentFile?.mkdirs(); writeJpeg(it, r.source) }
+            r.reviewPng?.let { it.parentFile?.mkdirs(); ImageIO.write(BundledGridTool.preview(pattern), "png", it) }
+        }
+        File(first.dir, "catalog.json").writeBytes(catalog)
+        File(first.dir, "catalog.json.sig").writeText(RemoteCatalogs.encodeSignature(signature))
+        appendProvenance(first.provenanceFile, batch.zip(pictures).map { (r, p) -> row(p, r.provenance, r.spec, r.focus, r.colors) })
+        return pictures
+    }
+
+    /** One picture's grid and catalog entry, in memory; nothing is written. */
+    private fun freeze(r: Request, old: List<RemotePicture>): Triple<RemotePicture, Pattern, ByteArray> {
         require(RemoteCatalogs.ID.matches(r.id)) { "id must match ${RemoteCatalogs.ID.pattern}" }
         require(r.id !in r.reservedIds) { "${r.id} is a bundled picture's id" }
         require(r.title.isNotBlank() && r.title.length <= RemoteCatalogs.MAX_TITLE) { "title must be 1-${RemoteCatalogs.MAX_TITLE} characters" }
         require(r.provenance.count { it == '|' } == 2) { "provenance must be \"<source> | <author, date> | <license>\"" }
-        require(r.availableFrom == null || r.minAppVersion >= RemoteCatalogs.DROPS_MIN_APP) {
+        require(r.availableFrom == null || r.minAppVersion == null || r.minAppVersion >= RemoteCatalogs.DROPS_MIN_APP) {
             "a dated drop would show at once on an app before versionCode ${RemoteCatalogs.DROPS_MIN_APP}, so run with " +
-                "-PminAppVersion=${RemoteCatalogs.DROPS_MIN_APP} or later"
+                "-PminAppVersion=${RemoteCatalogs.DROPS_MIN_APP} or later (or leave it out to stamp it)"
         }
         val spec = requireNotNull(BundledGridTool.SPECS[r.spec]?.takeIf { it.id != "starter-3:4" }) { "spec must be one of the picker's: ${BundledGridTool.SPECS.keys - "starter-3:4"}" }
-        val (old, oldIssued) = current(r.dir, r.trustedKeys, r.reservedIds)
         require(old.none { it.id == r.id }) { "${r.id} is already published; grids are immutable, so use a new id" }
-        val gridFile = File(r.dir, RemoteCatalogs.gridPath(r.id))
-        require(!gridFile.exists()) { "$gridFile exists; ids are never reused" }
+        require(!File(r.dir, RemoteCatalogs.gridPath(r.id)).exists()) { "${File(r.dir, RemoteCatalogs.gridPath(r.id))} exists; ids are never reused" }
 
         val (sizeName, ratioLabel) = spec.id.split('-')
         val size = CanvasSize.valueOf(sizeName.uppercase())
-        val image = ImageIO.read(r.source) ?: error("cannot read image ${r.source}")
+        val image = r.sourceImage ?: ImageIO.read(r.source) ?: error("cannot read image ${r.source}")
         val pattern = BundledGridTool.convertImage(image, spec.copy(paletteCap = size.cap(r.colors)), r.focus, ConverterOptions.of(r.colors))
-        require(pattern.palette.size <= size.paletteCap || r.minAppVersion >= RemoteCatalogs.MORE_COLORS_MIN_APP) {
+        require(pattern.palette.size <= size.paletteCap || r.minAppVersion == null || r.minAppVersion >= RemoteCatalogs.MORE_COLORS_MIN_APP) {
             "${pattern.palette.size} colors is above ${size.label}'s Standard ${size.paletteCap}: older apps would refuse the " +
-                "whole catalog, so run with -PminAppVersion=${RemoteCatalogs.MORE_COLORS_MIN_APP} or later"
+                "whole catalog, so run with -PminAppVersion=${RemoteCatalogs.MORE_COLORS_MIN_APP} or later (or leave it out to stamp it)"
         }
         val grid = GridCodec.encode(pattern)
         val crc = (GridCodec.decode(grid) as Decoded.Ok).value.crc32
-        val picture = RemotePicture(
+        val unstamped = RemotePicture(
             id = r.id,
             title = r.title,
             ratio = AspectRatio.entries.first { it.label == ratioLabel },
@@ -106,22 +151,13 @@ object RemotePictureTool {
             sha256 = Sha256.digest(grid).toHex(),
             crc32 = crc,
             locked = r.locked,
-            minAppVersion = r.minAppVersion,
+            minAppVersion = 0,
             addedAt = r.availableFrom ?: r.addedAt,
             availableFrom = r.availableFrom,
         )
-        val issuedAt = maxOf(r.nowSeconds, (oldIssued ?: 0) + 1)
-        val catalog = catalogBytes(RemoteCatalog(issuedAt, old + picture))
-        val signature = sign(catalog, r.signingKey)
-        verify(catalog, signature, oldIssued, r, picture, grid)
-
-        gridFile.parentFile.mkdirs()
-        gridFile.writeBytes(grid)
-        File(r.dir, "catalog.json").writeBytes(catalog)
-        File(r.dir, "catalog.json.sig").writeText(RemoteCatalogs.encodeSignature(signature))
-        r.reviewPng?.let { it.parentFile?.mkdirs(); ImageIO.write(BundledGridTool.preview(pattern), "png", it) }
-        appendProvenance(r.provenanceFile, picture, r.provenance, r.spec, r.focus, r.colors)
-        return picture
+        val picture = unstamped.copy(minAppVersion = r.minAppVersion ?: RemoteCatalogs.lowestApp(unstamped))
+        check(picture.minAppVersion >= RemoteCatalogs.lowestApp(picture)) { "${r.id}: minAppVersion below ${RemoteCatalogs.lowestApp(picture)}" }
+        return Triple(picture, pattern, grid)
     }
 
     /** Removes [id] from the catalog and deletes its grid; phones that started it keep their own copy. */
@@ -158,10 +194,10 @@ object RemotePictureTool {
         ) + "\n"
         ).encodeToByteArray()
 
-    /** The app's checks, run on exactly the bytes about to be written. */
-    private fun verify(catalog: ByteArray, signature: ByteArray, oldIssued: Long?, r: Request, picture: RemotePicture, grid: ByteArray) {
+    /** The app's checks, run on exactly the bytes about to be written: every picture listed, every grid accepted. */
+    private fun verify(catalog: ByteArray, signature: ByteArray, oldIssued: Long?, r: Request, frozen: List<Triple<RemotePicture, Pattern, ByteArray>>) {
         val sig = RemoteCatalogs.encodeSignature(signature).encodeToByteArray()
-        val check = RemoteCatalogs.check(catalog, sig, r.trustedKeys, r.minAppVersion, oldIssued, r.reservedIds)
+        val check = RemoteCatalogs.check(catalog, sig, r.trustedKeys, Int.MAX_VALUE, oldIssued, r.reservedIds)
         check(check is CatalogCheck.Ok) {
             if (check == CatalogCheck.Refused(com.brewingbytes.gemmory.remote.CatalogRefusal.BadSignature)) {
                 "the signing key isn't one the app trusts (RemoteKeys.PRODUCTION)"
@@ -169,8 +205,18 @@ object RemotePictureTool {
                 "the app would refuse this catalog: $check"
             }
         }
-        val listed = check.catalog.pictures.single { it.id == picture.id }
-        check(RemoteCatalogs.checkGrid(listed, grid) is GridCheck.Ok) { "the app would refuse this grid" }
+        for ((picture, _, grid) in frozen) {
+            val listed = check.catalog.pictures.single { it.id == picture.id }
+            check(listed == picture) { "the app reads ${picture.id} differently from what was written" }
+            check(RemoteCatalogs.checkGrid(listed, grid) is GridCheck.Ok) { "the app would refuse ${picture.id}'s grid" }
+        }
+    }
+
+    /** JPEG has no alpha, and ImageIO silently writes nothing for an ARGB image. */
+    private fun writeJpeg(image: BufferedImage, file: File) {
+        val rgb = BufferedImage(image.width, image.height, BufferedImage.TYPE_INT_RGB)
+        rgb.createGraphics().apply { drawImage(image, 0, 0, null); dispose() }
+        check(ImageIO.write(rgb, "jpg", file)) { "cannot write $file" }
     }
 
     /** Ed25519 with the JDK, from a PKCS#8 key (PEM or DER), as `openssl genpkey -algorithm ed25519` writes it. */
@@ -190,14 +236,17 @@ object RemotePictureTool {
         }
     }
 
-    /** Read first, then write (lessons, #31: a one-liner once truncated PROVENANCE.md). */
-    private fun appendProvenance(file: File, p: RemotePicture, provenance: String, spec: String, focus: Double, colors: ColorChoice) {
-        val before = if (file.exists()) file.readText() else HEADER
+    private fun row(p: RemotePicture, provenance: String, spec: String, focus: Double, colors: ColorChoice): String {
         val (source, author, license) = provenance.split('|').map { it.trim() }
         val choice = if (colors == ColorChoice.STANDARD) "" else ", colors ${colors.param}"
-        val row = "| ${p.title} | `${p.id}` | $source | $author | $license | spec `$spec` (${p.width}×${p.height}, ${p.colors} colors$choice), focus $focus, seed 0x474D5259 | ${p.addedAt} | ${if (p.locked) "locked" else "free"}, min app ${p.minAppVersion}, CRC `${p.crc32.toUInt().toString(16).padStart(8, '0')}` |\n"
+        return "| ${p.title} | `${p.id}` | $source | $author | $license | spec `$spec` (${p.width}×${p.height}, ${p.colors} colors$choice), focus $focus, seed 0x474D5259 | ${p.addedAt} | ${if (p.locked) "locked" else "free"}, min app ${p.minAppVersion}, CRC `${p.crc32.toUInt().toString(16).padStart(8, '0')}` |\n"
+    }
+
+    /** Read first, then write (lessons, #31: a one-liner once truncated PROVENANCE.md). */
+    private fun appendProvenance(file: File, rows: List<String>) {
+        val before = if (file.exists()) file.readText() else HEADER
         file.parentFile?.mkdirs()
-        file.writeText(before.trimEnd('\n') + "\n" + row)
+        file.writeText(before.trimEnd('\n') + "\n" + rows.joinToString(""))
     }
 
     private val HEADER = """
@@ -206,7 +255,8 @@ object RemotePictureTool {
         Every remote picture (#43) published to `pictures/v1/`: source, license, freeze settings and when it went out.
         Rows are added by `./gradlew :shared:publishRemotePicture` (README → Publishing remote pictures). A withdrawn
         picture keeps its row, marked withdrawn. Grids are never re-frozen: a fix is a new id. A picture made with
-        `-Pcolors=more` or `fewer` (#29) says so in its Freeze column.
+        `-Pcolors=more` or `fewer` (#29) says so in its Freeze column. A picture from a batch (T44, `publishPictureBatch`) is
+        AI-generated: its Source names the batch sheet and tile, the model, the date and the prompt file in `prompts/`.
 
         | Picture | Id | Source | Author, date | License | Freeze | Added | Catalog |
         |---|---|---|---|---|---|---|---|
@@ -241,7 +291,7 @@ object RemotePictureTool {
                 spec = arg("spec"),
                 focus = a["focus"]?.toDoubleOrNull() ?: 0.5,
                 locked = a["locked"] != "false",
-                minAppVersion = arg("minAppVersion").toInt(),
+                minAppVersion = a["minAppVersion"]?.toIntOrNull(),
                 addedAt = LocalDate.parse(java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()),
                 nowSeconds = now,
                 signingKey = key,
