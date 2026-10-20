@@ -105,7 +105,7 @@ One issue (T34) covering, in order:
 - Unity test mode off; AdMob shows non-zero estimated earnings within 7 days of the production release.
 
 ## Distribution Plan
-The existing release path (README → Release): `./gradlew :androidApp:bundleRelease` locally with the upload key from `local.properties`, tag `v<versionName>`, Test Lab checks pass, upload the AAB to Play, promote to closed. The ad IDs come from the committed `gradle.properties`, so nothing new is needed on the build machine. Ships as **0.6.0** (versionCode 13): a new ad SDK and the switch to real monetization.
+The existing release path (README → Release): `./gradlew :androidApp:bundleRelease` locally with the upload key from `local.properties`, tag `v<versionName>`, Test Lab checks pass, upload the AAB to Play, promote to closed. The ad IDs come from the committed `gradle.properties`, so nothing new is needed on the build machine. Ships as **0.7.0** (0.6.1 went out first with scheduled drops and the evening reminder): a new ad SDK and the switch to real monetization.
 
 ## Dependencies
 - AdMob account payment and tax info; Unity Ads account.

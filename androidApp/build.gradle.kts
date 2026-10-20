@@ -32,8 +32,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 13
-        versionName = "0.6.0"
+        versionCode = 14
+        versionName = "0.6.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
