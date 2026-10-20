@@ -11,18 +11,19 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
+import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
-import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.RewardedLoad
+import com.brewingbytes.gemmory.assumeDeviceChecks
+import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
@@ -30,14 +31,14 @@ import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
+import java.io.File
+import kotlin.test.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import kotlin.test.assertEquals
 
 /**
  * Device walkthrough for #14 (window visible): large screens (D22) and 200% font on a 360dp phone (D20). Each display
@@ -234,7 +235,8 @@ class ScreenSizesWalkthrough {
         shot("font2-completion")
         compose.onNodeWithTag("completion-done").performClick()
         compose.onNodeWithText("My Photos").performClick()
-        compose.onNodeWithTag("tile-photo-walk-1").performClick()
+        // #89: the finished canvas sits in My Photos' Finished section.
+        compose.openFinishedTile(CanvasRef(CanvasKind.PHOTO, "walk-1"))
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("completion-still")).fetchSemanticsNodes().isNotEmpty() }
         shot("font2-completion-still")
         compose.onNodeWithText("Play again").performClick()

@@ -29,6 +29,20 @@ class AppSettingsTest {
         assertEquals(mapOf("highlight" to "dim"), prefs.values.filterKeys { it == "highlight" })
     }
 
+    /** #89: each gallery tab's Finished section is collapsed by default and remembers its own state. */
+    @Test
+    fun eachTabsFinishedSectionIsCollapsedByDefaultAndKeptOnItsOwn() {
+        val prefs = FakePrefs()
+        val settings = AppSettings(prefs)
+        assertFalse(settings.finishedOpen(0))
+        assertFalse(settings.finishedOpen(1))
+        settings.setFinishedOpen(1, true)
+        assertTrue(AppSettings(prefs).finishedOpen(1), "read back on the next start")
+        assertFalse(AppSettings(prefs).finishedOpen(0), "the other tab keeps its own")
+        settings.setFinishedOpen(1, false)
+        assertFalse(AppSettings(prefs).finishedOpen(1))
+    }
+
     @Test
     fun milestonesOffIsKept() {
         val prefs = FakePrefs()

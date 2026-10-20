@@ -56,6 +56,15 @@ class A11yTextTest {
         assertEquals("Fox in Snow, new, locked, watch a video to unlock", A11yText.tile("Fox in Snow", 0, done = false, locked = true, damaged = false, new = true))
     }
 
+    /** #89: the Finished heading; its state ("collapsed" / "expanded") and role are separate semantics. */
+    @Test
+    fun finishedHeading() {
+        assertEquals("Finished, 12 pictures", A11yText.finished(12, photos = false))
+        assertEquals("Finished, 1 picture", A11yText.finished(1, photos = false))
+        assertEquals("Finished, 3 photo canvases", A11yText.finished(3, photos = true))
+        assertEquals("Finished, 1 photo canvas", A11yText.finished(1, photos = true))
+    }
+
     @Test
     fun galleryColumnsFollowTheWidthClasses() {
         assertEquals(2, galleryColumns(360f))

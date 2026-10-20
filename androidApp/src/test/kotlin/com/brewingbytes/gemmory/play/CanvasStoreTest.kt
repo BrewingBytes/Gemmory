@@ -399,6 +399,24 @@ class CanvasStoreTest {
         assertIs<CanvasSummary.Damaged>(photos[1])
     }
 
+    /** #89: a finished canvas's summary carries its first finished day for the Finished section; others carry none. */
+    @Test
+    fun summariesCarryTheFirstFinishedDayOfFinishedCanvasesOnly() = runBlocking<Unit> {
+        createPhoto()
+        play(photo, 0, 1)
+        play(starter, *(0 until 12).toList().toIntArray())
+        val finishedOn = day.today()
+        val (pictures, photos) = store.summaries()
+        assertEquals(finishedOn, assertIs<CanvasSummary.Playable>(pictures.first()).firstFinishedDay)
+        assertEquals(null, assertIs<CanvasSummary.Playable>(photos.single()).firstFinishedDay, "started, not finished")
+        store.startOver(starter)
+        assertEquals(null, assertIs<CanvasSummary.Playable>(store.summaries().first.first()).firstFinishedDay, "Play again: unfinished")
+        // Finished before T35 (no play file): no date.
+        play(starter, *(0 until 12).toList().toIntArray())
+        File(store.repository.dirOf(starter), "play").delete()
+        assertEquals(null, assertIs<CanvasSummary.Playable>(store.summaries().first.first()).firstFinishedDay)
+    }
+
     /** #31: the whole catalog shows on a fresh install, never-opened pictures empty and titled, with nothing copied in. */
     @Test
     fun summariesListEveryBundledPictureUnopenedOnAFreshInstall() = runBlocking<Unit> {

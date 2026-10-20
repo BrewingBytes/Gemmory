@@ -60,6 +60,10 @@ data class Tile(
      * draws its thumbnail lazily ([GalleryViewModel.thumbnail]) once it's on screen.
      */
     val lazyImage: Boolean = false,
+    /** The local epoch day it was first finished (T35 `play` file, #89); null if unfinished or finished before T35. */
+    val finishedDay: Long? = null,
+    /** When its canvas was made (0 for a picture never opened): the Finished section's tie-break (#89). */
+    val createdAtMillis: Long = 0L,
 ) {
     /** Mono "42%" or "Done"; never "100%" before the last gem. */
     val progressLabel: String get() = if (done) "Done" else "$percent%"
@@ -74,6 +78,17 @@ internal fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitl
     pictures.sortedBy { it.locked(unlocked, entitlements, todayFree) }
 
 /**
+ * The Finished section (#89) at the end of each tab: the finished canvases, newest finish first. Those finished before
+ * T35 have no date and go after the dated ones; a tie on the day, and the undated group, go newest created first.
+ */
+internal fun finishedInOrder(tiles: List<Tile>): List<Tile> =
+    tiles.filter { it.done }.sortedWith(
+        compareBy<Tile> { it.finishedDay == null }
+            .thenByDescending { it.finishedDay ?: 0L }
+            .thenByDescending { it.createdAtMillis },
+    )
+
+/**
  * The Today's picture card (#34) above the Pictures grid. [preview] is the finished picture until a gem is placed,
  * then the tile's real progress. [free]: a free player's pick not started yet ("free today"); [vip]: "Today's pick".
  * [drop]: it's today's drop (T36), which the card shows once it's here, with the "New today" chip.
@@ -84,12 +99,15 @@ data class TodayCard(val tile: Tile, val preview: ImageBitmap?, val size: String
  * [streak]: days in a row with a picture finished (#33), as of this visit; 0 when broken or never played. [today]:
  * today's picture (#34), null when there's nothing to pick. [todayFree]: what opens without a video today, today's
  * free picture and today's drop (T36). [tomorrow]: the frost of tomorrow's drop, stored and verified (T36), for the
- * Tomorrow line; null when there's none.
+ * Tomorrow line; null when there's none. [pictures] and [photos] are what's left to play; [finishedPictures] and
+ * [finishedPhotos] are each tab's Finished section (#89).
  */
 data class GalleryState(
     val loaded: Boolean = false,
     val pictures: List<Tile> = emptyList(),
     val photos: List<Tile> = emptyList(),
+    val finishedPictures: List<Tile> = emptyList(),
+    val finishedPhotos: List<Tile> = emptyList(),
     val streak: Int = 0,
     val today: TodayCard? = null,
     val todayFree: Set<String> = emptySet(),
@@ -141,7 +159,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     /**
      * Re-reads every canvas, each time the Gallery shows. The Pictures order is set here, from the unlocks and
      * entitlements of this moment, so a picture unlocked by a video moves up on the next visit, never under the
-     * player's finger (#58). The locked labels follow them live.
+     * player's finger (#58). The locked labels follow them live. A finished canvas moves into its tab's Finished
+     * section (#89) the same way, and back out after Play again.
      */
     fun refresh() {
         // Remote pictures (#43): a background check when one is due. What it brings shows on the next visit.
@@ -155,12 +174,14 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             val entitlements = monetization.entitlements.value
             val today = todayCard(pictures, tiles.first, unlocked, entitlements.vip)
             val todayFree = if (entitlements.vip) emptySet() else app.todays.freeToday()
-            val ordered = picturesInOrder(tiles.first, unlocked, entitlements, todayFree)
+            val ordered = picturesInOrder(tiles.first.filterNot { it.done }, unlocked, entitlements, todayFree)
             val tomorrow = withContext(Dispatchers.IO) { tomorrowFrost() }
             _state.value = GalleryState(
                 loaded = true,
                 pictures = ordered,
-                photos = tiles.second,
+                photos = tiles.second.filterNot { it.done },
+                finishedPictures = finishedInOrder(tiles.first),
+                finishedPhotos = finishedInOrder(tiles.second),
                 streak = app.streak.current(),
                 today = today,
                 todayFree = todayFree,
@@ -193,6 +214,11 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     fun opened(tile: Tile) {
         if (tile.ref.kind == CanvasKind.REMOTE && tile.isNew) app.remote.opened(tile.ref.id)
     }
+
+    /** Whether the Finished section (#89) of [tab] is expanded, remembered across visits and backed up. */
+    fun finishedOpen(tab: Int): Boolean = app.settings.finishedOpen(tab)
+
+    fun setFinishedOpen(tab: Int, open: Boolean) = app.settings.setFinishedOpen(tab, open)
 
     /** The Tomorrow line was tapped (T36): "Opens tomorrow", and Analytics hears of it. */
     fun teaserTapped() = app.analytics.log(AnalyticsEvent.teaserTapped)
@@ -316,6 +342,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 lockable = summary.locked,
                 isNew = summary.ref.kind == CanvasKind.REMOTE && app.remote.isNew(summary.ref.id),
                 size = summary.size,
+                finishedDay = summary.firstFinishedDay,
+                createdAtMillis = summary.createdAtMillis,
             )
         }
     }
