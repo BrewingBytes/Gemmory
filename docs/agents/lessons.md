@@ -54,6 +54,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#31): an AI tile can carry a protected product shape without any logo (a Vespa-like scooter was dropped). Check AI tiles for recognizable designs, not just for text and brands.
 - 2026-10-16 (#31): `open(p, "w").write(open(p).read() + …)` truncates the file before reading it and wiped PROVENANCE.md once. Read first, then write. `BundledPicturesTest.everyPictureHasAProvenanceRow` now catches a lost row.
 - 2026-10-16 (#32): what's free is `BundledPictures.FREE`, and everything else is locked. A connected test or walkthrough that opens a picture outside that set must unlock it first (`app.monetization.unlocks.unlock(id)`) or run as VIP, or the tap opens the rewarded sheet instead of the canvas.
+- 2026-10-20 (#85): `ImageIO.write(image, "jpg", file)` on a `TYPE_INT_ARGB` image (what `BundledGridTool` and `getSubimage` of a PNG sheet can give) writes nothing and returns `false`; JPEG has no alpha. Draw it into a `TYPE_INT_RGB` image first and check the return value, as `RemotePictureTool.writeJpeg` does.
 
 ## App code
 

@@ -126,9 +126,6 @@ fun remoteToolArgs(mode: String): List<String> {
     val local = Properties().apply {
         providers.fileContents(root.file("local.properties")).asText.orNull?.let { load(it.reader()) }
     }
-    // The next release's versionCode, read from the app's build file; a picture never needs an older app by default.
-    val appBuild = providers.fileContents(root.file("androidApp/build.gradle.kts")).asText.get()
-    val versionCode = Regex("""versionCode = (\d+)""").find(appBuild)!!.groupValues[1]
     fun p(name: String) = providers.gradleProperty(name).orNull
     return listOf(
         "mode=$mode",
@@ -137,7 +134,8 @@ fun remoteToolArgs(mode: String): List<String> {
         "provenanceFile=${root.file("tools/remote/PROVENANCE.md").asFile.path}",
         "reviewDir=${root.dir("tools/remote").asFile.path}",
         "signingKey=${p("signingKey") ?: local.getProperty("remotePictures.signingKey").orEmpty()}",
-        "minAppVersion=${p("minAppVersion") ?: versionCode}",
+        // Left out, the tool stamps the lowest app that reads the picture right (D14, T44).
+        "minAppVersion=${p("minAppVersion").orEmpty()}",
         "id=${p("id").orEmpty()}",
         "title=${p("title").orEmpty()}",
         "source=${p("source")?.let { root.file(it).asFile.path }.orEmpty()}",
@@ -165,4 +163,51 @@ listOf("publishRemotePicture" to "publish", "withdrawRemotePicture" to "withdraw
         mainClass.set("com.brewingbytes.gemmory.tools.RemotePictureTool")
         args(remoteToolArgs(mode))
     }
+}
+
+/**
+ * The picture pipeline (T44). `splitPictureSheet` cuts one ChatGPT sheet into its six tiles to look at before the CSV is
+ * filled; `publishPictureBatch` publishes a batch folder (sheets + batch.csv) in one signed catalog; `checkDropCalendar`
+ * fails when fewer than 7 days of drops are scheduled (the daily CI job). README → Publishing a batch of pictures.
+ */
+tasks.register<JavaExec>("splitPictureSheet") {
+    group = "build"
+    description = "Splits a 2×3 picture sheet into six tile images (T44)."
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    dependsOn(jvmMain.compileTaskProvider)
+    classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("com.brewingbytes.gemmory.tools.SheetSplitter")
+    val root = rootProject.layout.projectDirectory
+    args(
+        providers.gradleProperty("sheet").orNull?.let { root.file(it).asFile.path }.orEmpty(),
+        providers.gradleProperty("ratio").getOrElse("1:1"),
+        root.dir(providers.gradleProperty("out").getOrElse("shared/build/sheet-tiles")).asFile.path,
+    )
+}
+
+tasks.register<JavaExec>("publishPictureBatch") {
+    group = "build"
+    description = "Splits, freezes, checks, signs and publishes a batch of remote pictures to pictures/v1 (T44)."
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    dependsOn(jvmMain.compileTaskProvider)
+    classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("com.brewingbytes.gemmory.tools.PictureBatch")
+    val root = rootProject.layout.projectDirectory
+    val batch = providers.gradleProperty("batch").orNull
+    args(
+        remoteToolArgs("batch") + listOf(
+            "batch=${batch?.let { root.dir(it).asFile.path }.orEmpty()}",
+            "previewDir=${layout.buildDirectory.dir("picture-batch/${batch?.trimEnd('/')?.substringAfterLast('/').orEmpty()}").get().asFile.path}",
+        ),
+    )
+}
+
+tasks.register<JavaExec>("checkDropCalendar") {
+    group = "verification"
+    description = "Fails when the published catalog has fewer than 7 days of drops ahead (T44)."
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    dependsOn(jvmMain.compileTaskProvider)
+    classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("com.brewingbytes.gemmory.tools.DropCalendar")
+    args(rootProject.layout.projectDirectory.dir("pictures/v1").asFile.path)
 }

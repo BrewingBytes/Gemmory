@@ -39,11 +39,12 @@ class RemotePictureToolTest {
         now: Long = 1_792_000_000,
         reserved: Set<String> = setOf("starter"),
         spec: String = "quick-3:4",
-        minAppVersion: Int = 12,
+        minAppVersion: Int? = 12,
+        locked: Boolean = true,
         colors: ColorChoice = ColorChoice.STANDARD,
         availableFrom: LocalDate? = null,
     ) = RemotePictureTool.Request(
-        dir = dir, id = id, title = "Night $id", source = source, spec = spec, focus = 0.5, locked = true,
+        dir = dir, id = id, title = "Night $id", source = source, spec = spec, focus = 0.5, locked = locked,
         minAppVersion = minAppVersion, addedAt = LocalDate(2026, 10, 18), nowSeconds = now, signingKey = key,
         provenance = "starry.jpg (Wikimedia Commons) | Vincent van Gogh, 1889 | Public domain", provenanceFile = provenance,
         reviewPng = File(root, "$id.review.png"), reservedIds = reserved, trustedKeys = trusted, colors = colors,
@@ -102,6 +103,98 @@ class RemotePictureToolTest {
         assertEquals(listOf(picture), assertIs<CatalogCheck.Ok>(forDrops).catalog.pictures)
         assertEquals(emptyList(), assertIs<CatalogCheck.Ok>(check()).catalog.pictures, "a 0.5.0 phone never sees it")
     }
+
+    /** D14 (T44): left out, minAppVersion is the lowest app that reads the picture right. */
+    @Test
+    fun theVersionIsStampedFromTheFieldsUsed() {
+        val date = LocalDate(2026, 11, 2)
+        val plain = RemotePictureTool.publish(request("night-plain", minAppVersion = null))
+        val rich = RemotePictureTool.publish(request("night-rich", spec = "big-3:4", minAppVersion = null, colors = ColorChoice.MORE))
+        val drop = RemotePictureTool.publish(request("night-drop", minAppVersion = null, availableFrom = date))
+        val both = RemotePictureTool.publish(request("night-both", spec = "big-3:4", minAppVersion = null, colors = ColorChoice.MORE, availableFrom = LocalDate(2026, 11, 3)))
+        assertEquals(RemoteCatalogs.REMOTE_MIN_APP, plain.minAppVersion)
+        assertEquals(RemoteCatalogs.MORE_COLORS_MIN_APP, rich.minAppVersion)
+        assertEquals(RemoteCatalogs.DROPS_MIN_APP, drop.minAppVersion)
+        assertEquals(RemoteCatalogs.DROPS_MIN_APP, both.minAppVersion)
+        assertEquals(date, drop.addedAt, "addedAt = availableFrom")
+        assertTrue(provenance.readText().contains("min app ${RemoteCatalogs.DROPS_MIN_APP}"))
+        assertEquals(14, RemotePictureTool.publish(request("night-later", minAppVersion = 14)).minAppVersion, "a version may raise the stamp")
+    }
+
+    /** Fields an older app reads the same way never raise the stamp (collections join this row with T37). */
+    @Test
+    fun fieldsAnOlderAppReadsRightDoNotRaiseIt() {
+        val free = RemotePictureTool.publish(request("night-free", minAppVersion = null, locked = false))
+        val locked = RemotePictureTool.publish(request("night-locked", minAppVersion = null, spec = "big-1:1"))
+        assertEquals(listOf(RemoteCatalogs.REMOTE_MIN_APP, RemoteCatalogs.REMOTE_MIN_APP), listOf(free.minAppVersion, locked.minAppVersion))
+        val old = RemoteCatalogs.check(
+            File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, RemoteCatalogs.REMOTE_MIN_APP, null, setOf("starter"),
+        )
+        assertEquals(listOf("night-free", "night-locked"), assertIs<CatalogCheck.Ok>(old).catalog.pictures.map { it.id }, "the first remote app sees them")
+    }
+
+    /** T44: a batch is one catalog; a failure anywhere in it writes nothing at all. */
+    @Test
+    fun aBatchWritesEverythingOrNothing() {
+        val tile = javax.imageio.ImageIO.read(source)
+        val sourceFile = File(root, "tools/night-a.jpg")
+        assertFailsWith<IllegalArgumentException> {
+            RemotePictureTool.publish(
+                listOf(
+                    request("night-a", minAppVersion = null).withImage(tile, sourceFile),
+                    request("Bad Id", minAppVersion = null),
+                ),
+            )
+        }
+        val stranger = keyFile(KeyPairGenerator.getInstance("Ed25519").generateKeyPair())
+        assertFailsWith<IllegalStateException> {
+            RemotePictureTool.publish(listOf(request("night-a", key = stranger, minAppVersion = null).withImage(tile, sourceFile), request("night-b", key = stranger, minAppVersion = null)))
+        }
+        assertFalse(dir.exists(), "no catalog, grid or folder")
+        assertFalse(sourceFile.exists(), "no source")
+        assertFalse(provenance.exists(), "no provenance row")
+        assertFalse(File(root, "night-a.review.png").exists(), "no review")
+
+        val published = RemotePictureTool.publish(listOf(request("night-a", minAppVersion = null).withImage(tile, sourceFile), request("night-b", minAppVersion = null)))
+        assertEquals(listOf("night-a", "night-b"), assertIs<CatalogCheck.Ok>(check()).catalog.pictures.map { it.id })
+        assertEquals(published, assertIs<CatalogCheck.Ok>(check()).catalog.pictures)
+        assertTrue(sourceFile.exists() && javax.imageio.ImageIO.read(sourceFile) != null, "the tile's source is written once it verifies")
+        assertEquals(2, provenance.readLines().count { it.startsWith("| Night ") })
+    }
+
+    /** CEO C4: one drop opens per date, counting the ones already published. */
+    @Test
+    fun twoDropsOnOneDateAreRefused() {
+        val date = LocalDate(2026, 11, 2)
+        assertFailsWith<IllegalStateException> {
+            RemotePictureTool.publish(listOf(request("night-a", minAppVersion = null, availableFrom = date), request("night-b", minAppVersion = null, availableFrom = date)))
+        }
+        RemotePictureTool.publish(request("night-a", minAppVersion = null, availableFrom = date))
+        val error = assertFailsWith<IllegalStateException> { RemotePictureTool.publish(request("night-b", minAppVersion = null, availableFrom = date)) }
+        assertTrue("two drops on 2026-11-02" in error.message.orEmpty(), error.message)
+    }
+
+    /** R1 (eng D10) with D14: a 0.5.0 phone (12) reading a stamped batch sees only its undated pictures. */
+    @Test
+    fun anOldAppSeesNoStampedDropEarly() {
+        RemotePictureTool.publish(
+            listOf(
+                request("night-plain", minAppVersion = null),
+                request("night-drop", minAppVersion = null, availableFrom = LocalDate(2026, 11, 2)),
+                request("night-next", minAppVersion = null, availableFrom = LocalDate(2026, 11, 3)),
+            ),
+        )
+        assertEquals(listOf("night-plain"), assertIs<CatalogCheck.Ok>(check()).catalog.pictures.map { it.id })
+        val drops = RemoteCatalogs.check(
+            File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, RemoteCatalogs.DROPS_MIN_APP, null, setOf("starter"),
+        )
+        assertEquals(3, assertIs<CatalogCheck.Ok>(drops).catalog.pictures.size)
+    }
+
+    private fun RemotePictureTool.Request.withImage(image: java.awt.image.BufferedImage, file: File) = RemotePictureTool.Request(
+        dir, id, title, file, spec, focus, locked, minAppVersion, addedAt, nowSeconds, signingKey, provenance, provenanceFile,
+        reviewPng, reservedIds, trustedKeys, colors, availableFrom, sourceImage = image,
+    )
 
     @Test
     fun anIdIsNeverReusedOrABundledOne() {

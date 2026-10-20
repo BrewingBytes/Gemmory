@@ -18,7 +18,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 
 | Doc | What's in it |
 |---|---|
-| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, how to add a bundled picture and how to publish a remote one (#43) |
+| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, how to add a bundled picture and how to publish a remote one (#43) and a dated batch from ChatGPT sheets (#85) |
 | [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, plus the CEO and eng review decision ledgers (E1-E7, D1-D20) |
 | [docs/designs/ad-mediation.md](docs/designs/ad-mediation.md) | Real ads design (T34, #74): production AdMob IDs from committed build config, Unity Ads via AdMob mediation bidding, Unity and US-states consent, app-ads.txt, closed-test vs production-launch criteria |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, fonts, components, navigation map, canvas zoom/gesture/haptics rules, copy for every state, accessibility (TalkBack, font scale, reduced motion, large screens) (`DESIGN.md` at the root is a symlink to it) |

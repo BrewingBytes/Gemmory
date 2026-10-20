@@ -908,16 +908,16 @@ Labels: P1, build, persistence
 
 **Scope**
 - **Prompt:** a checked-in ChatGPT image prompt (`tools/remote/prompts/`) for a 2×3 sheet of 6 pictures in one theme, calm palette, one aspect per sheet (1:1, 3:4 or 4:3).
-- **Splitter:** finds the 6 tiles in a sheet, trims the gutters, crops each to the sheet's aspect and saves a source image; a sheet that doesn't split into 6 stops with a named error.
-- **Batch:** a folder + CSV (title, size with aspect e.g. `big-1:1`, colors, availableFrom, locked default `true`) → converter freeze → content-check gate (a yes per picture; `-PcontentChecked`, README.md:142-146) → provenance rows (AI-generated, model, prompt file, date; still refuses real people, brands and copyrighted characters) → `publishRemotePicture` with dates. Catalog, grids and provenance in one PR or nothing.
+- **Splitter:** finds the 6 tiles in a sheet, trims the gutters, crops each to the sheet's aspect and saves a source image; a sheet that doesn't split into 6 stops with a named error (blank cell, no gutters, not 3×2 or 2×3, a tile's short side under 256 px; founder 2026-10-20).
+- **Batch:** a folder + CSV (title, size with aspect e.g. `big-1:1`, colors, availableFrom, locked default `true`) → converter freeze → content-check gate (a yes per picture: a `contentChecked` column that must say `yes` on every row, founder 2026-10-20; until then the run prints the check and each review PNG and stops) → provenance rows (AI-generated, model, prompt file, date; still refuses real people, brands and copyrighted characters) → `publishRemotePicture` with dates. Catalog, grids and provenance in one PR or nothing.
 - **Old-client guard (D14, D7):** stamps each picture's `minAppVersion` with the lowest versionCode that understands every hiding field it uses (`availableFrom`, `rewardOf`, `mystery`); collections never raise it. A publish test fails if one is too low. For a dated picture, `addedAt` = `availableFrom`.
-- **Calendar warnings:** the batch warns when fewer than 14 days are scheduled ahead; a scheduled CI job on `pictures/v1/catalog.json` fails below 7 days, once the catalog has any `availableFrom`.
+- **Calendar warnings:** the batch warns when fewer than 14 days are scheduled ahead; a scheduled CI job on `pictures/v1/catalog.json` fails below 7 days, once the catalog has any `availableFrom`. Days = consecutive dates with a drop from today, so a missed date ends the run (founder 2026-10-20); the CI job counts from today in UTC+14, the batch from tomorrow.
 - Later columns ship with their issues: `rewardOf` + collections sheet (T37), `event` (T38), `mystery` (T43).
 - The prompt, splitter and freeze can merge first; the dated publish merges with or after T36.
 
 **Docs this issue owns:** README (how to run the pipeline), `tools/remote/PROVENANCE.md` (AI rows), `.github/workflows` (calendar check), `docs/agents/lessons.md` if the tooling teaches anything.
 
-**Tests:** `RemotePictureToolTest` rows (stamped versions, a field above its version fails, collections don't raise it, `addedAt` = `availableFrom`); splitter tests (6 tiles, 5 tiles error, gutter trim); calendar-check unit test (< 14 warn, < 7 fail, no `availableFrom` → pass).
+**Tests:** `RemotePictureToolTest` rows (stamped versions, a field above its version fails, fields an older app reads right don't raise it (the collections row lands with T37, which adds them), `addedAt` = `availableFrom`, a batch writes all or nothing, one drop per date); splitter tests (6 tiles, 5 tiles error, gutter trim); calendar-check unit test (< 14 warn, < 7 fail, no `availableFrom` → pass).
 
 **Done when:** the founder turns 4 ChatGPT sheets into 24 dated, signed, provenance-recorded pictures in one PR, old clients see none of them early, and the calendar check runs daily.
 

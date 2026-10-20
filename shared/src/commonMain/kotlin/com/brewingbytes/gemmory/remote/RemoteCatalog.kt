@@ -118,6 +118,21 @@ object RemoteCatalogs {
      */
     const val DROPS_MIN_APP = 13
 
+    /** The first app (versionCode) that reads the remote catalog at all (#43). */
+    const val REMOTE_MIN_APP = 11
+
+    /**
+     * The lowest app that reads [p] right (D14): an older app would refuse the whole catalog over its colors, or show
+     * a dated drop at once. The publishing tool stamps this as the picture's `minAppVersion`. Each later hiding field
+     * (`rewardOf` with T37, `mystery` with T43) adds its own version here; fields an older app can safely ignore,
+     * like collections, never raise it.
+     */
+    fun lowestApp(p: RemotePicture): Int = maxOf(
+        REMOTE_MIN_APP,
+        if (p.colors > p.size.paletteCap) MORE_COLORS_MIN_APP else REMOTE_MIN_APP,
+        if (p.availableFrom != null) DROPS_MIN_APP else REMOTE_MIN_APP,
+    )
+
     fun gridPath(id: String): String = "grids/$id.gmrg"
 
     /**
