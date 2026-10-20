@@ -16,6 +16,17 @@ enum class AskResult(val param: String) {
     GRANTED("granted"),
     DECLINED_IN_APP("declined_in_app"),
     DENIED_SYSTEM("denied_system"),
+
+    /** Yes, with Gemmory's notifications or the channel turned off: on, and the system page opens (founder, 2026-10-20). */
+    BLOCKED("blocked"),
+}
+
+/** What [Reminders] needs from the notification side, behind a port so the ask is tested on the JVM. */
+interface ReminderChannel {
+    /** Android lets Gemmory post: notifications allowed for the app and the "Evening reminder" channel on. */
+    fun allowed(): Boolean
+
+    fun ensureChannel()
 }
 
 /**
@@ -25,7 +36,7 @@ enum class AskResult(val param: String) {
 class Reminders(
     private val prefs: ReminderPrefs,
     private val scheduler: ReminderScheduler,
-    private val notifier: ReminderNotifier,
+    private val notifier: ReminderChannel,
     private val analytics: Analytics,
 ) {
     private val _on = MutableStateFlow(prefs.on)
@@ -92,11 +103,12 @@ class Reminders(
     fun askAnswered(result: AskResult) {
         prefs.ask = when (result) {
             AskResult.DECLINED_IN_APP -> ReminderAsk.afterNotNow(prefs.ask)
-            AskResult.GRANTED, AskResult.DENIED_SYSTEM -> ReminderAskState.DONE
+            AskResult.GRANTED, AskResult.DENIED_SYSTEM, AskResult.BLOCKED -> ReminderAskState.DONE
         }
         analytics.log(AnalyticsEvent.reminderPromptResult(result.param))
+        if (result == AskResult.GRANTED || result == AskResult.BLOCKED) setOn(true)
+        // The "Reminders on" line only when a reminder can really post; blocked, Settings shows the off line instead.
         if (result == AskResult.GRANTED) {
-            setOn(true)
             prefs.onLinePending = true
             _onLine.value = true
         }

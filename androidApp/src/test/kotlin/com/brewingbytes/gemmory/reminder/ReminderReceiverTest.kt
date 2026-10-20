@@ -30,6 +30,7 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** The evening run (T35): the bounded catalog check (eng D5), the late rule, and what's posted and logged. */
@@ -47,7 +48,11 @@ class ReminderReceiverTest {
     private val clock = DayClock({ now }) { TimeZone.UTC }
     private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
     private val posted = mutableListOf<ReminderOutcome.Post>()
+    /** Android lets the app post (the notifier's `allowed()`). */
     private var allowed = true
+
+    /** The post itself goes through. */
+    private var notifyWorks = true
     private var checks = 0
     private var started = emptyList<ReminderCanvas>()
 
@@ -76,8 +81,9 @@ class ReminderReceiverTest {
         todaysDrops = { remote.todaysDrops().toList() },
         pickToday = { null },
         streak = { streak },
+        allowed = { allowed },
         foreground = { false },
-        notify = { post -> allowed.also { if (it) posted += post } },
+        notify = { post -> notifyWorks.also { if (it) posted += post } },
         analytics = object : Analytics {
             override fun log(event: AnalyticsEvent) {
                 events += event
@@ -149,10 +155,45 @@ class ReminderReceiverTest {
     }
 
     @Test
-    fun aBlockedPostIsNotCountedAsShown() = runBlocking<Unit> {
-        allowed = false
+    fun aRefusedPostIsNotCountedAsShown() = runBlocking<Unit> {
+        notifyWorks = false
         started = listOf(ReminderCanvas("PHOTO/p1", null, placed = 80, total = 100, lastGemMillis = scheduled - 24 * 60 * 60_000L))
         assertEquals(ReminderReason.ALMOST_FINISHED, assertIs<ReminderOutcome.Post>(job().run(scheduled)).reason)
         assertEquals(emptyList(), events.toList())
+    }
+
+    /** Reminders on but notifications blocked: the evening wakes nothing (no network, no canvases, no pick, no event). */
+    @Test
+    fun blockedNotificationsSkipTheWholeRun() = runBlocking<Unit> {
+        allowed = false
+        catalog.add("lighthouse", CanvasSize.MEDIUM, availableFrom = today())
+        var read = false
+        var picked = false
+        val job = ReminderJob(
+            clock = clock,
+            zone = { TimeZone.UTC },
+            check = { checks++ },
+            canvases = { read = true; started },
+            todaysDrops = { emptyList() },
+            pickToday = { picked = true; null },
+            streak = { StreakState(length = 4, lastDay = clock.today() - 1, restDay = clock.today() - 3) },
+            allowed = { allowed },
+            foreground = { false },
+            notify = { posted += it; true },
+            analytics = object : Analytics {
+                override fun log(event: AnalyticsEvent) {
+                    events += event
+                }
+            },
+        )
+        assertNull(job.run(scheduled))
+        // Even a late run logs nothing.
+        now = scheduled + 3 * 60 * 60_000L
+        assertNull(job.run(scheduled))
+        assertEquals(0, checks)
+        assertFalse(read || picked)
+        assertEquals(emptyList(), posted)
+        assertEquals(emptyList(), events.toList())
+        assertEquals(emptyList(), source.requests.toList())
     }
 }

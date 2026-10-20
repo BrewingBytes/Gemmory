@@ -280,6 +280,7 @@ class GemmoryApp : Application() {
             todaysDrops = { remote.todaysDrops().toList() },
             pickToday = { started -> todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew) },
             streak = { streak.state() },
+            allowed = reminderNotifier::allowed,
             foreground = { foreground },
             notify = { post -> reminderNotifier.post(post, post.pictureId?.let(::reminderPicture), vip, dayClock.today()) },
             analytics = analytics,

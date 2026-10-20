@@ -345,11 +345,18 @@ class MainActivity : ComponentActivity() {
                 time = Reminders.timeLabel(this@MainActivity, reminderMinutes),
                 onYes = {
                     reminderAsk = null
-                    if (NotificationPermission.needed(this@MainActivity)) {
-                        app.reminders.permissionRequested()
-                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        app.reminders.askAnswered(AskResult.GRANTED)
+                    when {
+                        NotificationPermission.needed(this@MainActivity) -> {
+                            app.reminders.permissionRequested()
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        app.reminders.notificationsAllowed() -> app.reminders.askAnswered(AskResult.GRANTED)
+                        // Gemmory's notifications or the channel are off (Android 10-12, or switched off): on, and the
+                        // system page opens, as the Settings switch does (founder, 2026-10-20).
+                        else -> {
+                            app.reminders.askAnswered(AskResult.BLOCKED)
+                            NotificationPermission.openSettings(this@MainActivity)
+                        }
                     }
                 },
                 onNotNow = {

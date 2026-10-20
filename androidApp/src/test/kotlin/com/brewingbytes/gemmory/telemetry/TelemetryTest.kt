@@ -181,7 +181,7 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("reminder_late", mapOf("minutes" to 135L)), AnalyticsEvent.reminderLate(135))
         assertEquals(AnalyticsEvent("reminder_opened", mapOf("reason" to "drop")), AnalyticsEvent.reminderOpened(ReminderReason.DROP))
         assertEquals(listOf("drop", "today", "streak", "almost_finished"), ReminderReason.entries.map { it.param })
-        assertEquals(listOf("granted", "declined_in_app", "denied_system"), AskResult.entries.map { it.param })
+        assertEquals(listOf("granted", "declined_in_app", "denied_system", "blocked"), AskResult.entries.map { it.param })
         assertEquals(
             mapOf("source" to "bundled", "size" to "medium", "entry" to "reminder"),
             AnalyticsEvent.canvasStarted(CanvasRef(CanvasKind.BUNDLED, "cherries"), 104, 78, entry = CanvasEntry.REMINDER).params,

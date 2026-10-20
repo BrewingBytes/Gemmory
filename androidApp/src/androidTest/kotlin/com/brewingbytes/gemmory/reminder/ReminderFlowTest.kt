@@ -50,6 +50,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -233,6 +234,19 @@ class ReminderFlowTest {
         assertTrue(compose.onAllNodes(hasTestTag("play-canvas")).fetchSemanticsNodes().isEmpty())
         scenario.close()
         scenario = ActivityScenario.launch(tap(ReminderReason.ALMOST_FINISHED, canvas = "PHOTO/nope"))
+        waitFor(hasTestTag("tile-bundled-starter"))
+        assertTrue(compose.onAllNodes(hasTestTag("play-canvas")).fetchSemanticsNodes().isEmpty())
+    }
+
+    /**
+     * Android 10-11: Back finishes the root activity, and Recents relaunches the task's original intent (the
+     * notification's) with FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY. That's not a tap: the gallery, not the canvas again.
+     */
+    @Test
+    fun aRelaunchFromRecentsIsNotATap() {
+        val picked = app.todays.pick(emptySet(), vip = false, emptyList(), emptySet()) { false }!!
+        assertNull(ReminderTap.of(tap(ReminderReason.TODAY, picture = picked).addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)))
+        scenario = ActivityScenario.launch(tap(ReminderReason.TODAY, picture = picked).addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY))
         waitFor(hasTestTag("tile-bundled-starter"))
         assertTrue(compose.onAllNodes(hasTestTag("play-canvas")).fetchSemanticsNodes().isEmpty())
     }

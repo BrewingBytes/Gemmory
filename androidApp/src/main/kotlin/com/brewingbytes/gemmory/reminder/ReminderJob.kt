@@ -12,7 +12,9 @@ import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import kotlinx.datetime.TimeZone
 
 /**
- * One evening's run (T35), inside the receiver's 10 s (eng D8). A late run stops before the network. Otherwise the
+ * One evening's run (T35), inside the receiver's 10 s (eng D8). With notifications blocked it does nothing at all:
+ * no network, no canvas read, no pick, no event (reminders stay on, so they resume once Android allows them). A late
+ * run stops before the network. Otherwise the
  * catalog check when due (≤ 8 s, eng D5), then one read of what's on the phone (eng D12), Today's pick through the
  * gallery's own shared pick, which stores it (eng D3), [ReminderReasons], and the post. Analytics runs under the
  * consent the app applied in onCreate (eng D6).
@@ -28,12 +30,16 @@ class ReminderJob(
     /** Today's picture (or VIP's pick) for these started ids, picking and storing it if the day has none yet. */
     private val pickToday: (started: Set<String>) -> String?,
     private val streak: () -> StreakState,
+    /** Android lets Gemmory post: notifications allowed for the app and the "Evening reminder" channel on. */
+    private val allowed: () -> Boolean,
     private val foreground: () -> Boolean,
     /** Posts the notification; false when the system wouldn't (notifications blocked). */
     private val notify: (ReminderOutcome.Post) -> Boolean,
     private val analytics: Analytics,
 ) {
-    suspend fun run(scheduledMillis: Long): ReminderOutcome {
+    /** The evening's outcome, or null when notifications are blocked and nothing ran. */
+    suspend fun run(scheduledMillis: Long): ReminderOutcome? {
+        if (!allowed()) return null
         val scheduledDay = ReminderSchedule.dayOf(scheduledMillis, zone())
         early(scheduledMillis, scheduledDay)?.let { return it }
         check()

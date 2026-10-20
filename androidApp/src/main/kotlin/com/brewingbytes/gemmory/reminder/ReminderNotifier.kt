@@ -28,11 +28,11 @@ class ReminderPicture(val title: String, val size: CanvasSize?, val pattern: () 
  * big-picture style. A tap opens [MainActivity] with an explicit, immutable intent that names only the reason, the
  * picture or canvas, and the day.
  */
-class ReminderNotifier(context: Context) {
+class ReminderNotifier(context: Context) : ReminderChannel {
     private val app = context.applicationContext
     private val manager = NotificationManagerCompat.from(app)
 
-    fun ensureChannel() {
+    override fun ensureChannel() {
         val channel = NotificationChannel(CHANNEL, "Evening reminder", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "One note a day about something new to play or a picture you're close to finishing."
         }
@@ -40,7 +40,7 @@ class ReminderNotifier(context: Context) {
     }
 
     /** False when the system blocks Gemmory's notifications, or the player turned the channel off. */
-    fun allowed(): Boolean {
+    override fun allowed(): Boolean {
         if (!manager.areNotificationsEnabled()) return false
         val channel = manager.getNotificationChannel(CHANNEL) ?: return true
         return channel.importance != NotificationManager.IMPORTANCE_NONE
@@ -116,8 +116,14 @@ class ReminderNotifier(context: Context) {
 /** A reminder tap as [MainActivity] receives it (T35): only ids and a day, re-checked before anything opens. */
 data class ReminderTap(val reason: ReminderReason, val pictureId: String?, val canvasKey: String?, val day: Long) {
     companion object {
+        /**
+         * The tap in [intent], or null. A relaunch from Recents carries the task's original intent again (on Android
+         * 10-11, Back finishes the root activity, so a notification that started the task comes back with
+         * FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY); that's not a tap, and must not open the canvas or count again.
+         */
         fun of(intent: Intent?): ReminderTap? {
             if (intent?.action != ReminderNotifier.ACTION_TAP) return null
+            if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
             val reason = ReminderNotifier.reasonOf(intent.getStringExtra(ReminderNotifier.EXTRA_REASON)) ?: return null
             return ReminderTap(
                 reason,
