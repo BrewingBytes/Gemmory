@@ -1,0 +1,13 @@
+sheet,tile,id,title,size,locked,subject,generatedOn,contentChecked,rewardOf
+garden.png,1,garden-roses,Climbing Roses,quick-1:1,false,climbing roses on an old stone wall,2026-10-20,yes,
+garden.png,2,garden-greenhouse,The Greenhouse,medium-1:1,true,a glass greenhouse full of plants in morning light,2026-10-20,yes,
+garden.png,3,garden-watering-can,Watering Can,quick-1:1,true,a watering can among potted herbs on a step,2026-10-20,yes,
+garden.png,4,garden-bench,Garden Bench,medium-1:1,true,a wooden bench under a flowering tree,2026-10-20,yes,
+garden.png,5,garden-pond,Lily Pond,medium-1:1,true,a lily pond with reeds and a small footbridge,2026-10-20,yes,
+garden.png,6,garden-gate,Gate in Bloom,medium-1:1,true,a wooden garden gate framed by blooming flowers,2026-10-20,yes,garden
+night-sky.png,1,night-moon-hills,Moon over the Hills,quick-1:1,false,a full moon rising over rolling hills,2026-10-20,yes,
+night-sky.png,2,night-fireflies,Fireflies,medium-1:1,true,fireflies over a meadow at dusk,2026-10-20,yes,
+night-sky.png,3,night-lantern,Lantern on the Porch,big-1:1,true,a glowing lantern on a wooden porch at night,2026-10-20,yes,
+night-sky.png,4,night-observatory,Hilltop Observatory,medium-1:1,true,a small domed observatory on a hill under stars,2026-10-20,yes,
+night-sky.png,5,night-starry-lake,Starry Lake,medium-1:1,true,a still lake reflecting a starry sky,2026-10-20,yes,
+night-sky.png,6,night-meteor-shower,Meteor Shower,medium-1:1,true,a meteor shower over a quiet valley,2026-10-20,yes,night-sky
