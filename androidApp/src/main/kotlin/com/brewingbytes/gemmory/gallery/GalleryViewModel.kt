@@ -13,6 +13,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.collections.CollectionCopy
+import com.brewingbytes.gemmory.collections.Keepsake
+import com.brewingbytes.gemmory.collections.Settled
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.save.Decoded
@@ -21,6 +24,7 @@ import com.brewingbytes.gemmory.photo.PhotoTitles
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.remote.CollectionRules
 import com.brewingbytes.gemmory.share.ProgressSharing
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -96,11 +100,41 @@ internal fun finishedInOrder(tiles: List<Tile>): List<Tile> =
 data class TodayCard(val tile: Tile, val preview: ImageBitmap?, val size: String, val vip: Boolean, val free: Boolean, val drop: Boolean = false)
 
 /**
+ * One collection row (T37, design system "Collection and event rows"): [members] are the strip's tiles in the
+ * collection's order, the keepsake last once it's in; [coming] the "more coming" well. [glint]: complete and its glint
+ * hasn't played. [keepsakeTitle] is set once the keepsake is in, for the announcement.
+ */
+data class CollectionRow(
+    val id: String,
+    val title: String,
+    val members: List<Tile>,
+    val finished: Int,
+    val size: Int,
+    val coming: Int,
+    val line: String,
+    val complete: Boolean,
+    val glint: Boolean,
+    val keepsakeTitle: String? = null,
+)
+
+/**
+ * The gallery's collections (T37): [rows] above the grid ([rowsLarge] above 1.5× font, D4), whether the "All
+ * collections" link shows with each, and [all] for its sheet, newest first, complete ones last.
+ */
+data class CollectionsUi(
+    val rows: List<CollectionRow> = emptyList(),
+    val showAll: Boolean = false,
+    val rowsLarge: List<CollectionRow> = emptyList(),
+    val showAllLarge: Boolean = false,
+    val all: List<CollectionRow> = emptyList(),
+)
+
+/**
  * [streak]: days in a row with a picture finished (#33), as of this visit; 0 when broken or never played. [today]:
  * today's picture (#34), null when there's nothing to pick. [todayFree]: what opens without a video today, today's
  * free picture and today's drop (T36). [tomorrow]: the frost of tomorrow's drop, stored and verified (T36), for the
  * Tomorrow line; null when there's none. [pictures] and [photos] are what's left to play; [finishedPictures] and
- * [finishedPhotos] are each tab's Finished section (#89).
+ * [finishedPhotos] are each tab's Finished section (#89). [collections]: the collection rows and sheet (T37).
  */
 data class GalleryState(
     val loaded: Boolean = false,
@@ -112,6 +146,7 @@ data class GalleryState(
     val today: TodayCard? = null,
     val todayFree: Set<String> = emptySet(),
     val tomorrow: ImageBitmap? = null,
+    val collections: CollectionsUi = CollectionsUi(),
 )
 
 class GalleryViewModel(application: Application, private val handle: SavedStateHandle) : AndroidViewModel(application) {
@@ -167,7 +202,15 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         app.remote.checkIfDue()
         loadedDay = app.dayClock.today()
         viewModelScope.launch {
-            val (pictures, photos) = store.summaries()
+            var (pictures, photos) = store.summaries()
+            // Collections (T37): a completion grants its keepsake and token here; a keepsake copied in now joins the grid.
+            val settled = app.collections.settle(pictures)
+            val ids = pictures.map { it.ref.id }.toSet()
+            if (settled.statuses.any { it.keepsakeState == Keepsake.ADDED && it.keepsake?.id !in ids }) {
+                val again = store.summaries()
+                pictures = again.first
+                photos = again.second
+            }
             val tiles = withContext(Dispatchers.Default) { pictures.map { tile(it) } to photos.map { tile(it) } }
             val monetization = app.monetization
             val unlocked = monetization.unlocks.unlocked.value
@@ -186,7 +229,49 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 today = today,
                 todayFree = todayFree,
                 tomorrow = tomorrow,
+                collections = collectionsUi(settled, tiles.first, tiles.second, entitlements.vip),
             )
+        }
+    }
+
+    /** The rows, the link and the sheet (T37) from a settle and this visit's tiles; none before the first finish (D5). */
+    private fun collectionsUi(settled: Settled, pictures: List<Tile>, photos: List<Tile>, vip: Boolean): CollectionsUi {
+        if (!settled.fetched || settled.statuses.isEmpty()) return CollectionsUi()
+        val byId = pictures.associateBy { it.ref.id }
+        val rows = settled.statuses.associate { status ->
+            val members = status.progress.shown.mapNotNull { byId[it] } +
+                listOfNotNull(status.keepsake?.takeIf { status.keepsakeState == Keepsake.ADDED }?.let { byId[it.id] })
+            status.id to CollectionRow(
+                id = status.id,
+                title = status.collection.title,
+                members = members,
+                finished = status.progress.finished,
+                size = status.progress.size,
+                coming = status.progress.coming,
+                line = CollectionCopy.line(status, vip),
+                complete = status.complete,
+                glint = status.glintPending,
+                keepsakeTitle = status.keepsake?.title?.takeIf { status.keepsakeState == Keepsake.ADDED },
+            )
+        }
+        val progress = settled.statuses.map { it.progress }
+        val completed = settled.statuses.mapNotNull { s -> s.completedDay?.let { s.id to it } }.toMap()
+        val glints = settled.statuses.filter { it.glintPending }.map { it.id }.toSet()
+        val anyFinished = pictures.any { it.done } || photos.any { it.done }
+        val today = app.dayClock.today()
+        val pick = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = false)
+        val large = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = true)
+        val all = if (anyFinished) CollectionRules.sheet(progress, completed.keys).mapNotNull { rows[it] } else emptyList()
+        return CollectionsUi(pick.rows.mapNotNull { rows[it] }, pick.showAll, large.rows.mapNotNull { rows[it] }, large.showAll, all)
+    }
+
+    /** A completed collection's glint played (or showed at once under reduced motion): never again (T37). */
+    fun glintShown(id: String) {
+        app.collections.glintShown(id)
+        _state.value = _state.value.let { s ->
+            val off = { r: CollectionRow -> if (r.id == id) r.copy(glint = false) else r }
+            val c = s.collections
+            s.copy(collections = c.copy(rows = c.rows.map(off), rowsLarge = c.rowsLarge.map(off), all = c.all.map(off)))
         }
     }
 

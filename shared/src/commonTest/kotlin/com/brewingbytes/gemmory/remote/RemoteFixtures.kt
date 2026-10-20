@@ -32,23 +32,29 @@ object RemoteFixtures {
         minAppVersion: Int = 12,
         addedAt: String = "2026-10-18",
         availableFrom: String? = null,
+        rewardOf: String? = null,
     ): RemotePicture {
         val file = (GridCodec.decode(grid) as Decoded.Ok<GridFile>).value
         return RemotePicture(
             id, id.replaceFirstChar { it.uppercase() }, ratio, size, file.pattern.width, file.pattern.height,
             file.pattern.palette.size, RemoteCatalogs.gridPath(id), Sha256.digest(grid).toHex(), file.crc32, locked,
-            minAppVersion, LocalDate.parse(addedAt), availableFrom?.let(LocalDate::parse),
+            minAppVersion, LocalDate.parse(addedAt), availableFrom?.let(LocalDate::parse), rewardOf,
         )
     }
 
-    fun catalogJson(pictures: List<RemotePicture>, issuedAt: Long = 1_792_000_000, version: Long = 1): ByteArray =
+    fun catalogJson(
+        pictures: List<RemotePicture>,
+        issuedAt: Long = 1_792_000_000,
+        version: Long = 1,
+        collections: List<RemoteCollection> = emptyList(),
+    ): ByteArray =
         Json.write(
             Json.Obj(
                 linkedMapOf(
                     "version" to Json.Num(version.toString()),
                     "issuedAt" to Json.Num(issuedAt.toString()),
                     "pictures" to Json.Arr(pictures.map { RemoteCatalogs.entry(it) }),
-                ),
+                ).apply { if (collections.isNotEmpty()) put("collections", Json.Arr(collections.map { RemoteCatalogs.collectionEntry(it) })) },
             ),
         ).encodeToByteArray()
 

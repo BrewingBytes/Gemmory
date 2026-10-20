@@ -20,6 +20,8 @@ import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.billing.BillingRepository
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.bundled.TodaysPictures
+import com.brewingbytes.gemmory.collections.CollectionPrefs
+import com.brewingbytes.gemmory.collections.Collections
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.play.PlayStreak
@@ -140,6 +142,10 @@ class GemmoryApp : Application() {
     lateinit var remote: RemotePictures
         private set
 
+    /** Collections (T37): progress, completion, keepsake and token. Reads the current remote, store and monetization. */
+    lateinit var collections: Collections
+        private set
+
     /** App-scoped, so an encode keeps going while the process lives, whatever screen is showing (design D8). */
     lateinit var encodes: EncodeManager
         private set
@@ -214,7 +220,27 @@ class GemmoryApp : Application() {
             scope = appScope,
             io = Dispatchers.IO.limitedParallelism(1),
             reporter = reporter,
+            // Read on each use: the unlocks are replaced with the monetization in connected tests.
+            earned = { if (::monetization.isInitialized) monetization.unlocks.unlocked.value else emptySet() },
         )
+
+    private fun newCollections() = Collections(
+        prefs = CollectionPrefs(getSharedPreferences(CollectionPrefs.FILE, MODE_PRIVATE)),
+        catalog = { remote.catalog() },
+        vip = { monetization.entitlements.value.vip },
+        unlock = { monetization.unlocks.unlock(it) },
+        earnToken = { monetization.earnTokenOnce(it) },
+        keep = { store.keep(it) },
+        keptToday = { remote.earnedToday(it) },
+        today = { dayClock.today() },
+        analytics = analytics,
+    )
+
+    /** Connected tests only (T37): re-reads the completed collections from their preferences, which a test cleared. */
+    @VisibleForTesting
+    internal fun resetCollectionsForTest() {
+        collections = newCollections()
+    }
 
     /**
      * Connected tests only (#43): remote pictures from [source] signed by [keys] (a test key, never trusted in a
@@ -440,6 +466,7 @@ class GemmoryApp : Application() {
         )
         monetization = newMonetization()
         todays = newTodays()
+        collections = newCollections()
         dayPlayed = DayPlayed(dayClock, PrefsDayStore(this, PLAYED_FILE))
         achievements = newAchievements(games)
         // Consent Mode v2 from the UMP result, on every change (R3-7); the saved one was applied above.

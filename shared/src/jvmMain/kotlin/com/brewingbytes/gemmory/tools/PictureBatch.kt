@@ -6,6 +6,7 @@ import com.brewingbytes.gemmory.converter.ConverterOptions
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.remote.CatalogCheck
 import com.brewingbytes.gemmory.remote.RemoteCatalogs
+import com.brewingbytes.gemmory.remote.RemoteCollection
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePicture
 import kotlinx.datetime.DatePeriod
@@ -19,16 +20,22 @@ import javax.imageio.ImageIO
  * Build-time only (T44, CEO E1): turns a folder of ChatGPT sheets and its `batch.csv` into dated remote pictures in one
  * signed publish. Each row names a sheet and a tile (1-6, reading order) and the picture made from it. The run reads
  * and checks every row, splits every sheet ([SheetSplitter]), stops at the content check until every row says yes,
- * then hands the whole batch to [RemotePictureTool.publish], which writes nothing unless all of it verifies.
- * README → Publishing a batch of pictures.
+ * then hands the whole batch to [RemotePictureTool.publish], which writes nothing unless all of it verifies. An
+ * optional `collections.csv` beside it (T37: id, title, members separated by `;`) adds or replaces collections; a row
+ * with `rewardOf` is that collection's keepsake. README → Publishing a batch of pictures.
  */
 object PictureBatch {
     const val CSV = "batch.csv"
 
+    /** Optional (T37): one collection per row. */
+    const val COLLECTIONS_CSV = "collections.csv"
+
+    val COLLECTION_COLUMNS = listOf("id", "title", "members")
+
     val REQUIRED = listOf("sheet", "tile", "id", "title", "size", "subject", "generatedOn", "contentChecked")
 
-    /** Optional, with their defaults: colors `standard`, availableFrom none, locked `true`, focus `0.5`. */
-    val OPTIONAL = listOf("colors", "availableFrom", "locked", "focus", "prompt", "model")
+    /** Optional, with their defaults: colors `standard`, availableFrom none, locked `true`, focus `0.5`, rewardOf none. */
+    val OPTIONAL = listOf("colors", "availableFrom", "locked", "focus", "prompt", "model", "rewardOf")
 
     const val DEFAULT_PROMPT = "prompts/sheet-2x3.md"
 
@@ -55,6 +62,8 @@ object PictureBatch {
         val contentChecked: Boolean,
         val prompt: String,
         val model: String,
+        /** A collection's keepsake (T37): hidden until that collection is earned; never dated. */
+        val rewardOf: String? = null,
     )
 
     class Settings(
@@ -85,6 +94,7 @@ object PictureBatch {
     fun run(s: Settings): Published {
         val rows = read(File(s.batchDir, CSV).readText())
         checkRows(rows, s)
+        val collections = File(s.batchDir, COLLECTIONS_CSV).takeIf { it.exists() }?.let { readCollections(it.readText()) }.orEmpty()
         val tiles = rows.groupBy { it.sheet }.mapValues { (sheet, group) ->
             val image = ImageIO.read(File(s.batchDir, sheet)) ?: error("cannot read sheet $sheet")
             try {
@@ -126,9 +136,10 @@ object PictureBatch {
                 colors = row.colors,
                 availableFrom = row.availableFrom,
                 sourceImage = tiles.getValue(row.sheet)[row.tile - 1],
+                rewardOf = row.rewardOf,
             )
         }
-        val pictures = RemotePictureTool.publish(requests)
+        val pictures = RemotePictureTool.publish(requests, collections)
         val catalog = RemoteCatalogs.check(
             File(s.dir, "catalog.json").readBytes(), File(s.dir, "catalog.json.sig").readBytes(), s.trustedKeys, Int.MAX_VALUE, null, s.reservedIds,
         ) as CatalogCheck.Ok
@@ -149,6 +160,7 @@ object PictureBatch {
         for (row in rows) {
             if (File(s.sourcesDir, "${row.id}.jpg").exists()) problems += "line ${row.line}: ${row.id} already has a source; ids are never reused"
             if (row.availableFrom != null && row.availableFrom <= s.today) problems += "line ${row.line}: ${row.availableFrom} isn't after today (${s.today})"
+            if (row.rewardOf != null && row.availableFrom != null) problems += "line ${row.line}: a keepsake (rewardOf) has no availableFrom"
         }
         require(problems.isEmpty()) { problems.joinToString("\n") }
     }
@@ -168,6 +180,29 @@ object PictureBatch {
         }
         require(problems.isEmpty()) { problems.joinToString("\n") }
         return rows
+    }
+
+    /** Parses `collections.csv` (T37): a header `id,title,members`, then one collection per row, members split by `;`. */
+    fun readCollections(text: String): List<RemoteCollection> {
+        val lines = csv(text)
+        require(lines.isNotEmpty()) { "$COLLECTIONS_CSV is empty" }
+        val header = lines.first().map { it.trim() }
+        require(header == COLLECTION_COLUMNS) { "$COLLECTIONS_CSV columns must be ${COLLECTION_COLUMNS.joinToString(",")}, were ${header.joinToString(",")}" }
+        val problems = ArrayList<String>()
+        val out = lines.drop(1).withIndex().filter { (_, f) -> f.any { it.isNotBlank() } }.mapNotNull { (i, fields) ->
+            val line = i + 2
+            val (id, title, members) = (fields.map { it.trim() } + listOf("", "", "")).take(3)
+            val list = members.split(';').map { it.trim() }.filter { it.isNotEmpty() }
+            when {
+                !RemoteCatalogs.ID.matches(id) -> problems += "line $line: id must match ${RemoteCatalogs.ID.pattern}"
+                title.isBlank() -> problems += "line $line: title is empty"
+                list.isEmpty() -> problems += "line $line: members is empty"
+                else -> return@mapNotNull RemoteCollection(id, title, list)
+            }
+            null
+        }
+        require(problems.isEmpty()) { problems.joinToString("\n") }
+        return out
     }
 
     private fun row(line: Int, v: Map<String, String>): Row {
@@ -202,6 +237,7 @@ object PictureBatch {
             },
             prompt = v["prompt"]?.takeIf { it.isNotEmpty() } ?: DEFAULT_PROMPT,
             model = v["model"]?.takeIf { it.isNotEmpty() } ?: DEFAULT_MODEL,
+            rewardOf = v["rewardOf"]?.takeIf { it.isNotEmpty() }?.also { require(RemoteCatalogs.ID.matches(it)) { "rewardOf must be a collection id" } },
         )
     }
 

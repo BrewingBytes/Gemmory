@@ -192,6 +192,9 @@ class Monetization(
     /** Fills from a rewarded video or today's fills grace (#38). */
     suspend fun earnFills() = onPolicy { items.earn(Item.FILLS, Inventory.FILLS_PER_VIDEO) }
 
+    /** A completed collection's unlock token (T37, CEO C6), once per [earnId]; true when it was added now. */
+    suspend fun earnTokenOnce(earnId: String): Boolean = onPolicy { items.earnOnce(Item.UNLOCK_TOKEN, 1, earnId) }
+
     /** Spends one [item] for [useId] (idempotent per use); false when none is left. VIP spends nothing. */
     suspend fun spend(item: Item, useId: String): Boolean = onPolicy {
         entitlements.value.vip || items.spend(item, useId)

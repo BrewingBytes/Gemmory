@@ -197,11 +197,15 @@ class MainActivity : ComponentActivity() {
             if (top is Route.Completion && completion.fresh.isFresh(top)) app.interstitials.onFreshCompletion()
             // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
             if (left is Route.Completion && left != top && completion.fresh.left(left) && top == Route.Gallery) {
-                val attempt = app.reminders.onLeftFreshFinish()
+                // A return that completes a collection (T37, plan-design-review D7) has no interruption: the ask and
+                // the interstitial wait for the next eligible finish, and the gallery brings the row into view.
+                app.collections.settle(app.store.summaries().first)
+                val reward = left.ref.kind != CanvasKind.PHOTO && app.collections.takeRewardReturn(left.ref.id)
+                val attempt = app.reminders.onLeftFreshFinish(ask = !reward)
                 if (attempt != null) {
                     app.reminders.askShown(attempt)
                     reminderAsk = attempt
-                } else {
+                } else if (!reward) {
                     app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
                 }
             }

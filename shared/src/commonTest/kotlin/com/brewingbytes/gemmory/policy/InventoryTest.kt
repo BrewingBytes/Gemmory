@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.policy
 
 import com.brewingbytes.gemmory.save.Decoded
+import com.brewingbytes.gemmory.save.Envelope
 import com.brewingbytes.gemmory.save.Refusal
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -105,6 +106,35 @@ class InventoryTest {
         // More spins used than earned is malformed, CRC or not.
         val bad = InventoryCodec.encode(state.copy(spinsUsed = 5))
         assertEquals(Decoded.Refused(Refusal.Malformed), InventoryCodec.decode(bad))
+    }
+
+    /** T37: a collection's token is earned once per id, kept in the same write as the count, across reloads. */
+    @Test
+    fun aOneTimeEarnIsGivenOnce() {
+        val inv = inventory()
+        assertTrue(inv.earnOnce(Item.UNLOCK_TOKEN, 1, "collection-seaside"))
+        assertFalse(inv.earnOnce(Item.UNLOCK_TOKEN, 1, "collection-seaside"))
+        assertEquals(1, inv.count(Item.UNLOCK_TOKEN))
+        // A fresh read of the file (the app restarted after a crash) still knows it.
+        val again = inventory()
+        assertFalse(again.earnOnce(Item.UNLOCK_TOKEN, 1, "collection-seaside"))
+        assertTrue(again.earnOnce(Item.UNLOCK_TOKEN, 1, "collection-forest"))
+        assertEquals(2, again.count(Item.UNLOCK_TOKEN))
+        // Spending the token doesn't forget the earn.
+        assertTrue(again.spend(Item.UNLOCK_TOKEN, "unlock-a"))
+        assertFalse(again.earnOnce(Item.UNLOCK_TOKEN, 1, "collection-seaside"))
+    }
+
+    /** R1: a v1 file (before T37) reads as before, with no one-time earns, and is written back as v2. */
+    @Test
+    fun aVersionOneFileStillReads() {
+        val state = InventoryState(fills = 7, tokens = 2, spinsEarned = 1, recent = listOf(Spend("photo-1", Item.PHOTO_CANVAS)))
+        val v2 = Envelope.open(InventoryCodec.encode(state), InventoryCodec.MAGIC) as Decoded.Ok<Envelope.Opened>
+        // v1's body is v2's without the trailing empty earn list (one varint 0).
+        val v1 = Envelope.wrap(InventoryCodec.MAGIC, 1, v2.value.body.copyOf(v2.value.body.size - 1))
+        assertEquals(state, assertIs<Decoded.Ok<InventoryState>>(InventoryCodec.decode(v1)).value)
+        val rewarded = state.copy(rewarded = setOf("collection-seaside"))
+        assertEquals(rewarded, assertIs<Decoded.Ok<InventoryState>>(InventoryCodec.decode(InventoryCodec.encode(rewarded))).value)
     }
 
     @Test

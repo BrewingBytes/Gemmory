@@ -55,6 +55,9 @@ data class RemoteState(
 
     fun attempted(nowMillis: Long): RemoteState = copy(lastAttemptMillis = nowMillis)
 
+    /** [id] counts as first seen on [day] (T37: a keepsake on the day it's earned), and is New again until opened. */
+    fun seenOn(id: String, day: LocalDate): RemoteState = copy(firstSeen = firstSeen + (id to day.toEpochDays()), opened = opened - id)
+
     fun opened(id: String): RemoteState = if (id in firstSeen && id !in opened) copy(opened = opened + id) else this
 
     /** The "New" label: came (a drop: opened to all) in the last [NEW_DAYS] days and not opened yet. */

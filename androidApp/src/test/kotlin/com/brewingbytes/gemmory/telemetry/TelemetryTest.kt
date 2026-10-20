@@ -168,6 +168,30 @@ class TelemetryTest {
         assertTrue(params.none { it == "lighthouse" }, "no picture id in any param")
     }
 
+    /**
+     * T37: a collection's id is the one id an event may carry (a content id, the documented exception): on the canvas
+     * events of its pictures and on `collection_completed`. A picture's own id still never is.
+     */
+    @Test
+    fun collectionEventsCarryTheCollectionIdOnly() {
+        val harbor = CanvasRef(CanvasKind.REMOTE, "harbor")
+        assertEquals(
+            mapOf("source" to "remote", "size" to "medium", "entry" to "collection", "collection_id" to "seaside"),
+            AnalyticsEvent.canvasStarted(harbor, 90, 90, entry = CanvasEntry.COLLECTION, collectionId = "seaside").params,
+        )
+        assertEquals(
+            mapOf("source" to "remote", "size" to "medium", "entry" to "gallery", "collection_id" to "seaside"),
+            AnalyticsEvent.canvasFinished(harbor, 90, 90, collectionId = "seaside").params,
+        )
+        assertEquals(AnalyticsEvent("collection_completed", mapOf("collection_id" to "seaside")), AnalyticsEvent.collectionCompleted("seaside"))
+        assertEquals(
+            AnalyticsEvent("inventory_earned", mapOf("item" to "unlock_token", "source" to "collection", "amount" to 1L)),
+            AnalyticsEvent.inventoryEarned(Item.UNLOCK_TOKEN, EarnSource.COLLECTION, 1),
+        )
+        assertFalse("collection_id" in AnalyticsEvent.canvasStarted(harbor, 90, 90).params, "no collection, no param")
+        assertTrue(AnalyticsEvent.canvasFinished(harbor, 90, 90, collectionId = "seaside").params.values.none { it == "harbor" })
+    }
+
     /** T35: the reminder's events, with reasons, results, minutes and attempts only. */
     @Test
     fun reminderEventsCarryReasonsAndTimesButNoIds() {

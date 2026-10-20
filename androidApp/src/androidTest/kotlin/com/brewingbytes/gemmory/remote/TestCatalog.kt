@@ -14,6 +14,9 @@ import kotlinx.datetime.LocalDate
 class TestCatalog(private val seed: ByteArray = SEED) {
     val files = mutableMapOf<String, ByteArray>()
     val pictures = mutableListOf<RemotePicture>()
+
+    /** Collections (T37), in catalog order; [publish] writes them. */
+    val collections = mutableListOf<RemoteCollection>()
     var issuedAt = 1_792_000_000L
 
     /** [availableFrom] makes it a dated drop (T36), for an app that knows drops. */
@@ -24,6 +27,8 @@ class TestCatalog(private val seed: ByteArray = SEED) {
         addedAt: String = "2026-10-18",
         salt: Int = id.hashCode(),
         availableFrom: String? = null,
+        /** A collection's keepsake (T37), for an app that knows keepsakes. */
+        rewardOf: String? = null,
         /** False to add many pictures and sign once, with [publish]. */
         publish: Boolean = true,
     ): RemotePicture {
@@ -32,13 +37,21 @@ class TestCatalog(private val seed: ByteArray = SEED) {
         val p = RemotePicture(
             id, id.replace('-', ' ').replaceFirstChar { it.uppercase() }, AspectRatio.SQUARE, size, file.pattern.width,
             file.pattern.height, file.pattern.palette.size, RemoteCatalogs.gridPath(id), Sha256.digest(grid).toHex(),
-            file.crc32, locked, if (availableFrom == null) 1 else RemoteCatalogs.DROPS_MIN_APP, LocalDate.parse(addedAt),
-            availableFrom?.let(LocalDate::parse),
-        )
+            file.crc32, locked, 0, LocalDate.parse(addedAt), availableFrom?.let(LocalDate::parse), rewardOf,
+        ).let { it.copy(minAppVersion = if (availableFrom == null && rewardOf == null) 1 else RemoteCatalogs.lowestApp(it)) }
         pictures += p
         files[p.grid] = grid
         if (publish) publish()
         return p
+    }
+
+    /** Adds (or replaces) a collection (T37) and republishes. */
+    fun collection(id: String, vararg members: String, title: String = id.replaceFirstChar { it.uppercase() }, event: Boolean = false): RemoteCollection {
+        val c = RemoteCollection(id, title, members.toList(), event)
+        val at = collections.indexOfFirst { it.id == id }
+        if (at >= 0) collections[at] = c else collections += c
+        publish()
+        return c
     }
 
     fun remove(id: String) {
@@ -56,7 +69,7 @@ class TestCatalog(private val seed: ByteArray = SEED) {
                     "version" to Json.Num("1"),
                     "issuedAt" to Json.Num(issuedAt.toString()),
                     "pictures" to Json.Arr(pictures.map { RemoteCatalogs.entry(it) }),
-                ),
+                ).apply { if (collections.isNotEmpty()) put("collections", Json.Arr(collections.map { RemoteCatalogs.collectionEntry(it) })) },
             ),
         ).encodeToByteArray()
         files[RemotePictures.CATALOG] = json

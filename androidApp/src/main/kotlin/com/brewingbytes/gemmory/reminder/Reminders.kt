@@ -92,10 +92,12 @@ class Reminders(
     /**
      * Back on the gallery from a fresh finish's completion screen: counts the finish and returns the ask's attempt (1
      * or 2) when it's due now, else null, and the interstitial check runs as before (one interruption per return).
+     * [ask] false (a return that completed a collection, T37 D7) counts the finish but never asks: a due ask waits
+     * for the next fresh finish.
      */
-    fun onLeftFreshFinish(): Int? {
+    fun onLeftFreshFinish(ask: Boolean = true): Int? {
         prefs.finishes = prefs.finishes + 1
-        return ReminderAsk.attemptDue(prefs.ask, prefs.finishes, prefs.on)
+        return if (ask) ReminderAsk.attemptDue(prefs.ask, prefs.finishes, prefs.on) else null
     }
 
     fun askShown(attempt: Int) = analytics.log(AnalyticsEvent.reminderPromptShown(attempt))

@@ -83,6 +83,17 @@ object A11yText {
     }
 
     /**
+     * A collection row's heading (T37), with the well folded in: "Seaside, 3 of 7 finished, 2 more coming" /
+     * "Seaside, 7 of 7 finished".
+     */
+    fun collection(title: String, finished: Int, size: Int, coming: Int): String =
+        "$title, $finished of $size finished" + if (coming > 0) ", $coming more coming" else ""
+
+    /** The polite announcement when a completed collection's row first shows (T37). */
+    fun collectionComplete(title: String, keepsake: Boolean): String =
+        if (keepsake) "$title complete. Keepsake picture added." else "$title complete."
+
+    /**
      * "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock"; a remote picture
      * that just arrived (#43) reads "Fox in Snow, new, 0% done" / "…, new, locked, watch a video to unlock".
      */

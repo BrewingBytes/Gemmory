@@ -21,7 +21,14 @@ enum class Item(val param: String) {
 }
 
 /** Where an item came from (#38). [param] is the analytics value. */
-enum class EarnSource(val param: String) { VIDEO("video"), GRACE("grace"), WHEEL("wheel") }
+enum class EarnSource(val param: String) {
+    VIDEO("video"),
+    GRACE("grace"),
+    WHEEL("wheel"),
+
+    /** A completed collection's token (T37, CEO C6). */
+    COLLECTION("collection"),
+}
 
 /** The gift wheel's prizes and their odds in percent (#38, founder pick 2026-10-17); they add up to 100. */
 enum class WheelPrize(val item: Item, val amount: Int, val percent: Int) {
@@ -48,7 +55,7 @@ enum class WheelPrize(val item: Item, val amount: Int, val percent: Int) {
 /**
  * The inventory's state (#38). [spinsEarned] counts the 5-day streak gifts ever earned and [spinsUsed] the ones spun,
  * so missed spins add up. [recent] keeps the latest spends' use ids, so a repeated spend (a double tap, a retry) takes
- * nothing more.
+ * nothing more. [rewarded] keeps every one-time earn's id (T37: a collection's token), kept for good, so it's given once.
  */
 data class InventoryState(
     val fills: Int = 0,
@@ -57,6 +64,7 @@ data class InventoryState(
     val spinsEarned: Int = 0,
     val spinsUsed: Int = 0,
     val recent: List<Spend> = emptyList(),
+    val rewarded: Set<String> = emptySet(),
 ) {
     val spinsWaiting: Int get() = spinsEarned - spinsUsed
 
@@ -112,6 +120,17 @@ class Inventory(
     fun earn(item: Item, amount: Int) {
         require(amount > 0) { "earn $amount" }
         commit(state.with(item, state.count(item) + amount))
+    }
+
+    /**
+     * Earns [amount] of [item] once for [earnId] (T37: `collection-<id>`). The id is kept in the same write as the
+     * count, so a retry after a crash can neither give it twice nor lose it. False when [earnId] already earned.
+     */
+    fun earnOnce(item: Item, amount: Int, earnId: String): Boolean {
+        require(amount > 0) { "earn $amount" }
+        if (earnId in state.rewarded) return false
+        commit(state.with(item, state.count(item) + amount).copy(rewarded = state.rewarded + earnId))
+        return true
     }
 
     /**
@@ -171,11 +190,12 @@ class Inventory(
 /**
  * The inventory file `filesDir/inventory/items`, "GMRI" v1 (same envelope and CRC trailer as the save files). Body:
  * varint fills, varint canvases, varint tokens, varint spinsEarned, varint spinsUsed, u8 count, then per spend: u16
- * id byte length, the id in UTF-8, u8 item.
+ * id byte length, the id in UTF-8, u8 item. v2 (T37) adds varint count, then per one-time earn id: u16 byte length,
+ * the id in UTF-8. A v1 file reads as having none.
  */
 object InventoryCodec {
     val MAGIC = "GMRI".encodeToByteArray()
-    const val VERSION = 1
+    const val VERSION = 2
 
     fun encode(state: InventoryState): ByteArray {
         val w = ByteWriter()
@@ -191,6 +211,12 @@ object InventoryCodec {
             w.bytes(id)
             w.u8(spend.item.ordinal)
         }
+        w.varint(state.rewarded.size)
+        for (id in state.rewarded.sorted()) {
+            val bytes = id.encodeToByteArray()
+            w.u16(bytes.size)
+            w.bytes(bytes)
+        }
         return Envelope.wrap(MAGIC, VERSION, w.toByteArray())
     }
 
@@ -200,23 +226,27 @@ object InventoryCodec {
             is Decoded.Ok -> o.value
         }
         if (opened.version > VERSION) return Decoded.Refused(Refusal.NewerVersion(opened.version))
-        if (opened.version < VERSION) return Decoded.Refused(Refusal.NoMigration(opened.version))
+        if (opened.version < 1) return Decoded.Refused(Refusal.NoMigration(opened.version))
         val state = try {
             val r = ByteReader(opened.body)
+            fun string(): String {
+                val length = r.u16()
+                if (length > r.remaining) throw MalformedException()
+                return ByteArray(length) { r.u8().toByte() }.decodeToString()
+            }
             val fills = r.varint()
             val canvases = r.varint()
             val tokens = r.varint()
             val earned = r.varint()
             val used = r.varint()
             val recent = List(r.u8()) {
-                val length = r.u16()
-                if (length > r.remaining) throw MalformedException()
-                val id = ByteArray(length) { r.u8().toByte() }.decodeToString()
+                val id = string()
                 Spend(id, Item.entries.getOrNull(r.u8()) ?: throw MalformedException())
             }
+            val rewarded = if (opened.version >= 2) List(r.varint()) { string() }.toSet() else emptySet()
             val valid = r.remaining == 0 && fills >= 0 && canvases >= 0 && tokens >= 0 && used in 0..earned
             if (!valid) throw MalformedException()
-            InventoryState(fills, canvases, tokens, earned, used, recent)
+            InventoryState(fills, canvases, tokens, earned, used, recent, rewarded)
         } catch (_: MalformedException) {
             null
         } ?: return Decoded.Refused(Refusal.Malformed)
