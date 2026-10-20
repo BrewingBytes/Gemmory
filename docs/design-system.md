@@ -215,7 +215,7 @@ There are no zero-offset colored halos and no frosted glass anywhere. The frost 
 - **Gems are square table cuts** (T40, #81, founder pick 2026-10-19; mockups `~/.gstack/projects/Gemmory/designs/t40-gem-redesign/`). They replace the 18% cushion and its two-facet highlight.
   - **Shape:** the whole cell, square corners, no inset and no seam. Neighbouring bevels meet in a soft V in their own colors, so there are no grout lines and no dark gaps.
   - **Table:** a flat square in the exact grid color, centered, inset from the cell edge by the bevel width.
-  - **Bevels:** four trapezoids from the table to the cell edge, as overlays on the exact color: top 24% white, left 9% white, right 14% black, bottom 24% black. The lit and shaded halves cancel out, so the gem averages to its true color when zoomed out. The bevel width is 24% of the cell from 8 to 15dp and 20% from 16dp, never under 1.2dp.
+  - **Bevels:** four trapezoids from the table to the cell edge, as overlays on the exact color: top 24% white, left 9% white, right 14% black, bottom 24% black. The lit and shaded halves cancel at mid tones, so the gem averages to its true color when zoomed out; at the ends a white overlay can't lighten white or a black one darken black, so a white gem averages up to ~18 levels darker and a black one up to ~15 lighter (about 7%; `TableCutTest`). The bevel width is 24% of the cell from 8 to 15dp and 20% from 16dp, never under 1.2dp.
   - **Catchlight:** from 20dp, a 0.8dp line at 38% white along the table's top edge.
   - **Below 8dp** (and below 8px off the canvas) a gem is a flat square in its exact color.
   - One baked sprite per color per zoom bucket, as before (T10). The Outline ring's corner radius is 4% of the cell.

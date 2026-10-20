@@ -1,7 +1,8 @@
 <!doctype html>
 <!-- Play Games achievement icons (#49): 512×512, rendered one at a time with the command in README → Play Games setup.
-     Patina cushion-cut gem (the success color), bone facets and one bone mark (no text: one icon serves every language) on felt-deep; nothing outside the middle
-     80%, since Play Games crops icons to a circle. Same drawing as the founder-approved mockup (2026-10-18). -->
+     Patina table-cut gem (the success color; the design system's gem since T40, #81) and one bone mark (no text: one icon serves
+     every language) on felt-deep; nothing outside the middle 80%, since Play Games crops icons to a circle. Layout as the
+     founder-approved mockup (2026-10-18); gems redrawn as table cuts in T40 (plan-design-review D17). -->
 <html><head><meta charset="utf-8">
 <style>
 html, body { margin:0; width:512px; height:512px; background:#3E4741; overflow:hidden; }
@@ -9,16 +10,20 @@ svg { width:512px; height:512px; display:block; }
 </style></head><body><div id="icon"></div>
 <script>
 const C = { felt:'#4F5A52', deep:'#3E4741', raised:'#5C685F', bone:'#E9E4D8', onBone:'#2B322D', patina:'#7FB3A0', lamp:'#F4E3B1' };
-// A cushion-cut gem: rounded square, table, four facet lines.
+// A table-cut gem (design system, Shapes): a square face, four bevels 20% of the gem wide (top 24% white, left 9% white,
+// right 14% black, bottom 24% black) and a catchlight along the table's top edge.
 function gem(x, y, s, fill = C.patina) {
-  const r = s * 0.22, t = s * 0.28;
-  return `<rect x="${x}" y="${y}" width="${s}" height="${s}" rx="${r}" fill="${fill}"/>
-  <rect x="${x + t}" y="${y + t}" width="${s - 2 * t}" height="${s - 2 * t}" rx="${r * 0.4}" fill="none" stroke="${C.bone}" stroke-width="${Math.max(1, s * 0.05)}" opacity=".9"/>
-  <path d="M${x + s * .12} ${y + s * .12}L${x + t} ${y + t}M${x + s * .88} ${y + s * .12}L${x + s - t} ${y + t}M${x + s * .12} ${y + s * .88}L${x + t} ${y + s - t}M${x + s * .88} ${y + s * .88}L${x + s - t} ${y + s - t}" stroke="${C.bone}" stroke-width="${Math.max(1, s * 0.04)}" opacity=".7"/>`;
+  const b = s * 0.2, r = x + s, d = y + s, q = pts => `<path d="M${pts.map(p => p.join(' ')).join('L')}Z"`;
+  return `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${fill}"/>
+  ${q([[x, y], [r, y], [r - b, y + b], [x + b, y + b]])} fill="#fff" fill-opacity=".24"/>
+  ${q([[x, y], [x + b, y + b], [x + b, d - b], [x, d]])} fill="#fff" fill-opacity=".09"/>
+  ${q([[r, y], [r, d], [r - b, d - b], [r - b, y + b]])} fill="#000" fill-opacity=".14"/>
+  ${q([[x, d], [x + b, d - b], [r - b, d - b], [r, d]])} fill="#000" fill-opacity=".24"/>
+  <rect x="${x + b}" y="${y + b}" width="${s - 2 * b}" height="${Math.max(0.5, s * 0.04)}" fill="#fff" fill-opacity=".38"/>`;
 }
 function grid(n, filled = n * n) {
   const span = 28, s = span / n * 0.9, step = span / n; let out = '', k = 0;
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++, k++) out += k < filled ? gem(18 + c * step, 18 + r * step, s) : `<rect x="${18 + c * step}" y="${18 + r * step}" width="${s}" height="${s}" rx="${s * .2}" fill="none" stroke="${C.bone}" stroke-width="1" opacity=".5"/>`;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++, k++) out += k < filled ? gem(18 + c * step, 18 + r * step, s) : `<rect x="${18 + c * step}" y="${18 + r * step}" width="${s}" height="${s}" fill="none" stroke="${C.bone}" stroke-width="1" opacity=".5"/>`;
   return out;
 }
 const share = `<path d="M44 40v6H22v-6" fill="none" stroke="${C.bone}" stroke-width="2.4" stroke-linecap="round"/><path d="M33 42V30m-5 4 5-5 5 5" fill="none" stroke="${C.bone}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;

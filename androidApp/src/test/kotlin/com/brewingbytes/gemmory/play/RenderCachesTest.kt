@@ -266,4 +266,27 @@ class RenderCachesTest {
         assertEquals(CellColors.mix(colors.gem[0], CellColors.BONE, 0.40f), colors.selectedTint[0])
         assertEquals(CellColors.mix(colors.gem[0], CellColors.BONE, 0.78f), colors.tint[0])
     }
+
+    @Test
+    fun aPlacedGemHasNoSeamAndUnplacedCellsKeepTheirs() {
+        // T40 R1: the table cut's bevels carry a placed gem's edge, so its face runs to the cell edge in the exact
+        // color; an unplaced cell keeps its 8% darker right and bottom seam in every look.
+        for (slot in 0 until pattern.palette.size) {
+            assertEquals(colors.gem[slot], colors.seam(slot, CellLook.GEM))
+            assertEquals(CellColors.shade(colors.tint[slot], 0.92f), colors.seam(slot, CellLook.TINT))
+            assertEquals(CellColors.shade(colors.selectedTint[slot], 0.92f), colors.seam(slot, CellLook.STRONG))
+            assertEquals(CellColors.shade(colors.dimmed[slot], 0.92f), colors.seam(slot, CellLook.DIMMED))
+        }
+    }
+
+    @Test
+    fun theFitZoomBakeStaysFlatInTheExactColors() {
+        // T40 R1: below 8dp a placed gem is a flat square in its exact grid color (no bevel shade baked in).
+        val sink = FakeSink()
+        val bake = CanvasBake(pattern, colors, sink)
+        val state = CanvasState.empty(pattern)
+        for (cell in pattern.cells.indices) state.place(cell, pattern.cells[cell])
+        bake.sync(state.placedCount, state::placedAt, state::isPlaced, 0)
+        for (cell in pattern.cells.indices) assertEquals(pattern.palette[pattern.cells[cell]].argb or CellColors.OPAQUE, sink.pixels[cell])
+    }
 }

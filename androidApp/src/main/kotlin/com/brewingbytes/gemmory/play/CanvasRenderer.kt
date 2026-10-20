@@ -6,7 +6,6 @@ import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
@@ -17,6 +16,7 @@ import androidx.core.graphics.withSave
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasZoom
+import com.brewingbytes.gemmory.ui.TableCut
 import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.sin
@@ -24,8 +24,8 @@ import kotlin.math.sin
 /**
  * The play canvas renderer (eng finding 13, design system Play canvas). Below 8dp cells it draws one baked
  * 1 px-per-cell bitmap of the whole canvas, kept current one pixel per placement. From 8dp it visits only the
- * cells on screen and draws each as its color's cached sprite for the current zoom bucket, with raised edges on
- * placed gems from 8dp (D18), numbers on unplaced cells from 16dp and facets from 20dp. The selected color stands
+ * cells on screen and draws each as its color's cached sprite for the current zoom bucket: placed gems as table cuts
+ * from 8dp (T40), numbers on unplaced cells from 16dp and the table's catchlight from 20dp. The selected color stands
  * out per the player's [HighlightStyle] (#19): stronger tint, the D17 ring from 8dp, or the other colors dimmed. On
  * top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). A tool's batch (#20) is placed at once and
  * revealed ring by ring: its cells keep their unplaced look until their ring's time. Main thread only.
@@ -51,10 +51,7 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
     // Sprite drawing.
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val seam = Paint()
-    private val light = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33FFFFFF }
-    private val dark = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x24000000 }
-    private val edgeLight = Paint().apply { color = 0x1FFFFFFF }
-    private val edgeDark = Paint().apply { color = 0x2E000000 }
+    private val tableCut = TableCut.Painter()
     private val ringOuter = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = CellColors.ON_BONE
@@ -68,9 +65,7 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
         val mono = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono) ?: Typeface.MONOSPACE
         typeface = Typeface.create(mono, 700, false)
     }
-    private val rect = RectF()
     private val ringRect = RectF()
-    private val path = Path()
 
     // Glint: a soft white band swept diagonally across the gem.
     private val glintShader = LinearGradient(
@@ -144,15 +139,11 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
             val left = viewport.offsetX + (index % pattern.width) * cell
             val top = viewport.offsetY + (index / pattern.width) * cell
             if (left > viewport.width || top > viewport.height || left + cell < 0 || top + cell < 0) return@forEachGlint
-            val inset = gemInset(cell)
-            val size = cell - 2 * inset
+            val size = cell
             canvas.withSave {
-                rect.set(left + inset, top + inset, left + inset + size, top + inset + size)
-                path.reset()
-                path.addRoundRect(rect, size * GEM_RADIUS, size * GEM_RADIUS, Path.Direction.CW)
-                clipPath(path)
+                clipRect(left, top, left + size, top + size)
                 // The band (half the gem wide) crosses from top-left to bottom-right, perpendicular to the diagonal.
-                translate(rect.centerX(), rect.centerY())
+                translate(left + size / 2f, top + size / 2f)
                 rotate(45f)
                 val band = size * 0.5f
                 val travel = size * 1.42f + band
@@ -187,11 +178,10 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
         canvas.drawBitmap(atlas.bitmap, src, dst, spritePaint)
     }
 
-    private fun gemInset(cellPx: Float) = minOf(GEM_INSET_DP * density, cellPx * 0.1f)
-
     /**
-     * One cell at [SpriteSpec.px] into its spot in the bucket's atlas: its seam (also filling the 1px padding, so
-     * filtering never bleeds a neighbour in), the cushion, then raised edges, facets or its number.
+     * One cell at [SpriteSpec.px] into its spot in the bucket's atlas: its face over the whole cell (also filling the
+     * 1px padding, so filtering never bleeds a neighbour in), then a placed gem's table cut, or an unplaced cell's
+     * right and bottom seam, the Outline ring and its number.
      */
     private fun drawSprite(atlas: Atlas, spec: SpriteSpec, slot: Int, kind: SpriteKind): Int {
         val index = slot * SpriteCache.KINDS + kind.ordinal
@@ -200,21 +190,30 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
         atlas.source(index, src)
         val ringed = CellColors.ringed(kind, style, spec)
         val look = CellColors.look(kind, style, ringed)
-        seam.color = colors.seam(slot, look)
-        canvas.drawRect(src.left - 1f, src.top - 1f, src.right + 1f, src.bottom + 1f, seam)
+        fill.color = colors.face(slot, look)
+        canvas.drawRect(src.left - 1f, src.top - 1f, src.right + 1f, src.bottom + 1f, fill)
+        // Inside withSave, `density` would be the Canvas's own (an Int).
+        val density = density
         canvas.withSave {
             translate(src.left.toFloat(), src.top.toFloat())
-            val inset = gemInset(px)
-            val size = px - 2 * inset
-            val radius = size * GEM_RADIUS
-            rect.set(inset, inset, inset + size, inset + size)
-            fill.color = colors.face(slot, look)
-            drawRoundRect(rect, radius, radius, fill)
-            if (ringed) drawRing(this, radius)
             if (kind == SpriteKind.PLACED) {
-                if (spec.raised) drawRaisedEdges(this, size, radius)
-                if (spec.facets) drawFacets(this, size, radius)
-            } else if (spec.numbers) {
+                if (spec.raised) {
+                    // The bucket can be up to a step bigger than the cell, so the zoom table's bands come from the
+                    // spec, not from the sprite's size: 24% from 8dp, 20% from 16dp (with numbers), catchlight from 20dp.
+                    val bevel = TableCut.bevelPx(px, if (spec.numbers) TableCut.NARROW_DP else TableCut.MIN_DP, density)
+                    val catchlight = if (spec.facets) TableCut.catchlightPx(TableCut.CATCHLIGHT_DP, density) else 0f
+                    tableCut.draw(this, 0f, 0f, px, bevel, catchlight)
+                }
+                return@withSave
+            }
+            if (spec.raised) {
+                seam.color = colors.seam(slot, look)
+                val line = maxOf(1f, SEAM_DP * density)
+                drawRect(px - line, 0f, px, px, seam)
+                drawRect(0f, px - line, px - line, px, seam)
+            }
+            if (ringed) drawRing(this, px)
+            if (spec.numbers) {
                 number.color = colors.number(slot, look)
                 number.textSize = px * NUMBER_SCALE
                 val baseline = -(number.ascent() + number.descent()) / 2f
@@ -225,59 +224,22 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
     }
 
     /**
-     * D17's two-tone ring: a 1.5dp on-bone outer ring along the cushion's edge and a 1dp lamp ring inside it, both
-     * following the corner radius. It stays inside the cushion, so the centered number is never covered.
+     * D17's two-tone ring: a 1.5dp on-bone outer ring 0.6dp inside the cell edge and a 1dp lamp ring inside it, with a
+     * 4% corner radius (T40). It stays inside the cell, so the centered number is never covered.
      */
-    private fun drawRing(canvas: Canvas, radius: Float) {
+    private fun drawRing(canvas: Canvas, px: Float) {
         val outer = RING_OUTER_DP * density
         val inner = RING_INNER_DP * density
+        val inset = minOf(RING_INSET_DP * density, px * 0.1f)
+        val radius = px * RING_RADIUS
         ringOuter.strokeWidth = outer
         ringInner.strokeWidth = inner
-        val o = outer / 2f
-        ringRect.set(rect.left + o, rect.top + o, rect.right - o, rect.bottom - o)
-        canvas.drawRoundRect(ringRect, maxOf(0f, radius - o), maxOf(0f, radius - o), ringOuter)
-        val i = outer + inner / 2f
-        ringRect.set(rect.left + i, rect.top + i, rect.right - i, rect.bottom - i)
-        canvas.drawRoundRect(ringRect, maxOf(0f, radius - i), maxOf(0f, radius - i), ringInner)
-    }
-
-    /** D18: a 1dp top-left edge at 12% white and a 1dp bottom-right edge at 18% black, inside the cushion. */
-    private fun drawRaisedEdges(canvas: Canvas, size: Float, radius: Float) {
-        val edge = maxOf(1f, EDGE_DP * density)
-        val l = rect.left
-        val t = rect.top
-        canvas.withSave {
-            path.reset()
-            path.addRoundRect(rect, radius, radius, Path.Direction.CW)
-            clipPath(path)
-            drawRect(l, t, l + size, t + edge, edgeLight)
-            drawRect(l, t + edge, l + edge, t + size, edgeLight)
-            drawRect(l, t + size - edge, l + size, t + size, edgeDark)
-            drawRect(l + size - edge, t, l + size, t + size - edge, edgeDark)
-        }
-    }
-
-    /** Two-facet highlight: top-left triangle at 20% white, bottom-right at 14% black. */
-    private fun drawFacets(canvas: Canvas, size: Float, radius: Float) {
-        val l = rect.left
-        val t = rect.top
-        canvas.withSave {
-            path.reset()
-            path.addRoundRect(rect, radius, radius, Path.Direction.CW)
-            clipPath(path)
-            path.reset()
-            path.moveTo(l, t)
-            path.lineTo(l + size * 0.5f, t)
-            path.lineTo(l, t + size * 0.5f)
-            path.close()
-            drawPath(path, light)
-            path.reset()
-            path.moveTo(l + size, t + size)
-            path.lineTo(l + size, t + size * 0.5f)
-            path.lineTo(l + size * 0.5f, t + size)
-            path.close()
-            drawPath(path, dark)
-        }
+        val o = inset + outer / 2f
+        ringRect.set(o, o, px - o, px - o)
+        canvas.drawRoundRect(ringRect, maxOf(0f, radius - outer / 2f), maxOf(0f, radius - outer / 2f), ringOuter)
+        val i = inset + outer + inner / 2f
+        ringRect.set(i, i, px - i, px - i)
+        canvas.drawRoundRect(ringRect, maxOf(0f, radius - outer - inner / 2f), maxOf(0f, radius - outer - inner / 2f), ringInner)
     }
 
     /**
@@ -320,10 +282,10 @@ class CanvasRenderer(context: Context, private val pattern: Pattern) {
     }
 
     private companion object {
-        const val GEM_INSET_DP = 0.6f
-        const val GEM_RADIUS = 0.18f
+        const val RING_INSET_DP = 0.6f
+        const val RING_RADIUS = 0.04f
+        const val SEAM_DP = 0.5f
         const val NUMBER_SCALE = 0.46f
-        const val EDGE_DP = 1f
         const val PULSE_GROW = 0.3f
         const val RING_OUTER_DP = 1.5f
         const val RING_INNER_DP = 1f

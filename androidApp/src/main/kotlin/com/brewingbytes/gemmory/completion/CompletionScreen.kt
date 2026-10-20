@@ -46,7 +46,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
@@ -78,6 +77,7 @@ import com.brewingbytes.gemmory.timelapse.FrameArt
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemRenderer
+import com.brewingbytes.gemmory.ui.TableCut
 import com.brewingbytes.gemmory.ui.GemTextButton
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.LocalFelt
@@ -480,7 +480,7 @@ private fun Picture(finished: Finished, sweep: Float, modifier: Modifier = Modif
 }
 
 /**
- * Gem confetti (#57) [ms] after the chime: square cushion-cut gems in the picture's own colors, spilling out from under
+ * Gem confetti (#57) [ms] after the chime: square table-cut gems (T40) in the picture's own colors, spilling out from under
  * [picture] (its bounds in this layer, [roomWidth] px wide) and raining from above the screen, tumbling as they fall.
  */
 @Composable
@@ -499,7 +499,7 @@ private fun Confetti(finished: Finished, picture: Rect, roomWidth: Int, ms: Floa
             )
         }
     }
-    val facets = remember { GemFacets() }
+    val cut = remember { TableCut.UnitPaths(TableCut.NARROW_BEVEL, CONFETTI_CATCHLIGHT) }
     Canvas(Modifier.fillMaxSize().testTag(CONFETTI_TAG)) {
         val dp = density.density
         for (gem in gems) {
@@ -510,26 +510,9 @@ private fun Confetti(finished: Finished, picture: Rect, roomWidth: Int, ms: Floa
                 scale(at.tumble * at.size * dp, at.size * dp, pivot = Offset.Zero)
             }) {
                 drawRect(finished.colors[gem.slot], Offset(-0.5f, -0.5f), Size(1f, 1f), alpha = at.alpha)
-                drawPath(facets.light, Color.White, alpha = FACET_ALPHA * at.alpha)
-                drawPath(facets.dark, Color.Black, alpha = FACET_ALPHA * at.alpha)
+                for ((path, argb) in cut.layers) drawPath(path, Color(argb), alpha = at.alpha)
             }
         }
-    }
-}
-
-/** A unit gem's lit top facet and shaded bottom facet, centered on the origin, like the canvas's cushion cut. */
-private class GemFacets {
-    val light = Path().apply {
-        moveTo(-0.5f, -0.5f)
-        lineTo(0.5f, -0.5f)
-        lineTo(0f, 0f)
-        close()
-    }
-    val dark = Path().apply {
-        moveTo(-0.5f, 0.5f)
-        lineTo(0.5f, 0.5f)
-        lineTo(0f, 0f)
-        close()
     }
 }
 
@@ -546,6 +529,8 @@ private const val MIN_GLINT_DP = 4
 private const val GLINT_ALPHA = 0.55f
 private const val BAND_ALPHA = 0.14f
 private const val STAR_REACH = 1.3f
-private const val FACET_ALPHA = 0.18f
+
+/** The ≥ 20dp sprite's catchlight (0.8dp of a 20dp gem) as a share of a confetti gem's size, so its lit top shows. */
+private const val CONFETTI_CATCHLIGHT = 0.04f
 private const val RADIANS_TO_DEGREES = 57.29578f
 private val Sparkle = Color(0xFFFFFAEB)
