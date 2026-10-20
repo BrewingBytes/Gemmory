@@ -66,6 +66,6 @@ class GalleryVipActionTest {
         assertEquals(1, opened)
         compose.onNodeWithTag("gallery-notice").assertDoesNotExist()
         notice = BillingCopy.notice(Notice.VIP_STARTED)
-        compose.onNodeWithText("You're VIP. Every picture is unlocked.").assertExists()
+        compose.onNodeWithText("You're VIP. Every gallery picture is unlocked.").assertExists()
     }
 }

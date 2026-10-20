@@ -302,7 +302,7 @@ fun GalleryScreen(
                     tomorrow != null -> { { TomorrowCard(tomorrow, tomorrowTapped) } }
                     else -> null
                 }
-                // Collection rows (T37): two at most, one above 1.5× font (D4), then the All collections link (D3).
+                // Collection and event rows (T37/T38): two at most, one above 1.5× font (D4), then the All collections link (D3).
                 val largeFont = LocalDensity.current.fontScale > COLLECTION_LARGE_FONT
                 val ui = state.collections
                 val rows = if (tab != 0) emptyList() else if (largeFont) ui.rowsLarge else ui.rows
@@ -312,7 +312,7 @@ fun GalleryScreen(
                 val isLocked: (Tile) -> Boolean = { it.locked(unlocked, entitlements, todayFree) }
                 val extras = rows.map { row ->
                     collectionTag(row.id) to @Composable {
-                        CollectionRowView(row, isLocked, { open(it, CanvasEntry.COLLECTION) }, vm::thumbnail, glint = row.glint && calm, onGlintDone = vm::glintShown)
+                        CollectionRowView(row, isLocked, { open(it, row.entry) }, vm::thumbnail, glint = row.glint && calm, onGlintDone = vm::glintShown)
                     }
                 } + listOfNotNull((ALL_COLLECTIONS_TAG to @Composable { AllCollectionsLink { collectionsSheet = true } }).takeIf { showAll })
                 // Rows arriving above the grid (the first finish, D5; a new collection): the grid keeps its first tile in
@@ -401,13 +401,13 @@ fun GalleryScreen(
         AllCollectionsSheet(
             rows = state.collections.all,
             isLocked = { it.locked(unlocked, entitlements, state.todayFree) },
-            onOpen = { tile ->
+            onOpen = { tile, entry ->
                 collectionsSheet = false
                 vm.opened(tile)
                 when {
                     tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
                     tile.locked(unlocked, entitlements, setOfNotNull(tile.ref.id.takeIf { vm.isFreeToday(tile) })) -> onLocked(tile)
-                    else -> onOpen(tile, CanvasEntry.COLLECTION)
+                    else -> onOpen(tile, entry)
                 }
             },
             thumbnail = vm::thumbnail,

@@ -379,7 +379,7 @@ fun RewardedSheet(
                     Centered {
                         GemTextButton(
                             when {
-                                picture -> "Or get VIP: every picture unlocked"
+                                picture -> "Or get VIP: every gallery picture unlocked"
                                 fills -> "Or get VIP: unlimited fills"
                                 colors -> "Or get VIP: more colors on every photo"
                                 else -> "Or get VIP: unlimited photo canvases"

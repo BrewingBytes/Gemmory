@@ -171,7 +171,15 @@ class CanvasStore(
             if (started) {
                 val days = remote.daysSinceAvailable(ref.id).takeIf { ref.kind == CanvasKind.REMOTE }
                 analytics.log(
-                    AnalyticsEvent.canvasStarted(ref, grid.pattern.width, grid.pattern.height, entry = entry, daysSinceAvailable = days, collectionId = remote.collectionOf(ref.id)),
+                    AnalyticsEvent.canvasStarted(
+                        ref,
+                        grid.pattern.width,
+                        grid.pattern.height,
+                        entry = entry,
+                        daysSinceAvailable = days,
+                        collectionId = remote.collectionOf(ref.id),
+                        eventId = remote.eventOf(ref.id),
+                    ),
                 )
             }
             // The codec already refused duplicate and out-of-range logs, so a replay can't fail here.
@@ -217,7 +225,7 @@ class CanvasStore(
             onPictureFinished = {
                 val pattern = opened.grid.pattern
                 val days = remote.daysSinceAvailable(ref.id).takeIf { ref.kind == CanvasKind.REMOTE }
-                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height, opened.entry, days, remote.collectionOf(ref.id)))
+                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height, opened.entry, days, remote.collectionOf(ref.id), remote.eventOf(ref.id)))
                 achievements(GameEvent.Finished(sizeOf(ref, pattern), ref.kind == CanvasKind.PHOTO))
             },
             onPlaced = { encodes.onPlaced(ref) },

@@ -15,7 +15,7 @@ import java.util.Locale
 /** Every billing string the app shows (design system: Paywall, Settings; Phase 5 D6, D7; founder answers #8). */
 object BillingCopy {
     const val TITLE = "Gemmory VIP"
-    val PERKS = listOf("Every picture unlocked", "Unlimited photo canvases", "No ads ever", "No watermark on your videos", "Brush and fill tools")
+    val PERKS = listOf("Every gallery picture unlocked", "Unlimited photo canvases", "No ads ever", "No watermark on your videos", "Brush and fill tools")
     const val START_VIP = "Start VIP"
     const val FINE_PRINT = "VIP renews automatically until you cancel. Cancel anytime in Google Play."
     const val PRICES_FAILED = "Prices couldn't load. Connect and try again."
@@ -82,7 +82,7 @@ object BillingCopy {
     }
 
     fun notice(n: Notice): String = when (n) {
-        Notice.VIP_STARTED -> "You're VIP. Every picture is unlocked."
+        Notice.VIP_STARTED -> "You're VIP. Every gallery picture is unlocked."
         Notice.ADS_OFF -> "Ads are off for good."
         Notice.VIP_LAPSED -> "We couldn't confirm VIP for a week. Connect to the internet to restore it."
     }

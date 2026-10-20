@@ -51,7 +51,8 @@ import kotlin.test.assertTrue
  * Collections (T37) through the real app, with a catalog from a fake source signed by a test key: no rows before the
  * first finish, the row's progress and "more coming" well, a reward return that completes a collection with no
  * interstitial or reminder ask, the keepsake and token once, offline completion with a pending keepsake that arrives
- * on the next check, and one row with the short well at 200% font on a 360dp phone.
+ * on the next check, and one row with the short well at 200% font on a 360dp phone. Weekly events (T38): 3 finishes in
+ * the window earn the exclusive on a reward return; after the window the row is an ordinary collection's.
  */
 @RunWith(AndroidJUnit4::class)
 class CollectionsFlowTest {
@@ -196,6 +197,73 @@ class CollectionsFlowTest {
         grid.performScrollToKey(collectionTag(id))
         val node = compose.onAllNodes(hasTestTag(COLLECTION_LINE_TAG)).fetchSemanticsNodes().first()
         return node.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString { it.text }
+    }
+
+    /** The reminder ask (T35), if this return shows it: "Not now". */
+    private fun notNowIfAsked() {
+        compose.waitForIdle()
+        if (exists(REMINDER_ASK_YES_TAG)) {
+            compose.onNodeWithTag(REMINDER_ASK_NOT_NOW_TAG).performClick()
+            waitFor("the ask closed") { !exists(REMINDER_ASK_YES_TAG) }
+        }
+    }
+
+    /** [ref] is in the gallery grid: scrolled to, since a lazy grid composes only what's near the screen. */
+    private fun inGrid(ref: CanvasRef) = runCatching { compose.onNodeWithTag("gallery-grid").performScrollToKey("${ref.kind}/${ref.id}") }.isSuccess
+
+    /** A week of 7 drops, the first on [firstDay] days from today, and its exclusive. */
+    private fun week(firstDay: Long) {
+        val today = java.time.LocalDate.now()
+        (1..7).forEach { catalog.add("w$it", locked = false, availableFrom = today.plusDays(firstDay + it - 1).toString()) }
+        catalog.add("golden-field", rewardOf = "golden-week")
+        catalog.collection("golden-week", *(1..7).map { "w$it" }.toTypedArray(), title = "Golden Week", event = true)
+    }
+
+    /**
+     * T38: in its window the event row shows its own line and the "one a day" well; the 3rd finish in the window is a
+     * reward return (no interstitial, no ask) that earns the exclusive, for good and with no token.
+     */
+    @Test
+    fun threeFinishesInTheWindowEarnTheExclusiveOnARewardReturn() {
+        week(firstDay = -2)
+        launch(photo = null)
+        waitFor("the catalog", 15_000) { inGrid(remote("w3")) }
+        // The first finish shows the rows (D5) and asks for reminders.
+        finish(remote("w1"))
+        notNowIfAsked()
+        waitFor("the event row") { exists(collectionTag("golden-week")) }
+        assertTrue(heading("Golden Week, 1 of 7 finished, 4 more coming"))
+        assertEquals("One new picture a day. Finish any 3 this week for a keepsake picture.", line("golden-week"))
+        assertTrue(!exists(tileTag(remote("golden-field"))), "hidden until earned")
+        finish(remote("w2"))
+        val before = gateway.interstitials
+        // The 3rd fresh finish would ask again after "Not now"; this one earns the exclusive.
+        finish(remote("w3"))
+        waitFor("the earned line") { runCatching { line("golden-week") }.getOrNull()?.startsWith("Keepsake earned") == true }
+        assertEquals("Keepsake earned: Golden field.", line("golden-week"))
+        assertEquals(before, gateway.interstitials, "no interstitial on the reward return")
+        assertTrue(!exists(REMINDER_ASK_YES_TAG), "no reminder ask on the reward return")
+        assertTrue("golden-field" in app.monetization.unlocks.unlocked.value)
+        assertEquals(0, app.monetization.inventory.value.tokens, "the token is for all 7")
+        waitFor("the exclusive in the grid") { runCatching { compose.onNodeWithTag("gallery-grid").performScrollToKey("REMOTE/golden-field") }.isSuccess }
+    }
+
+    /** T38: after its window the event is an ordinary collection row, and finishes then don't earn the exclusive. */
+    @Test
+    fun afterItsWindowTheEventIsAnOrdinaryCollection() {
+        week(firstDay = -12)
+        launch(photo = null)
+        waitFor("the catalog", 15_000) { inGrid(remote("w7")) }
+        finish(remote("w1"))
+        notNowIfAsked()
+        finish(remote("w2"))
+        notNowIfAsked()
+        finish(remote("w3"))
+        notNowIfAsked()
+        waitFor("the row") { exists(collectionTag("golden-week")) }
+        assertEquals("Finish all 7 for an unlock token.", line("golden-week"))
+        assertTrue("golden-field" !in app.monetization.unlocks.unlocked.value, "finishes after the window don't count")
+        assertTrue(!exists(tileTag(remote("golden-field"))))
     }
 
     /** D5: no rows and no link before the first finish; then the row with its count and the "more coming" well. */

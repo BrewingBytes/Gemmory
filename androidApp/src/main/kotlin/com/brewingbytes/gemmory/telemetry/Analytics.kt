@@ -14,8 +14,8 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 
 /**
  * One Firebase Analytics event (design doc → Analytics). Params are kinds, sizes and counts only: no titles, ids or
- * photo data. The one exception is content ids (T37): a catalog collection's id (`collection_id`), which names our
- * own published content, never the player or their photos. Values are strings, or numbers (Long) where Analytics
+ * photo data. The one exception is content ids (T37/T38): a catalog collection's or weekly event's id
+ * (`collection_id`, `event_id`), which names our own published content, never the player or their photos. Values are strings, or numbers (Long) where Analytics
  * should sum or average them.
  */
 data class AnalyticsEvent(val name: String, val params: Map<String, Any> = emptyMap()) {
@@ -23,7 +23,8 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /**
          * [colors]: a photo canvas's color choice on Preview (#29); pictures have none. [entry]: where it was opened
          * from (T36); [daysSinceAvailable]: local days since a dated drop's date, 0 on the day (T36); [collectionId]:
-         * the newest catalog collection listing the picture (T37), a content id.
+         * the newest catalog collection listing the picture (T37), a content id; [eventId]: the newest weekly event
+         * listing it (T38), a content id.
          */
         fun canvasStarted(
             ref: CanvasRef,
@@ -33,7 +34,11 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
             entry: CanvasEntry = CanvasEntry.GALLERY,
             daysSinceAvailable: Long? = null,
             collectionId: String? = null,
-        ) = AnalyticsEvent("canvas_started", canvas(ref, width, height) + colors(colors) + opened(entry, daysSinceAvailable) + collection(collectionId))
+            eventId: String? = null,
+        ) = AnalyticsEvent(
+            "canvas_started",
+            canvas(ref, width, height) + colors(colors) + opened(entry, daysSinceAvailable) + collection(collectionId) + event(eventId),
+        )
 
         fun canvasFinished(
             ref: CanvasRef,
@@ -42,10 +47,18 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
             entry: CanvasEntry = CanvasEntry.GALLERY,
             daysSinceAvailable: Long? = null,
             collectionId: String? = null,
-        ) = AnalyticsEvent("canvas_finished", canvas(ref, width, height) + opened(entry, daysSinceAvailable) + collection(collectionId))
+            eventId: String? = null,
+        ) = AnalyticsEvent("canvas_finished", canvas(ref, width, height) + opened(entry, daysSinceAvailable) + collection(collectionId) + event(eventId))
 
         /** Every member of a collection is finished (T37): its keepsake and token are earned. A content id. */
         fun collectionCompleted(collectionId: String) = AnalyticsEvent("collection_completed", mapOf(COLLECTION_ID to collectionId))
+
+        /**
+         * A weekly event's keepsake was earned (T38): [finishedInWindow] of its members first finished inside its
+         * window (3 or more). A content id.
+         */
+        fun eventRewardUnlocked(eventId: String, finishedInWindow: Int) =
+            AnalyticsEvent("event_reward_unlocked", mapOf(EVENT_ID to eventId, "finished_in_window" to finishedInWindow.toLong()))
 
         /** The first gem placed on a local day, on any canvas (T36, eng D13): one a day, no ids. */
         fun dayPlayed(entry: CanvasEntry) = AnalyticsEvent("day_played", mapOf(ENTRY to entry.param))
@@ -134,6 +147,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         const val ENTRY = "entry"
         const val DAYS_SINCE_AVAILABLE = "days_since_available"
         const val COLLECTION_ID = "collection_id"
+        const val EVENT_ID = "event_id"
 
         /** The share's kind (#36): `progress` before the last gem, `finished` after it. */
         fun kind(progress: Boolean): String = if (progress) "progress" else "finished"
@@ -161,6 +175,8 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
             mapOf<String, Any>(ENTRY to entry.param) + daysSinceAvailable?.let { mapOf(DAYS_SINCE_AVAILABLE to it) }.orEmpty()
 
         private fun collection(id: String?): Map<String, Any> = id?.let { mapOf(COLLECTION_ID to it) }.orEmpty()
+
+        private fun event(id: String?): Map<String, Any> = id?.let { mapOf(EVENT_ID to it) }.orEmpty()
 
         private fun reward(type: RewardType) = mapOf("reward_type" to type.name.lowercase())
 

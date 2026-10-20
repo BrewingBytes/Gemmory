@@ -58,6 +58,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.brewingbytes.gemmory.collections.CollectionCopy
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
@@ -153,15 +154,19 @@ internal fun CollectionRowView(
                 color = GemColors.Bone,
                 modifier = Modifier.testTag(COLLECTION_LINE_TAG),
             )
-            if (glint && row.complete) {
-                // A polite announcement as the completed row first shows; invisible, read once.
-                val announcement = A11yText.collectionComplete(row.title, row.keepsakeTitle != null)
+            if (glint && (row.complete || row.earned)) {
+                // A polite announcement as the completed (or event-earned, T38) row first shows; invisible, read once.
+                val announcement = if (row.earned && !row.complete) {
+                    A11yText.eventEarned(row.title, row.keepsakeTitle != null)
+                } else {
+                    A11yText.collectionComplete(row.title, row.keepsakeTitle != null)
+                }
                 Box(Modifier.size(1.dp).semantics { contentDescription = announcement; liveRegion = LiveRegionMode.Polite })
             }
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(row.members, key = { "${it.ref.kind}/${it.ref.id}" }) { tile -> MemberThumb(tile, isLocked(tile), onOpen, thumbnail) }
-            if (row.coming > 0) item(key = "coming") { ComingWell(row.coming, largeFont) }
+            if (row.coming > 0) item(key = "coming") { ComingWell(row.coming, largeFont, oneADay = row.inWindow) }
         }
     }
 }
@@ -176,7 +181,7 @@ private fun countLine(row: CollectionRow, largeFont: Boolean) = buildAnnotatedSt
     append(" of ")
     withStyle(mono) { append("${row.size}") }
     append(" finished")
-    if (largeFont && row.coming > 0) append(" · ${CollectionCopy.coming(row.coming)}")
+    if (largeFont && row.coming > 0) append(" · ${CollectionCopy.coming(row.coming, oneADay = row.inWindow)}")
 }
 
 /**
@@ -237,7 +242,7 @@ private fun androidx.compose.foundation.layout.BoxScope.CornerMark(icon: ImageVe
  * "2 more coming" (13sp, wraps); above 1.5× font only "+2" in mono (D18). Folded into the heading for TalkBack.
  */
 @Composable
-private fun ComingWell(coming: Int, largeFont: Boolean) {
+private fun ComingWell(coming: Int, largeFont: Boolean, oneADay: Boolean) {
     val felt = LocalFelt.current
     Box(Modifier.size(THUMB).testTag(COMING_TAG).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -252,7 +257,7 @@ private fun ComingWell(coming: Int, largeFont: Boolean) {
             Text(CollectionCopy.comingShort(coming), style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.Bone)
         } else {
             BasicText(
-                CollectionCopy.coming(coming),
+                CollectionCopy.coming(coming, oneADay),
                 style = GemType.label.copy(color = GemColors.Bone, textAlign = TextAlign.Center),
                 modifier = Modifier.padding(4.dp),
             )
@@ -275,13 +280,13 @@ internal fun AllCollectionsLink(onClick: () -> Unit) {
 internal fun AllCollectionsSheet(
     rows: List<CollectionRow>,
     isLocked: (Tile) -> Boolean,
-    onOpen: (Tile) -> Unit,
+    onOpen: (Tile, CanvasEntry) -> Unit,
     thumbnail: suspend (Tile) -> ImageBitmap?,
     onDismiss: () -> Unit,
 ) {
     GemSheet("Collections", onDismiss, returnFocusTo = ALL_COLLECTIONS_TAG) {
         rows.forEach { row ->
-            CollectionRowView(row, isLocked, onOpen, thumbnail, glint = false, onGlintDone = {})
+            CollectionRowView(row, isLocked, { onOpen(it, row.entry) }, thumbnail, glint = false, onGlintDone = {})
         }
     }
 }

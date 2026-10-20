@@ -122,8 +122,9 @@ class BackupRulesTest {
     }
 
     /**
-     * T37: a completed collection and its keepsake survive a reinstall: the completions (so nothing is earned twice),
-     * the unlocks naming the keepsake and the remote canvas holding it are all backed up and transferred.
+     * T37: a completed collection and its keepsake survive a reinstall: the completions and T38's event earns (so
+     * nothing is earned twice), the unlocks naming the keepsake and the remote canvas holding it are all backed up and
+     * transferred.
      */
     @Test
     fun collectionsAndTheirKeepsakesAreBackedUp() {

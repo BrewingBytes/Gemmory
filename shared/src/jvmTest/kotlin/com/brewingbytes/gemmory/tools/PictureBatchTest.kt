@@ -99,6 +99,16 @@ class PictureBatchTest {
         assertFalse(dir.exists(), "nothing published")
     }
 
+    /** T38: the optional `event` column flags a weekly event; a T37 file without it still reads. */
+    @Test
+    fun theEventColumnFlagsAWeeklyEvent() {
+        val week = PictureBatch.readCollections("id,title,members,event\ngolden-week,Golden Week,w1;w2,yes\ngardens,Gardens,g1,\n")
+        assertEquals(listOf(true, false), week.map { it.event })
+        assertEquals(listOf(false), PictureBatch.readCollections("id,title,members\ngardens,Gardens,g1\n").map { it.event })
+        val bad = assertFailsWith<IllegalArgumentException> { PictureBatch.readCollections("id,title,members,event\nweek,Week,w1,maybe\n") }
+        assertTrue("event must be yes" in bad.message.orEmpty(), bad.message)
+    }
+
     @Test
     fun theContentCheckStopsTheBatchUntilEveryRowSaysYes() {
         write(rows { if (it == 2 || it == 5) "no" else "yes" })

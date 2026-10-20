@@ -192,6 +192,30 @@ class TelemetryTest {
         assertTrue(AnalyticsEvent.canvasFinished(harbor, 90, 90, collectionId = "seaside").params.values.none { it == "harbor" })
     }
 
+    /**
+     * T38: an event member's canvas events carry `event_id` beside `collection_id` (founder 2026-10-20: both name the
+     * event), and `event_reward_unlocked` carries the event id and how many finished in the window. R1: an ordinary
+     * collection's params are unchanged (no `event_id`).
+     */
+    @Test
+    fun eventEventsCarryTheEventId() {
+        val day = CanvasRef(CanvasKind.REMOTE, "w3")
+        assertEquals(
+            mapOf("source" to "remote", "size" to "medium", "entry" to "event", "collection_id" to "golden-week", "event_id" to "golden-week"),
+            AnalyticsEvent.canvasStarted(day, 90, 90, entry = CanvasEntry.EVENT, collectionId = "golden-week", eventId = "golden-week").params,
+        )
+        assertEquals(
+            mapOf("source" to "remote", "size" to "medium", "entry" to "gallery", "collection_id" to "golden-week", "event_id" to "golden-week"),
+            AnalyticsEvent.canvasFinished(day, 90, 90, collectionId = "golden-week", eventId = "golden-week").params,
+        )
+        assertEquals(
+            AnalyticsEvent("event_reward_unlocked", mapOf("event_id" to "golden-week", "finished_in_window" to 3L)),
+            AnalyticsEvent.eventRewardUnlocked("golden-week", 3),
+        )
+        assertFalse("event_id" in AnalyticsEvent.canvasFinished(day, 90, 90, collectionId = "seaside").params, "R1: a collection alone")
+        assertTrue(AnalyticsEvent.canvasStarted(day, 90, 90, eventId = "golden-week").params.values.none { it == "w3" })
+    }
+
     /** T35: the reminder's events, with reasons, results, minutes and attempts only. */
     @Test
     fun reminderEventsCarryReasonsAndTimesButNoIds() {

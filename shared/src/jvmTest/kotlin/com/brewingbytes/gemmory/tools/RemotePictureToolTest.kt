@@ -259,6 +259,33 @@ class RemotePictureToolTest {
         assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(listOf(request("night-five")), listOf(RemoteCollection("night-one", "Clash", listOf("night-two")))) }
     }
 
+    /** T38: an event is 7 remote drops on 7 consecutive dates with exactly one exclusive; any other shape is refused. */
+    @Test
+    fun anEventIsSevenConsecutiveDropsWithOneExclusive() {
+        val drops = (1..7).map { request("week-$it", minAppVersion = null, availableFrom = LocalDate(2026, 11, it + 1)) }
+        val week = RemoteCollection("golden-week", "Golden Week", (1..7).map { "week-$it" }, event = true)
+        val exclusive = request("week-exclusive", minAppVersion = null, rewardOf = "golden-week")
+        val noExclusive = assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(drops, listOf(week)) }
+        assertTrue("exclusive" in noExclusive.message.orEmpty(), noExclusive.message)
+        val six = assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(drops + exclusive, listOf(week.copy(members = week.members.take(6)))) }
+        assertTrue("7 members" in six.message.orEmpty(), six.message)
+        val gap = drops.take(6) + request("week-7", minAppVersion = null, availableFrom = LocalDate(2026, 11, 9))
+        val gapError = assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(gap + exclusive, listOf(week)) }
+        assertTrue("consecutive" in gapError.message.orEmpty(), gapError.message)
+        val undated = drops.take(6) + request("week-7")
+        val undatedError = assertFailsWith<IllegalStateException> { RemotePictureTool.publish(undated + exclusive, listOf(week)) }
+        assertTrue("availableFrom" in undatedError.message.orEmpty(), undatedError.message)
+        assertFalse(File(dir, "catalog.json").exists(), "a refused publish writes nothing")
+
+        RemotePictureTool.publish(drops + exclusive, listOf(week))
+        val latest = { RemoteCatalogs.check(File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, Int.MAX_VALUE, null, setOf("starter")) }
+        assertEquals(listOf(week), assertIs<CatalogCheck.Ok>(latest()).catalog.collections)
+        // A later publish and a withdraw carry the flag through.
+        RemotePictureTool.publish(request("night-one"))
+        RemotePictureTool.withdraw(dir, "night-one", 1_792_000_100, keyFile(pair), setOf("starter"), trusted)
+        assertTrue(assertIs<CatalogCheck.Ok>(latest()).catalog.collections.single().event)
+    }
+
     @Test
     fun withdrawRemovesTheEntryAndItsGrid() {
         RemotePictureTool.publish(request("night-one"))

@@ -35,7 +35,7 @@ data class CollectionRowPick(val rows: List<String>, val showAll: Boolean) {
 }
 
 /**
- * The collection rules (T37, eng D7; T38 adds the event's window here), pure so they're unit-tested. The app finds each
+ * The collection rules (T37, eng D7; T38's event window and reward too), pure so they're unit-tested. The app finds each
  * member's [MemberState]; this decides progress, completion, the keepsake and which rows show.
  */
 object CollectionRules {
@@ -67,11 +67,39 @@ object CollectionRules {
         )
     }
 
+    /** An event's window, in local days: its first drop's date and the 6 days after it (T38). */
+    const val EVENT_DAYS = 7
+
+    /** Finishes inside the window that earn the event's exclusive (T38). */
+    const val EVENT_REWARD_FINISHES = 3
+
     /**
-     * The collections T37 plays: an event (T38) is parsed but held back until T38 gives it its window, so this build
-     * never reads one as an ordinary collection.
+     * The collections the gallery plays, events included (T38 gave them their window; a T37-only build left them out,
+     * so it never read one as an ordinary collection).
      */
-    fun playable(catalog: RemoteCatalog): List<RemoteCollection> = catalog.collections.filterNot { it.event }
+    fun playable(catalog: RemoteCatalog): List<RemoteCollection> = catalog.collections
+
+    /**
+     * Event [c]'s window as local epoch days (T38): its earliest member's `availableFrom` through the 6th day after it,
+     * inclusive. Null for an ordinary collection, or an event with no dated member in [catalog]: that one is just a
+     * collection, with nothing to earn in a week.
+     */
+    fun eventWindow(c: RemoteCollection, catalog: RemoteCatalog): LongRange? {
+        if (!c.event) return null
+        val dates = catalog.pictures.filter { it.id in c.members }.mapNotNull { it.availableFrom?.toEpochDays() }
+        val first = dates.minOrNull() ?: return null
+        return first until first + EVENT_DAYS
+    }
+
+    /**
+     * How many of [c]'s members were first finished inside [window], by the `play` file's day ([finishedDayOf]). One
+     * finished before T35 has no day and doesn't count (eng outside voice #15); a Play again keeps the first day.
+     */
+    fun finishedInWindow(c: RemoteCollection, window: LongRange, finishedDayOf: (String) -> Long?): Int =
+        c.members.count { id -> finishedDayOf(id)?.let { it in window } == true }
+
+    /** 3 of the 7 finished in the window earn the exclusive, for VIP too (CEO C3). */
+    fun eventEarned(finishedInWindow: Int): Boolean = finishedInWindow >= EVENT_REWARD_FINISHES
 
     /** [collectionId]'s keepsake: the catalog picture whose `rewardOf` names it. Null when the catalog has none. */
     fun rewardFor(collectionId: String, catalog: RemoteCatalog): RemotePicture? = catalog.pictures.firstOrNull { it.rewardOf == collectionId }
@@ -85,9 +113,11 @@ object CollectionRules {
     /**
      * Which rows show (design system, "How many"). [progress] is in catalog order (the last is the newest).
      * [completedDay] is each completed collection's local epoch day: one recorded complete stays complete after a Play
-     * again. [glintPending] are the completed ones whose glint hasn't played. No rows before the player's first finished picture ([anyFinished], D5). The newest one with a
-     * glint waiting is pinned first for this visit, at any font size (D7); then the newest incomplete one; then those
-     * completed in the last 7 days, newest first. Two rows, or one when [largeFont] (D4) beside a pinned one.
+     * again. [glintPending] are the completed (or event-earned) ones whose glint hasn't played. [inWindow] are the
+     * events in their window today (T38). No rows before the player's first finished picture ([anyFinished], D5). The
+     * newest one with a glint waiting is pinned first for this visit, at any font size (D7); then the newest event in
+     * its window; then the newest other incomplete one; then those completed in the last 7 days, newest first. Two
+     * rows, or one when [largeFont] (D4). After its window an event ranks as an ordinary collection.
      */
     fun rows(
         progress: List<CollectionProgress>,
@@ -96,15 +126,17 @@ object CollectionRules {
         today: Long,
         anyFinished: Boolean,
         largeFont: Boolean,
+        inWindow: Set<String> = emptySet(),
     ): CollectionRowPick {
         val live = progress.filter { it.size > 0 }
         if (!anyFinished || live.isEmpty()) return CollectionRowPick.NONE
         val newestFirst = live.asReversed()
         val complete = { p: CollectionProgress -> p.id in completedDay }
-        val pinned = newestFirst.firstOrNull { complete(it) && it.id in glintPending }
-        val incomplete = newestFirst.firstOrNull { !complete(it) }
+        val pinned = newestFirst.firstOrNull { it.id in glintPending }
+        val event = newestFirst.firstOrNull { it.id in inWindow }
+        val incomplete = newestFirst.firstOrNull { !complete(it) && it.id !in inWindow }
         val recent = newestFirst.filter { p -> completedDay[p.id]?.let { today - it in 0 until COMPLETE_STAYS_DAYS } == true }
-        val ordered = (listOfNotNull(pinned, incomplete) + recent).distinctBy { it.id }
+        val ordered = (listOfNotNull(pinned, event, incomplete) + recent).distinctBy { it.id }
         val rows = ordered.take(if (largeFont) 1 else MAX_ROWS).map { it.id }
         val showAll = live.any { it.id !in rows || complete(it) }
         return CollectionRowPick(rows, showAll)
@@ -117,4 +149,8 @@ object CollectionRules {
     /** The collection a picture's canvas events name (T37 `collection_id`): the newest one listing it, or null. */
     fun collectionOf(pictureId: String, collections: List<RemoteCollection>): String? =
         collections.lastOrNull { pictureId in it.members }?.id
+
+    /** The event a picture's canvas events name (T38 `event_id`): the newest event listing it, or null. */
+    fun eventOf(pictureId: String, collections: List<RemoteCollection>): String? =
+        collections.lastOrNull { it.event && pictureId in it.members }?.id
 }

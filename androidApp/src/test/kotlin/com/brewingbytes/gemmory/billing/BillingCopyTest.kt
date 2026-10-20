@@ -46,10 +46,19 @@ class BillingCopyTest {
         assertEquals("Purchases restored: VIP (weekly)", BillingCopy.restored(Entitlements(VipPlan.WEEKLY)))
         assertEquals("Purchases restored: Ads removed", BillingCopy.restored(Entitlements(removeAds = true)))
         assertEquals("No purchases found on this account", BillingCopy.restored(Entitlements.FREE))
-        assertEquals("You're VIP. Every picture is unlocked.", BillingCopy.notice(Notice.VIP_STARTED))
+        assertEquals("You're VIP. Every gallery picture is unlocked.", BillingCopy.notice(Notice.VIP_STARTED))
         assertEquals("Ads are off for good.", BillingCopy.notice(Notice.ADS_OFF))
         assertEquals("We couldn't confirm VIP for a week. Connect to the internet to restore it.", BillingCopy.notice(Notice.VIP_LAPSED))
         assertEquals("Payment pending. VIP starts when Google Play confirms it.", BillingCopy.pending(Products.VIP_YEARLY))
         assertEquals("Payment pending. Ads turn off when Google Play confirms it.", BillingCopy.pending(Products.REMOVE_ADS))
+    }
+
+    /**
+     * T38/C3 (design consultation D7 = P2): collection and event keepsakes are earned by playing, for VIP too, and stay
+     * hidden until then, so the promise is every gallery picture.
+     */
+    @Test
+    fun theVipPerkPromisesEveryGalleryPicture() {
+        assertEquals("Every gallery picture unlocked", BillingCopy.PERKS.first())
     }
 }
