@@ -9,9 +9,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -134,8 +136,19 @@ class ReminderFlowTest {
         return null
     }
 
-    /** Fires the evening alarm's broadcast now, as AlarmManager would, with the time it was set for. */
+    /**
+     * Fires the evening alarm's broadcast now, as AlarmManager would, with the time it was set for. First waits for
+     * the process to count as backgrounded: Android reports that ~700 ms after the last activity stops, and until then
+     * the reminder rightly skips the evening (an earlier test's activity may just have closed).
+     */
     private fun fireAlarm(scheduledAt: Long = app.reminders.scheduledAt) {
+        waitUntil("the app in the background") {
+            var started = true
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                started = ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            }
+            !started
+        }
         context.sendBroadcast(
             Intent(context, ReminderReceiver::class.java)
                 .setAction(ReminderReceiver.ACTION_EVENING)
@@ -180,7 +193,8 @@ class ReminderFlowTest {
         waitUntil("re-armed") { app.reminders.scheduledAt == at(LocalTime(20, 30), LocalDate(2027, 3, 10)) }
         // The gallery's card, made after the reminder picked, names the same picture (eng D3).
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitFor(hasTestTag(TODAY_TAG) and hasText(title, substring = true))
+        // The card reads as one node (its children's text is cleared), so its description names the picture.
+        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture: $title,", substring = true))
     }
 
     @Test
