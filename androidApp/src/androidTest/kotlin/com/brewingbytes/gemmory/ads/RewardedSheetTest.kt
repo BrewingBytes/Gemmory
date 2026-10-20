@@ -68,7 +68,7 @@ class RewardedSheetTest {
         show(picture, RewardPhase.NotAvailable(Unavailable.GRACE_OFFER))
         text("No video right now. This one's on us today.").assertExists()
         text("Unlock picture").performClick()
-        text("Or get VIP: every picture unlocked").assertExists()
+        text("Or get VIP: every gallery picture unlocked").assertExists()
 
         show(picture, RewardPhase.NotAvailable(Unavailable.NO_VIDEO))
         text("No video right now. Try again in a bit.").assertExists()

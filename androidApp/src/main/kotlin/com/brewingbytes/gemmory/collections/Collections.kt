@@ -32,7 +32,9 @@ enum class Keepsake {
 
 /**
  * One collection as the gallery shows it (T37). [completedDay] is set once it's complete (it stays complete after a
- * Play again); [keepsake] is its catalog keepsake, shown only once [keepsakeState] is [Keepsake.ADDED].
+ * Play again); [keepsake] is its catalog keepsake (an event's only once earned), shown once [keepsakeState] is
+ * [Keepsake.ADDED].
+ * [event]: a weekly event with a window (T38), [inWindow] today, [earned] its exclusive with 3 finishes in the window.
  */
 data class CollectionStatus(
     val collection: RemoteCollection,
@@ -42,6 +44,9 @@ data class CollectionStatus(
     val keepsake: RemotePicture?,
     val keepsakeState: Keepsake,
     val glintPending: Boolean,
+    val event: Boolean = false,
+    val inWindow: Boolean = false,
+    val earned: Boolean = false,
 ) {
     val id: String get() = collection.id
     val complete: Boolean get() = completedDay != null
@@ -56,7 +61,8 @@ data class Settled(val fetched: Boolean, val statuses: List<CollectionStatus>) {
 
 /**
  * Collections on this phone (T37, eng D7, CEO C6): works out each one's progress from the gallery's canvases and the
- * verified catalog (the cached one when offline), and grants a completed one's keepsake and token. Every step is
+ * verified catalog (the cached one when offline), and grants a completed one's keepsake and token. A weekly event
+ * (T38) grants its keepsake for 3 finishes in its window instead, and only the token for all 7. Every step is
  * idempotent and runs again on each [settle], so a crash or a failed copy resumes on the next visit and nothing is
  * given twice: the completion is written first, the keepsake's unlock is a set, the token is a one-time earn kept in
  * the inventory's own file, and the copy skips a canvas already there.
@@ -96,33 +102,58 @@ class Collections(
                 rewardReturns += c.id
                 analytics.log(AnalyticsEvent.collectionCompleted(c.id))
             }
-            val reward = CollectionRules.rewardFor(c.id, catalog)
-            var state = Keepsake.NONE
+            // An event (T38) earns its keepsake with 3 finishes in its window, never by completing all 7.
+            val window = CollectionRules.eventWindow(c, catalog)
+            var earned = window != null && prefs.earned(c.id) != null
+            if (window != null && !earned) {
+                val count = CollectionRules.finishedInWindow(c, window) { id -> (byId[id] as? CanvasSummary.Playable)?.firstFinishedDay }
+                if (CollectionRules.eventEarned(count)) {
+                    prefs.markEarned(c.id, today())
+                    earned = true
+                    rewardReturns += c.id
+                    analytics.log(AnalyticsEvent.eventRewardUnlocked(c.id, count))
+                }
+            }
             if (completion != null) {
                 // VIP earns the picture only (CEO C6); one who had VIP at the completion never gets the token later.
                 if (!completion.vip && earnToken(TOKEN_PREFIX + c.id)) {
                     analytics.log(AnalyticsEvent.inventoryEarned(Item.UNLOCK_TOKEN, EarnSource.COLLECTION, 1))
                 }
-                if (reward != null) {
-                    unlock(reward.id)
-                    state = when (keep(reward.id)) {
-                        KeepResult.CREATED -> Keepsake.ADDED.also { keptToday(reward.id) }
-                        KeepResult.PRESENT -> Keepsake.ADDED
-                        KeepResult.NO_SPACE -> Keepsake.PENDING_SPACE
-                        KeepResult.MISSING, KeepResult.FAILED -> Keepsake.PENDING_OFFLINE
-                    }
+            }
+            // A collection's row names its keepsake from the start; an event's exclusive stays unnamed until earned (C3).
+            val reward = CollectionRules.rewardFor(c.id, catalog)?.takeIf { window == null || earned }
+            val granted = if (window != null) earned else completion != null
+            var state = Keepsake.NONE
+            if (reward != null && granted) {
+                unlock(reward.id)
+                state = when (keep(reward.id)) {
+                    KeepResult.CREATED -> Keepsake.ADDED.also { keptToday(reward.id) }
+                    KeepResult.PRESENT -> Keepsake.ADDED
+                    KeepResult.NO_SPACE -> Keepsake.PENDING_SPACE
+                    KeepResult.MISSING, KeepResult.FAILED -> Keepsake.PENDING_OFFLINE
                 }
             }
-            // The glint waits for the keepsake picture (design system, row states).
-            val glint = completion != null && !prefs.glintShown(c.id) && (reward == null || state == Keepsake.ADDED)
-            CollectionStatus(c, progress, completion?.day, completion?.vip == true, reward, state, glint)
+            // The glint waits for the keepsake picture (design system, row states); an event's plays at its 3rd.
+            val glint = (completion != null || earned) && !prefs.glintShown(c.id) && (reward == null || !granted || state == Keepsake.ADDED)
+            CollectionStatus(
+                c,
+                progress,
+                completion?.day,
+                completion?.vip == true,
+                reward,
+                state,
+                glint,
+                event = window != null,
+                inWindow = window != null && today() in window,
+                earned = earned,
+            )
         }
         Settled(true, statuses)
     }
 
     /**
-     * Back on the gallery from [pictureId]'s fresh completion (D7): true when that finish completed a collection, so
-     * this return shows no interstitial, reminder ask or review. Read once.
+     * Back on the gallery from [pictureId]'s fresh completion (D7): true when that finish completed a collection or
+     * earned an event's keepsake (T38), so this return shows no interstitial, reminder ask or review. Read once.
      */
     suspend fun takeRewardReturn(pictureId: String): Boolean = mutex.withLock {
         val ids = catalog()?.collections.orEmpty().filter { it.id in rewardReturns && pictureId in it.members }.map { it.id }

@@ -41,6 +41,9 @@ interface RemoteCatalogView {
     /** The newest catalog collection listing picture [id] (T37), for the canvas events' `collection_id`. */
     fun collectionOf(id: String): String? = null
 
+    /** The newest weekly event listing picture [id] (T38), for the canvas events' `event_id`. */
+    fun eventOf(id: String): String? = null
+
     object None : RemoteCatalogView {
         override fun listed(): List<RemotePicture> = emptyList()
 
@@ -131,6 +134,8 @@ class RemotePictures internal constructor(
     override fun earned(id: String): Boolean = id in earned()
 
     override fun collectionOf(id: String): String? = current().catalog?.let { CollectionRules.collectionOf(id, it.collections) }
+
+    override fun eventOf(id: String): String? = current().catalog?.let { CollectionRules.eventOf(id, it.collections) }
 
     override fun daysSinceAvailable(id: String): Long? =
         listed().firstOrNull { it.id == id }?.availableFrom?.let { today().toEpochDays() - it.toEpochDays() }

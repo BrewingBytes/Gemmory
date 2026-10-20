@@ -5,8 +5,8 @@ import androidx.core.content.edit
 
 /**
  * Completed collections (T37), in the "collections" preferences: each one's local completion day (its row stays 7
- * days), whether the player had VIP then (VIP earns the picture only, so a later lapse gives no token), and whether
- * its completion glint has played. Ids and days, no user content, so it's backed up like the unlocks.
+ * days), whether the player had VIP then (VIP earns the picture only, so a later lapse gives no token), the day a
+ * weekly event's keepsake was earned (T38), and whether its glint has played. Ids and days, no user content, so it's backed up like the unlocks.
  */
 class CollectionPrefs(private val prefs: SharedPreferences) {
     /** The completion of [id], or null while it isn't complete. */
@@ -25,6 +25,14 @@ class CollectionPrefs(private val prefs: SharedPreferences) {
         prefs.edit(commit = true) { putString(DONE + id, "$day:${if (vip) "vip" else "free"}") }
     }
 
+    /** The local day event [id]'s keepsake was earned (T38), or null. */
+    fun earned(id: String): Long? = prefs.getString(EARNED + id, null)?.toLongOrNull()
+
+    /** Written at once (commit), before the unlock and copy, as [markComplete]. */
+    fun markEarned(id: String, day: Long) {
+        prefs.edit(commit = true) { putString(EARNED + id, "$day") }
+    }
+
     fun glintShown(id: String): Boolean = prefs.getBoolean(GLINT + id, false)
 
     fun setGlintShown(id: String) = prefs.edit { putBoolean(GLINT + id, true) }
@@ -36,5 +44,6 @@ class CollectionPrefs(private val prefs: SharedPreferences) {
         const val FILE = "collections"
         private const val DONE = "done:"
         private const val GLINT = "glint:"
+        private const val EARNED = "earned:"
     }
 }

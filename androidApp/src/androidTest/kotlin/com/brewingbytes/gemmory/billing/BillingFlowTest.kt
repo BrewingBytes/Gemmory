@@ -124,7 +124,7 @@ class BillingFlowTest {
         assertEquals(Allowance.Unlimited, app.monetization.allowance.value, "unlimited photo canvases")
 
         compose.onNodeWithContentDescription("Back").performClick()
-        waitForText("You're VIP. Every picture is unlocked.")
+        waitForText("You're VIP. Every gallery picture is unlocked.")
     }
 
     @Test

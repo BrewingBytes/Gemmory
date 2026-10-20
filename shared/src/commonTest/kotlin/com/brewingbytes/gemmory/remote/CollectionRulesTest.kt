@@ -6,6 +6,12 @@ import com.brewingbytes.gemmory.remote.MemberState.GONE
 import com.brewingbytes.gemmory.remote.MemberState.OPEN
 import com.brewingbytes.gemmory.remote.RemoteFixtures.grid
 import com.brewingbytes.gemmory.remote.RemoteFixtures.picture
+import com.brewingbytes.gemmory.policy.ReminderSchedule
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -85,11 +91,72 @@ class CollectionRulesTest {
         assertTrue(CollectionRules.rewardShows(plain, emptySet()))
     }
 
-    /** Until T38 gives events their window, this build leaves them out. */
+    /** T38 turns events on: the gallery plays them beside the collections, in catalog order. */
     @Test
-    fun eventsAreHeldBack() {
+    fun eventsArePlayed() {
         val event = RemoteCollection("autumn-week", "Autumn Week", listOf("a"), event = true)
-        assertEquals(listOf(seaside), CollectionRules.playable(RemoteCatalog(1, emptyList(), listOf(seaside, event))))
+        assertEquals(listOf(seaside, event), CollectionRules.playable(RemoteCatalog(1, emptyList(), listOf(seaside, event))))
+    }
+
+    private val week = RemoteCollection("golden-week", "Golden Week", (1..7).map { "w$it" }, event = true)
+
+    /** The week's 7 drops on 7 consecutive dates, the first on 2026-11-02, listed out of order. */
+    private val weekCatalog = RemoteCatalog(
+        1,
+        (7 downTo 1).map { picture("w$it", grid(), minAppVersion = 13, availableFrom = "2026-11-0${it + 1}") },
+        listOf(week),
+    )
+
+    private val firstDay = LocalDate.parse("2026-11-02").toEpochDays()
+
+    @Test
+    fun anEventsWindowIsItsFirstDropAndTheSixDaysAfter() {
+        assertEquals(firstDay..firstDay + 6, CollectionRules.eventWindow(week, weekCatalog))
+        // An ordinary collection, or an event with no dated member, has none: it's just a collection.
+        assertNull(CollectionRules.eventWindow(seaside, weekCatalog))
+        val undated = RemoteCatalog(1, (1..7).map { picture("w$it", grid()) }, listOf(week))
+        assertNull(CollectionRules.eventWindow(week, undated))
+    }
+
+    @Test
+    fun threeFinishedInTheWindowEarnTheExclusive() {
+        val window = CollectionRules.eventWindow(week, weekCatalog)!!
+        val days = mapOf("w1" to firstDay, "w2" to firstDay + 1)
+        assertEquals(2, CollectionRules.finishedInWindow(week, window) { days[it] })
+        assertFalse(CollectionRules.eventEarned(2))
+        val three = days + ("w5" to firstDay + 4)
+        assertEquals(3, CollectionRules.finishedInWindow(week, window) { three[it] })
+        assertTrue(CollectionRules.eventEarned(3))
+    }
+
+    /** The window is inclusive local dates: 23:59 on its last day counts, 00:01 the day after doesn't. */
+    @Test
+    fun aFinishAt2359OnTheLastDayCountsAnd0001TheNextDayDoesNot() {
+        val zone = TimeZone.of("Europe/Bucharest")
+        val window = CollectionRules.eventWindow(week, weekCatalog)!!
+        val lastDay = LocalDate.parse("2026-11-08")
+        val at = { d: LocalDate, h: Int, m: Int -> ReminderSchedule.dayOf(LocalDateTime(d, LocalTime(h, m)).toInstant(zone).toEpochMilliseconds(), zone) }
+        val two = mapOf("w1" to firstDay, "w2" to firstDay + 1)
+        val late = two + ("w7" to at(lastDay, 23, 59))
+        assertEquals(3, CollectionRules.finishedInWindow(week, window) { late[it] })
+        val tooLate = two + ("w7" to at(LocalDate.parse("2026-11-09"), 0, 1))
+        assertEquals(2, CollectionRules.finishedInWindow(week, window) { tooLate[it] })
+    }
+
+    /** Eng outside voice #15: a finish without a `play` date (before T35) counts for collections, not for events. */
+    @Test
+    fun aFinishWithoutADateDoesNotCountForAnEvent() {
+        val window = CollectionRules.eventWindow(week, weekCatalog)!!
+        val days = mapOf("w1" to firstDay, "w2" to firstDay + 1, "w3" to null)
+        assertEquals(2, CollectionRules.finishedInWindow(week, window) { days[it] })
+    }
+
+    @Test
+    fun aPicturesEventIdIsTheNewestEventListingIt() {
+        assertEquals("golden-week", CollectionRules.eventOf("w3", listOf(seaside, week)))
+        assertNull(CollectionRules.eventOf("a", listOf(seaside, week)))
+        // R1: collection_id is unchanged, so an event member's names the event too (founder 2026-10-20).
+        assertEquals("golden-week", CollectionRules.collectionOf("w3", listOf(seaside, week)))
     }
 
     private val older = RemoteCollection("forest", "Forest", listOf("d", "e"))
@@ -101,7 +168,8 @@ class CollectionRulesTest {
         glints: Set<String> = emptySet(),
         anyFinished: Boolean = true,
         largeFont: Boolean = false,
-    ) = CollectionRules.rows(list, completed, glints, TODAY, anyFinished, largeFont)
+        inWindow: Set<String> = emptySet(),
+    ) = CollectionRules.rows(list, completed, glints, TODAY, anyFinished, largeFont, inWindow)
 
     private val forest get() = progress(OPEN, OPEN, c = older)
     private val sea get() = progress(OPEN, OPEN, OPEN)
@@ -151,6 +219,45 @@ class CollectionRulesTest {
     fun aRecordedCompletionStaysComplete() {
         val replayed = progress(FINISHED, OPEN, FINISHED)
         assertEquals(listOf("forest"), rows(listOf(forest, replayed), completed = mapOf("seaside" to TODAY - 20)).rows)
+    }
+
+    private val autumn = RemoteCollection("autumn-week", "Autumn Week", listOf("g", "h"), event = true)
+    private val event get() = progress(FINISHED, COMING, c = autumn)
+
+    /** T38: the event in its window comes first, then the newest other incomplete collection. */
+    @Test
+    fun theEventInItsWindowIsTheFirstRow() {
+        // The event is listed before night, so night is the newer collection; the window still puts the event first.
+        val list = listOf(forest, event, night)
+        assertEquals(listOf("autumn-week", "night"), rows(list, inWindow = setOf("autumn-week")).rows)
+        // Above 1.5× font it's the one row (D4).
+        assertEquals(listOf("autumn-week"), rows(list, inWindow = setOf("autumn-week"), largeFont = true).rows)
+    }
+
+    /** D7: a reward return's row is pinned for the visit, ahead of the event, even at large font. */
+    @Test
+    fun aPinnedGlintStillComesBeforeTheEvent() {
+        val list = listOf(forest, event, night)
+        val completed = mapOf("forest" to TODAY)
+        assertEquals(listOf("forest", "autumn-week"), rows(list, completed, glints = setOf("forest"), inWindow = setOf("autumn-week")).rows)
+        assertEquals(listOf("forest"), rows(list, completed, glints = setOf("forest"), inWindow = setOf("autumn-week"), largeFont = true).rows)
+        // The event's own earn is pinned too, before completion (its glint plays at the 3rd).
+        assertEquals(listOf("autumn-week", "night"), rows(list, glints = setOf("autumn-week"), inWindow = setOf("autumn-week")).rows)
+    }
+
+    /** After its window the event is an ordinary collection: the newest incomplete one leads. */
+    @Test
+    fun afterItsWindowTheEventRanksAsACollection() {
+        assertEquals(listOf("night"), rows(listOf(forest, event, night)).rows)
+        assertEquals(listOf("autumn-week"), rows(listOf(forest, night, event)).rows)
+    }
+
+    /** R1: with no event in its window, T37's rows are unchanged. */
+    @Test
+    fun withNoEventInItsWindowTheRowsAreT37s() {
+        val list = listOf(forest, sea, night)
+        val completed = mapOf("seaside" to TODAY - 6)
+        assertEquals(listOf("night", "seaside"), rows(list, completed, inWindow = emptySet()).rows)
     }
 
     @Test

@@ -84,4 +84,12 @@ class A11yTextTest {
         assertTrue(noteFitsBeside(172f + 160f, 160f, 12f), "exactly the minimum fits")
         assertFalse(noteFitsBeside(171f + 160f, 160f, 12f))
     }
+
+    /** T38 (founder 2026-10-20): an event's 3rd finish is announced politely, pending or added. */
+    @Test
+    fun anEventsKeepsakeIsAnnounced() {
+        assertEquals("Golden Week: keepsake picture added.", A11yText.eventEarned("Golden Week", added = true))
+        assertEquals("Golden Week: keepsake earned.", A11yText.eventEarned("Golden Week", added = false))
+        assertEquals("Seaside complete. Keepsake picture added.", A11yText.collectionComplete("Seaside", keepsake = true))
+    }
 }

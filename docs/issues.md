@@ -790,6 +790,8 @@ Labels: P2, game, ui
 
 **Done when:** a 7-day event runs from the catalog alone, 3 finishes in the window reveal and unlock the exclusive for free and VIP players, nothing changes after the window, and the docs above are updated.
 
+- **Founder decisions (2026-10-20):** `collection_id` stays as T37 has it, so an event member logs `collection_id` = `event_id` = the event id; the tool is strict (7 dated remote members on 7 consecutive dates, exactly one exclusive); TalkBack on the 3rd finish "<Event>: keepsake picture added." ("…: keepsake earned." while pending). An event with no dated member has no window and is an ordinary collection. versionCode stays 15 (T37 and T38 ship together in 0.7.0).
+
 Depends on: T37. Effort: human ~1d / CC ~45min.
 
 ---

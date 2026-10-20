@@ -29,6 +29,7 @@ import com.brewingbytes.gemmory.share.ProgressSharing
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.ui.GemRenderer
 import kotlinx.coroutines.Dispatchers
@@ -101,8 +102,9 @@ data class TodayCard(val tile: Tile, val preview: ImageBitmap?, val size: String
 
 /**
  * One collection row (T37, design system "Collection and event rows"): [members] are the strip's tiles in the
- * collection's order, the keepsake last once it's in; [coming] the "more coming" well. [glint]: complete and its glint
- * hasn't played. [keepsakeTitle] is set once the keepsake is in, for the announcement.
+ * collection's order, the keepsake last once it's in; [coming] the "more coming" well. [glint]: complete (or an
+ * event's keepsake earned, T38) and its glint hasn't played. [keepsakeTitle] is set once the keepsake is in, for the announcement. [inWindow]: a weekly event in
+ * its window (T38), opened with the event entry; [earned]: its keepsake earned with 3 finishes in the window.
  */
 data class CollectionRow(
     val id: String,
@@ -115,7 +117,12 @@ data class CollectionRow(
     val complete: Boolean,
     val glint: Boolean,
     val keepsakeTitle: String? = null,
-)
+    val inWindow: Boolean = false,
+    val earned: Boolean = false,
+) {
+    /** A thumbnail's `entry` (T36-T38): the event during its window, then a collection like any other. */
+    val entry: CanvasEntry get() = if (inWindow) CanvasEntry.EVENT else CanvasEntry.COLLECTION
+}
 
 /**
  * The gallery's collections (T37): [rows] above the grid ([rowsLarge] above 1.5× font, D4), whether the "All
@@ -252,6 +259,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 complete = status.complete,
                 glint = status.glintPending,
                 keepsakeTitle = status.keepsake?.title?.takeIf { status.keepsakeState == Keepsake.ADDED },
+                inWindow = status.inWindow,
+                earned = status.earned,
             )
         }
         val progress = settled.statuses.map { it.progress }
@@ -259,8 +268,9 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         val glints = settled.statuses.filter { it.glintPending }.map { it.id }.toSet()
         val anyFinished = pictures.any { it.done } || photos.any { it.done }
         val today = app.dayClock.today()
-        val pick = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = false)
-        val large = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = true)
+        val inWindow = settled.statuses.filter { it.inWindow }.map { it.id }.toSet()
+        val pick = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = false, inWindow)
+        val large = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = true, inWindow)
         val all = if (anyFinished) CollectionRules.sheet(progress, completed.keys).mapNotNull { rows[it] } else emptyList()
         return CollectionsUi(pick.rows.mapNotNull { rows[it] }, pick.showAll, large.rows.mapNotNull { rows[it] }, large.showAll, all)
     }

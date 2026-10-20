@@ -22,7 +22,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Collections on the phone (T37): completion, the keepsake and the token, each once, resumable after a crash. */
+/**
+ * Collections on the phone (T37): completion, the keepsake and the token, each once, resumable after a crash. Weekly
+ * events (T38): 3 finishes in the window earn the exclusive, for VIP too; all 7 earn the token only.
+ */
 class CollectionsTest {
     private val pattern = Pattern(1, 2, listOf(PaletteColor(1, 0xFF336699.toInt(), Lab(40.0, 0.0, 0.0))), intArrayOf(0, 0))
     private val prefsStore = FakePrefs()
@@ -33,6 +36,7 @@ class CollectionsTest {
     private var keepResult = KeepResult.CREATED
     private val kept = mutableListOf<String>()
     private val events = mutableListOf<AnalyticsEvent>()
+    private var now = DAY
 
     /** A fresh instance over the same stores, as after a process restart. */
     private fun collections() = Collections(
@@ -51,7 +55,7 @@ class CollectionsTest {
             }
         },
         keptToday = {},
-        today = { DAY },
+        today = { now },
         analytics = object : Analytics {
             override fun log(event: AnalyticsEvent) {
                 events += event
@@ -59,9 +63,9 @@ class CollectionsTest {
         },
     )
 
-    private fun remote(id: String, rewardOf: String? = null) = RemotePicture(
+    private fun remote(id: String, rewardOf: String? = null, availableFrom: LocalDate? = null) = RemotePicture(
         id, id, com.brewingbytes.gemmory.converter.AspectRatio.SQUARE, com.brewingbytes.gemmory.converter.CanvasSize.QUICK, 1, 2, 1,
-        "grids/$id.gmrg", "0".repeat(64), 0, true, 15, LocalDate(2026, 10, 20), rewardOf = rewardOf,
+        "grids/$id.gmrg", "0".repeat(64), 0, true, 15, LocalDate(2026, 10, 20), availableFrom = availableFrom, rewardOf = rewardOf,
     )
 
     private val seaside = RemoteCollection("seaside", "Seaside", listOf("a", "b", "lemons"))
@@ -71,8 +75,15 @@ class CollectionsTest {
         catalog = RemoteCatalog(1, listOf(remote("a"), remote("b"), keepsake) + extra, collections)
     }
 
-    private fun summary(id: String, finished: Boolean, kind: CanvasKind = if (id == "lemons") CanvasKind.BUNDLED else CanvasKind.REMOTE) =
-        CanvasSummary.Playable(CanvasRef(kind, id), id, if (finished) CanvasState.restore(pattern, intArrayOf(0, 1))!! else CanvasState.empty(pattern), 0L)
+    private fun summary(
+        id: String,
+        finished: Boolean,
+        kind: CanvasKind = if (id == "lemons") CanvasKind.BUNDLED else CanvasKind.REMOTE,
+        finishedDay: Long? = if (finished) DAY else null,
+    ) = CanvasSummary.Playable(
+        CanvasRef(kind, id), id, if (finished) CanvasState.restore(pattern, intArrayOf(0, 1))!! else CanvasState.empty(pattern), 0L,
+        firstFinishedDay = finishedDay,
+    )
 
     private fun all(finished: Boolean = true) = listOf(summary("a", finished), summary("b", finished), summary("lemons", finished))
 
@@ -214,7 +225,124 @@ class CollectionsTest {
         assertEquals("+2", CollectionCopy.comingShort(2))
     }
 
+    /** A week whose window is START..START + 6; today ([now]) is its 3rd day unless a test moves it. */
+    private val week = RemoteCollection("golden-week", "Golden Week", (1..7).map { "w$it" }, event = true)
+    private val exclusive = remote("golden-field", rewardOf = "golden-week")
+
+    private fun withWeek() {
+        catalog = RemoteCatalog(1, (1..7).map { remote("w$it", availableFrom = LocalDate.fromEpochDays(START + it - 1)) } + exclusive, listOf(week))
+    }
+
+    /** Members finished on [days] (null: finished before T35, no date); the rest shown and unfinished. */
+    private fun weekPlayed(vararg days: Long?) =
+        week.members.mapIndexed { i, id -> if (i < days.size) summary(id, true, finishedDay = days[i]) else summary(id, false) }
+
+    @Test
+    fun threeFinishedInTheWindowEarnTheExclusiveOnce() = runBlocking {
+        withWeek()
+        val c = collections()
+        val two = c.settle(weekPlayed(START, START + 1)).statuses.single()
+        assertTrue(two.event && two.inWindow && !two.earned)
+        assertEquals(Keepsake.NONE, two.keepsakeState)
+        assertTrue(unlocked.isEmpty())
+        assertEquals("One new picture a day. Finish any 3 this week for a keepsake picture.", CollectionCopy.line(two, vip = false))
+
+        val three = c.settle(weekPlayed(START, START + 1, START + 2)).statuses.single()
+        assertTrue(three.earned)
+        assertFalse(three.complete)
+        assertEquals(Keepsake.ADDED, three.keepsakeState)
+        assertTrue(three.glintPending, "the glint plays at the 3rd")
+        assertEquals(setOf("golden-field"), unlocked)
+        assertEquals(listOf("golden-field"), kept)
+        assertTrue(tokens.isEmpty(), "the token is for all 7")
+        assertEquals("Keepsake earned: golden-field.", CollectionCopy.line(three, vip = false))
+        val logged = events.single { it.name == "event_reward_unlocked" }
+        assertEquals(mapOf<String, Any>("event_id" to "golden-week", "finished_in_window" to 3L), logged.params)
+        // D7: the return from the 3rd finish is a reward return, read once.
+        assertTrue(c.takeRewardReturn("w3"))
+        assertFalse(c.takeRewardReturn("w3"))
+        // Again, and after a restart: nothing more.
+        c.settle(weekPlayed(START, START + 1, START + 2, START + 3))
+        collections().settle(weekPlayed(START, START + 1, START + 2, START + 3))
+        assertEquals(1, events.count { it.name == "event_reward_unlocked" })
+        assertEquals(listOf("golden-field"), kept)
+    }
+
+    /** CEO C3: VIP earns it the same way, and gets no token for all 7. */
+    @Test
+    fun vipEarnsTheExclusiveTheSameWay() = runBlocking {
+        withWeek()
+        vip = true
+        assertFalse(collections().settle(weekPlayed(START, START + 1)).statuses.single().earned)
+        assertTrue(unlocked.isEmpty(), "hidden until earned, for VIP too")
+        assertTrue(collections().settle(weekPlayed(START, START + 1, START + 6)).statuses.single().earned)
+        assertEquals(setOf("golden-field"), unlocked)
+        now = START + 10
+        val all = collections().settle(weekPlayed(START, START + 1, START + 6, START + 8, START + 8, START + 9, START + 10)).statuses.single()
+        assertTrue(all.complete)
+        assertTrue(tokens.isEmpty())
+        assertEquals("Complete.", CollectionCopy.line(all, vip = true))
+    }
+
+    /** The window ends on its 7th day: finishes after it don't count, and all 7 then earn the token only. */
+    @Test
+    fun afterTheWindowAllSevenGiveTheTokenAndNoExclusive() = runBlocking {
+        withWeek()
+        now = START + 7
+        val after = collections().settle(weekPlayed(START, START + 1, START + 7)).statuses.single()
+        assertFalse(after.inWindow || after.earned)
+        assertNull(after.keepsake)
+        assertEquals("Finish all 7 for an unlock token.", CollectionCopy.line(after, vip = false))
+        assertEquals("Finish all 7 to complete it.", CollectionCopy.line(after, vip = true))
+        val all = collections().settle(weekPlayed(START, START + 1, START + 7, START + 7, START + 7, START + 7, START + 7)).statuses.single()
+        assertTrue(all.complete)
+        assertTrue(all.glintPending, "completion plays the glint when no keepsake came")
+        assertEquals(setOf("collection-golden-week"), tokens)
+        assertTrue(unlocked.isEmpty(), "completing never grants the exclusive")
+        assertEquals("Complete. 1 unlock token added.", CollectionCopy.line(all, vip = false))
+        assertEquals(0, events.count { it.name == "event_reward_unlocked" })
+    }
+
+    /** No double keepsake: completing an earned event gives the token, and the exclusive stays the one picture. */
+    @Test
+    fun completingAnEarnedEventGivesTheTokenOnly() = runBlocking {
+        withWeek()
+        collections().settle(weekPlayed(START, START + 1, START + 2))
+        collections().glintShown("golden-week")
+        now = START + 6
+        val all = collections().settle(weekPlayed(START, START + 1, START + 2, START + 3, START + 4, START + 5, START + 6)).statuses.single()
+        assertTrue(all.complete && all.earned)
+        assertFalse(all.glintPending, "one glint an event")
+        assertEquals(setOf("collection-golden-week"), tokens)
+        assertEquals(listOf("golden-field"), kept)
+        assertEquals(1, events.count { it.name == "collection_completed" })
+        assertEquals("Complete. 1 unlock token added.", CollectionCopy.line(all, vip = false))
+    }
+
+    /** Eng outside voice #15: a finish with no `play` date (before T35) doesn't count for an event. */
+    @Test
+    fun aFinishWithoutADateDoesNotEarnAnEvent() = runBlocking {
+        withWeek()
+        assertFalse(collections().settle(weekPlayed(START, START + 1, null)).statuses.single().earned)
+        assertTrue(unlocked.isEmpty())
+    }
+
+    @Test
+    fun anEarnedExclusiveWhoseGridIsntHereIsPending() = runBlocking {
+        withWeek()
+        keepResult = KeepResult.MISSING
+        val pending = collections().settle(weekPlayed(START, START + 1, START + 2)).statuses.single()
+        assertEquals(Keepsake.PENDING_OFFLINE, pending.keepsakeState)
+        assertFalse(pending.glintPending, "the glint waits for the picture")
+        assertEquals("Keepsake earned. It arrives next time you're online.", CollectionCopy.line(pending, vip = false))
+        assertEquals("4 more coming, one a day", CollectionCopy.coming(4, oneADay = true))
+        assertEquals("3 of 7 finished · 4 more coming, one a day", CollectionCopy.count(3, 7, 4, largeFont = true, oneADay = true))
+    }
+
     private companion object {
         const val DAY = 20_400L
+
+        /** The week's first date: today is its 3rd day. */
+        const val START = DAY - 2
     }
 }

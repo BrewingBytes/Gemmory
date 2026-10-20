@@ -21,8 +21,9 @@ import javax.imageio.ImageIO
  * signed publish. Each row names a sheet and a tile (1-6, reading order) and the picture made from it. The run reads
  * and checks every row, splits every sheet ([SheetSplitter]), stops at the content check until every row says yes,
  * then hands the whole batch to [RemotePictureTool.publish], which writes nothing unless all of it verifies. An
- * optional `collections.csv` beside it (T37: id, title, members separated by `;`) adds or replaces collections; a row
- * with `rewardOf` is that collection's keepsake. README → Publishing a batch of pictures.
+ * optional `collections.csv` beside it (T37: id, title, members separated by `;`; T38: an optional `event` column, yes
+ * for a weekly event) adds or replaces collections; a row with `rewardOf` is that collection's keepsake (an event's
+ * exclusive). README → Publishing a batch of pictures.
  */
 object PictureBatch {
     const val CSV = "batch.csv"
@@ -31,6 +32,9 @@ object PictureBatch {
     const val COLLECTIONS_CSV = "collections.csv"
 
     val COLLECTION_COLUMNS = listOf("id", "title", "members")
+
+    /** T38: [COLLECTION_COLUMNS] plus `event` (yes, or blank for an ordinary collection). */
+    val EVENT_COLUMNS = COLLECTION_COLUMNS + "event"
 
     val REQUIRED = listOf("sheet", "tile", "id", "title", "size", "subject", "generatedOn", "contentChecked")
 
@@ -182,22 +186,28 @@ object PictureBatch {
         return rows
     }
 
-    /** Parses `collections.csv` (T37): a header `id,title,members`, then one collection per row, members split by `;`. */
+    /**
+     * Parses `collections.csv` (T37): a header `id,title,members` (or `id,title,members,event`, T38), then one
+     * collection per row, members split by `;`.
+     */
     fun readCollections(text: String): List<RemoteCollection> {
         val lines = csv(text)
         require(lines.isNotEmpty()) { "$COLLECTIONS_CSV is empty" }
         val header = lines.first().map { it.trim() }
-        require(header == COLLECTION_COLUMNS) { "$COLLECTIONS_CSV columns must be ${COLLECTION_COLUMNS.joinToString(",")}, were ${header.joinToString(",")}" }
+        require(header == COLLECTION_COLUMNS || header == EVENT_COLUMNS) {
+            "$COLLECTIONS_CSV columns must be ${EVENT_COLUMNS.joinToString(",")} (event optional), were ${header.joinToString(",")}"
+        }
         val problems = ArrayList<String>()
         val out = lines.drop(1).withIndex().filter { (_, f) -> f.any { it.isNotBlank() } }.mapNotNull { (i, fields) ->
             val line = i + 2
-            val (id, title, members) = (fields.map { it.trim() } + listOf("", "", "")).take(3)
+            val (id, title, members, eventField) = (fields.map { it.trim() } + listOf("", "", "", "")).take(4)
             val list = members.split(';').map { it.trim() }.filter { it.isNotEmpty() }
             when {
                 !RemoteCatalogs.ID.matches(id) -> problems += "line $line: id must match ${RemoteCatalogs.ID.pattern}"
                 title.isBlank() -> problems += "line $line: title is empty"
                 list.isEmpty() -> problems += "line $line: members is empty"
-                else -> return@mapNotNull RemoteCollection(id, title, list)
+                eventField.lowercase() !in setOf("", "yes") -> problems += "line $line: event must be yes or empty"
+                else -> return@mapNotNull RemoteCollection(id, title, list, event = eventField.equals("yes", ignoreCase = true))
             }
             null
         }

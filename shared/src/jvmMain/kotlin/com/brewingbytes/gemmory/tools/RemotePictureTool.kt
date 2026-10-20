@@ -10,6 +10,7 @@ import com.brewingbytes.gemmory.remote.GridCheck
 import com.brewingbytes.gemmory.remote.Json
 import com.brewingbytes.gemmory.remote.RemoteCatalog
 import com.brewingbytes.gemmory.remote.RemoteCatalogs
+import com.brewingbytes.gemmory.remote.CollectionRules
 import com.brewingbytes.gemmory.remote.RemoteCollection
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePicture
@@ -191,7 +192,8 @@ object RemotePictureTool {
     /**
      * The tool's own collection checks (T37), stricter than the app's: every member is a published or bundled picture
      * (a typo would leave a member "coming" for ever), and each collection has at most one keepsake, whose
-     * collection exists.
+     * collection exists. A weekly event (T38) is 7 remote drops on 7 consecutive dates with exactly one exclusive:
+     * its row promises a keepsake for 3 finishes in the week, one picture a day.
      */
     private fun checkCollections(groups: List<RemoteCollection>, pictures: List<RemotePicture>, reserved: Set<String>) {
         val ids = pictures.map { it.id }.toSet()
@@ -202,10 +204,20 @@ object RemotePictureTool {
             require(c.members.isNotEmpty() && c.members.toSet().size == c.members.size) { "collection ${c.id}: members must be listed once each" }
             c.members.firstOrNull { it !in ids && it !in reserved }?.let { error("collection ${c.id}: $it isn't a published or bundled picture") }
             pictures.firstOrNull { it.rewardOf == c.id && it.id in c.members }?.let { error("collection ${c.id}: its keepsake ${it.id} can't be a member") }
+            if (c.event) checkEvent(c, pictures)
         }
         val rewards = pictures.filter { it.rewardOf != null }
         rewards.firstOrNull { p -> groups.none { it.id == p.rewardOf } }?.let { error("${it.id}: rewardOf ${it.rewardOf} isn't a collection") }
         rewards.groupBy { it.rewardOf }.filterValues { it.size > 1 }.keys.firstOrNull()?.let { error("collection $it has two keepsakes") }
+    }
+
+    private fun checkEvent(c: RemoteCollection, pictures: List<RemotePicture>) {
+        require(c.members.size == CollectionRules.EVENT_DAYS) { "event ${c.id}: it needs ${CollectionRules.EVENT_DAYS} members, has ${c.members.size}" }
+        val days = c.members.map { m ->
+            pictures.firstOrNull { it.id == m }?.availableFrom?.toEpochDays() ?: error("event ${c.id}: $m must be a dated remote picture (availableFrom)")
+        }.sorted()
+        require(days.zipWithNext().all { (a, b) -> b == a + 1 }) { "event ${c.id}: its ${CollectionRules.EVENT_DAYS} drops must be on consecutive dates" }
+        require(pictures.count { it.rewardOf == c.id } == 1) { "event ${c.id}: it needs its exclusive (one picture with rewardOf = ${c.id})" }
     }
 
     /** Removes [id] from the catalog and deletes its grid; phones that started it keep their own copy. */

@@ -240,7 +240,7 @@ class LockedPicturesTest {
         ads.load = RewardedLoad.Failed(LoadFailure.NO_FILL)
         text("Try again").performClick()
         waitFor(hasText("No video right now. This one's on us today."))
-        text("Or get VIP: every picture unlocked").assertExists()
+        text("Or get VIP: every gallery picture unlocked").assertExists()
         text("Unlock picture").performClick()
         waitFor(hasText("Unlocked"))
         waitForCanvas()

@@ -93,6 +93,10 @@ object A11yText {
     fun collectionComplete(title: String, keepsake: Boolean): String =
         if (keepsake) "$title complete. Keepsake picture added." else "$title complete."
 
+    /** The polite announcement when an event's row first shows after its 3rd finish in the window (T38). */
+    fun eventEarned(title: String, added: Boolean): String =
+        if (added) "$title: keepsake picture added." else "$title: keepsake earned."
+
     /**
      * "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock"; a remote picture
      * that just arrived (#43) reads "Fox in Snow, new, 0% done" / "…, new, locked, watch a video to unlock".
