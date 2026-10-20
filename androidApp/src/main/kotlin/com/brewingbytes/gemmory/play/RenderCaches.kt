@@ -35,12 +35,11 @@ enum class CellLook { GEM, TINT, STRONG, DIMMED }
  * Canvas cell colors (design system, Canvas cell colors): a placed gem is the exact grid color; an unplaced cell is
  * that color mixed 78% toward bone with its number in on-bone; the stronger tint of a selected color is mixed only
  * 40% toward bone, and a dimmed cell (Dim the rest) is the pale tint mixed 35% toward felt-deep, each with its number
- * in on-bone or bone, whichever has more contrast. Seams are each face slightly darker, so the grid reads without
- * dark gaps.
+ * in on-bone or bone, whichever has more contrast. An unplaced cell's right and bottom seam is its face 8% darker,
+ * so the grid reads without dark gaps; a placed gem has none, its table cut's bevels carry the edge (T40).
  */
 class CellColors(pattern: Pattern) {
     val gem = IntArray(pattern.palette.size) { pattern.palette[it].argb or OPAQUE }
-    val gemSeam = IntArray(gem.size) { shade(gem[it], 0.8f) }
     val tint = IntArray(gem.size) { mix(gem[it], BONE, UNPLACED_TINT) }
     val tintSeam = IntArray(gem.size) { shade(tint[it], 0.92f) }
     val selectedTint = IntArray(gem.size) { mix(gem[it], BONE, SELECTED_TINT) }
@@ -58,7 +57,7 @@ class CellColors(pattern: Pattern) {
     }
 
     fun seam(slot: Int, look: CellLook): Int = when (look) {
-        CellLook.GEM -> gemSeam[slot]
+        CellLook.GEM -> gem[slot]
         CellLook.TINT -> tintSeam[slot]
         CellLook.STRONG -> selectedSeam[slot]
         CellLook.DIMMED -> dimmedSeam[slot]
@@ -136,7 +135,8 @@ enum class SpriteKind { PLACED, UNPLACED, SELECTED }
 
 /**
  * One zoom bucket: sprites are drawn [px] square and scaled down at most one bucket step to the on-screen cell,
- * with what that zoom shows (design system zoom table): raised edges from 8dp, numbers from 16dp, facets from 20dp.
+ * with what that zoom shows (design system zoom table): table cuts and seams from 8dp ([raised]), numbers and the
+ * narrower 20% bevel from 16dp, the catchlight and placement glint from 20dp ([facets]).
  */
 data class SpriteSpec(val px: Int, val raised: Boolean, val numbers: Boolean, val facets: Boolean) {
     companion object {

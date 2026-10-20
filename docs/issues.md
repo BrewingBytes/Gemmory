@@ -829,6 +829,8 @@ Labels: P2, renderer, ui
 - Must hold up in the time-lapse frames, the finish confetti and the preview; recognizability of photo canvases must not regress (founder + 3 testers, before/after on the converter goldens' canvases).
 - Performance: the A06 frame-timing pass line (#54) stays green.
 
+- **Founder decision (2026-10-20):** the launcher icon and the 512 Play Store icon are redrawn as table cuts in T40 too (`tools/store/icon.py` writes the adaptive icon's foreground and monochrome and `tools/store/icon.svg`; `icon-512.png` is rendered from it), so no cushion gem is left anywhere.
+
 **Docs this issue owns:** `docs/design-system.md` (gem spec and decisions log written in Phase 4; update if the build differs).
 
 **Tests:** existing renderer and frame-timing tests stay green; screenshot goldens updated deliberately; QA the hard-case strip (white, cream, light/mid/deep skin, near-black, mid violet placed beside their tints at 16 and 24dp) under all three Selected color styles; `CanvasFrameTimingTest` on the A06 at release.

@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -124,6 +125,7 @@ import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
+import com.brewingbytes.gemmory.ui.TableCut
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import com.brewingbytes.gemmory.ui.withFullMotion
 import kotlinx.coroutines.CoroutineScope
@@ -1021,10 +1023,14 @@ private fun Trough(
     }
 }
 
-/** A recessed 44dp well holding a heap of up to 9 mini gems (one per ~3.5 cells left), or a closed flap when done. */
+/**
+ * A recessed 44dp well holding a heap of up to 9 mini table-cut gems (one per ~3.5 cells left, T40), or a closed flap
+ * when done.
+ */
 @Composable
 private fun Well(color: Color, remaining: Int) {
     val felt = LocalFelt.current
+    val cut = remember { TableCut.UnitPaths(TableCut.WIDE_BEVEL) }
     Canvas(Modifier.fillMaxWidth().height(44.dp)) {
         val corner = CornerRadius(6.dp.toPx())
         drawRoundRect(felt.ground, cornerRadius = corner)
@@ -1055,13 +1061,14 @@ private fun Well(color: Color, remaining: Int) {
             val x0 = (size.width - count * step + 1.dp.toPx()) / 2f
             for (i in 0 until count) {
                 val topLeft = Offset(x0 + i * step, y)
-                drawRoundRect(color, topLeft, Size(gemSize, gemSize), CornerRadius(gemSize * 0.18f))
-                drawRoundRect(
-                    Color.White.copy(alpha = 0.2f),
-                    topLeft,
-                    Size(gemSize * 0.5f, gemSize * 0.5f),
-                    CornerRadius(gemSize * 0.18f),
-                )
+                drawRect(color, topLeft, Size(gemSize, gemSize))
+                // A 9dp gem: the 8-15dp bevels (24%, about 2.2dp), no catchlight.
+                withTransform({
+                    translate(topLeft.x + gemSize / 2f, topLeft.y + gemSize / 2f)
+                    scale(gemSize, gemSize, pivot = Offset.Zero)
+                }) {
+                    for ((path, argb) in cut.layers) drawPath(path, Color(argb))
+                }
             }
             drawn += count
         }

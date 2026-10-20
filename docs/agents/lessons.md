@@ -40,6 +40,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-20 (#78): the completion screen's Done can miss a tap during its entrance; a test that taps it once and waits for the gallery stalls on the completion screen. Tap until the gallery shows (`CollectionsFlowTest.done()`).
 - 2026-10-20 (#78): `RemotePictures.check()` that leaves one grid out ends INCOMPLETE and doesn't bump `updates`, so a showing gallery never reloads with the new catalog. A connected test that withholds a grid runs `app.remote.check(force = true)` before launching.
 - 2026-10-20 (#78): on this Mac a full verification run with the emulator up filled the disk (3.9 GB free, swap 9.6/10 GB on the same volume): Gradle failed writing `last-build.bin` and every later tool call failed with ENOSPC, the Bash tool included, so the founder had to stop the emulator and delete `build/` by hand. Check `df -h /` before the full gradle command; with under ~4 GB, close the emulator first and run the command in two halves.
+- 2026-10-20 (#81): with host swap at 10.4 of 11 GB, `CanvasFrameTimingTest` failed on the emulator for both main (12.7%, 5.6% missed) and the branch (8.5%, 9.0%), with the failing phases changing run to run. Measure main on the same emulator before calling a miss a regression; the A06 on Test Lab is the real check.
 
 ## CI
 
@@ -61,6 +62,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-20 (#85): `ImageIO.write(image, "jpg", file)` on a `TYPE_INT_ARGB` image (what `BundledGridTool` and `getSubimage` of a PNG sheet can give) writes nothing and returns `false`; JPEG has no alpha. Draw it into a `TYPE_INT_RGB` image first and check the return value, as `RemotePictureTool.writeJpeg` does.
 
 ## App code
+- 2026-10-20 (#81): the README's `brave` for the icon renders is the macOS app binary here: `"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"` (it also renders an SVG directly, as `tools/store/icon.py`'s store icon does).
 
 - 2026-10-18 (#49): JVM unit tests can't make an `Activity` (android.jar's stubs throw "Stub!") and there's no Robolectric here. Keep an SDK whose clients need an Activity behind a small session interface (`GamesBackend.session(activity)` → `GamesSession`) so the logic is tested with a fake session.
 - 2026-10-18 (#49): don't hold the lock that guards a local file across a network call: a hung Play Games task held the ledger lock, so new unlocks couldn't be saved. Lock the file only for its reads and writes, and serialize the sends with a second lock.

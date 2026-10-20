@@ -39,7 +39,7 @@ import kotlin.test.assertTrue
 
 /**
  * The Selected color setting (#19): picked in Settings, applied at once on an open canvas, kept across a restart. The
- * canvas's TalkBack node doesn't change with the style.
+ * canvas's TalkBack node doesn't change with the style. Placed gems are table cuts and unplaced cells keep a seam (T40).
  */
 @RunWith(AndroidJUnit4::class)
 class HighlightStyleTest {
@@ -162,12 +162,27 @@ class HighlightStyleTest {
         assertColor(colors.selectedTint[selected], pixel(selectedCell, ringAt, 0.5f), "tint: no ring")
         setStyle(HighlightStyle.DIM)
         assertColor(colors.dimmed[other], pixel(otherCell, 0.25f, 0.25f), "dim at 24dp")
-
         assertEquals(description, description(), "the TalkBack node doesn't change with the style")
+
+        // T40: a placed gem at 24dp is a table cut: the table in the exact color, a lit top bevel, a shaded bottom
+        // bevel; an unplaced cell keeps a darker seam on its bottom edge.
+        setStyle(HighlightStyle.TINT)
+        val gemCell = selectedCell + 3
+        assertEquals(selected, pattern.cells[gemCell])
+        instrumentation.runOnMainSync { s.place(gemCell) }
+        Thread.sleep(400) // past the 180ms placement glint
+        assertColor(colors.gem[selected], pixel(gemCell), "table: the exact color")
+        assertTrue(luma(pixel(gemCell, 0.5f, 0.08f)) > luma(colors.gem[selected]) + 8, "top bevel is lit")
+        assertTrue(luma(pixel(gemCell, 0.5f, 0.92f)) < luma(colors.gem[selected]) - 8, "bottom bevel is shaded")
+        assertTrue(luma(pixel(gemCell, 0.92f, 0.5f)) < luma(colors.gem[selected]), "right bevel is shaded")
+        assertTrue(luma(pixel(otherCell, 0.25f, 0.99f)) < luma(colors.tint[other]), "unplaced bottom seam is darker")
+        assertColor(colors.tint[other], pixel(otherCell, 0.25f, 0.25f), "unplaced face stays flat")
     }
 
     private fun description(): String =
         compose.onNodeWithTag("play-canvas").fetchSemanticsNode().config[SemanticsProperties.ContentDescription].joinToString()
+
+    private fun luma(argb: Int): Int = (((argb shr 16) and 0xFF) * 299 + ((argb shr 8) and 0xFF) * 587 + (argb and 0xFF) * 114) / 1000
 
     private fun assertColor(expected: Int, actual: Int, what: String, tolerance: Int = 3) {
         val close = listOf(16, 8, 0).all { abs(((expected shr it) and 0xFF) - ((actual shr it) and 0xFF)) <= tolerance }
