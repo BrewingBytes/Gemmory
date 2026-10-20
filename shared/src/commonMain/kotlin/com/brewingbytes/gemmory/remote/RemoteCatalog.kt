@@ -13,7 +13,7 @@ import kotlin.io.encoding.Base64
  * One picture of the remote catalog (#43): a finished GMRY grid made by `freezeBundledGrid`, published to the content
  * repo and never changed (saves bind to [crc32]; a fix is a new id). [grid] is a path relative to the catalog.
  * [minAppVersion] is a versionCode. [availableFrom] makes it a dated drop (T36): hidden on the phone before that local
- * date, free to start on it.
+ * date, free to start on it. [rewardOf] makes it a collection's keepsake (T37): hidden until that collection is earned.
  */
 data class RemotePicture(
     val id: String,
@@ -30,10 +30,21 @@ data class RemotePicture(
     val minAppVersion: Int,
     val addedAt: LocalDate,
     val availableFrom: LocalDate? = null,
+    val rewardOf: String? = null,
 )
 
-/** A verified catalog. [issuedAt] (epoch seconds) only moves forward, so an old signed catalog can't be replayed. */
-data class RemoteCatalog(val issuedAt: Long, val pictures: List<RemotePicture>)
+/**
+ * A themed collection (T37, eng D7): [members] are picture ids, remote or bundled, in display order; picture entries
+ * carry no collection field. [event] marks T38's weekly event. Collection and event ids share one namespace, apart from
+ * picture ids.
+ */
+data class RemoteCollection(val id: String, val title: String, val members: List<String>, val event: Boolean = false)
+
+/**
+ * A verified catalog. [issuedAt] (epoch seconds) only moves forward, so an old signed catalog can't be replayed.
+ * [collections] are in catalog order, oldest first (T37: "newest" is the last listed).
+ */
+data class RemoteCatalog(val issuedAt: Long, val pictures: List<RemotePicture>, val collections: List<RemoteCollection> = emptyList())
 
 /** Why a catalog was refused. Every refusal keeps the cached catalog as it is. */
 sealed interface CatalogRefusal {
@@ -56,7 +67,10 @@ sealed interface CatalogRefusal {
         override val code = "rollback"
     }
 
-    /** An id the app already uses (a bundled picture) or one listed twice: unlocks and saves are keyed by id. */
+    /**
+     * An id the app already uses (a bundled picture) or one listed twice: unlocks and saves are keyed by id. A
+     * collection id that is also a picture id clashes too (T37).
+     */
     data class IdClash(val id: String) : CatalogRefusal {
         override val code = "id_clash"
     }
@@ -88,8 +102,9 @@ sealed interface GridCheck {
  *
  * Format v1 (`catalog.json`, UTF-8): `{"version": 1, "issuedAt": <epoch s>, "pictures": [{"id", "title", "ratio"
  * ("1:1" | "3:4" | "4:3"), "size" ("quick" | "medium" | "big"), "width", "height", "colors", "grid"
- * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD"), optional "availableFrom" ("YYYY-MM-DD", T36)}]}`.
- * Unknown fields are ignored. `catalog.json.sig` is the Ed25519 signature of the exact catalog bytes, in base64.
+ * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD"), optional "availableFrom" ("YYYY-MM-DD", T36), optional "rewardOf" (a collection id, T37)}],
+ * optional "collections": [{"id", "title", "members" ([picture ids]), optional "event" (true, T38)}]}`. A member the
+ * catalog doesn't list is allowed (it may need a newer app, or be withdrawn). Unknown fields are ignored. `catalog.json.sig` is the Ed25519 signature of the exact catalog bytes, in base64.
  */
 object RemoteCatalogs {
     const val VERSION = 1L
@@ -118,19 +133,27 @@ object RemoteCatalogs {
      */
     const val DROPS_MIN_APP = 13
 
+    /**
+     * The first app (versionCode) that knows keepsakes (T37). An older app would show an unearned keepsake as an
+     * ordinary picture, so an entry with `rewardOf` must name this or a later version; one naming an older version is
+     * malformed.
+     */
+    const val REWARDS_MIN_APP = 15
+
     /** The first app (versionCode) that reads the remote catalog at all (#43). */
     const val REMOTE_MIN_APP = 11
 
     /**
      * The lowest app that reads [p] right (D14): an older app would refuse the whole catalog over its colors, or show
-     * a dated drop at once. The publishing tool stamps this as the picture's `minAppVersion`. Each later hiding field
-     * (`rewardOf` with T37, `mystery` with T43) adds its own version here; fields an older app can safely ignore,
+     * a dated drop or an unearned keepsake at once. The publishing tool stamps this as the picture's `minAppVersion`.
+     * Each later hiding field (`mystery` with T43) adds its own version here; fields an older app can safely ignore,
      * like collections, never raise it.
      */
     fun lowestApp(p: RemotePicture): Int = maxOf(
         REMOTE_MIN_APP,
         if (p.colors > p.size.paletteCap) MORE_COLORS_MIN_APP else REMOTE_MIN_APP,
         if (p.availableFrom != null) DROPS_MIN_APP else REMOTE_MIN_APP,
+        if (p.rewardOf != null) REWARDS_MIN_APP else REMOTE_MIN_APP,
     )
 
     fun gridPath(id: String): String = "grids/$id.gmrg"
@@ -158,6 +181,7 @@ object RemoteCatalogs {
             return CatalogCheck.Refused(CatalogRefusal.Rollback(c.issuedAt, cachedIssuedAt))
         }
         c.pictures.firstOrNull { it.id in reservedIds }?.let { return CatalogCheck.Refused(CatalogRefusal.IdClash(it.id)) }
+        c.collections.firstOrNull { it.id in reservedIds }?.let { return CatalogCheck.Refused(CatalogRefusal.IdClash(it.id)) }
         return parsed
     }
 
@@ -184,7 +208,18 @@ object RemoteCatalogs {
             if (!ids.add(picture.id)) return CatalogCheck.Refused(CatalogRefusal.IdClash(picture.id))
             pictures += picture
         }
-        return CatalogCheck.Ok(RemoteCatalog(issuedAt, pictures))
+        val collections = ArrayList<RemoteCollection>()
+        val groups = root.fields["collections"]
+        if (groups != null) {
+            val arr = groups as? Json.Arr ?: return malformed("collections")
+            for ((i, item) in arr.items.withIndex()) {
+                val c = (item as? Json.Obj)?.let(::collection) ?: return malformed("collections[$i]")
+                // One namespace for collections and events, apart from pictures (eng D7): unlocks and events key on it.
+                if (c.id in ids || collections.any { it.id == c.id }) return CatalogCheck.Refused(CatalogRefusal.IdClash(c.id))
+                collections += c
+            }
+        }
+        return CatalogCheck.Ok(RemoteCatalog(issuedAt, pictures, collections))
     }
 
     /** A downloaded grid against its catalog entry: SHA-256, then the GMRY file, then its CRC, then its shape. */
@@ -217,9 +252,30 @@ object RemoteCatalogs {
         val added = o.string("addedAt")?.let(::date) ?: return null
         val from = if ("availableFrom" in o.fields) o.string("availableFrom")?.let(::date) ?: return null else null
         if (from != null && minApp < DROPS_MIN_APP) return null
+        val reward = if ("rewardOf" in o.fields) o.string("rewardOf")?.takeIf { ID.matches(it) } ?: return null else null
+        if (reward != null && minApp < REWARDS_MIN_APP) return null
         val crc32 = crc.fold(0) { acc, b -> (acc shl 8) or (b.toInt() and 0xFF) }
-        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added, from)
+        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added, from, reward)
     }
+
+    private fun collection(o: Json.Obj): RemoteCollection? {
+        val id = o.string("id")?.takeIf { ID.matches(it) } ?: return null
+        val title = o.string("title")?.takeIf { t -> t.isNotBlank() && t.length <= MAX_TITLE && t.none { it < ' ' } } ?: return null
+        val list = (o.fields["members"] as? Json.Arr)?.items?.takeIf { it.isNotEmpty() } ?: return null
+        val members = list.map { m -> (m as? Json.Str)?.value?.takeIf { ID.matches(it) } ?: return null }
+        if (members.toSet().size != members.size) return null
+        val event = if ("event" in o.fields) (o.fields["event"] as? Json.Bool)?.value ?: return null else false
+        return RemoteCollection(id, title, members, event)
+    }
+
+    /** The publishing tool's collection entry (T37), fields in the documented order. */
+    fun collectionEntry(c: RemoteCollection): Json.Obj = Json.Obj(
+        linkedMapOf<String, Json>(
+            "id" to Json.Str(c.id),
+            "title" to Json.Str(c.title),
+            "members" to Json.Arr(c.members.map { Json.Str(it) }),
+        ).apply { if (c.event) put("event", Json.Bool(true)) },
+    )
 
     /** The publishing tool's catalog entry, fields in the documented order. */
     fun entry(p: RemotePicture): Json.Obj = Json.Obj(
@@ -237,7 +293,10 @@ object RemoteCatalogs {
             "locked" to Json.Bool(p.locked),
             "minAppVersion" to Json.Num(p.minAppVersion.toString()),
             "addedAt" to Json.Str(p.addedAt.toString()),
-        ).apply { p.availableFrom?.let { put("availableFrom", Json.Str(it.toString())) } },
+        ).apply {
+            p.availableFrom?.let { put("availableFrom", Json.Str(it.toString())) }
+            p.rewardOf?.let { put("rewardOf", Json.Str(it)) }
+        },
     )
 
     private fun date(text: String): LocalDate? = runCatching { LocalDate.parse(text) }.getOrNull()

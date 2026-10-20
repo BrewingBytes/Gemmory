@@ -42,6 +42,18 @@ class GalleryOrderTest {
         assertEquals(open + lockedExcept("wave"), order(unlocked = setOf("wave")))
     }
 
+    /**
+     * T37 (D25), R1: an earned keepsake is a catalog-locked remote picture whose id is in the unlocks, so it joins the
+     * open group in its size like any unlocked picture, and the bundled order around it doesn't move.
+     */
+    @Test
+    fun anEarnedKeepsakeIsAnOpenPicture() {
+        val keepsake = Tile(CanvasRef(CanvasKind.REMOTE, "harbour-lights"), "Harbour Lights", 1f, null, 0, done = false, damaged = false, lockable = true)
+        val ordered = picturesInOrder(tiles() + keepsake, setOf("harbour-lights"), Entitlements.FREE).map { it.ref.id }
+        val open = listOf("starter", "lemons", "balloon", "cherries", "tuscan-hills", "puppy", "cat", "harbour-lights")
+        assertEquals(open + lockedExcept(), ordered)
+    }
+
     @Test
     fun aStartedLockedPictureJoinsTheOpenOnesInItsSize() {
         val open = listOf("starter", "lemons", "balloon", "the-kiss", "cherries", "tuscan-hills", "puppy", "cat")

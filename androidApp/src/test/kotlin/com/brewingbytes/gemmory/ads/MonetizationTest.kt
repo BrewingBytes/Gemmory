@@ -215,6 +215,27 @@ class MonetizationTest {
         assertEquals(3, gateway.shown.size, "1 min after a rewarded ad")
     }
 
+    /**
+     * T37 (CEO C6): a collection's token comes once per collection, through a restart; R1: the token it adds spends
+     * like a wheel's, and the inventory flows as before.
+     */
+    @Test
+    fun aCollectionTokenComesOnceAndSpendsLikeAnyToken() = runTest(UnconfinedTestDispatcher()) {
+        val m = monetization()
+        assertTrue(m.earnTokenOnce("collection-seaside"))
+        assertFalse(m.earnTokenOnce("collection-seaside"))
+        assertEquals(1, m.inventory.value.tokens)
+        m.close()
+        val again = monetization(processStart = false)
+        again.refresh()
+        assertFalse(again.earnTokenOnce("collection-seaside"), "a new process still knows it")
+        assertEquals(1, again.inventory.value.tokens)
+        assertTrue(again.useToken("sunflowers"))
+        assertEquals(0, again.inventory.value.tokens)
+        assertEquals(setOf("sunflowers"), again.unlocks.unlocked.value)
+        assertFalse(again.useToken("wave"), "none left")
+    }
+
     @Test
     fun picturesUnlockForGoodAndVipSeesNoLocks() = runTest(UnconfinedTestDispatcher()) {
         val locked = BundledPicture("sunflowers", "Sunflowers", "pictures/x.gmrg", 0, locked = true)

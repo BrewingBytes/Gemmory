@@ -68,6 +68,37 @@ class PictureBatchTest {
         assertTrue(text.contains("| `garden-3.jpg`: a quiet garden 3, tile 3 of `2026-11-a/sheet-1.png`, a 2×3 sheet by ChatGPT image generation (OpenAI), 2026-10-30, prompt `prompts/sheet-2x3.md` | AI-generated for BrewingBytes | OpenAI terms"), text)
     }
 
+    /** T37: a `rewardOf` row is a collection's keepsake, `collections.csv` adds the collection, and the runway skips it. */
+    @Test
+    fun aBatchPublishesACollectionWithItsKeepsake() {
+        ImageIO.write(SheetSplitterTest.sheet(1536, 1024, columns = 3, rows = 2), "png", File(batchDir, "sheet-1.png"))
+        val dated = (1..5).joinToString("\n") { t -> "sheet-1.png,$t,garden-$t,Garden $t,quick-1:1,2026-11-0$t,a quiet garden $t,2026-10-30,yes," }
+        File(batchDir, PictureBatch.CSV).writeText(
+            "$header,rewardOf\n$dated\nsheet-1.png,6,garden-keepsake,Garden Gate,quick-1:1,,a garden gate,2026-10-30,yes,gardens\n",
+        )
+        File(batchDir, PictureBatch.COLLECTIONS_CSV).writeText("id,title,members\ngardens,Gardens,garden-1;garden-2;garden-3;garden-4;garden-5\n")
+        val published = PictureBatch.run(settings)
+        val keepsake = published.pictures.single { it.rewardOf != null }
+        assertEquals("garden-keepsake" to RemoteCatalogs.REWARDS_MIN_APP, keepsake.id to keepsake.minAppVersion)
+        assertNull(keepsake.availableFrom)
+        assertEquals(DropCalendar.Result.Fail(5), published.calendar, "the keepsake isn't a drop")
+        val catalog = RemoteCatalogs.check(File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, Int.MAX_VALUE, null, setOf("starter"))
+        assertEquals(listOf("gardens"), assertIs<CatalogCheck.Ok>(catalog).catalog.collections.map { it.id })
+        assertEquals((1..5).map { "garden-$it" }, assertIs<CatalogCheck.Ok>(catalog).catalog.collections.single().members)
+    }
+
+    @Test
+    fun aDatedKeepsakeOrABadCollectionsFileIsRefused() {
+        ImageIO.write(SheetSplitterTest.sheet(1536, 1024, columns = 3, rows = 2), "png", File(batchDir, "sheet-1.png"))
+        File(batchDir, PictureBatch.CSV).writeText("$header,rewardOf\nsheet-1.png,1,garden-1,Garden 1,quick-1:1,2026-11-01,a garden,2026-10-30,yes,gardens\n")
+        val dated = assertFailsWith<IllegalArgumentException> { PictureBatch.run(settings) }
+        assertTrue(dated.message!!.contains("keepsake"), dated.message)
+        assertFailsWith<IllegalArgumentException> { PictureBatch.readCollections("id,name,members\ngardens,Gardens,garden-1\n") }
+        val bad = assertFailsWith<IllegalArgumentException> { PictureBatch.readCollections("id,title,members\nGardens!,Gardens,garden-1\nok,,garden-1\nok2,Ok,\n") }
+        assertEquals(3, bad.message!!.lines().size, bad.message)
+        assertFalse(dir.exists(), "nothing published")
+    }
+
     @Test
     fun theContentCheckStopsTheBatchUntilEveryRowSaysYes() {
         write(rows { if (it == 2 || it == 5) "no" else "yes" })

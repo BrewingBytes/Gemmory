@@ -185,6 +185,89 @@ class RemoteCatalogTest {
         assertEquals(listOf(null, LocalDate(2026, 11, 2)), now.map { it.availableFrom })
     }
 
+    /** T37: collections parse in order with their members, which need not be listed (newer app, withdrawn, bundled). */
+    @Test
+    fun collectionsParseWithUnknownMembersAndTheEventFlag() {
+        val seaside = RemoteCollection("seaside", "Seaside", listOf("fox-in-snow", "lemons", "not-published-yet"))
+        val week = RemoteCollection("autumn-week", "Autumn Week", listOf("hot-air-lanterns"), event = true)
+        val bytes = catalogJson(pictures, collections = listOf(seaside, week))
+        val catalog = assertIs<CatalogCheck.Ok>(check(bytes)).catalog
+        assertEquals(listOf(seaside, week), catalog.collections)
+        assertEquals(pictures, catalog.pictures)
+        assertFalse(catalogJson(pictures).decodeToString().contains("collections"), "no collections, no key")
+        assertFalse(bytes.decodeToString().substringBefore("autumn-week").contains("\"event\""), "event is written only when true")
+    }
+
+    /** T37 (eng D7): collection ids share one namespace apart from pictures and bundled ids, and are listed once. */
+    @Test
+    fun aCollectionIdThatClashesIsRefused() {
+        fun clash(c: RemoteCollection, vararg more: RemoteCollection) =
+            assertIs<CatalogRefusal.IdClash>(refusal(check(catalogJson(pictures, collections = listOf(c) + more)))).id
+        assertEquals("fox-in-snow", clash(RemoteCollection("fox-in-snow", "Foxes", listOf("fox-in-snow"))))
+        assertEquals("lemons", clash(RemoteCollection("lemons", "Lemons", listOf("fox-in-snow"))))
+        assertEquals("seaside", clash(RemoteCollection("seaside", "A", listOf("fox-in-snow")), RemoteCollection("seaside", "B", listOf("lemons"))))
+    }
+
+    @Test
+    fun aMalformedCollectionRefusesTheCatalog() {
+        val good = catalogJson(pictures, collections = listOf(RemoteCollection("seaside", "Seaside", listOf("fox-in-snow", "lemons")))).decodeToString()
+        for ((from, to) in listOf(
+            "\"id\": \"seaside\"" to "\"id\": \"Sea Side\"",
+            "\"title\": \"Seaside\"" to "\"title\": \"\"",
+            "\"lemons\"\n" to "\"fox-in-snow\"\n",
+            "\"members\": [" to "\"members\": 3, \"x\": [",
+        )) {
+            check(good.contains(from)) { "fixture lacks $from" }
+            assertIs<CatalogRefusal.Malformed>(refusal(check(good.replaceFirst(from, to).encodeToByteArray())), to)
+        }
+        val empty = good.replace(Regex("\"members\": \\[[^\\]]*\\]"), "\"members\": []")
+        assertIs<CatalogRefusal.Malformed>(refusal(check(empty.encodeToByteArray())))
+        val badEvent = good.replaceFirst("\"title\": \"Seaside\"", "\"title\": \"Seaside\", \"event\": \"yes\"")
+        assertIs<CatalogRefusal.Malformed>(refusal(check(badEvent.encodeToByteArray())))
+        assertIs<CatalogRefusal.Malformed>(refusal(check(catalogJson(pictures).decodeToString().replaceFirst("\"pictures\"", "\"collections\": {}, \"pictures\"").encodeToByteArray())))
+    }
+
+    /** T37: a keepsake names its collection and an app that knows keepsakes; it round-trips through the tool's entry. */
+    @Test
+    fun aKeepsakeRoundTripsAndNeedsTheRewardsApp() {
+        val keepsake = picture("harbour-lights", lanterns, CanvasSize.MEDIUM, AspectRatio.LANDSCAPE, minAppVersion = RemoteCatalogs.REWARDS_MIN_APP, rewardOf = "seaside")
+        val bytes = catalogJson(pictures + keepsake)
+        assertEquals(pictures + keepsake, assertIs<CatalogCheck.Ok>(check(bytes, appVersion = RemoteCatalogs.REWARDS_MIN_APP)).catalog.pictures)
+        assertFalse(catalogJson(pictures).decodeToString().contains("rewardOf"), "ordinary entries keep their bytes")
+        val early = catalogJson(listOf(keepsake.copy(minAppVersion = RemoteCatalogs.REWARDS_MIN_APP - 1)))
+        assertIs<CatalogRefusal.Malformed>(refusal(check(early, appVersion = RemoteCatalogs.REWARDS_MIN_APP)))
+        val badId = bytes.decodeToString().replace("\"rewardOf\": \"seaside\"", "\"rewardOf\": \"Sea side\"").encodeToByteArray()
+        assertIs<CatalogRefusal.Malformed>(refusal(check(badId, appVersion = RemoteCatalogs.REWARDS_MIN_APP)))
+        assertEquals(RemoteCatalogs.REWARDS_MIN_APP, RemoteCatalogs.lowestApp(keepsake.copy(minAppVersion = 0)))
+    }
+
+    /**
+     * R1 (eng D10): 0.6.1 (versionCode 14) reading a catalog with collections and a keepsake lists every ordinary
+     * picture as before and never the keepsake, so it can't show an unearned one. The catalog is pinned text.
+     */
+    @Test
+    fun aZeroSixOnePhoneNeverSeesAKeepsake() {
+        val golden = """
+            {
+              "version": 1,
+              "issuedAt": 1792000000,
+              "pictures": [
+                {"id": "harbor", "title": "Harbor", "ratio": "1:1", "size": "quick", "width": 56, "height": 56, "colors": 4,
+                 "grid": "grids/harbor.gmrg", "sha256": "${"0".repeat(64)}", "crc32": "0a0b0c0d", "locked": true,
+                 "minAppVersion": 12, "addedAt": "2026-10-18"},
+                {"id": "harbour-lights", "title": "Harbour Lights", "ratio": "1:1", "size": "quick", "width": 56, "height": 56, "colors": 4,
+                 "grid": "grids/harbour-lights.gmrg", "sha256": "${"1".repeat(64)}", "crc32": "01020304", "locked": true,
+                 "minAppVersion": 15, "addedAt": "2026-11-02", "rewardOf": "seaside"}
+              ],
+              "collections": [{"id": "seaside", "title": "Seaside", "members": ["harbor"]}]
+            }
+        """.trimIndent().encodeToByteArray()
+        assertEquals(listOf("harbor"), assertIs<CatalogCheck.Ok>(RemoteCatalogs.parse(golden, appVersion = 14)).catalog.pictures.map { it.id })
+        val now = assertIs<CatalogCheck.Ok>(RemoteCatalogs.parse(golden, appVersion = RemoteCatalogs.REWARDS_MIN_APP)).catalog
+        assertEquals(listOf(null, "seaside"), now.pictures.map { it.rewardOf })
+        assertEquals(listOf("seaside"), now.collections.map { it.id })
+    }
+
     @Test
     fun jsonIsStrict() {
         for (bad in listOf("{\"a\":1,}", "{\"a\":1,\"a\":2}", "[01]", "\"\u0001\"", "{} {}", "[" .repeat(40) + "]".repeat(40), "tru")) {

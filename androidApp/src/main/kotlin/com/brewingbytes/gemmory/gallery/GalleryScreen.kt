@@ -27,7 +27,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
@@ -230,6 +232,9 @@ fun GalleryScreen(
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
     // The Inventory sheet (#38) and its gift wheel: 0 none, 1 inventory, 2 wheel.
     var inventorySheet by rememberSaveable { mutableIntStateOf(0) }
+    // The All collections sheet (T37).
+    var collectionsSheet by rememberSaveable { mutableStateOf(false) }
+    val gridState = rememberLazyStaggeredGridState()
     // The floating button (and the allowance chip) never cover a tile's %: the grid scrolls clear of them (D10).
     // The measured height excludes the overlay's 16dp padding; another 16dp keeps a gap (56dp button → 88dp).
     var overlayHeight by remember { mutableIntStateOf(0) }
@@ -297,6 +302,32 @@ fun GalleryScreen(
                     tomorrow != null -> { { TomorrowCard(tomorrow, tomorrowTapped) } }
                     else -> null
                 }
+                // Collection rows (T37): two at most, one above 1.5× font (D4), then the All collections link (D3).
+                val largeFont = LocalDensity.current.fontScale > COLLECTION_LARGE_FONT
+                val ui = state.collections
+                val rows = if (tab != 0) emptyList() else if (largeFont) ui.rowsLarge else ui.rows
+                val showAll = tab == 0 && (if (largeFont) ui.showAllLarge else ui.showAll)
+                // A glint plays only with nothing over the gallery (D7).
+                val calm = sheet == null && inventorySheet == 0 && !collectionsSheet
+                val isLocked: (Tile) -> Boolean = { it.locked(unlocked, entitlements, todayFree) }
+                val extras = rows.map { row ->
+                    collectionTag(row.id) to @Composable {
+                        CollectionRowView(row, isLocked, { open(it, CanvasEntry.COLLECTION) }, vm::thumbnail, glint = row.glint && calm, onGlintDone = vm::glintShown)
+                    }
+                } + listOfNotNull((ALL_COLLECTIONS_TAG to @Composable { AllCollectionsLink { collectionsSheet = true } }).takeIf { showAll })
+                // Rows arriving above the grid (the first finish, D5; a new collection): the grid keeps its first tile in
+                // place by key, which would leave them scrolled off the top. A grid sitting at its top shows them.
+                val above = (if (header != null) 1 else 0) + extras.size
+                LaunchedEffect(above) {
+                    if (gridState.firstVisibleItemIndex == above && gridState.firstVisibleItemScrollOffset == 0) gridState.scrollToItem(0)
+                }
+                // The reward return (D7): its row comes into view, then its glint plays.
+                val glintRow = rows.indexOfFirst { it.glint }
+                LaunchedEffect(glintRow, header != null) {
+                    if (glintRow < 0) return@LaunchedEffect
+                    val index = glintRow + if (header != null) 1 else 0
+                    if (gridState.layoutInfo.visibleItemsInfo.none { it.index == index }) gridState.animateScrollToItem(index)
+                }
                 // Collapsed by default, remembered per tab (#89).
                 var finishedOpen by remember(tab) { mutableStateOf(vm.finishedOpen(tab)) }
                 TileGrid(
@@ -310,7 +341,9 @@ fun GalleryScreen(
                     photos = tab == 1,
                     bottomPadding = gridBottom,
                     header = header,
-                    isLocked = { it.locked(unlocked, entitlements, todayFree) },
+                    extras = extras,
+                    gridState = gridState,
+                    isLocked = isLocked,
                     onOpen = { open(it, CanvasEntry.GALLERY) },
                     thumbnail = vm::thumbnail,
                     onShareProgress = { vm.shareProgress(it.ref) },
@@ -363,6 +396,23 @@ fun GalleryScreen(
         )
         2 -> WheelSheet(inventory.spinsWaiting, onSpin, onDismiss = { inventorySheet = 0 })
         }
+    }
+    if (collectionsSheet) {
+        AllCollectionsSheet(
+            rows = state.collections.all,
+            isLocked = { it.locked(unlocked, entitlements, state.todayFree) },
+            onOpen = { tile ->
+                collectionsSheet = false
+                vm.opened(tile)
+                when {
+                    tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
+                    tile.locked(unlocked, entitlements, setOfNotNull(tile.ref.id.takeIf { vm.isFreeToday(tile) })) -> onLocked(tile)
+                    else -> onOpen(tile, CanvasEntry.COLLECTION)
+                }
+            },
+            thumbnail = vm::thumbnail,
+            onDismiss = { collectionsSheet = false },
+        )
     }
     when (val s = sheet) {
         null -> Unit
@@ -680,6 +730,9 @@ private fun TileGrid(
     photos: Boolean,
     bottomPadding: Dp,
     header: (@Composable () -> Unit)?,
+    /** Full-width items after [header], each with its key: the collection rows and the All collections link (T37). */
+    extras: List<Pair<String, @Composable () -> Unit>>,
+    gridState: LazyStaggeredGridState,
     isLocked: (Tile) -> Boolean,
     onOpen: (Tile) -> Unit,
     /** An unstarted remote tile's thumbnail, drawn when it shows (T36, eng D12). */
@@ -694,6 +747,7 @@ private fun TileGrid(
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(galleryColumns(widthDp)),
         modifier = Modifier.fillMaxSize().testTag("gallery-grid"),
+        state = gridState,
         // Room at the bottom so the floating button never covers a tile's % (design D10).
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -701,6 +755,7 @@ private fun TileGrid(
     ) {
         // Today's picture (#34) spans the grid's width and scrolls with it, so it never holds space at 200% font.
         if (header != null) item(key = TODAY_TAG, span = StaggeredGridItemSpan.FullLine) { header() }
+        for ((key, content) in extras) item(key = key, span = StaggeredGridItemSpan.FullLine) { content() }
         items(tiles, key = { "${it.ref.kind}/${it.ref.id}" }) { tile ->
             TileView(tile, isLocked(tile), onOpen, thumbnail, onShareProgress, onRename, onDelete, onStartOver)
         }

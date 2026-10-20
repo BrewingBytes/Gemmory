@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.storage
 
 import com.brewingbytes.gemmory.ads.PictureUnlocks
+import com.brewingbytes.gemmory.collections.CollectionPrefs
 import com.brewingbytes.gemmory.reminder.ReminderPrefs
 import org.junit.Test
 import org.w3c.dom.Element
@@ -117,6 +118,22 @@ class BackupRulesTest {
             assertTrue(excluded.any { it.startsWith("file:") && photoPlay.startsWith(it.removePrefix("file:")) }, "$photoPlay in $excluded")
             assertTrue(excluded.none { it.startsWith("file:canvases/bundled") || it == "file:canvases/" }, "$excluded")
             assertTrue("sharedpref:${ReminderPrefs.FILE}.xml" !in excluded)
+        }
+    }
+
+    /**
+     * T37: a completed collection and its keepsake survive a reinstall: the completions (so nothing is earned twice),
+     * the unlocks naming the keepsake and the remote canvas holding it are all backed up and transferred.
+     */
+    @Test
+    fun collectionsAndTheirKeepsakesAreBackedUp() {
+        val sections = listOf(rules(xml("backup_rules.xml"), "exclude")) + listOf("cloud-backup", "device-transfer").map {
+            rules(xml("data_extraction_rules.xml").getElementsByTagName(it).item(0) as Element, "exclude")
+        }
+        for (excluded in sections) {
+            assertTrue("sharedpref:${CollectionPrefs.FILE}.xml" !in excluded, "$excluded")
+            assertTrue("sharedpref:${PictureUnlocks.FILE}.xml" !in excluded, "$excluded")
+            assertTrue(excluded.none { StorageLayout.REMOTE_CANVASES.startsWith(it.removePrefix("file:").trimEnd('/')) }, "$excluded")
         }
     }
 

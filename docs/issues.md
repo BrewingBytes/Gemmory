@@ -758,6 +758,7 @@ Labels: P2, game, ui
 - **Rules** live in one pure `CollectionRules` (with T38's events and `rewardOf`).
 - **Events:** `canvas_*` gain `collection_id`; `collection_completed` (collection_id). Content ids are an explicit exception to the "no ids" rule in `Analytics.kt`.
 - **T44 CSV:** `rewardOf` column and a collections sheet (id, title, members).
+- **Founder decisions (2026-10-20):** versionCode 15 with this issue, and a keepsake needs `minAppVersion` ≥ 15 (`REWARDS_MIN_APP`, stamped by the tool); "newest collection" is the catalog list order (no date field; the tool appends); a collection with `event: true` is parsed but hidden until T38. T39's review prompt must skip the reward return like the ask and the interstitial (`Collections.takeRewardReturn`).
 
 **Docs this issue owns:** `docs/design-system.md` (collection row, "2 more coming", glint, All collections sheet, states table, TalkBack, written in Phases 4-5; update if the build differs); `docs/privacy-policy.md` + `docs/play-compliance.md` (content ids in events); `docs/designs/gemmory.md` (catalog format).
 

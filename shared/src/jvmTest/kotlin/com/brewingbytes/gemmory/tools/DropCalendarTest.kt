@@ -28,6 +28,14 @@ class DropCalendarTest {
         assertEquals(DropCalendar.Result.Fail(0), DropCalendar.check(days(-10, 5), today), "everything already opened")
     }
 
+    /** T37: a keepsake has no date, so it's never part of the runway. */
+    @Test
+    fun aKeepsakeIsNotADrop() {
+        val keepsake = picture("keepsake", null).copy(rewardOf = "seaside", minAppVersion = 15)
+        assertEquals(DropCalendar.Result.Fail(6), DropCalendar.check(days(0, 6) + keepsake, today))
+        assertEquals(DropCalendar.Result.NoDrops, DropCalendar.check(listOf(keepsake), today))
+    }
+
     @Test
     fun noDatedPictureMeansNothingToKeepUp() {
         assertEquals(DropCalendar.Result.NoDrops, DropCalendar.check(emptyList(), today))

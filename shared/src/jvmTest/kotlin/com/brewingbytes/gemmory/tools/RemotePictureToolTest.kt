@@ -5,6 +5,7 @@ import com.brewingbytes.gemmory.remote.CatalogCheck
 import com.brewingbytes.gemmory.remote.CryptoAgainstJdkTest
 import com.brewingbytes.gemmory.remote.GridCheck
 import com.brewingbytes.gemmory.remote.RemoteCatalogs
+import com.brewingbytes.gemmory.remote.RemoteCollection
 import kotlinx.datetime.LocalDate
 import java.io.File
 import java.nio.file.Files
@@ -43,12 +44,13 @@ class RemotePictureToolTest {
         locked: Boolean = true,
         colors: ColorChoice = ColorChoice.STANDARD,
         availableFrom: LocalDate? = null,
+        rewardOf: String? = null,
     ) = RemotePictureTool.Request(
         dir = dir, id = id, title = "Night $id", source = source, spec = spec, focus = 0.5, locked = locked,
         minAppVersion = minAppVersion, addedAt = LocalDate(2026, 10, 18), nowSeconds = now, signingKey = key,
         provenance = "starry.jpg (Wikimedia Commons) | Vincent van Gogh, 1889 | Public domain", provenanceFile = provenance,
         reviewPng = File(root, "$id.review.png"), reservedIds = reserved, trustedKeys = trusted, colors = colors,
-        availableFrom = availableFrom,
+        availableFrom = availableFrom, rewardOf = rewardOf,
     )
 
     private fun check() = RemoteCatalogs.check(
@@ -121,11 +123,14 @@ class RemotePictureToolTest {
         assertEquals(14, RemotePictureTool.publish(request("night-later", minAppVersion = 14)).minAppVersion, "a version may raise the stamp")
     }
 
-    /** Fields an older app reads the same way never raise the stamp (collections join this row with T37). */
+    /** Fields an older app reads the same way never raise the stamp: the lock, and collections (T37, eng E6). */
     @Test
     fun fieldsAnOlderAppReadsRightDoNotRaiseIt() {
         val free = RemotePictureTool.publish(request("night-free", minAppVersion = null, locked = false))
-        val locked = RemotePictureTool.publish(request("night-locked", minAppVersion = null, spec = "big-1:1"))
+        val locked = RemotePictureTool.publish(
+            listOf(request("night-locked", minAppVersion = null, spec = "big-1:1")),
+            listOf(RemoteCollection("nights", "Nights", listOf("night-free", "night-locked"))),
+        ).single()
         assertEquals(listOf(RemoteCatalogs.REMOTE_MIN_APP, RemoteCatalogs.REMOTE_MIN_APP), listOf(free.minAppVersion, locked.minAppVersion))
         val old = RemoteCatalogs.check(
             File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, RemoteCatalogs.REMOTE_MIN_APP, null, setOf("starter"),
@@ -212,6 +217,46 @@ class RemotePictureToolTest {
         assertFalse(File(dir, "catalog.json").exists())
         assertFalse(File(dir, "grids/night-one.gmrg").exists())
         assertFalse(provenance.exists())
+    }
+
+    /** T37: a keepsake is stamped for the rewards app, needs its collection and no date, and an older app never lists it. */
+    @Test
+    fun aKeepsakeIsStampedAndNeedsItsCollection() {
+        RemotePictureTool.publish(request("night-one"))
+        val nights = RemoteCollection("nights", "Nights", listOf("night-one", "starter"))
+        val keepsake = RemotePictureTool.publish(listOf(request("night-keepsake", minAppVersion = null, rewardOf = "nights")), listOf(nights)).single()
+        assertEquals(RemoteCatalogs.REWARDS_MIN_APP, keepsake.minAppVersion)
+        assertEquals("nights", keepsake.rewardOf)
+        val at14 = RemoteCatalogs.check(File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, 14, null, setOf("starter"))
+        assertEquals(listOf("night-one"), assertIs<CatalogCheck.Ok>(at14).catalog.pictures.map { it.id }, "0.6.1 never lists the keepsake")
+        assertEquals(listOf(nights), assertIs<CatalogCheck.Ok>(at14).catalog.collections)
+
+        assertFailsWith<IllegalStateException> { RemotePictureTool.publish(request("night-orphan", minAppVersion = null, rewardOf = "nowhere")) }
+        assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(request("night-low", minAppVersion = 14, rewardOf = "nights")) }
+        assertFailsWith<IllegalArgumentException> {
+            RemotePictureTool.publish(request("night-dated", minAppVersion = null, rewardOf = "nights", availableFrom = LocalDate(2026, 11, 2)))
+        }
+        assertFailsWith<IllegalStateException>("one keepsake a collection") { RemotePictureTool.publish(request("night-second", minAppVersion = null, rewardOf = "nights")) }
+        assertFalse(File(dir, "grids/night-orphan.gmrg").exists(), "a refused publish writes nothing")
+    }
+
+    /** T37: a republish keeps the published collections; a batch adds new ones at the end or replaces one in place. */
+    @Test
+    fun collectionsAreKeptAndReplacedInPlace() {
+        val a = RemoteCollection("first", "First", listOf("night-one"))
+        val b = RemoteCollection("second", "Second", listOf("night-one"))
+        RemotePictureTool.publish(listOf(request("night-one")), listOf(a, b))
+        RemotePictureTool.publish(request("night-two"))
+        assertEquals(listOf(a, b), assertIs<CatalogCheck.Ok>(check()).catalog.collections, "a plain publish keeps them")
+        val a2 = a.copy(members = listOf("night-one", "night-two"))
+        val c = RemoteCollection("third", "Third", listOf("night-two"))
+        RemotePictureTool.publish(listOf(request("night-three")), listOf(c, a2))
+        assertEquals(listOf(a2, b, c), assertIs<CatalogCheck.Ok>(check()).catalog.collections)
+        RemotePictureTool.withdraw(dir, "night-three", 1_792_000_100, keyFile(pair), setOf("starter"), trusted)
+        assertEquals(listOf(a2, b, c), assertIs<CatalogCheck.Ok>(check()).catalog.collections, "withdraw keeps them")
+        // A typo in a member would leave it "coming" for ever, and a collection can't take a picture's id.
+        assertFailsWith<IllegalStateException> { RemotePictureTool.publish(listOf(request("night-four")), listOf(RemoteCollection("typo", "Typo", listOf("nigth-one")))) }
+        assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(listOf(request("night-five")), listOf(RemoteCollection("night-one", "Clash", listOf("night-two")))) }
     }
 
     @Test

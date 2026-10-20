@@ -35,6 +35,12 @@ interface RemoteCatalogView {
     /** Local days since [id]'s drop date (T36), for Analytics; null for an undated or unlisted picture. */
     fun daysSinceAvailable(id: String): Long? = null
 
+    /** [id] is an earned keepsake (T37): its canvas stays after the catalog withdraws it, started or not. */
+    fun earned(id: String): Boolean = false
+
+    /** The newest catalog collection listing picture [id] (T37), for the canvas events' `collection_id`. */
+    fun collectionOf(id: String): String? = null
+
     object None : RemoteCatalogView {
         override fun listed(): List<RemotePicture> = emptyList()
 
@@ -60,6 +66,7 @@ class RemotePictureException(message: String, cause: Throwable? = null) : IOExce
  *
  * Dated drops (T36) are downloaded and verified ahead like any picture, then kept hidden until their local date:
  * [listed] and [grid] leave them out, and only the Tomorrow line reads tomorrow's ([tomorrow], [tomorrowGrid]).
+ * A collection's keepsake (T37) is hidden the same way until [earned] names it.
  */
 class RemotePictures internal constructor(
     filesDir: File,
@@ -73,6 +80,8 @@ class RemotePictures internal constructor(
     private val io: CoroutineDispatcher,
     private val reporter: NonFatalReporter = NonFatalReporter.Logcat,
     private val files: AtomicFiles = AtomicFiles(),
+    /** The keepsakes earned so far (T37, the picture unlocks): any other `rewardOf` entry stays hidden. */
+    private val earned: () -> Set<String> = { emptySet() },
 ) : RemoteCatalogView {
     private val catalogFile = File(filesDir, StorageLayout.REMOTE_CATALOG)
     private val signatureFile = File(filesDir, StorageLayout.REMOTE_SIGNATURE)
@@ -99,10 +108,29 @@ class RemotePictures internal constructor(
 
     override fun listed(): List<RemotePicture> {
         val today = today()
-        return stored().filter { RemotePictureRules.isVisible(it.availableFrom, today) }
+        val earned = earned()
+        return stored().filter { RemotePictureRules.isVisible(it.availableFrom, today) && CollectionRules.rewardShows(it, earned) }
+    }
+
+    /**
+     * The verified catalog (T37): the last one accepted, or the cached one re-verified, so offline counts as fetched.
+     * Null when this phone never had one: no collections, and none can complete.
+     */
+    fun catalog(): RemoteCatalog? = current().catalog
+
+    /** Catalog pictures downloaded and verified, hidden or not: a collection member that isn't listed yet is "coming". */
+    fun storedIds(): Set<String> = current().ready
+
+    /** A keepsake was copied into its canvas (T37, plan-design-review D25): New from today for 7 days. */
+    fun earnedToday(id: String) {
+        scope.launch(io) { update(current().let { Snapshot(it.catalog, it.ready, it.state.seenOn(id, today())) }) }
     }
 
     override fun grid(id: String): ByteArray? = listed().firstOrNull { it.id == id }?.let(::verifiedGrid)
+
+    override fun earned(id: String): Boolean = id in earned()
+
+    override fun collectionOf(id: String): String? = current().catalog?.let { CollectionRules.collectionOf(id, it.collections) }
 
     override fun daysSinceAvailable(id: String): Long? =
         listed().firstOrNull { it.id == id }?.availableFrom?.let { today().toEpochDays() - it.toEpochDays() }

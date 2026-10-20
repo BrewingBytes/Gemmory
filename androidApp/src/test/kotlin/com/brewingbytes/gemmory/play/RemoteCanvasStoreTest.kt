@@ -33,6 +33,7 @@ class RemoteCanvasStoreTest {
 
     private val catalog = TestCatalog()
     private var listed = listOf<RemotePicture>()
+    private val earned = mutableSetOf<String>()
     private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
     private val bundledGrid = TestCatalog.grid(CanvasSize.QUICK, 1)
     private val gridReads = java.util.Collections.synchronizedList(mutableListOf<String>())
@@ -59,11 +60,43 @@ class RemoteCanvasStoreTest {
                     gridReads += id
                     return catalog.files["grids/$id.gmrg"].takeIf { listed.any { it.id == id } }
                 }
+
+                override fun earned(id: String) = id in earned
+
+                override fun collectionOf(id: String) = "seaside".takeIf { id == "owl" }
             },
         )
     }
 
     private fun ref(id: String) = CanvasRef(CanvasKind.REMOTE, id)
+
+    /** T37: an earned keepsake is copied into its canvas, then stays after the catalog withdraws it, never started. */
+    @Test
+    fun anEarnedKeepsakeSurvivesWithdrawal() = runBlocking<Unit> {
+        val keepsake = catalog.add("harbour-lights", rewardOf = "seaside")
+        assertEquals(KeepResult.MISSING, store.keep("harbour-lights"), "not listed until earned")
+        earned += "harbour-lights"
+        listed = listOf(keepsake)
+        assertEquals(KeepResult.CREATED, store.keep("harbour-lights"))
+        assertEquals(KeepResult.PRESENT, store.keep("harbour-lights"))
+        listed = emptyList()
+        val kept = store.summaries().first.single { it.ref == ref("harbour-lights") }
+        assertIs<CanvasSummary.Playable>(kept)
+        assertEquals("Harbour lights", kept.title)
+        assertEquals(0, kept.state.placedCount)
+        // An unstarted withdrawn picture that isn't a keepsake still leaves (the withdraw rule, unchanged).
+        earned.clear()
+        assertTrue(store.summaries().first.none { it.ref == ref("harbour-lights") })
+    }
+
+    /** T37: canvas events name the newest collection listing the picture. */
+    @Test
+    fun canvasEventsCarryTheCollectionId() = runBlocking<Unit> {
+        listed = listOf(catalog.add("owl", CanvasSize.QUICK, locked = false))
+        assertIs<CanvasStore.Opened.Ready>(store.open(ref("owl")))
+        val started = events.first { it.name == "canvas_started" }
+        assertEquals("seaside", started.params["collection_id"])
+    }
 
     @Test
     fun remotePicturesJoinTheirSizeAfterTheBundledOnes() = runBlocking<Unit> {

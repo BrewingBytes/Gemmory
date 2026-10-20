@@ -266,6 +266,19 @@ object GemIcons {
         }
         .build()
 
+    /** A check for a finished member's mark in a collection row (T37), 10dp in its 16dp square. */
+    val Check: ImageVector = ImageVector.Builder("Check", 10.dp, 10.dp, 24f, 24f)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(9f, 16.17f)
+            lineTo(4.83f, 12f)
+            lineToRelative(-1.42f, 1.41f)
+            lineTo(9f, 19f)
+            lineTo(21f, 7f)
+            lineToRelative(-1.41f, -1.41f)
+            close()
+        }
+        .build()
+
     /** Three vertical dots (⋮), drawn as a vector so no font renders it as an emoji. */
     val More: ImageVector = ImageVector.Builder("More", 24.dp, 24.dp, 24f, 24f)
         .path(fill = SolidColor(Color.White)) {

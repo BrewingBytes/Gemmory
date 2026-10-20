@@ -43,6 +43,8 @@ class RemotePicturesTest {
         SyncedWriter.Default.write(file, bytes)
     }
 
+    private val earned = mutableSetOf<String>()
+
     private fun remote(appVersion: Int = 12) = RemotePictures(
         filesDir = tmp.root,
         source = source,
@@ -54,6 +56,7 @@ class RemotePicturesTest {
         io = Dispatchers.IO.limitedParallelism(1),
         reporter = reporter,
         files = AtomicFiles(writer),
+        earned = { earned.toSet() },
     )
 
     private fun RemotePictures.ids() = listed().map { it.id }
@@ -72,6 +75,40 @@ class RemotePicturesTest {
         // A new process, offline: the cache alone shows the same pictures.
         source.offline = true
         assertEquals(listOf("fox", "lanterns"), remote().ids())
+    }
+
+    /** T37: a keepsake is downloaded and verified ahead, then hidden everywhere until its collection is earned. */
+    @Test
+    fun aKeepsakeIsHiddenUntilEarned() = runBlocking {
+        catalog.add("harbor")
+        catalog.add("harbour-lights", rewardOf = "seaside")
+        catalog.collection("seaside", "harbor", "lemons")
+        val r = remote(appVersion = RemoteCatalogs.REWARDS_MIN_APP)
+        assertEquals(CheckOutcome.UPDATED, r.check())
+        assertEquals(listOf("harbor"), r.ids())
+        assertNull(r.grid("harbour-lights"))
+        assertTrue("harbour-lights" in r.storedIds(), "downloaded ahead, so it can be copied in offline")
+        assertFalse(r.earned("harbour-lights"))
+        assertEquals("seaside", r.collectionOf("harbor"))
+        assertEquals("seaside", r.collectionOf("lemons"), "a bundled member names it too")
+        assertEquals(listOf("seaside"), r.catalog()?.collections?.map { it.id })
+        earned += "harbour-lights"
+        assertEquals(listOf("harbor", "harbour-lights"), r.ids())
+        assertContentEquals(catalog.files["grids/harbour-lights.gmrg"], r.grid("harbour-lights"))
+        assertTrue(r.earned("harbour-lights"))
+    }
+
+    /** R1: 0.6.1 (versionCode 14) never lists a keepsake, earned or not, and keeps its collections out of its way. */
+    @Test
+    fun anOlderAppNeverListsAKeepsake() = runBlocking {
+        catalog.add("harbor")
+        catalog.add("harbour-lights", rewardOf = "seaside")
+        catalog.collection("seaside", "harbor")
+        earned += "harbour-lights"
+        val r = remote(appVersion = 14)
+        assertEquals(CheckOutcome.UPDATED, r.check())
+        assertEquals(listOf("harbor"), r.ids())
+        assertEquals(emptyList(), reports)
     }
 
     @Test

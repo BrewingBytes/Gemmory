@@ -10,6 +10,7 @@ import com.brewingbytes.gemmory.remote.GridCheck
 import com.brewingbytes.gemmory.remote.Json
 import com.brewingbytes.gemmory.remote.RemoteCatalog
 import com.brewingbytes.gemmory.remote.RemoteCatalogs
+import com.brewingbytes.gemmory.remote.RemoteCollection
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.remote.Sha256
@@ -75,6 +76,11 @@ object RemotePictureTool {
         val availableFrom: LocalDate? = null,
         /** An in-memory source (a sheet tile, T44), written to [source] as a JPEG only once the whole publish verifies. */
         val sourceImage: BufferedImage? = null,
+        /**
+         * A collection's keepsake (T37): hidden on phones until that collection is earned. Needs
+         * [RemoteCatalogs.REWARDS_MIN_APP] and no [availableFrom]; the collection must be in the catalog or the batch.
+         */
+        val rewardOf: String? = null,
     )
 
     fun publish(r: Request): RemotePicture = publish(listOf(r)).single()
@@ -82,24 +88,29 @@ object RemotePictureTool {
     /**
      * Publishes [batch] as one signed catalog (T44): every picture is frozen, stamped and checked with the app's own
      * verifier before anything is written, so a failure anywhere leaves the folder, the sources and the provenance
-     * file as they were. The batch shares the first request's folder, key, clock and provenance file.
+     * file as they were. The batch shares the first request's folder, key, clock and provenance file. [collections]
+     * (T37) are added, or replace the published one with the same id in its place; published ones are kept.
      */
-    fun publish(batch: List<Request>): List<RemotePicture> {
+    fun publish(batch: List<Request>, collections: List<RemoteCollection> = emptyList()): List<RemotePicture> {
         require(batch.isNotEmpty()) { "nothing to publish" }
         val first = batch.first()
         require(batch.all { it.dir == first.dir && it.signingKey == first.signingKey && it.provenanceFile == first.provenanceFile }) {
             "a batch publishes into one folder with one key and one provenance file"
         }
         batch.map { it.id }.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let { error("$it is twice in the batch") }
-        val (old, oldIssued) = current(first.dir, first.trustedKeys, first.reservedIds)
+        val published = current(first.dir, first.trustedKeys, first.reservedIds)
+        val old = published?.pictures.orEmpty()
+        val oldIssued = published?.issuedAt
         val frozen = batch.map { freeze(it, old) }
         val pictures = frozen.map { it.first }
         val dates = (old + pictures).mapNotNull { it.availableFrom }
         dates.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let {
             error("two drops on $it: one picture opens per date (CEO C4)")
         }
+        val groups = mergeCollections(published?.collections.orEmpty(), collections)
+        checkCollections(groups, old + pictures, first.reservedIds)
         val issuedAt = maxOf(first.nowSeconds, (oldIssued ?: 0) + 1)
-        val catalog = catalogBytes(RemoteCatalog(issuedAt, old + pictures))
+        val catalog = catalogBytes(RemoteCatalog(issuedAt, old + pictures, groups))
         val signature = sign(catalog, first.signingKey)
         verify(catalog, signature, oldIssued, first, frozen)
 
@@ -121,6 +132,12 @@ object RemotePictureTool {
         require(r.id !in r.reservedIds) { "${r.id} is a bundled picture's id" }
         require(r.title.isNotBlank() && r.title.length <= RemoteCatalogs.MAX_TITLE) { "title must be 1-${RemoteCatalogs.MAX_TITLE} characters" }
         require(r.provenance.count { it == '|' } == 2) { "provenance must be \"<source> | <author, date> | <license>\"" }
+        require(r.rewardOf == null || RemoteCatalogs.ID.matches(r.rewardOf)) { "rewardOf must be a collection id" }
+        require(r.rewardOf == null || r.availableFrom == null) { "a keepsake is earned, not dated: no availableFrom with rewardOf" }
+        require(r.rewardOf == null || r.minAppVersion == null || r.minAppVersion >= RemoteCatalogs.REWARDS_MIN_APP) {
+            "a keepsake would show to everyone on an app before versionCode ${RemoteCatalogs.REWARDS_MIN_APP}, so run with " +
+                "-PminAppVersion=${RemoteCatalogs.REWARDS_MIN_APP} or later (or leave it out to stamp it)"
+        }
         require(r.availableFrom == null || r.minAppVersion == null || r.minAppVersion >= RemoteCatalogs.DROPS_MIN_APP) {
             "a dated drop would show at once on an app before versionCode ${RemoteCatalogs.DROPS_MIN_APP}, so run with " +
                 "-PminAppVersion=${RemoteCatalogs.DROPS_MIN_APP} or later (or leave it out to stamp it)"
@@ -154,17 +171,51 @@ object RemotePictureTool {
             minAppVersion = 0,
             addedAt = r.availableFrom ?: r.addedAt,
             availableFrom = r.availableFrom,
+            rewardOf = r.rewardOf,
         )
         val picture = unstamped.copy(minAppVersion = r.minAppVersion ?: RemoteCatalogs.lowestApp(unstamped))
         check(picture.minAppVersion >= RemoteCatalogs.lowestApp(picture)) { "${r.id}: minAppVersion below ${RemoteCatalogs.lowestApp(picture)}" }
         return Triple(picture, pattern, grid)
     }
 
+    /**
+     * Collections after a publish (T37): [added] replace the published one with the same id where it was, and new
+     * ones go at the end, so the last listed stays the newest.
+     */
+    private fun mergeCollections(published: List<RemoteCollection>, added: List<RemoteCollection>): List<RemoteCollection> {
+        added.map { it.id }.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let { error("collection $it is twice in the batch") }
+        val byId = added.associateBy { it.id }
+        return published.map { byId[it.id] ?: it } + added.filter { a -> published.none { it.id == a.id } }
+    }
+
+    /**
+     * The tool's own collection checks (T37), stricter than the app's: every member is a published or bundled picture
+     * (a typo would leave a member "coming" for ever), and each collection has at most one keepsake, whose
+     * collection exists.
+     */
+    private fun checkCollections(groups: List<RemoteCollection>, pictures: List<RemotePicture>, reserved: Set<String>) {
+        val ids = pictures.map { it.id }.toSet()
+        for (c in groups) {
+            require(RemoteCatalogs.ID.matches(c.id)) { "collection id must match ${RemoteCatalogs.ID.pattern}" }
+            require(c.id !in ids && c.id !in reserved) { "collection ${c.id} uses a picture's id" }
+            require(c.title.isNotBlank() && c.title.length <= RemoteCatalogs.MAX_TITLE) { "collection ${c.id}: title must be 1-${RemoteCatalogs.MAX_TITLE} characters" }
+            require(c.members.isNotEmpty() && c.members.toSet().size == c.members.size) { "collection ${c.id}: members must be listed once each" }
+            c.members.firstOrNull { it !in ids && it !in reserved }?.let { error("collection ${c.id}: $it isn't a published or bundled picture") }
+            pictures.firstOrNull { it.rewardOf == c.id && it.id in c.members }?.let { error("collection ${c.id}: its keepsake ${it.id} can't be a member") }
+        }
+        val rewards = pictures.filter { it.rewardOf != null }
+        rewards.firstOrNull { p -> groups.none { it.id == p.rewardOf } }?.let { error("${it.id}: rewardOf ${it.rewardOf} isn't a collection") }
+        rewards.groupBy { it.rewardOf }.filterValues { it.size > 1 }.keys.firstOrNull()?.let { error("collection $it has two keepsakes") }
+    }
+
     /** Removes [id] from the catalog and deletes its grid; phones that started it keep their own copy. */
     fun withdraw(dir: File, id: String, nowSeconds: Long, signingKey: File, reservedIds: Set<String>, trustedKeys: List<ByteArray> = RemoteKeys.PRODUCTION) {
-        val (old, oldIssued) = current(dir, trustedKeys, reservedIds)
+        val published = current(dir, trustedKeys, reservedIds)
+        val old = published?.pictures.orEmpty()
+        val oldIssued = published?.issuedAt
         require(old.any { it.id == id }) { "$id isn't in the catalog" }
-        val catalog = catalogBytes(RemoteCatalog(maxOf(nowSeconds, (oldIssued ?: 0) + 1), old.filter { it.id != id }))
+        // Collections stay: a withdrawn member that a phone never started leaves its collection there (T37).
+        val catalog = catalogBytes(RemoteCatalog(maxOf(nowSeconds, (oldIssued ?: 0) + 1), old.filter { it.id != id }, published?.collections.orEmpty()))
         val signature = sign(catalog, signingKey)
         val check = RemoteCatalogs.check(catalog, RemoteCatalogs.encodeSignature(signature).encodeToByteArray(), trustedKeys, Int.MAX_VALUE, oldIssued, reservedIds)
         check(check is CatalogCheck.Ok) { "the app would refuse this catalog: $check" }
@@ -174,12 +225,12 @@ object RemotePictureTool {
     }
 
     /** The published catalog, which must itself verify (so the tool never builds on a tampered one). */
-    private fun current(dir: File, keys: List<ByteArray>, reserved: Set<String>): Pair<List<RemotePicture>, Long?> {
+    private fun current(dir: File, keys: List<ByteArray>, reserved: Set<String>): RemoteCatalog? {
         val file = File(dir, "catalog.json")
-        if (!file.exists()) return emptyList<RemotePicture>() to null
+        if (!file.exists()) return null
         val check = RemoteCatalogs.check(file.readBytes(), File(dir, "catalog.json.sig").readBytes(), keys, Int.MAX_VALUE, null, reserved)
         check(check is CatalogCheck.Ok) { "the published catalog doesn't verify: $check" }
-        return check.catalog.pictures to check.catalog.issuedAt
+        return check.catalog
     }
 
     fun catalogBytes(c: RemoteCatalog): ByteArray = (
@@ -189,7 +240,7 @@ object RemotePictureTool {
                     "version" to Json.Num(RemoteCatalogs.VERSION.toString()),
                     "issuedAt" to Json.Num(c.issuedAt.toString()),
                     "pictures" to Json.Arr(c.pictures.map { RemoteCatalogs.entry(it) }),
-                ),
+                ).apply { if (c.collections.isNotEmpty()) put("collections", Json.Arr(c.collections.map { RemoteCatalogs.collectionEntry(it) })) },
             ),
         ) + "\n"
         ).encodeToByteArray()
@@ -210,6 +261,9 @@ object RemotePictureTool {
             check(listed == picture) { "the app reads ${picture.id} differently from what was written" }
             check(RemoteCatalogs.checkGrid(listed, grid) is GridCheck.Ok) { "the app would refuse ${picture.id}'s grid" }
         }
+        // An app that doesn't know keepsakes (before REWARDS_MIN_APP) must never list one (T37).
+        val older = RemoteCatalogs.check(catalog, sig, r.trustedKeys, RemoteCatalogs.REWARDS_MIN_APP - 1, oldIssued, r.reservedIds)
+        check(older is CatalogCheck.Ok && older.catalog.pictures.none { it.rewardOf != null }) { "an older app would see a keepsake: $older" }
     }
 
     /** JPEG has no alpha, and ImageIO silently writes nothing for an ARGB image. */

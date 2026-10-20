@@ -92,6 +92,23 @@ sealed interface CanvasSummary {
     ) : CanvasSummary
 }
 
+/** How copying a keepsake into its canvas went (T37). */
+enum class KeepResult {
+    /** Copied in now. */
+    CREATED,
+
+    /** Its canvas was already there. */
+    PRESENT,
+
+    /** Not listed, or its grid isn't on the phone yet. */
+    MISSING,
+
+    /** The phone is out of space. */
+    NO_SPACE,
+
+    FAILED,
+}
+
 /**
  * App-wide entry to canvas files. Every repository call runs on [writer], a single-thread dispatcher, and a canvas
  * is opened, cleared or deleted only after the previous session's last write has finished, so a canvas never has two
@@ -153,7 +170,9 @@ class CanvasStore(
             }
             if (started) {
                 val days = remote.daysSinceAvailable(ref.id).takeIf { ref.kind == CanvasKind.REMOTE }
-                analytics.log(AnalyticsEvent.canvasStarted(ref, grid.pattern.width, grid.pattern.height, entry = entry, daysSinceAvailable = days))
+                analytics.log(
+                    AnalyticsEvent.canvasStarted(ref, grid.pattern.width, grid.pattern.height, entry = entry, daysSinceAvailable = days, collectionId = remote.collectionOf(ref.id)),
+                )
             }
             // The codec already refused duplicate and out-of-range logs, so a replay can't fail here.
             val state = CanvasState.restore(grid.pattern, log) ?: return@withContext Opened.Damaged(null)
@@ -198,7 +217,7 @@ class CanvasStore(
             onPictureFinished = {
                 val pattern = opened.grid.pattern
                 val days = remote.daysSinceAvailable(ref.id).takeIf { ref.kind == CanvasKind.REMOTE }
-                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height, opened.entry, days))
+                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height, opened.entry, days, remote.collectionOf(ref.id)))
                 achievements(GameEvent.Finished(sizeOf(ref, pattern), ref.kind == CanvasKind.PHOTO))
             },
             onPlaced = { encodes.onPlaced(ref) },
@@ -291,11 +310,12 @@ class CanvasStore(
                     CanvasSummary.Listed(ref, picture.title, picture.width, picture.height, picture.size, picture.locked)
                 }
             }
-            // Withdrawn from the catalog (or a restored save before the first check): shown only once started.
+            // Withdrawn from the catalog (or a restored save before the first check): shown only once started, or when
+            // it's an earned keepsake (T37).
             val kept = repository.list(CanvasKind.REMOTE).filter { it !in listedIds }.mapNotNull { id ->
                 val summary = summarize(CanvasRef(CanvasKind.REMOTE, id), null, false)
                 val started = summary is CanvasSummary.Damaged || (summary as CanvasSummary.Playable).state.placedCount > 0
-                if (!RemotePictureRules.shows(inCatalog = false, gridReady = false, started = started)) return@mapNotNull null
+                if (!RemotePictureRules.shows(inCatalog = false, gridReady = false, started = started || remote.earned(id))) return@mapNotNull null
                 if (summary is CanvasSummary.Playable) summary.withSize(sizeOfGrid(summary.state)) else summary
             }
             val pictures = RemotePictureRules.merge(bundled, inCatalog + kept, { it.size }, { added[it.ref.id] }, { it.ref.id })
@@ -337,6 +357,24 @@ class CanvasStore(
     fun pattern(ref: CanvasRef): Pattern? {
         if (ref.kind != CanvasKind.REMOTE) return null
         return remote.grid(ref.id)?.let { (GridCodec.decode(it) as? Decoded.Ok)?.value?.pattern }
+    }
+
+    /**
+     * Copies an earned keepsake's verified grid into its canvas (T37), through the same create path as a first open,
+     * so it stays after the catalog withdraws it and goes along with a backup. It must be listed (earned) first.
+     */
+    suspend fun keep(id: String): KeepResult {
+        swept.join()
+        val ref = CanvasRef(CanvasKind.REMOTE, id)
+        return withContext(writer) {
+            if (repository.dirOf(ref).isDirectory) return@withContext KeepResult.PRESENT
+            val picture = remote.listed().firstOrNull { it.id == id } ?: return@withContext KeepResult.MISSING
+            val grid = remote.grid(id) ?: return@withContext KeepResult.MISSING
+            when (val r = repository.create(ref, grid, CanvasRecord(picture.title, System.currentTimeMillis(), 0L))) {
+                WriteResult.Written -> KeepResult.CREATED
+                is WriteResult.WriteFailed -> if (r.diskFull) KeepResult.NO_SPACE else KeepResult.FAILED
+            }
+        }
     }
 
     /**
