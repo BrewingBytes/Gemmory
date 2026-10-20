@@ -80,6 +80,8 @@ The same workflow runs `CanvasFrameTimingTest` (#54, design doc → #10 note) on
 
 `./gradlew :androidApp:bundleRelease` builds an R8-shrunk AAB. It's signed with the upload key when `local.properties` (git-ignored) sets `gemmory.upload.storeFile`, `gemmory.upload.storePassword`, `gemmory.upload.keyAlias` and `gemmory.upload.keyPassword`. The keystore lives outside the repo, and keystores, passwords and service-account files are never committed. The Play Console answers and the production gate are in [docs/play-compliance.md](docs/play-compliance.md).
 
+The app icon (launcher foreground and monochrome, and the 512×512 Play Store icon `tools/store/icon-512.png`) comes from `tools/store/icon.py`; its docstring has the render command.
+
 A release candidate is the `main` commit with the version bump: tag it `v<versionName>` (`git tag v0.3.2 && git push origin v0.3.2`). The tag starts the Test Lab encoder smoke and the frame-timing check (4 of the day's 5 runs); upload the AAB to Play only after both pass.
 
 ## Play Games setup
@@ -92,7 +94,7 @@ Achievements (#49, no leaderboards) go through Play Games Services v2. The found
    - the **app signing key** SHA-1 (Protected with Play → Play Store protection → Manage Play app signing): every install from Play. Gemmory's: `60:28:23:2B:95:9E:A8:57:B7:5D:2B:FC:32:C9:F0:13:0E:B9:7F:D1`;
    - the **upload key** SHA-1 (same page): builds signed locally with the upload key. Gemmory's: `97:F7:D0:BA:23:7F:4C:58:03:B3:24:DA:7A:87:AF:B0:61:C7:0B:45`;
    - optionally the **debug key** SHA-1 (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`), for `-Pgemmory.playGames=true`.
-4. **Achievements.** Setup and management → Achievements → Add (Save as draft), in this order, initial state Revealed. Icons are `tools/achievements/<name>.png` (512×512 PNG; Play Games greys the revealed one itself and masks the pop-up's icon to a circle, so the art stays in the middle).
+4. **Achievements.** Setup and management → Achievements → Add (Save as draft), in this order, initial state Revealed. Icons are `tools/achievements/<name>.png` (512×512 PNG, patina table cuts since T40; Play Games greys the revealed one itself and masks the pop-up's icon to a circle, so the art stays in the middle).
 
    | Name | Description | Incremental (steps) | Points | Icon |
    |---|---|---|---|---|
