@@ -7,9 +7,12 @@ import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.PlacementTool
+import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.GameEvent
+import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.save.GridCodec
+import com.brewingbytes.gemmory.save.PlayTimes
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -23,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.TimeZone
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -43,6 +47,10 @@ class CanvasStoreTest {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var now = 0L
+
+    /** Wall time for the `play` file (T35), in UTC so a day is 86 400 000 ms. */
+    private var wall = 1_792_000_000_000L
+    private val day = DayClock({ wall }) { TimeZone.UTC }
     private val cancelled = mutableListOf<CanvasRef>()
     private val events = java.util.Collections.synchronizedList(mutableListOf<AnalyticsEvent>())
     private val earned = java.util.Collections.synchronizedList(mutableListOf<GameEvent>())
@@ -79,6 +87,7 @@ class CanvasStoreTest {
                 }
             },
             achievements = { earned += it },
+            dayClock = day,
         )
     }
 
@@ -224,6 +233,40 @@ class CanvasStoreTest {
         assertTrue(store.isFinished(photo))
         store.startOver(photo)
         assertFalse(store.isFinished(photo))
+    }
+
+    /** T35 (eng D2): each save stamps the last gem; the save of the last gem stamps the first finished day, once. */
+    @Test
+    fun thePlayFileFollowsTheSavesAndKeepsTheFirstFinishedDayThroughAStartOver() = runBlocking<Unit> {
+        val repo = store.repository
+        play(starter, 0, 1)
+        assertEquals(PlayTimes(lastGemMillis = wall, firstFinishedDay = null), repo.readPlay(starter))
+        val finishedOn = day.today()
+        wall += 60_000
+        play(starter, *(2 until 12).toList().toIntArray())
+        assertEquals(PlayTimes(wall, finishedOn), repo.readPlay(starter))
+        store.startOver(starter)
+        assertEquals(PlayTimes(null, finishedOn), repo.readPlay(starter))
+        wall += 3 * 86_400_000L
+        play(starter, *(0 until 12).toList().toIntArray())
+        assertEquals(PlayTimes(wall, finishedOn), repo.readPlay(starter), "finished again later: the first day stays")
+    }
+
+    /** T35 (eng D12): the reminder's read waits for a closing write and lists only canvases with a gem placed. */
+    @Test
+    fun reminderCanvasesWaitForTheClosingWriteAndSkipUnstartedOnes() = runBlocking<Unit> {
+        createPhoto()
+        val session = store.start(assertIs<CanvasStore.Opened.Ready>(store.open(starter)))
+        for (cell in 0 until 3) {
+            session.select(pattern.cells[cell])
+            session.place(cell)
+        }
+        session.close()
+        val read = store.reminderCanvases()
+        assertEquals(listOf(ReminderCanvas("BUNDLED/starter", "starter", placed = 3, total = 12, lastGemMillis = wall)), read)
+        assertEquals(starter, CanvasStore.refOfReminderKey(read.single().key))
+        assertNull(CanvasStore.refOfReminderKey("PHOTO/../x"))
+        assertNull(CanvasStore.refOfReminderKey("nope"))
     }
 
     @Test

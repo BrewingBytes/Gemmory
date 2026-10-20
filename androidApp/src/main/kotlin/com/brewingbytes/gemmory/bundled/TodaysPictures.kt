@@ -4,15 +4,18 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.ads.PictureUnlocks
+import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.StateStore
 import com.brewingbytes.gemmory.policy.TodayState
 import com.brewingbytes.gemmory.policy.TodaysPicture
+import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.remote.RemotePictureRules
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import kotlinx.datetime.LocalDate
 
 /** A picture Today's picture may offer: its id and catalog lock flag (bundled, or remote #43). */
 data class TodayOption(val id: String, val locked: Boolean)
@@ -35,6 +38,26 @@ internal fun todayCandidates(
         .filter { vip || (it.locked && it.id !in unlocked) }
         .map { it.id }
     return RemotePictureRules.todayCandidates(eligible, isDrop, isNew)
+}
+
+/** What Today's pick reads from the pictures (eng D3): [started] ids, the [options] in order, and the "New" ids. */
+data class TodayChoices(val started: Set<String>, val options: List<TodayOption>, val newIds: Set<String>)
+
+/**
+ * Today's choices, shared by the gallery's card and the evening reminder (T35, eng D3) so both name the same picture:
+ * the bundled pictures with the [listed] remote ones merged in, in the gallery's order (#43), minus the [started]
+ * ones. Neither caller renders anything for it. A dated drop ([drops]) is preferred on its own date only, never as a
+ * "New" picture the days after, so it isn't free again through Today's picture (T36, eng D4).
+ */
+internal fun todayChoices(started: Set<String>, listed: List<RemotePicture>, drops: Set<String>, isNew: (String) -> Boolean): TodayChoices {
+    class Option(val id: String, val size: CanvasSize?, val locked: Boolean, val addedAt: LocalDate?)
+    val bundled = BundledPictures.ALL.map { Option(it.id, BundledPictures.canvasSizeOf(it.id), it.locked, null) }
+    val remote = listed.map { Option(it.id, it.size, it.locked, it.addedAt) }
+    val options = RemotePictureRules.merge(bundled, remote, { it.size }, { it.addedAt }, { it.id })
+        .filter { it.size != null }
+        .map { TodayOption(it.id, it.locked) }
+    val newIds = listed.filter { it.id !in drops && isNew(it.id) }.map { it.id }.toSet()
+    return TodayChoices(started, options, newIds)
 }
 
 /**
@@ -82,6 +105,16 @@ class TodaysPictures(
         if (!enabled) return null
         val drops = todaysDrops()
         return today.pick(todayCandidates(started, unlocks().unlocked.value, vip, pictures, { it in drops }, isNew), vip)
+    }
+
+    /**
+     * Today's picture id, picking it on the day's first call: the gallery's card and the evening reminder both come here
+     * (T35, eng D3). [started]: pictures with a gem placed; [listed], [drops] and [isNew]: the remote pictures shown,
+     * the dated drops among them and their "New" mark.
+     */
+    fun pick(started: Set<String>, vip: Boolean, listed: List<RemotePicture>, drops: Set<String>, isNew: (String) -> Boolean): String? {
+        val choices = todayChoices(started, listed, drops, isNew)
+        return pick(choices.started, vip, choices.options) { it in choices.newIds }
     }
 
     /**

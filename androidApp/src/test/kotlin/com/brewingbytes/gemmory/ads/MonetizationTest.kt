@@ -135,6 +135,21 @@ class MonetizationTest {
         assertTrue(monetization().firstSessionOver.value, "a later real cold start")
     }
 
+    /**
+     * T35 (eng D11): a process the reminder, a reboot or an update started in the background never counts as a cold
+     * start; its first foreground ([Monetization.onProcessStart]) does, as before.
+     */
+    @Test
+    fun aBackgroundProcessStartLeavesTheFirstSessionAlone() = runTest(UnconfinedTestDispatcher()) {
+        monetization(processStart = false).also { it.onProcessStart() }.close()
+        // Two receiver starts that never came to the screen.
+        repeat(2) { assertFalse(monetization(processStart = false).also { it.close() }.firstSessionOver.value, "a background start") }
+        val foreground = monetization(processStart = false)
+        assertFalse(foreground.firstSessionOver.value)
+        foreground.onProcessStart()
+        assertTrue(foreground.firstSessionOver.value, "the next real cold start ends the first session")
+    }
+
     @Test
     fun aClosedInstanceStopsFollowingBilling() = runTest(UnconfinedTestDispatcher()) {
         val m = monetization()

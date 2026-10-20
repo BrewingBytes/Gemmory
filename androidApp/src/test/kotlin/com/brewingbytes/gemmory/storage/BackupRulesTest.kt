@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.storage
 
 import com.brewingbytes.gemmory.ads.PictureUnlocks
+import com.brewingbytes.gemmory.reminder.ReminderPrefs
 import org.junit.Test
 import org.w3c.dom.Element
 import java.io.File
@@ -99,6 +100,24 @@ class BackupRulesTest {
             assertTrue(excluded.none { StorageLayout.REMOTE_CANVASES.startsWith(it.removePrefix("file:").trimEnd('/')) }, "$excluded")
         }
         assertEquals("canvases/remote", CanvasKind.REMOTE.dir)
+    }
+
+    /**
+     * T35 (eng D2, R1): the `play` file lives in its canvas directory, so a photo canvas's stays out of every backup
+     * with it, while a picture's goes along with its progress. The reminder's settings may be backed up.
+     */
+    @Test
+    fun aPlayFileFollowsItsCanvasAndReminderSettingsAreBackedUp() {
+        val repo = CanvasRepository(File("files"))
+        val photoPlay = File(repo.dirOf(CanvasRef(CanvasKind.PHOTO, "p1")), CanvasRepository.PLAY).path.removePrefix("files/")
+        val sections = listOf(rules(xml("backup_rules.xml"), "exclude")) + listOf("cloud-backup", "device-transfer").map {
+            rules(xml("data_extraction_rules.xml").getElementsByTagName(it).item(0) as Element, "exclude")
+        }
+        for (excluded in sections) {
+            assertTrue(excluded.any { it.startsWith("file:") && photoPlay.startsWith(it.removePrefix("file:")) }, "$photoPlay in $excluded")
+            assertTrue(excluded.none { it.startsWith("file:canvases/bundled") || it == "file:canvases/" }, "$excluded")
+            assertTrue("sharedpref:${ReminderPrefs.FILE}.xml" !in excluded)
+        }
     }
 
     @Test

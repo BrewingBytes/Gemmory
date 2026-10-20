@@ -1,5 +1,9 @@
 package com.brewingbytes.gemmory.bundled
 
+import com.brewingbytes.gemmory.converter.AspectRatio
+import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.remote.RemotePicture
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -52,6 +56,31 @@ class TodayCandidatesTest {
         val isNew = { id: String -> id == "fox" || id == "harbor-drop" }
         assertEquals(listOf("harbor-drop"), todayCandidates(emptySet(), emptySet(), vip = false, pictures, isDrop = { it == "harbor-drop" }, isNew = isNew))
         assertEquals(listOf("fox"), todayCandidates(setOf("harbor-drop"), emptySet(), vip = false, pictures, isDrop = { it == "harbor-drop" }, isNew = isNew))
+    }
+
+    /**
+     * T35 (eng D3): the gallery's card and the evening reminder build Today's choices the same way, from the catalog,
+     * with no canvas read: remote pictures join their size's run after the bundled ones, oldest first, and a dated
+     * drop is never "New" (T36, eng D4).
+     */
+    @Test
+    fun todaysChoicesMergeRemotePicturesAndKeepDropsOutOfNew() {
+        fun remote(id: String, size: CanvasSize, added: String, availableFrom: String? = null) = RemotePicture(
+            id, id, AspectRatio.SQUARE, size, 10, 10, 2, "grids/$id.gmrg", "", 0, locked = true, minAppVersion = 1,
+            addedAt = LocalDate.parse(added), availableFrom = availableFrom?.let(LocalDate::parse),
+        )
+        val listed = listOf(
+            remote("owl", CanvasSize.QUICK, "2026-10-19"),
+            remote("fox", CanvasSize.QUICK, "2026-10-01"),
+            remote("harbor-drop", CanvasSize.MEDIUM, "2026-10-20", availableFrom = "2026-10-20"),
+        )
+        val choices = todayChoices(setOf("cherries"), listed, drops = setOf("harbor-drop")) { true }
+        val ids = choices.options.map { it.id }
+        val lastQuick = BundledPictures.ALL.last { BundledPictures.canvasSizeOf(it.id) == CanvasSize.QUICK }.id
+        assertEquals(listOf(lastQuick, "fox", "owl"), ids.subList(ids.indexOf(lastQuick), ids.indexOf(lastQuick) + 3))
+        assertFalse(BundledPictures.STARTER.id in ids, "the starter has no size")
+        assertEquals(setOf("owl", "fox"), choices.newIds)
+        assertEquals(setOf("cherries"), choices.started)
     }
 
     @Test

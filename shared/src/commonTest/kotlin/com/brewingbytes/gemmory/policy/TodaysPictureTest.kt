@@ -34,6 +34,18 @@ class TodaysPictureTest {
         assertEquals(pick, t.picked(vip = false))
     }
 
+    /**
+     * R1 (eng D3, D10): the evening reminder makes the day's pick when it runs first, and the gallery's later call,
+     * with a drop or a new picture among its candidates by then, reads the same one.
+     */
+    @Test
+    fun whoeverPicksFirstTheOtherReadsTheSamePick() {
+        clock.set("2026-10-17T20:30")
+        val byReminder = assertNotNull(today().pick(locked, vip = false))
+        clock.set("2026-10-17T21:10")
+        assertEquals(byReminder, today().pick(listOf("tonights-drop") + locked, vip = false), "the gallery opened from the notification")
+    }
+
     @Test
     fun aNewPictureAfterLocalMidnight() {
         val t = today()

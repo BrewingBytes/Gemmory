@@ -34,6 +34,9 @@ class PlayStreak(
     /** Days in a row as of today; 0 once broken. The gallery shows it from [DailyStreak.SHOWN_FROM]. */
     fun current(): Int = streak.current()
 
+    /** The stored state, for the evening reminder (T35). */
+    fun state(): StreakState = streak.state()
+
     private class PrefsStore(private val prefs: SharedPreferences) : StateStore<StreakState> {
         override fun load(): StreakState? {
             if (!prefs.contains(LAST_DAY)) return null

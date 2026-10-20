@@ -81,8 +81,12 @@ class FakeSource(private val catalog: TestCatalog) : RemoteSource {
     var cutShort = setOf<String>()
     var httpError = mapOf<String, Int>()
 
+    /** A slow network: every request blocks this long, as a stuck HTTP call would (T35's bounded check). */
+    var latencyMs = 0L
+
     override fun fetch(path: String, ifNoneMatch: String?, maxBytes: Int): Fetched {
         requests += path to ifNoneMatch
+        if (latencyMs > 0) Thread.sleep(latencyMs)
         if (offline) return Fetched.Failed(java.net.UnknownHostException("raw.githubusercontent.com"), offline = true)
         httpError[path]?.let { return Fetched.HttpError(it) }
         val body = catalog.files[path] ?: return Fetched.HttpError(404)

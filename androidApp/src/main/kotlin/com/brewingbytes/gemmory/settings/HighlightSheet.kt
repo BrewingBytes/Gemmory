@@ -78,7 +78,7 @@ fun HighlightSheet(current: HighlightStyle, onPick: (HighlightStyle) -> Unit, on
 
 /** Unselected: a 1.5dp bone ring. Selected: a 2dp lamp ring around an 8dp lamp dot. */
 @Composable
-private fun RadioMark(selected: Boolean) {
+internal fun RadioMark(selected: Boolean) {
     Box(
         Modifier
             .size(20.dp)

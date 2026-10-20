@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The evening reminder's small icon (T35, design system Evening reminder): a white square-gem outline, an outer
+     square and its table, with the facet lines between their corners. Android tints it; the accent is patina. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M4,4h16v16h-16z" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M8.5,8.5h7v7h-7z" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M4,4L8.5,8.5M20,4L15.5,8.5M20,20L15.5,15.5M4,20L8.5,15.5" />
+</vector>

@@ -6,6 +6,8 @@ import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridBinding
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.save.GridFile
+import com.brewingbytes.gemmory.save.PlayFileCodec
+import com.brewingbytes.gemmory.save.PlayTimes
 import com.brewingbytes.gemmory.save.Refusal
 import com.brewingbytes.gemmory.save.SaveCodec
 import com.brewingbytes.gemmory.save.ViewState
@@ -72,7 +74,7 @@ class CanvasStorageException(message: String, cause: Throwable? = null) : Except
 /**
  * Canvas records in app-private storage, one directory each: `files/canvases/<photo|bundled|remote>/<id>/` holding
  * `grid` (GridCodec), `save` (SaveCodec), `save.last-good`, `view` (ViewStateCodec), `record` (CanvasRecordCodec:
- * title, creation time, play time), `thumb.png` (the last gallery thumbnail, kept for the "Can't open" tile) and,
+ * title, creation time, play time), `play` (PlayFileCodec, T35: last gem and first finished day), `thumb.png` (the last gallery thumbnail, kept for the "Can't open" tile) and,
  * for photo canvases, `source.jpg` (the cropped photo, at most 1024 px). Photo canvases live under the directory the
  * backup rules exclude, so none of it leaves the phone. Every write is atomic
  * (temp + fsync + rename). Before `save` is replaced, a copy of it that still decodes becomes `save.last-good`,
@@ -233,6 +235,29 @@ class CanvasRepository internal constructor(
         }
     }
 
+    /** When the canvas was last played and first finished (T35), or null if unknown: missing, unreadable or refused. */
+    fun readPlay(ref: CanvasRef): PlayTimes? {
+        val file = File(dirOf(ref), PLAY)
+        val bytes = try {
+            if (file.isFile) file.readBytes() else return null
+        } catch (_: IOException) {
+            return null
+        }
+        return (PlayFileCodec.decode(bytes) as? Decoded.Ok)?.value
+    }
+
+    /** Written with each save (T35). Not reported: losing it costs one evening's reminder precision. */
+    fun writePlay(ref: CanvasRef, times: PlayTimes): WriteResult {
+        val dir = dirOf(ref)
+        if (!dir.isDirectory) return WriteResult.WriteFailed(diskFull = false)
+        return try {
+            files.write(File(dir, PLAY), PlayFileCodec.encode(times))
+            WriteResult.Written
+        } catch (e: IOException) {
+            WriteResult.WriteFailed(AtomicFiles.isDiskFull(e))
+        }
+    }
+
     fun sourceFile(ref: CanvasRef): File = File(dirOf(ref), SOURCE)
 
     fun thumbFile(ref: CanvasRef): File = File(dirOf(ref), THUMB)
@@ -248,7 +273,8 @@ class CanvasRepository internal constructor(
 
     /**
      * Start over / Play again: removes the progress (last good first, so an interrupted clear never brings back
-     * older progress), the view state and the thumbnail, and resets the play time. The grid, title and source stay.
+     * older progress), the view state and the thumbnail, and resets the play time and the last gem (T35). The grid,
+     * title, source and the first finished day stay.
      * Callers close the canvas's session and cancel its encode first.
      */
     fun clearProgress(ref: CanvasRef): Boolean {
@@ -263,6 +289,7 @@ class CanvasRepository internal constructor(
         }
         AtomicFiles.syncDir(dir)
         readRecord(ref)?.let { writeRecord(ref, it.copy(playMillis = 0)) }
+        readPlay(ref)?.let { writePlay(ref, it.copy(lastGemMillis = null)) }
         return true
     }
 
@@ -340,5 +367,6 @@ class CanvasRepository internal constructor(
         const val RECORD = "record"
         const val SOURCE = "source.jpg"
         const val THUMB = "thumb.png"
+        const val PLAY = "play"
     }
 }

@@ -13,7 +13,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
-import com.brewingbytes.gemmory.bundled.TodayOption
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.save.Decoded
@@ -209,13 +208,12 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
      * card once it's here, even after the pick was made (eng D9); the pick stays free today, in the grid.
      */
     private suspend fun todayCard(summaries: List<CanvasSummary>, tiles: List<Tile>, unlocked: Set<String>, vip: Boolean): TodayCard? {
+        // The same choices the evening reminder reads (T35, eng D3), so the card and the notification agree.
         val started = tiles.filter { it.started }.map { it.ref.id }.toSet()
-        val options = tiles.filter { it.size != null }.map { TodayOption(it.ref.id, it.lockable) }
-        // A drop is preferred on its own date only (T36, eng D4), never as a "New" picture the days after, so it isn't
-        // free again through Today's picture.
-        val drops = withContext(Dispatchers.IO) { app.remote.drops() }
-        val newIds = tiles.filter { it.isNew && it.ref.id !in drops }.map { it.ref.id }.toSet()
-        val picked = withContext(Dispatchers.IO) { app.todays.pick(started, vip, options) { it in newIds } }
+        val picked = withContext(Dispatchers.IO) {
+            val remote = app.remote
+            app.todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew)
+        }
         val todays = withContext(Dispatchers.IO) { app.remote.todaysDrops() }
         val drop = tiles.firstOrNull { it.ref.kind == CanvasKind.REMOTE && it.ref.id in todays && !it.damaged }
         val tile = drop ?: tiles.firstOrNull { it.ref.id == picked && !it.damaged } ?: return null
