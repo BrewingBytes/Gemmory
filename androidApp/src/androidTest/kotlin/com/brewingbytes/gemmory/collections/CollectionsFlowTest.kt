@@ -208,6 +208,9 @@ class CollectionsFlowTest {
         }
     }
 
+    /** [ref] is in the gallery grid: scrolled to, since a lazy grid composes only what's near the screen. */
+    private fun inGrid(ref: CanvasRef) = runCatching { compose.onNodeWithTag("gallery-grid").performScrollToKey("${ref.kind}/${ref.id}") }.isSuccess
+
     /** A week of 7 drops, the first on [firstDay] days from today, and its exclusive. */
     private fun week(firstDay: Long) {
         val today = java.time.LocalDate.now()
@@ -224,7 +227,7 @@ class CollectionsFlowTest {
     fun threeFinishesInTheWindowEarnTheExclusiveOnARewardReturn() {
         week(firstDay = -2)
         launch(photo = null)
-        waitFor("the catalog", 15_000) { exists(tileTag(remote("w3"))) }
+        waitFor("the catalog", 15_000) { inGrid(remote("w3")) }
         // The first finish shows the rows (D5) and asks for reminders.
         finish(remote("w1"))
         notNowIfAsked()
@@ -250,7 +253,7 @@ class CollectionsFlowTest {
     fun afterItsWindowTheEventIsAnOrdinaryCollection() {
         week(firstDay = -12)
         launch(photo = null)
-        waitFor("the catalog", 15_000) { exists(tileTag(remote("w7"))) }
+        waitFor("the catalog", 15_000) { inGrid(remote("w7")) }
         finish(remote("w1"))
         notNowIfAsked()
         finish(remote("w2"))
