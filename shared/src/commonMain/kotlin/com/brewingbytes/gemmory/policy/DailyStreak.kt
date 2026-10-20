@@ -31,6 +31,9 @@ class DailyStreak(private val clock: DayClock, private val store: StateStore<Str
     /** The streak as it stands today: 0 once it's broken. */
     fun current(): Int = shown(state, clock.today())
 
+    /** The stored state, for the evening reminder's "breaks at midnight" check (T35). */
+    fun state(): StreakState = state
+
     companion object {
         /** A one-day streak isn't news. */
         const val SHOWN_FROM = 2

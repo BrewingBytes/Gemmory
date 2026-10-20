@@ -10,7 +10,9 @@ import com.brewingbytes.gemmory.policy.ConsentModeV2
 import com.brewingbytes.gemmory.policy.EarnSource
 import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LoadFailure
+import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.RewardType
+import com.brewingbytes.gemmory.reminder.AskResult
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.android.billingclient.api.BillingClient.BillingResponseCode
@@ -166,6 +168,26 @@ class TelemetryTest {
         assertTrue(params.none { it == "lighthouse" }, "no picture id in any param")
     }
 
+    /** T35: the reminder's events, with reasons, results, minutes and attempts only. */
+    @Test
+    fun reminderEventsCarryReasonsAndTimesButNoIds() {
+        assertEquals(AnalyticsEvent("reminder_prompt_shown", mapOf("attempt" to 2L)), AnalyticsEvent.reminderPromptShown(2))
+        assertEquals(AnalyticsEvent("reminder_prompt_result", mapOf("result" to "denied_system")), AnalyticsEvent.reminderPromptResult("denied_system"))
+        assertEquals(
+            AnalyticsEvent("reminder_settings_changed", mapOf("on" to "true", "minutes" to 1230L)),
+            AnalyticsEvent.reminderSettingsChanged(on = true, minutes = 1230),
+        )
+        assertEquals(AnalyticsEvent("reminder_shown", mapOf("reason" to "almost_finished")), AnalyticsEvent.reminderShown(ReminderReason.ALMOST_FINISHED))
+        assertEquals(AnalyticsEvent("reminder_late", mapOf("minutes" to 135L)), AnalyticsEvent.reminderLate(135))
+        assertEquals(AnalyticsEvent("reminder_opened", mapOf("reason" to "drop")), AnalyticsEvent.reminderOpened(ReminderReason.DROP))
+        assertEquals(listOf("drop", "today", "streak", "almost_finished"), ReminderReason.entries.map { it.param })
+        assertEquals(listOf("granted", "declined_in_app", "denied_system", "blocked"), AskResult.entries.map { it.param })
+        assertEquals(
+            mapOf("source" to "bundled", "size" to "medium", "entry" to "reminder"),
+            AnalyticsEvent.canvasStarted(CanvasRef(CanvasKind.BUNDLED, "cherries"), 104, 78, entry = CanvasEntry.REMINDER).params,
+        )
+    }
+
     @Test
     fun monetizationEventsMatchTheDesignDoc() {
         assertEquals(AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "photo_canvas")), AnalyticsEvent.rewardedOffered(RewardType.PHOTO_CANVAS))
@@ -226,6 +248,29 @@ class TelemetryTest {
             AnalyticsEvent.shareTapped(photo, 56, 56, progress = true),
         )
         for (e in all) for (v in e.params.values.map { it.toString() }) assertFalse(v == photo.id || v == puppy.id || "Puppy" in v, "${e.name}: $v")
+    }
+
+    /** T35 (eng D6, R1): nothing is logged before the saved consent is applied; later changes still pass through. */
+    @Test
+    fun nothingLogsBeforeConsentAndLaterChangesStillApply() {
+        val seen = mutableListOf<String>()
+        val gate = ConsentFirst(object : Analytics {
+            override fun log(event: AnalyticsEvent) {
+                seen += event.name
+            }
+
+            override fun consent(mode: ConsentModeV2) {
+                seen += "consent ${mode.analyticsStorage}"
+            }
+        })
+        gate.log(AnalyticsEvent.reminderShown(ReminderReason.STREAK))
+        assertEquals(emptyList(), seen, "a background start's first log, before onCreate applied consent")
+        val denied = ConsentModeV2(analyticsStorage = false, adStorage = false, adUserData = false, adPersonalization = false)
+        gate.consent(denied)
+        gate.log(AnalyticsEvent.reminderShown(ReminderReason.STREAK))
+        gate.consent(ConsentModeV2.GRANTED)
+        assertEquals(listOf("consent false", "reminder_shown", "consent true"), seen)
+        assertEquals(ConsentModeV2.GRANTED, gate.applied)
     }
 
     @Test

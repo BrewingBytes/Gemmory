@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
@@ -35,6 +36,7 @@ import com.brewingbytes.gemmory.policy.Membership
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.EarnSource
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,6 +53,13 @@ import com.brewingbytes.gemmory.photo.PhotoNav
 import com.brewingbytes.gemmory.photo.PreviewScreen
 import com.brewingbytes.gemmory.photo.SizeScreen
 import com.brewingbytes.gemmory.play.PlayScreen
+import com.brewingbytes.gemmory.play.PlayViewModel
+import com.brewingbytes.gemmory.reminder.AskResult
+import com.brewingbytes.gemmory.reminder.NotificationPermission
+import com.brewingbytes.gemmory.reminder.ReminderAskCopy
+import com.brewingbytes.gemmory.reminder.ReminderAskSheet
+import com.brewingbytes.gemmory.reminder.ReminderTap
+import com.brewingbytes.gemmory.reminder.Reminders
 import com.brewingbytes.gemmory.settings.MEMBERSHIP_TAG
 import com.brewingbytes.gemmory.settings.SettingsScreen
 import com.brewingbytes.gemmory.ui.GemmoryTheme
@@ -61,13 +70,21 @@ class MainActivity : ComponentActivity() {
     private val gallery: GalleryViewModel by viewModels()
     private val completion: CompletionViewModel by viewModels()
     private val rewarded: RewardedViewModel by viewModels()
+
+    /** The canvas's ViewModel (PlayScreen's), closed here when a reminder tap leaves an open canvas. */
+    private val play: PlayViewModel by viewModels()
     private val app: GemmoryApp get() = application as GemmoryApp
+
+    /** An evening reminder was tapped (T35): routed once the screen is up. */
+    private var reminderTap by mutableStateOf<ReminderTap?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // UMP on the first launch (EEA only, before any ad request); later launches only refresh the status.
         if (savedInstanceState == null) app.consent.onLaunch(this)
+        // A tap that started the activity; after a rotation it was handled already.
+        if (savedInstanceState == null) reminderTap = ReminderTap.of(intent)
         setContent {
             GemmoryTheme {
                 // Saved state, so the screen survives rotation and the process being killed in the background.
@@ -75,6 +92,12 @@ class MainActivity : ComponentActivity() {
                 App(stack)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        ReminderTap.of(intent)?.let { reminderTap = it }
     }
 
     @Composable
@@ -134,6 +157,15 @@ class MainActivity : ComponentActivity() {
 
         // Billing's one-time gallery line: taken when the gallery is up, kept while it stays up.
         var galleryNotice by rememberSaveable { mutableStateOf<String?>(null) }
+        // The reminder's "Reminders on" line (T35, plan-design-review D12) uses the same place, once.
+        val reminderLine by app.reminders.onLine.collectAsStateWithLifecycle()
+        val reminderMinutes by app.reminders.minutes.collectAsStateWithLifecycle()
+        LaunchedEffect(stack.top == Route.Gallery, reminderLine) {
+            if (stack.top == Route.Gallery && reminderLine) {
+                galleryNotice = ReminderAskCopy.onLine(Reminders.timeLabel(this@MainActivity, reminderMinutes))
+                app.reminders.onLineShown()
+            }
+        }
         LaunchedEffect(stack.top == Route.Gallery, notice) {
             val n = notice
             if (stack.top != Route.Gallery) {
@@ -149,6 +181,12 @@ class MainActivity : ComponentActivity() {
         // The interstitial check runs only once the player has left a just-finished picture's completion screen
         // (design doc Ad rules): never on the canvas, never before or during Share.
         var previous by remember { mutableStateOf<Route?>(null) }
+        // The reminder ask (T35): its attempt (1 or 2) while the sheet shows. One interruption per return to the
+        // gallery: the ask, else the interstitial check.
+        var reminderAsk by rememberSaveable { mutableStateOf<Int?>(null) }
+        val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            app.reminders.askAnswered(if (granted) AskResult.GRANTED else AskResult.DENIED_SYSTEM)
+        }
         // Remote pictures (#43): nothing downloads during play. A check still running stops; the next Gallery visit retries.
         LaunchedEffect(top is Route.Canvas) {
             if (top is Route.Canvas) app.remote.pause()
@@ -159,8 +197,24 @@ class MainActivity : ComponentActivity() {
             if (top is Route.Completion && completion.fresh.isFresh(top)) app.interstitials.onFreshCompletion()
             // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
             if (left is Route.Completion && left != top && completion.fresh.left(left) && top == Route.Gallery) {
-                app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
+                val attempt = app.reminders.onLeftFreshFinish()
+                if (attempt != null) {
+                    app.reminders.askShown(attempt)
+                    reminderAsk = attempt
+                } else {
+                    app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
+                }
             }
+        }
+        // A reminder tap (T35): its canvas, or the gallery when it's stale (design system, navigation map).
+        val tap = reminderTap
+        LaunchedEffect(tap) {
+            if (tap == null) return@LaunchedEffect
+            reminderTap = null
+            app.analytics.log(AnalyticsEvent.reminderOpened(tap.reason))
+            val ref = app.reminderTarget(tap.reason, tap.pictureId, tap.canvasKey, tap.day)
+            if (stack.top is Route.Canvas) play.close()
+            if (ref == null) stack.popToGallery() else stack.openTile(ref, CanvasEntry.REMINDER, app.store::isFinished)
         }
         // Ads are preloaded: the extra-canvas or More colors video (#29) starts loading as soon as Preview offers it.
         val previewVideo = top == Route.Preview &&
@@ -282,6 +336,33 @@ class MainActivity : ComponentActivity() {
                 vm = completion,
                 onDone = { stack.popToGallery() },
                 onPlayAgain = { stack.playAgain(top.ref) },
+            )
+        }
+
+        val ask = reminderAsk
+        if (ask != null && top == Route.Gallery) {
+            ReminderAskSheet(
+                time = Reminders.timeLabel(this@MainActivity, reminderMinutes),
+                onYes = {
+                    reminderAsk = null
+                    when {
+                        NotificationPermission.needed(this@MainActivity) -> {
+                            app.reminders.permissionRequested()
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                        app.reminders.notificationsAllowed() -> app.reminders.askAnswered(AskResult.GRANTED)
+                        // Gemmory's notifications or the channel are off (Android 10-12, or switched off): on, and the
+                        // system page opens, as the Settings switch does (founder, 2026-10-20).
+                        else -> {
+                            app.reminders.askAnswered(AskResult.BLOCKED)
+                            NotificationPermission.openSettings(this@MainActivity)
+                        }
+                    }
+                },
+                onNotNow = {
+                    reminderAsk = null
+                    app.reminders.askAnswered(AskResult.DECLINED_IN_APP)
+                },
             )
         }
 

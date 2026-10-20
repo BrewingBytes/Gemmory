@@ -9,13 +9,16 @@ import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasState
 import com.brewingbytes.gemmory.policy.AchievementRules
+import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.GameEvent
+import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.remote.RemoteCatalogView
 import com.brewingbytes.gemmory.remote.RemotePictureRules
 import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.save.GridFile
+import com.brewingbytes.gemmory.save.PlayTimes
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -33,6 +36,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.TimeZone
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -104,6 +108,8 @@ class CanvasStore(
     private val remote: RemoteCatalogView = RemoteCatalogView.None,
     /** Play Games achievements (#49): a fresh finish is counted here, with the canvas's size and kind. */
     private val achievements: (GameEvent) -> Unit = {},
+    /** Wall time and local date for the `play` file (T35): when a gem was last saved and the day of the finish. */
+    private val dayClock: DayClock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
 ) {
     val repository = CanvasRepository(filesDir, reporter)
     private val swept: Job = scope.launch(writer) { repository.sweep() }
@@ -119,6 +125,8 @@ class CanvasStore(
             val record: CanvasRecord?,
             /** Where the player opened it from, for the canvas events (T36). */
             val entry: CanvasEntry = CanvasEntry.GALLERY,
+            /** Its `play` file (T35), carried into the session so each save updates it without a read. */
+            val play: PlayTimes = PlayTimes(),
         ) : Opened
 
         /** "Can't open" (design D9). */
@@ -146,7 +154,8 @@ class CanvasStore(
             // The codec already refused duplicate and out-of-range logs, so a replay can't fail here.
             val state = CanvasState.restore(grid.pattern, log) ?: return@withContext Opened.Damaged(null)
             val record = repository.readRecord(ref)
-            Opened.Ready(ref, titleOf(ref, record), grid, state, repository.readView(ref, grid.pattern.palette.size), record, entry)
+            val play = repository.readPlay(ref) ?: PlayTimes()
+            Opened.Ready(ref, titleOf(ref, record), grid, state, repository.readView(ref, grid.pattern.palette.size), record, entry, play)
         }
     }
 
@@ -154,11 +163,22 @@ class CanvasStore(
     fun start(opened: Opened.Ready): PlaySession {
         val ref = opened.ref
         val binding = opened.grid.binding
+        val cells = opened.state.cellCount
+        // Touched on [writer] only. The finish is the save of the full log, so its day is stamped in the same call.
+        var play = opened.play
         val saver = SaveLoop(
             scope = CoroutineScope(scope.coroutineContext + writer),
             initialLog = opened.state.log(),
             nowMillis = nowMillis,
-            writeSave = { log -> repository.writeSave(ref, binding, log) },
+            writeSave = { log ->
+                repository.writeSave(ref, binding, log).also { result ->
+                    if (result == WriteResult.Written && log.isNotEmpty()) {
+                        val finishedDay = play.firstFinishedDay ?: dayClock.today().takeIf { log.size == cells }
+                        play = PlayTimes(dayClock.nowMillis(), finishedDay)
+                        repository.writePlay(ref, play)
+                    }
+                }
+            },
             writeView = { view -> repository.writeView(ref, view) },
         )
         val clock = PlayClock(opened.record?.playMillis ?: 0L, nowMillis)
@@ -282,6 +302,30 @@ class CanvasStore(
     }
 
     /**
+     * Every canvas with a gem placed, as the evening reminder reads it (T35, eng D12): its progress and `play` file,
+     * nothing rendered. Damaged canvases are left out. [ReminderCanvas.key] is [reminderKey].
+     */
+    suspend fun reminderCanvases(): List<ReminderCanvas> {
+        swept.join()
+        closing.values.toList().forEach { it.join() }
+        return withContext(writer) {
+            CanvasKind.entries.flatMap { kind ->
+                repository.list(kind).mapNotNull { id ->
+                    val ref = CanvasRef(kind, id)
+                    val (grid, log) = when (val r = repository.load(ref)) {
+                        is LoadResult.Loaded -> r.grid to r.log
+                        is LoadResult.RecoveredFromLastGood -> r.grid to r.log
+                        is LoadResult.Damaged -> return@mapNotNull null
+                    }
+                    if (log.isEmpty()) return@mapNotNull null
+                    val pictureId = id.takeIf { kind != CanvasKind.PHOTO }
+                    ReminderCanvas(reminderKey(ref), pictureId, log.size, grid.pattern.cells.size, repository.readPlay(ref)?.lastGemMillis)
+                }
+            }
+        }
+    }
+
+    /**
      * The finished picture of a [CanvasSummary.Listed] remote picture, for its thumbnail or the Today card (T36, eng
      * D12); null when it isn't listed any more or its grid was refused. Reads only the download cache, never a canvas,
      * so it stays off [writer]: call it on an IO thread.
@@ -303,6 +347,18 @@ class CanvasStore(
     }
 
     /** The title is drawn into the time-lapse band, so the canvas's cached videos and pictures go with the old one. */
+    /** Whether [ref] has a gem placed on disk (a started picture never locks again, eng E4c). */
+    suspend fun isStarted(ref: CanvasRef): Boolean {
+        settle(ref)
+        return withContext(writer) {
+            repository.dirOf(ref).isDirectory && when (val r = repository.load(ref)) {
+                is LoadResult.Loaded -> r.log.isNotEmpty()
+                is LoadResult.RecoveredFromLastGood -> r.log.isNotEmpty()
+                is LoadResult.Damaged -> true
+            }
+        }
+    }
+
     suspend fun rename(ref: CanvasRef, title: String): WriteResult {
         settle(ref)
         val written = withContext(writer) {
@@ -316,14 +372,20 @@ class CanvasStore(
     /**
      * Start over / Play again (design D3): clears progress, view state and play time. A bundled or remote picture is
      * removed whole and copied fresh from its frozen grid on the next open, which also fixes a damaged one. A remote
-     * picture withdrawn from the catalog is then gone, like any withdrawn picture not started (#43).
+     * picture withdrawn from the catalog is then gone, like any withdrawn picture not started (#43). The first finished
+     * day (T35) is kept: a picture that has one is copied fresh at once, with only that day in its `play` file.
      */
     suspend fun startOver(ref: CanvasRef): Boolean {
         settle(ref)
         encodes.cancelAndClear(ref)
         return withContext(writer) {
             when (ref.kind) {
-                CanvasKind.BUNDLED, CanvasKind.REMOTE -> repository.delete(ref)
+                CanvasKind.BUNDLED, CanvasKind.REMOTE -> {
+                    val finishedDay = repository.readPlay(ref)?.firstFinishedDay
+                    repository.delete(ref).also { deleted ->
+                        if (deleted && finishedDay != null && ensurePicture(ref)) repository.writePlay(ref, PlayTimes(firstFinishedDay = finishedDay))
+                    }
+                }
                 CanvasKind.PHOTO -> repository.clearProgress(ref)
             }
         }
@@ -413,6 +475,15 @@ class CanvasStore(
 
     companion object {
         const val DEFAULT_PHOTO_TITLE = "My photo"
+
+        /** How a [ReminderCanvas] names its canvas, and back (T35). */
+        fun reminderKey(ref: CanvasRef): String = "${ref.kind.name}/${ref.id}"
+
+        fun refOfReminderKey(key: String): CanvasRef? {
+            val kind = CanvasKind.entries.firstOrNull { key.startsWith("${it.name}/") } ?: return null
+            val id = key.substringAfter('/')
+            return if (CanvasRef.ID.matches(id)) CanvasRef(kind, id) else null
+        }
 
         fun titleOf(ref: CanvasRef, record: CanvasRecord?): String = when (ref.kind) {
             CanvasKind.BUNDLED -> BundledPictures.byId(ref.id)?.title ?: ref.id

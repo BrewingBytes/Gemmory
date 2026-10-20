@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDate
 import java.io.File
 import java.io.IOException
@@ -157,6 +158,28 @@ class RemotePictures internal constructor(
         job = scope.launch { if (check() == CheckOutcome.UPDATED) _updates.update { it + 1 } }
     }
 
+    /**
+     * The evening reminder's check (T35, eng D5): when one is due, it joins the gallery's running check or starts one
+     * that downloads the catalog and only today's drop grids, and gives up after [timeoutMs], cancelling it. A
+     * cancelled check stores no catalog (grids first), and one that skipped grids isn't marked done, so the next
+     * Gallery visit runs the full check. True when it gave up.
+     */
+    suspend fun checkForReminder(timeoutMs: Long = REMINDER_CHECK_MS): Boolean {
+        val running = synchronized(this) {
+            job?.takeIf { it.isActive } ?: if (!RemoteSchedule.isDue(current().state, clock.nowMillis())) {
+                null
+            } else {
+                scope.launch {
+                    val today = today()
+                    if (check(grids = { RemotePictureRules.isTodaysDrop(it.availableFrom, today) }) == CheckOutcome.UPDATED) _updates.update { it + 1 }
+                }.also { job = it }
+            }
+        } ?: return false
+        if (withTimeoutOrNull(timeoutMs) { running.join() } != null) return false
+        running.cancel()
+        return true
+    }
+
     /** Stops a running check: a canvas is opening, and nothing downloads during play. It retries on the next Gallery visit. */
     @Synchronized
     fun pause() {
@@ -164,8 +187,11 @@ class RemotePictures internal constructor(
         job = null
     }
 
-    /** One check, now if due ([force] for tests). Cancellable between requests. */
-    suspend fun check(force: Boolean = false): CheckOutcome = withContext(io) {
+    /**
+     * One check, now if due ([force] for tests). Cancellable between requests. Only grids [grids] accepts are
+     * downloaded; a skipped one that isn't cached leaves the check incomplete.
+     */
+    suspend fun check(force: Boolean = false, grids: (RemotePicture) -> Boolean = { true }): CheckOutcome = withContext(io) {
         val start = current()
         val now = clock.nowMillis()
         if (!force && !RemoteSchedule.isDue(start.state, now)) return@withContext CheckOutcome.NOT_DUE
@@ -209,6 +235,10 @@ class RemotePictures internal constructor(
             coroutineContext.ensureActive()
             if (cachedGridIsGood(picture)) {
                 ready += picture.id
+                continue
+            }
+            if (!grids(picture)) {
+                complete = false
                 continue
             }
             val outcome = when (val g = source.fetch(RemoteCatalogs.gridPath(picture.id), null, RemoteCatalogs.MAX_GRID_BYTES)) {
@@ -332,5 +362,8 @@ class RemotePictures internal constructor(
         const val CATALOG = "catalog.json"
         const val SIGNATURE = "catalog.json.sig"
         private const val SIGNATURE_MAX_BYTES = 1024
+
+        /** The reminder's whole run has 10 s (eng D8); the check gets 8 of them (eng D5). */
+        const val REMINDER_CHECK_MS = 8_000L
     }
 }

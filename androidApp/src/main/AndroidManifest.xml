@@ -12,6 +12,11 @@
     <!-- The one 400ms soft vibration when a picture is finished (design system, Haptics and sound). -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- The opt-in evening reminder (T35): one local notification a day, asked for after the first finished picture
+         (Android 13+), and re-armed after a reboot. No exact-alarm permission: an allow-while-idle alarm, best effort. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- Backup is on except for photo canvases, the allowance counter and Firebase's identifiers, which the rules
          exclude from cloud backup and device transfer (see res/xml). Bundled-picture progress and settings may be
          backed up. -->
@@ -76,6 +81,24 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/share_paths" />
         </provider>
+
+        <!-- The evening reminder (T35). Both receivers start disabled and are enabled only while reminders are on (eng
+             D11), so nothing else starts the process in the background. The alarm's intent is explicit and immutable. -->
+        <receiver
+            android:name=".reminder.ReminderReceiver"
+            android:enabled="false"
+            android:exported="false" />
+        <receiver
+            android:name=".reminder.ReminderRescheduleReceiver"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <!-- The share sheet says which app the player picked; only that it happened is counted (share_completed). -->
         <receiver

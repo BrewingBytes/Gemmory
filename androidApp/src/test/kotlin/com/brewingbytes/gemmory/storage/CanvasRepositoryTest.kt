@@ -8,6 +8,7 @@ import com.brewingbytes.gemmory.save.Crc32
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridBinding
 import com.brewingbytes.gemmory.save.GridCodec
+import com.brewingbytes.gemmory.save.PlayTimes
 import com.brewingbytes.gemmory.save.Refusal
 import com.brewingbytes.gemmory.save.SaveCodec
 import com.brewingbytes.gemmory.save.ViewState
@@ -100,6 +101,28 @@ class CanvasRepositoryTest {
         assertContentEquals(intArrayOf(3), recovered.log)
         assertEquals(LoadProblem.Refused(CanvasFile.SAVE, Refusal.TooShort), recovered.problem)
         assertEquals(1, reports.size)
+    }
+
+    /** R1 (eng D10): a `play` file beside the save (T35) changes nothing about last-good recovery. */
+    @Test
+    fun lastGoodRecoveryIsUnchangedWithAPlayFile() {
+        started.writeSave(ref, binding, intArrayOf(3))
+        started.writePlay(ref, PlayTimes(lastGemMillis = 1_000, firstFinishedDay = null))
+        started.writeSave(ref, binding, intArrayOf(3, 1))
+        started.writePlay(ref, PlayTimes(lastGemMillis = 2_000, firstFinishedDay = null))
+        file("save").writeBytes(file("save").readBytes().copyOf(9))
+        val recovered = assertIs<LoadResult.RecoveredFromLastGood>(started.load(ref))
+        assertContentEquals(intArrayOf(3), recovered.log)
+        assertEquals(PlayTimes(2_000, null), started.readPlay(ref))
+    }
+
+    @Test
+    fun aMissingOrRefusedPlayFileReadsAsUnknown() {
+        assertNull(started.readPlay(ref))
+        started.writePlay(ref, PlayTimes(5, 6))
+        file("play").writeBytes(file("play").readBytes().copyOf(10))
+        assertNull(started.readPlay(ref))
+        assertEquals(WriteResult.WriteFailed(diskFull = false), repo().writePlay(CanvasRef(CanvasKind.PHOTO, "gone"), PlayTimes()))
     }
 
     @Test
@@ -294,15 +317,26 @@ class CanvasRepositoryTest {
         assertTrue(file("grid").exists())
     }
 
+    /** R1 (eng D10, intended change): Start over clears the last gem (T35) and keeps the first finished day. */
+    @Test
+    fun clearProgressResetsTheLastGemAndKeepsTheFirstFinishedDay() {
+        started.writeSave(ref, binding, IntArray(12) { it })
+        started.writePlay(ref, PlayTimes(lastGemMillis = 9_000, firstFinishedDay = 20_380))
+        assertTrue(started.clearProgress(ref))
+        assertEquals(PlayTimes(lastGemMillis = null, firstFinishedDay = 20_380), started.readPlay(ref))
+    }
+
     @Test
     fun deleteAlsoRemovesTheRecordAndSourcePhoto() {
         val r = repo()
         r.create(ref, gridBytes, CanvasRecord("x", 1, 0), byteArrayOf(1))
         r.writeSave(ref, binding, intArrayOf(3))
         r.writeView(ref, ViewState(24f, 0f, 0f, 0))
+        r.writePlay(ref, PlayTimes(1, 2))
         assertTrue(r.delete(ref))
         assertFalse(r.dirOf(ref).exists())
         assertNull(r.readRecord(ref))
+        assertNull(r.readPlay(ref))
         assertFalse(r.sourceFile(ref).exists())
     }
 

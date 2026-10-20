@@ -81,7 +81,11 @@ class Monetization(
     private val policy: CoroutineDispatcher,
     reporter: NonFatalReporter = NonFatalReporter.Logcat,
     val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE),
-    /** False only for a test's second instance in the same process, which must not count as another cold start. */
+    /**
+     * Counts this process as a cold start now. The app passes false and calls [onProcessStart] at the process's first
+     * foreground instead (T35, eng D11), so a reminder or reboot starting it in the background never ends the first
+     * session. False also for a test's second instance in the same process.
+     */
     processStart: Boolean = true,
 ) {
     /** The inventory (#38), backed up unlike the ledger; the ledger keeps its photo canvases in it. */
@@ -126,6 +130,14 @@ class Monetization(
         armMidnight()
         // VIP starting or lapsing changes the allowance at once (Unlimited, or back to today's free canvas).
         following = scope.launch { entitlements.collect { withContext(policy) { refreshLocked() } } }
+    }
+
+    /** The process came to the screen for the first time (eng D11): a cold start after the first one ends the first session. */
+    fun onProcessStart() {
+        scope.launch(policy) {
+            ads.onProcessStart()
+            _firstSessionOver.value = ads.firstSessionOver
+        }
     }
 
     /** Stops the midnight refresh and the entitlement follower, for a test that replaces this instance. */

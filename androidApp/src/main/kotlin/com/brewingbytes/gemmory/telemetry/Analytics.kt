@@ -7,6 +7,7 @@ import com.brewingbytes.gemmory.policy.ConsentModeV2
 import com.brewingbytes.gemmory.policy.EarnSource
 import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LoadFailure
+import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -38,6 +39,25 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 
         /** The Tomorrow line on the Today card was tapped (T36): "Opens tomorrow", nothing opens. */
         val teaserTapped = AnalyticsEvent("teaser_tapped")
+
+        /** The evening reminder's ask sheet showed (T35): [attempt] 1 after the first finish, 2 after the third. */
+        fun reminderPromptShown(attempt: Int) = AnalyticsEvent("reminder_prompt_shown", mapOf("attempt" to attempt.toLong()))
+
+        /** How the ask ended (T35): `granted` | `declined_in_app` | `denied_system`. */
+        fun reminderPromptResult(result: String) = AnalyticsEvent("reminder_prompt_result", mapOf("result" to result))
+
+        /** Reminders turned on or off, or their time changed, in Settings or the ask (T35). [minutes]: since midnight. */
+        fun reminderSettingsChanged(on: Boolean, minutes: Int) =
+            AnalyticsEvent("reminder_settings_changed", mapOf("on" to on.toString(), "minutes" to minutes.toLong()))
+
+        /** A reminder was posted (T35), logged from the background job under the saved consent (eng D6). */
+        fun reminderShown(reason: ReminderReason) = AnalyticsEvent("reminder_shown", mapOf("reason" to reason.param))
+
+        /** The evening's run came more than 2 h late or on a later date (T35), so nothing was posted. */
+        fun reminderLate(minutes: Long) = AnalyticsEvent("reminder_late", mapOf("minutes" to minutes))
+
+        /** A reminder was tapped (T35). */
+        fun reminderOpened(reason: ReminderReason) = AnalyticsEvent("reminder_opened", mapOf("reason" to reason.param))
 
         fun photoCanvasStarted(colors: ColorChoice) = AnalyticsEvent("photo_canvas_started", colors(colors))
 
@@ -191,6 +211,26 @@ interface Analytics {
             "ad_user_data" to mode.adUserData,
             "ad_personalization" to mode.adPersonalization,
         )
+    }
+}
+
+/**
+ * Analytics that drops every event until the first [consent] (T35, eng D6): a reminder, reboot or update can start the
+ * app in the background and log at once, so nothing may reach Firebase before the saved consent does. The app
+ * applies it first thing in onCreate; [applied] is what it last applied, for the connected test.
+ */
+class ConsentFirst(private val analytics: Analytics) : Analytics {
+    @Volatile
+    var applied: ConsentModeV2? = null
+        private set
+
+    override fun log(event: AnalyticsEvent) {
+        if (applied != null) analytics.log(event)
+    }
+
+    override fun consent(mode: ConsentModeV2) {
+        analytics.consent(mode)
+        applied = mode
     }
 }
 

@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory
 
+import android.app.Activity
 import android.app.Application
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -13,6 +14,7 @@ import com.brewingbytes.gemmory.ads.AdMobGateway
 import com.brewingbytes.gemmory.ads.ConsentManager
 import com.brewingbytes.gemmory.ads.Interstitials
 import com.brewingbytes.gemmory.ads.Monetization
+import com.brewingbytes.gemmory.ads.isLocked
 import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.billing.BillingRepository
@@ -29,16 +31,29 @@ import com.brewingbytes.gemmory.policy.DayPlayed
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
 import com.brewingbytes.gemmory.policy.GameEvent
+import com.brewingbytes.gemmory.policy.ReminderReason
+import com.brewingbytes.gemmory.reminder.ReminderJob
+import com.brewingbytes.gemmory.reminder.ReminderNotifier
+import com.brewingbytes.gemmory.reminder.ReminderPicture
+import com.brewingbytes.gemmory.reminder.ReminderPrefs
+import com.brewingbytes.gemmory.reminder.ReminderScheduler
+import com.brewingbytes.gemmory.reminder.Reminders
+import com.brewingbytes.gemmory.reminder.SystemReminderAlarm
+import com.brewingbytes.gemmory.reminder.SystemReminderComponents
 import com.brewingbytes.gemmory.remote.HttpRemoteSource
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePictures
 import com.brewingbytes.gemmory.remote.RemoteSource
+import com.brewingbytes.gemmory.save.Decoded
+import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.settings.AppSettings
 import com.brewingbytes.gemmory.storage.FileStateStore
+import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.ConsentFirst
 import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
 import com.brewingbytes.gemmory.telemetry.FirebaseAnalyticsLogger
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
@@ -79,7 +94,28 @@ class GemmoryApp : Application() {
     lateinit var achievements: Achievements
         private set
 
-    private lateinit var games: GamesBackend
+    /** Play Games, set up at the first foreground of a process (eng D11), never on a background start. */
+    private val playGames: GamesBackend by lazy {
+        if (BuildConfig.PLAY_GAMES) PlayGamesBackend(this, getString(R.string.game_services_project_id), reporter) else GamesBackend.Off
+    }
+
+    private val games = object : GamesBackend {
+        override val available: Boolean get() = playGames.available
+
+        override fun session(activity: Activity) = playGames.session(activity)
+    }
+
+    /** The evening reminder (T35): Settings, the ask and the alarm. */
+    lateinit var reminders: Reminders
+        private set
+
+    private lateinit var reminderNotifier: ReminderNotifier
+
+    /** The app is on screen (between the process's onStart and onStop): the reminder skips its evening then. */
+    @Volatile
+    private var foreground = false
+
+    private var firstForegroundDone = false
 
     /** Connected tests only (T36): the wall time that dates drops, Today's picture and the gallery's midnight reload. */
     @VisibleForTesting
@@ -130,7 +166,8 @@ class GemmoryApp : Application() {
     lateinit var appScope: CoroutineScope
         private set
 
-    private fun newMonetization(processStart: Boolean = true) = Monetization(
+    /** Never counted as a cold start here: that happens at the process's first foreground (eng D11). */
+    private fun newMonetization() = Monetization(
         filesDir = filesDir,
         clock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
         unlocks = PictureUnlocks(this),
@@ -138,7 +175,7 @@ class GemmoryApp : Application() {
         policy = Dispatchers.IO.limitedParallelism(1),
         entitlements = billing.entitlements,
         reporter = reporter,
-        processStart = processStart,
+        processStart = false,
     )
 
     /** Connected tests only (#33): re-reads the streak from its preferences, which a test seeded. */
@@ -209,6 +246,86 @@ class GemmoryApp : Application() {
         }
     }
 
+    private fun newReminders(): Reminders {
+        val prefs = ReminderPrefs(getSharedPreferences(ReminderPrefs.FILE, MODE_PRIVATE))
+        val scheduler = ReminderScheduler(
+            prefs,
+            SystemReminderAlarm(this),
+            SystemReminderComponents(this),
+            { dayClock.nowMillis() },
+            { TimeZone.currentSystemDefault() },
+        )
+        return Reminders(prefs, scheduler, reminderNotifier, analytics)
+    }
+
+    /** Connected tests only (T35): re-reads the reminder settings from their preferences, which a test cleared or seeded. */
+    @VisibleForTesting
+    internal fun resetRemindersForTest() {
+        reminders = newReminders()
+    }
+
+    /**
+     * The evening run (T35) for the alarm set for [scheduledAt], from the reminder receiver: what's on the phone now,
+     * Today's pick stored, and the post.
+     */
+    suspend fun runEveningReminder(scheduledAt: Long) {
+        // Turned off after the alarm was handed over, or an alarm from before this field existed: nothing to do.
+        if (!reminders.on.value || scheduledAt == 0L) return
+        val vip = monetization.entitlements.value.vip
+        val job = ReminderJob(
+            clock = dayClock,
+            zone = { TimeZone.currentSystemDefault() },
+            check = { remote.checkForReminder() },
+            canvases = { store.reminderCanvases() },
+            todaysDrops = { remote.todaysDrops().toList() },
+            pickToday = { started -> todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew) },
+            streak = { streak.state() },
+            allowed = reminderNotifier::allowed,
+            foreground = { foreground },
+            notify = { post -> reminderNotifier.post(post, post.pictureId?.let(::reminderPicture), vip, dayClock.today()) },
+            analytics = analytics,
+        )
+        job.run(scheduledAt)
+    }
+
+    /** A bundled or remote picture as the notification names and draws it; null if it can't be opened now. */
+    private fun reminderPicture(id: String): ReminderPicture? {
+        val ref = openableRef(id) ?: return null
+        BundledPictures.byId(id)?.let { picture ->
+            return ReminderPicture(picture.title, BundledPictures.canvasSizeOf(id)) {
+                (GridCodec.decode(assets.open(picture.asset).use { it.readBytes() }) as? Decoded.Ok)?.value?.pattern
+            }
+        }
+        val listed = remote.listed().firstOrNull { it.id == id }
+        val title = listed?.title ?: CanvasStore.titleOf(ref, store.repository.readRecord(ref))
+        return ReminderPicture(title, listed?.size) {
+            store.pattern(ref) ?: (store.repository.load(ref) as? LoadResult.Loaded)?.grid?.pattern
+        }
+    }
+
+    /**
+     * Where a reminder tap goes (T35; design system, navigation map): a drop or Today's picture opens its canvas while
+     * it's still today's and free, or open anyway; a streak or almost-finished canvas opens while it exists unfinished.
+     * Null sends the player to the gallery with no message: after midnight, withdrawn, no longer free, or a crafted id.
+     */
+    suspend fun reminderTarget(reason: ReminderReason, pictureId: String?, canvasKey: String?, day: Long): CanvasRef? {
+        if (day != dayClock.today()) return null
+        return when (reason) {
+            ReminderReason.DROP, ReminderReason.TODAY -> {
+                val ref = pictureId?.let(::openableRef) ?: return null
+                val vip = monetization.entitlements.value.vip
+                val started = store.isStarted(ref)
+                val catalogLocked = BundledPictures.byId(ref.id)?.locked ?: remote.listed().firstOrNull { it.id == ref.id }?.locked ?: true
+                val free = todays.isFreeToday(ref) || todays.isToday(ref, vip)
+                ref.takeIf { free || !isLocked(catalogLocked, ref.id, monetization.unlocks.unlocked.value, monetization.entitlements.value, started) }
+            }
+            ReminderReason.STREAK, ReminderReason.ALMOST_FINISHED -> {
+                val ref = canvasKey?.let(CanvasStore::refOfReminderKey) ?: return null
+                ref.takeIf { store.repository.dirOf(it).isDirectory && !store.isFinished(it) }
+            }
+        }
+    }
+
     private fun newStore() = CanvasStore(
         filesDir = filesDir,
         scope = appScope,
@@ -219,6 +336,7 @@ class GemmoryApp : Application() {
         analytics = analytics,
         remote = remote,
         achievements = { achievements.record(it) },
+        dayClock = dayClock,
     )
 
     private val storeWriter = Dispatchers.IO.limitedParallelism(1)
@@ -265,7 +383,7 @@ class GemmoryApp : Application() {
     internal fun resetMonetizationForTest(ads: AdGateway = adMob) {
         this.ads = ads
         monetization.close()
-        monetization = newMonetization(processStart = false)
+        monetization = newMonetization()
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
     }
 
@@ -291,7 +409,11 @@ class GemmoryApp : Application() {
             CrashlyticsReporter.scrubCrashes()
             CrashlyticsReporter(FirebaseCrashlytics.getInstance())
         }
-        analytics = Analytics.forBuild(BuildConfig.FIREBASE) { FirebaseAnalyticsLogger(FirebaseAnalytics.getInstance(this)) }
+        analytics = ConsentFirst(Analytics.forBuild(BuildConfig.FIREBASE) { FirebaseAnalyticsLogger(FirebaseAnalytics.getInstance(this)) })
+        // The saved consent reaches Firebase before anything can log (eng D6): a reminder or reboot may start the app in
+        // the background and log at once. Later changes follow below.
+        consent = ConsentManager(this)
+        analytics.consent(consent.consentMode.value)
         settings = AppSettings(this)
         streak = newStreak()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -319,25 +441,45 @@ class GemmoryApp : Application() {
         monetization = newMonetization()
         todays = newTodays()
         dayPlayed = DayPlayed(dayClock, PrefsDayStore(this, PLAYED_FILE))
-        games = if (BuildConfig.PLAY_GAMES) PlayGamesBackend(this, getString(R.string.game_services_project_id), reporter) else GamesBackend.Off
         achievements = newAchievements(games)
-        val streakNow = streak.current()
-        achievements.backfill { finishedOnPhone() to streakNow }
-        consent = ConsentManager(this)
-        // Consent Mode v2 from the UMP result, now and on every change (R3-7).
+        // Consent Mode v2 from the UMP result, on every change (R3-7); the saved one was applied above.
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }
         ads = AdMobGateway(this, consent, CoroutineScope(SupervisorJob() + Dispatchers.Main))
         adMob = ads
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
+        reminderNotifier = ReminderNotifier(this)
+        reminders = newReminders()
+        // Every start re-arms the alarm, since a force-stop clears it (T35).
+        reminders.reschedule()
         // The first session ends on the first foreground after ≥ 30 min in the background (eng D6). Billing asks Play
         // on every foreground, the first one being the cold start (eng E6).
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
+                foreground = true
+                if (!firstForegroundDone) {
+                    firstForegroundDone = true
+                    onFirstForeground()
+                }
                 monetization.onForeground()
                 billing.onForeground()
             }
 
-            override fun onStop(owner: LifecycleOwner) = monetization.onBackground()
+            override fun onStop(owner: LifecycleOwner) {
+                foreground = false
+                monetization.onBackground()
+            }
         })
+    }
+
+    /**
+     * The process came to the screen for the first time (T35, eng D11). Only now does it count as a cold start for the
+     * first session, and only now do Play Games and the achievements backfill set up, so a reminder, reboot or update
+     * that starts the process in the background does none of it.
+     */
+    private fun onFirstForeground() {
+        monetization.onProcessStart()
+        playGames.available
+        val streakNow = streak.current()
+        achievements.backfill { finishedOnPhone() to streakNow }
     }
 }
