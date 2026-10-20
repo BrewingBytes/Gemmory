@@ -71,6 +71,18 @@ object A11yText {
     }
 
     /**
+     * The gallery's Finished heading (#89): "Finished, 12 pictures" / "Finished, 1 photo canvas"; "collapsed" or
+     * "expanded" is its state description, and "button" its role.
+     */
+    fun finished(count: Int, photos: Boolean): String {
+        val noun = when {
+            photos -> if (count == 1) "photo canvas" else "photo canvases"
+            else -> if (count == 1) "picture" else "pictures"
+        }
+        return "Finished, $count $noun"
+    }
+
+    /**
      * "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock"; a remote picture
      * that just arrived (#43) reads "Fox in Snow, new, 0% done" / "…, new, locked, watch a video to unlock".
      */

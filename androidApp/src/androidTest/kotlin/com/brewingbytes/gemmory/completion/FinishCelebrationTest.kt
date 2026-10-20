@@ -16,6 +16,7 @@ import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
@@ -23,15 +24,15 @@ import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
+import java.io.File
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * The finish celebration (#57): a fresh finish sparkles across the picture during the sweep, then drops gem confetti
@@ -110,8 +111,8 @@ class FinishCelebrationTest {
         // A new activity: the finish is no longer fresh, so the gallery tile opens the still.
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { exists(TILE) }
-        compose.onNodeWithTag(TILE).performClick()
+        // #89: the finished canvas sits in My Photos' Finished section.
+        compose.openFinishedTile(ref)
         compose.waitUntil(5_000) { exists("completion-still") }
         compose.waitUntil(10_000) { picture() }
         val seen = watch()

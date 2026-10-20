@@ -51,7 +51,10 @@ sealed interface CanvasSummary {
     val size: CanvasSize?
     val locked: Boolean
 
-    /** [state] is the restored progress (empty for a picture never opened). */
+    /**
+     * [state] is the restored progress (empty for a picture never opened). [firstFinishedDay] is the local epoch day
+     * a finished canvas was first finished, from its `play` file (T35, #89); null when unfinished or finished before T35.
+     */
     class Playable(
         override val ref: CanvasRef,
         override val title: String,
@@ -59,6 +62,7 @@ sealed interface CanvasSummary {
         override val createdAtMillis: Long,
         override val size: CanvasSize? = null,
         override val locked: Boolean = false,
+        val firstFinishedDay: Long? = null,
     ) : CanvasSummary
 
     /**
@@ -449,13 +453,16 @@ class CanvasStore(
             is LoadResult.Damaged -> return damaged(ref, title, record, size, locked)
         }
         val state = CanvasState.restore(grid.pattern, log) ?: return damaged(ref, title, record, size, locked)
-        return CanvasSummary.Playable(ref, title, state, record?.createdAtMillis ?: 0L, size, locked)
+        // The Finished section's order (#89): only a finished canvas reads its play file.
+        val finishedDay = if (state.isFinished) repository.readPlay(ref)?.firstFinishedDay else null
+        return CanvasSummary.Playable(ref, title, state, record?.createdAtMillis ?: 0L, size, locked, finishedDay)
     }
 
     private fun damaged(ref: CanvasRef, title: String, record: CanvasRecord?, size: CanvasSize?, locked: Boolean) =
         CanvasSummary.Damaged(ref, title, record?.createdAtMillis ?: 0L, repository.thumbFile(ref).takeIf { it.isFile }, size, locked)
 
-    private fun CanvasSummary.Playable.withSize(size: CanvasSize?) = CanvasSummary.Playable(ref, title, state, createdAtMillis, size, locked)
+    private fun CanvasSummary.Playable.withSize(size: CanvasSize?) =
+        CanvasSummary.Playable(ref, title, state, createdAtMillis, size, locked, firstFinishedDay)
 
     /** A canvas's size for achievements: a bundled picture's catalog size, else its grid's shape (null for the starter). */
     private fun sizeOf(ref: CanvasRef, pattern: Pattern): CanvasSize? =

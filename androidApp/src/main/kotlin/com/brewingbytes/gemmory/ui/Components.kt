@@ -253,6 +253,19 @@ object GemIcons {
         }
         .build()
 
+    /** Material "expand more" chevron for the gallery's Finished heading (#89); turned up when the section is open. */
+    val Chevron: ImageVector = ImageVector.Builder("Chevron", 24.dp, 24.dp, 24f, 24f)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(16.59f, 8.59f)
+            lineTo(12f, 13.17f)
+            lineTo(7.41f, 8.59f)
+            lineTo(6f, 10f)
+            lineToRelative(6f, 6f)
+            lineToRelative(6f, -6f)
+            close()
+        }
+        .build()
+
     /** Three vertical dots (⋮), drawn as a vector so no font renders it as an emoji. */
     val More: ImageVector = ImageVector.Builder("More", 24.dp, 24.dp, 24f, 24f)
         .path(fill = SolidColor(Color.White)) {

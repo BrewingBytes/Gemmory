@@ -7,6 +7,8 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
 import android.net.Uri
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,11 +18,9 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
-import androidx.activity.ComponentActivity
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
-import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -32,15 +32,16 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.achievements.ACHIEVEMENTS_TAG
 import com.brewingbytes.gemmory.achievements.AchievementsCopy
 import com.brewingbytes.gemmory.achievements.FakeGames
-import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.ads.RewardPhase
 import com.brewingbytes.gemmory.ads.RewardTarget
 import com.brewingbytes.gemmory.ads.RewardedSheet
 import com.brewingbytes.gemmory.ads.RewardedUi
 import com.brewingbytes.gemmory.billing.BillingBackends
+import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
 import com.brewingbytes.gemmory.play.PlaySession
@@ -55,8 +56,9 @@ import com.brewingbytes.gemmory.timelapse.EncodeState
 import com.brewingbytes.gemmory.ui.GemmoryTheme
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityCheckResult.AccessibilityCheckResultType
 import com.google.android.apps.common.testing.accessibility.framework.AccessibilityViewCheckResult
-import com.google.android.apps.common.testing.accessibility.framework.uielement.ViewHierarchyElement
 import com.google.android.apps.common.testing.accessibility.framework.integrations.espresso.AccessibilityValidator
+import com.google.android.apps.common.testing.accessibility.framework.uielement.ViewHierarchyElement
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.BaseMatcher
 import org.hamcrest.CoreMatchers
@@ -66,7 +68,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 
 /**
  * Fails on every Accessibility Scanner finding, warnings included: touch targets, contrast, labels, duplicates. Two
@@ -311,8 +312,8 @@ class AccessibilityChecksTest {
             throw it
         }
         compose.onNodeWithText("My Photos").performClick()
-        waitForTag("tile-photo-a11y-scan")
-        compose.onNodeWithTag("tile-photo-a11y-scan").performClick()
+        // #89: the finished canvas sits in My Photos' Finished section.
+        compose.openFinishedTile(photo)
         waitForTag("completion-still")
         scan()
         compose.onNodeWithText("Play again").performClick()

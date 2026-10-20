@@ -158,7 +158,8 @@ class StoreScreenshots {
         shot("4-completion")
 
         compose.onNodeWithTag("completion-done").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        // #89: the finished starter has moved to the Finished section, out of view.
+        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("gallery-grid")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithTag("settings-membership").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }

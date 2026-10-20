@@ -4,7 +4,7 @@ Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decis
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
 Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
-Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)).
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88 and #90-#91 are PRs): #89 (founder request, 2026-10-20) is the last section.
 
 ---
 
@@ -922,3 +922,30 @@ Labels: P1, build, persistence
 **Done when:** the founder turns 4 ChatGPT sheets into 24 dated, signed, provenance-recorded pictures in one PR, old clients see none of them early, and the calendar check runs daily.
 
 Depends on: T36 for the dated publish. Effort: human ~2d / CC ~1h.
+
+---
+
+## #89: Gallery: a collapsed Finished section at the end of each tab
+Labels: none
+
+**Why:** finished canvases stay mixed in with what's left to play. After a few weeks of daily drops (T36) and photo canvases, the gallery fills with done tiles, and the evening player scrolls past keepsakes to find the next picture. Founder, 2026-10-20: "hide completed photos or have a special tab for them".
+
+**Decision (founder, 2026-10-20):** a collapsed **Finished** section at the end of each tab, on both Pictures and My Photos. Not a third tab: it would crowd the tabs row and the streak chip at 2× font. Not a hide switch: hidden canvases are easy to forget.
+
+**Scope**
+- **Where:** on Pictures, after the locked group (#58 order: starter, open, locked, then Finished). On My Photos, after the unfinished photo canvases. The Today card, the Tomorrow line and the collection/event rows (T37/T38) don't change. A finished picture still counts in its collection's row.
+- **Heading:** a full-width quiet row, "Finished · 12" (the count of finished canvases in that tab) with a chevron, in the label style. It's collapsed by default; a tap expands it in place, and the expanded/collapsed state is remembered per tab (settings preferences, backed up). There's no heading when nothing in the tab is finished.
+- **Inside:** the finished tiles in the same staggered grid, newest finish first. Finish dates come from the T35 `play` file's first finished day; canvases finished before T35 have no date and go after the dated ones, newest created first (a same-day tie too; founder 2026-10-20). A tile tap opens the completion still as today (Share primary, Done, "Play again").
+- **Moving between groups:** a tile moves into Finished on the next Gallery visit after its finish, never under the player's finger (the same rule as #58). Play again / Start over makes it unfinished, so it goes back to its group on the next visit.
+- **TalkBack:** the heading reads "Finished, 12 pictures, collapsed, button" ("photo canvases" on My Photos). When it expands, focus stays on the heading and the tiles follow it in reading order.
+- **Large screens and font:** the heading spans the grid (text column ≤ 480dp, per Phase 5 D19); at 200% font the count wraps under the label.
+- **Look (founder 2026-10-20):** a plain label-style row on the felt, no card or divider, with a new `expand_more` chevron that turns up when open.
+- **Events:** none new.
+
+**Docs this issue owns:** `docs/design-system.md` (Gallery entry: the order and the Finished section; the navigation map; a decision-log row), `docs/issues.md` snapshot.
+
+**Tests:** `GalleryOrderTest` (finished pictures last, newest finish first, undated after dated, Play again moves a tile back, empty heading hidden; R1: the open/locked order is unchanged), a connected test that finishes a picture, sees it in the collapsed section with the right count, expands it, opens the completion still, plays it again and sees it back in the main grid; accessibility checks on the heading at 1× and 2× font.
+
+**Done when:** each tab shows what's left to play first, finished canvases sit in a collapsed "Finished · n" section at the end of each tab, a tap there opens the completion still as before, and the design system describes it.
+
+Depends on: T35 (#76) for the finish dates; the order works without them (undated canvases go last). Effort: human ~1d / CC ~45min.

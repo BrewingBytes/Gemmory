@@ -2,12 +2,11 @@ package com.brewingbytes.gemmory.app
 
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -16,18 +15,21 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CanvasViewport
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
+import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
+import java.io.File
+import kotlin.test.assertTrue
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import kotlin.test.assertTrue
 
 /**
  * Fresh install (design D13): the starter is the first Pictures tile, it can be played to the end with real taps on
@@ -98,10 +100,9 @@ class FreshInstallTest {
         compose.waitForIdle()
         compose.onNodeWithTag("completion-done").performClick()
 
-        compose.waitUntil(5_000) {
-            compose.onAllNodes(hasContentDescription("The Starry Night, done")).fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithTag("tile-bundled-starter").performClick()
+        // #89: the finished starter waits in the Finished section at the end of Pictures.
+        compose.openFinishedTile(CanvasRef(CanvasKind.BUNDLED, "starter"))
+        compose.onNode(hasContentDescription("The Starry Night, done")).assertDoesNotExist()
         compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("completion-still")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Play again").assertExists()
         compose.onNodeWithText("The Starry Night · 768 gems", substring = true).assertExists()

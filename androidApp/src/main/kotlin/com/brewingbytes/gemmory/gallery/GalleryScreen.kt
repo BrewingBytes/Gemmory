@@ -1,5 +1,8 @@
 package com.brewingbytes.gemmory.gallery
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -47,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
@@ -68,6 +72,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -107,6 +112,7 @@ import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.galleryColumns
 import com.brewingbytes.gemmory.ui.noteFitsBeside
+import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import kotlinx.coroutines.delay
 
 /** Which sheet the gallery shows; saved as a string so it survives rotation. */
@@ -159,6 +165,9 @@ const val TOMORROW_TAG = "gallery-tomorrow"
 
 /** The "New today" chip on the Today card (T36). */
 const val NEW_TODAY_TAG = "gallery-new-today"
+
+/** The Finished section's heading (#89), at the end of each tab. */
+const val FINISHED_TAG = "gallery-finished"
 
 /** The "Opens tomorrow" toast (T36). */
 const val TOAST_TAG = "gallery-toast"
@@ -261,7 +270,8 @@ fun GalleryScreen(
                 )
             }
             val tiles = if (tab == 0) state.pictures else state.photos
-            if (tab == 1 && state.loaded && tiles.isEmpty()) {
+            val finished = if (tab == 0) state.finishedPictures else state.finishedPhotos
+            if (tab == 1 && state.loaded && tiles.isEmpty() && finished.isEmpty()) {
                 MyPhotosEmpty(onNewFromPhoto)
             } else {
                 // Today's free picture (#34) and today's drop (T36) open without a video; the tap re-checks them, so a
@@ -287,8 +297,17 @@ fun GalleryScreen(
                     tomorrow != null -> { { TomorrowCard(tomorrow, tomorrowTapped) } }
                     else -> null
                 }
+                // Collapsed by default, remembered per tab (#89).
+                var finishedOpen by remember(tab) { mutableStateOf(vm.finishedOpen(tab)) }
                 TileGrid(
                     tiles = tiles,
+                    finished = finished,
+                    finishedOpen = finishedOpen,
+                    onFinished = {
+                        finishedOpen = !finishedOpen
+                        vm.setFinishedOpen(tab, finishedOpen)
+                    },
+                    photos = tab == 1,
                     bottomPadding = gridBottom,
                     header = header,
                     isLocked = { it.locked(unlocked, entitlements, todayFree) },
@@ -301,7 +320,7 @@ fun GalleryScreen(
                 )
             }
         }
-        if (!(tab == 1 && state.loaded && state.photos.isEmpty())) {
+        if (!(tab == 1 && state.loaded && state.photos.isEmpty() && state.finishedPhotos.isEmpty())) {
             // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
             val note = allowanceLine(allowance, inventory?.canvases ?: 0).takeIf { allowance != Allowance.Free }
             NoteAndButton(
@@ -653,6 +672,12 @@ private fun StreakChip(days: Int) {
 @Composable
 private fun TileGrid(
     tiles: List<Tile>,
+    /** The tab's Finished section (#89), after its tiles; no heading when empty. */
+    finished: List<Tile>,
+    finishedOpen: Boolean,
+    onFinished: () -> Unit,
+    /** My Photos, for the heading's TalkBack noun. */
+    photos: Boolean,
     bottomPadding: Dp,
     header: (@Composable () -> Unit)?,
     isLocked: (Tile) -> Boolean,
@@ -679,8 +704,79 @@ private fun TileGrid(
         items(tiles, key = { "${it.ref.kind}/${it.ref.id}" }) { tile ->
             TileView(tile, isLocked(tile), onOpen, thumbnail, onShareProgress, onRename, onDelete, onStartOver)
         }
+        // The Finished section (#89): its heading keeps one key, so TalkBack focus stays on it as it expands.
+        if (finished.isNotEmpty()) {
+            item(key = FINISHED_TAG, span = StaggeredGridItemSpan.FullLine) { FinishedHeading(finished.size, finishedOpen, photos, onFinished) }
+            if (finishedOpen) {
+                items(finished, key = { "${it.ref.kind}/${it.ref.id}" }) { tile ->
+                    TileView(tile, isLocked(tile), onOpen, thumbnail, onShareProgress, onRename, onDelete, onStartOver)
+                }
+            }
+        }
     }
 }
+
+/**
+ * The Finished heading (#89): a quiet full-width row on the felt, "Finished · 12" in the label style (the count in mono,
+ * like every number) and a chevron that turns up when open. At 200% font the count wraps under the label. TalkBack:
+ * one node, a button, "Finished, 12 pictures", collapsed or expanded.
+ */
+@Composable
+private fun FinishedHeading(count: Int, open: Boolean, photos: Boolean, onTap: () -> Unit) {
+    val reducedMotion = rememberReducedMotion()
+    val turn by animateFloatAsState(
+        targetValue = if (open) 180f else 0f,
+        animationSpec = if (reducedMotion) snap() else tween(CHEVRON_MS),
+        label = "finished-chevron",
+    )
+    val wrap = LocalDensity.current.fontScale > LARGE_FONT_SCALE
+    val description = A11yText.finished(count, photos)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .heightIn(min = 48.dp)
+            .testTag(FINISHED_TAG)
+            .clickable(onClick = onTap)
+            .clearAndSetSemantics {
+                contentDescription = description
+                stateDescription = if (open) "expanded" else "collapsed"
+                role = Role.Button
+                onClick { onTap(); true }
+            }
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Large screens (plan-design-review D19): the text column at most 480dp wide.
+        val label: @Composable () -> Unit = { Text("Finished", style = GemType.label, color = GemColors.TextMuted) }
+        val number: @Composable () -> Unit = { Text("$count", style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.TextMuted) }
+        if (wrap) {
+            Column(Modifier.widthIn(max = 480.dp)) {
+                label()
+                number()
+            }
+        } else {
+            Row(Modifier.widthIn(max = 480.dp), verticalAlignment = Alignment.CenterVertically) {
+                label()
+                Text(" · ", style = GemType.label, color = GemColors.TextMuted)
+                number()
+            }
+        }
+        Image(
+            GemIcons.Chevron,
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(GemColors.TextMuted),
+            modifier = Modifier.size(20.dp).rotate(turn),
+        )
+    }
+}
+
+/** The chevron's turn (#89); instant under reduced motion. */
+private const val CHEVRON_MS = 150
+
+/** Above it, the Finished heading's count wraps under its label (#89), as the canvas does at 200% font. */
+private const val LARGE_FONT_SCALE = 1.5f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

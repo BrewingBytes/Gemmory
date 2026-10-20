@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Settings (design system, Settings): Sound, Haptics and Milestones (#35), all on by default, and the Selected color
- * style (#19), Stronger tint by default. Kept in shared preferences, which hold no user content and may be backed up.
+ * style (#19), Stronger tint by default, and whether each gallery tab's Finished section is expanded (#89). Kept in shared preferences, which hold no user content and may be backed up.
  */
 class AppSettings(private val prefs: SharedPreferences) {
     constructor(context: Context) : this(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))
@@ -44,11 +44,22 @@ class AppSettings(private val prefs: SharedPreferences) {
         prefs.edit { putString(HIGHLIGHT, style.key) }
     }
 
+    /** Whether a gallery tab's Finished section (#89) is expanded: 0 Pictures, 1 My Photos. Collapsed by default. */
+    fun finishedOpen(tab: Int): Boolean = prefs.getBoolean(finishedKey(tab), false)
+
+    fun setFinishedOpen(tab: Int, open: Boolean) {
+        prefs.edit { putBoolean(finishedKey(tab), open) }
+    }
+
     private companion object {
+        fun finishedKey(tab: Int) = if (tab == 0) FINISHED_PICTURES else FINISHED_PHOTOS
+
         const val FILE = "settings"
         const val SOUND = "sound"
         const val HAPTICS = "haptics"
         const val MILESTONES = "milestones"
         const val HIGHLIGHT = "highlight"
+        const val FINISHED_PICTURES = "finished_open_pictures"
+        const val FINISHED_PHOTOS = "finished_open_photos"
     }
 }
