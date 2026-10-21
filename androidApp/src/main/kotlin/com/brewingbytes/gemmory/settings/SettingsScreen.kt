@@ -58,7 +58,7 @@ import com.brewingbytes.gemmory.ui.feltGround
 const val PRIVACY_POLICY_URL = "https://github.com/BrewingBytes/Gemmory/blob/main/docs/privacy-policy.md"
 
 /**
- * Settings (design system, Settings): Sound, Haptics, Milestones (#35), Reminders and Reminder time (T35),
+ * Settings (design system, Settings): Sound, Haptics, Music and Music volume (T42), Milestones (#35), Reminders and Reminder time (T35),
  * Selected color (#19, opens its sheet),
  * Achievements (#49, only where Play Games can run), Membership, Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (only when UMP says
  * privacy options are required, design D3), Delete all photo canvases, Privacy policy, Version. [onMembership] opens the paywall, or Play's subscription page for VIP.
@@ -94,6 +94,8 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             ToggleRow("Sound", sound, app.settings::setSound)
             ToggleRow("Haptics", haptics, app.settings::setHaptics)
+            // Ambient music (T42): its own switch and, while on, the volume.
+            MusicRows(app.settings)
             ToggleRow("Milestones", milestones, app.settings::setMilestones)
             // The evening reminder (T35): the switch and, while on, its time.
             ReminderRows(app)

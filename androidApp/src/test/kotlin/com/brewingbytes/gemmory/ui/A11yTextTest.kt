@@ -10,6 +10,12 @@ import kotlin.test.assertTrue
 class A11yTextTest {
     private val us = NumberFormat.getIntegerInstance(Locale.US)
 
+    /** T42: "Music volume, 30 percent, slider" (the label and role come from the slider's semantics). */
+    @Test
+    fun theMusicVolumeReadsItsPercent() {
+        assertEquals("30 percent", A11yText.musicVolume(30))
+    }
+
     @Test
     fun canvasNodeReadsProgressAndTheSelectedColor() {
         assertEquals("Canvas. 4,812 of 8,112 placed. Color 7 selected, 312 left.", A11yText.canvas(4812, 8112, 7, 312, us))

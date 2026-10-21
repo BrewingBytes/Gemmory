@@ -89,6 +89,10 @@ class EncodeManager(
     private val jobs = HashMap<CanvasRef, Job>()
     private val states = ConcurrentHashMap<CanvasRef, MutableStateFlow<EncodeState>>()
     private val swept: Job = scope.launch(io) { sweep() }
+    private val _encoding = MutableStateFlow(false)
+
+    /** Some encode (a share or a progress share) is running: the music pauses for the export (T42). */
+    val encoding: StateFlow<Boolean> = _encoding.asStateFlow()
 
     fun state(ref: CanvasRef): StateFlow<EncodeState> = flow(ref).asStateFlow()
 
@@ -107,7 +111,13 @@ class EncodeManager(
                 run(request)
             }
             jobs[ref] = job
-            job.invokeOnCompletion { synchronized(lock) { if (jobs[ref] === job) jobs.remove(ref) } }
+            _encoding.value = true
+            job.invokeOnCompletion {
+                synchronized(lock) {
+                    if (jobs[ref] === job) jobs.remove(ref)
+                    _encoding.value = jobs.isNotEmpty()
+                }
+            }
             job.start()
         }
     }
@@ -139,7 +149,7 @@ class EncodeManager(
      * the canvas's cached MP4s and PNGs, partial files and pending marker, so a replay gets a fresh video.
      */
     override suspend fun cancelAndClear(ref: CanvasRef) {
-        val job = synchronized(lock) { jobs.remove(ref) }
+        val job = synchronized(lock) { jobs.remove(ref).also { _encoding.value = jobs.isNotEmpty() } }
         job?.cancelAndJoin()
         withContext(io) {
             filesOf(ref).forEach { it.delete() }

@@ -64,6 +64,11 @@ import com.brewingbytes.gemmory.settings.MEMBERSHIP_TAG
 import com.brewingbytes.gemmory.settings.SettingsScreen
 import com.brewingbytes.gemmory.ui.GemmoryTheme
 import kotlinx.coroutines.launch
+import android.media.AudioManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.brewingbytes.gemmory.game.MusicRules
 
 class MainActivity : ComponentActivity() {
     private val photoFlow: PhotoFlowViewModel by viewModels()
@@ -85,6 +90,12 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) app.consent.onLaunch(this)
         // A tap that started the activity; after a rotation it was handled already.
         if (savedInstanceState == null) reminderTap = ReminderTap.of(intent)
+        // The volume keys move the music while it plays (T42), and the ringer otherwise.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                app.music.playing.collect { volumeControlStream = if (it) AudioManager.STREAM_MUSIC else AudioManager.USE_DEFAULT_STREAM_TYPE }
+            }
+        }
         setContent {
             GemmoryTheme {
                 // Saved state, so the screen survives rotation and the process being killed in the background.
@@ -190,6 +201,8 @@ class MainActivity : ComponentActivity() {
         // Remote pictures (#43): nothing downloads during play. A check still running stops; the next Gallery visit retries.
         LaunchedEffect(top is Route.Canvas) {
             if (top is Route.Canvas) app.remote.pause()
+            // The first music plays when the first canvas opens, never on the cold-opened gallery (T42, D24).
+            if (top is Route.Canvas) app.music.canvasOpened()
         }
         LaunchedEffect(top) {
             val left = previous
@@ -251,6 +264,20 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = top != Route.Gallery && top !is Route.Canvas) { stack.pop() }
         LaunchedEffect(top is Route.Completion) { if (top !is Route.Completion) completion.onLeft() }
 
+        // The one-time "Music is playing" chip (T42, D24): on a gallery visit while music plays, once the return's
+        // reminder ask or rewarded sheet has closed.
+        val musicPlaying by app.music.playing.collectAsStateWithLifecycle()
+        var musicChip by remember { mutableStateOf(false) }
+        val sheetUp = reminderAsk != null || rewarded.ui != null
+        LaunchedEffect(top == Route.Gallery, musicPlaying, sheetUp) {
+            if (top != Route.Gallery) {
+                musicChip = false
+            } else if (MusicRules.showChip(app.settings.musicChipShown, musicPlaying, onGallery = true, sheetUp = sheetUp)) {
+                app.settings.musicChipShown()
+                musicChip = true
+            }
+        }
+
         when (top) {
             Route.Gallery -> {
                 LaunchedEffect(Unit) { if (!flow.decoding) photoFlow.clearDraft() }
@@ -276,6 +303,9 @@ class MainActivity : ComponentActivity() {
                             app.analytics.log(AnalyticsEvent.inventoryEarned(it.item, EarnSource.WHEEL, it.amount))
                         }
                     },
+                    musicChip = musicChip,
+                    onMusicChipGone = { musicChip = false },
+                    onMusicOff = { app.settings.setMusic(false) },
                 )
             }
             Route.Settings -> {
