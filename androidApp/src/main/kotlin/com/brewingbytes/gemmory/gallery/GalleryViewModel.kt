@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -157,6 +158,8 @@ data class GalleryState(
     val finishedPictures: List<Tile> = emptyList(),
     val finishedPhotos: List<Tile> = emptyList(),
     val streak: Int = 0,
+    /** A picture was finished today (#101): the chip's flame is lit. */
+    val streakDone: Boolean = false,
     val today: TodayCard? = null,
     val todayFree: Set<String> = emptySet(),
     val tomorrow: ImageBitmap? = null,
@@ -188,7 +191,15 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         // A background check that brought something new (T36): reload now, not on the next visit.
         viewModelScope.launch { app.remote.updates.drop(1).collect { refresh() } }
         // The streak (#101): a finish resolves on the policy thread after Done, so the chip follows it as it lands.
-        viewModelScope.launch { app.streakView.snapshot.collect { s -> _state.update { it.copy(streak = s.shown) } } }
+        viewModelScope.launch { app.streakView.snapshot.collect { s -> _state.update { it.copy(streak = s.shown, streakDone = s.doneToday) } } }
+    }
+
+    /** The chip's flame lights up once (#101, G9: a celebration too late to show after a cold start). */
+    var streakIgnite by mutableStateOf(false)
+        private set
+
+    fun igniteStreakChip() {
+        streakIgnite = true
     }
 
     /** Millis to the next local midnight, when the gallery reloads for the day's drop (T36). */
@@ -242,6 +253,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 finishedPictures = finishedInOrder(tiles.first),
                 finishedPhotos = finishedInOrder(tiles.second),
                 streak = app.streakView.refresh().shown,
+                streakDone = app.streakView.snapshot.value.doneToday,
                 today = today,
                 todayFree = todayFree,
                 tomorrow = tomorrow,

@@ -70,7 +70,8 @@ class AchievementsFlowTest {
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()
-        app.resetStreakForTest()
+        // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
+        app.resetStreakForTest(celebrations = false)
         // No real AdMob: an interstitial after Done would cover the gallery (lessons, #50).
         app.resetMonetizationForTest(NoAds)
         app.resetAchievementsForTest(games) { it.name.lowercase() }

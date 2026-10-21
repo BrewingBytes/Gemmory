@@ -29,6 +29,15 @@ sealed interface Route {
     /** [fresh]: reached by finishing the picture just now (lights down); false for the completion still. */
     data class Completion(val ref: CanvasRef, val fresh: Boolean) : Route
 
+    /**
+     * The new streak day's celebration (#101) after leaving [ref]'s completion. [freshExit]: left a fresh finish, so the
+     * gallery's return chain (reminder ask, review, interstitial) runs when it closes (O4, O6).
+     */
+    data class StreakDay(val ref: CanvasRef, val freshExit: Boolean) : Route
+
+    /** "Your streak" (#101), opened from [source] (`chip` or `celebration`, for `streak_screen_opened`). */
+    data class Streak(val source: String) : Route
+
     companion object {
         /**
          * Saved-state form. A fresh completion is saved as a still: after the process dies the lights-down moment is
@@ -43,6 +52,8 @@ sealed interface Route {
             Preview -> "preview"
             is Canvas -> "canvas:${route.ref.kind.name}:${route.ref.id}:${route.entry.name}"
             is Completion -> "completion:${route.ref.kind.name}:${route.ref.id}"
+            is StreakDay -> "streakday:${route.ref.kind.name}:${route.ref.id}:${route.freshExit}"
+            is Streak -> "streak:${route.source}"
         }
 
         fun decode(saved: String): Route? {
@@ -59,11 +70,15 @@ sealed interface Route {
                 "preview" -> Preview
                 "canvas" -> ref()?.let { ref -> entry()?.let { Canvas(ref, it) } }
                 "completion" -> ref()?.let { Completion(it, fresh = false) }
+                "streakday" -> ref()?.let { ref -> parts.getOrNull(3)?.toBooleanStrictOrNull()?.let { StreakDay(ref, it) } }
+                "streak" -> parts.getOrNull(1)?.let(::Streak)
                 else -> null
             }.takeIf {
                 when (parts[0]) {
                     "canvas" -> parts.size in 3..4
                     "completion" -> parts.size == 3
+                    "streakday" -> parts.size == 4
+                    "streak" -> parts.size == 2
                     else -> parts.size == 1
                 }
             }
@@ -126,6 +141,20 @@ class BackStack(initial: List<Route> = listOf(Route.Gallery)) {
     /** The last gem placed: the canvas becomes its completion, so back and Done go to the Gallery. */
     fun finished(ref: CanvasRef) {
         if ((top as? Route.Canvas)?.ref == ref) stack[stack.lastIndex] = Route.Completion(ref, fresh = true)
+    }
+
+    /** Leaving [ref]'s completion on a new streak day (#101): the celebration takes its place, so back goes to the Gallery. */
+    fun celebrate(ref: CanvasRef, freshExit: Boolean) {
+        if ((top as? Route.Completion)?.ref == ref) stack[stack.lastIndex] = Route.StreakDay(ref, freshExit)
+    }
+
+    /** "Your streak" (#101): from the celebration it takes its place; from anywhere else it opens on top, once. */
+    fun openStreak(source: String) {
+        when (top) {
+            is Route.StreakDay -> stack[stack.lastIndex] = Route.Streak(source)
+            is Route.Streak -> Unit
+            else -> push(Route.Streak(source))
+        }
     }
 
     /** Play again on the completion still (after the Start over confirm). */

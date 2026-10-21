@@ -57,6 +57,7 @@ import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.WheelPrize
+import com.brewingbytes.gemmory.streak.NextGift
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
 import com.brewingbytes.gemmory.ui.GemSheet
@@ -129,7 +130,7 @@ fun InventorySheet(
         } else {
             PrimaryButton(watchLabel(), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
             Spacer(Modifier.height(16.dp))
-            NextGift(streak)
+            NextGift(streak, tag = "inventory-next-gift")
         }
     }
 }
@@ -137,35 +138,6 @@ fun InventorySheet(
 internal fun watchLabel() = "Watch a video: +${Inventory.FILLS_PER_VIDEO} fills"
 
 internal fun spinLabel(waiting: Int) = if (waiting > 1) "Spin for your gift ($waiting waiting)" else "Spin for your ${Inventory.SPIN_EVERY}-day gift"
-
-/** "Next gift spin at 5 days in a row" and five bone/felt steps for the days so far (no countdown, no loss copy). */
-@Composable
-private fun NextGift(streak: Int) {
-    val done = streak % Inventory.SPIN_EVERY
-    val next = streak - done + Inventory.SPIN_EVERY
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .testTag("inventory-next-gift")
-            .clearAndSetSemantics { contentDescription = nextGiftText(next, done) },
-    ) {
-        Text("Next gift spin at $next days in a row", style = GemType.label, color = GemColors.TextMuted)
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            repeat(Inventory.SPIN_EVERY) { i ->
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(if (i < done) GemColors.Bone else LocalFelt.current.ground),
-                )
-            }
-        }
-    }
-}
-
-internal fun nextGiftText(next: Int, done: Int) = "Next gift spin at $next days in a row. $done of ${Inventory.SPIN_EVERY} days so far."
 
 @Composable
 private fun ItemRow(icon: ImageVector, count: Int, name: String, body: String, tag: String) {

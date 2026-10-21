@@ -261,6 +261,11 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("rewarded_watched", mapOf("reward_type" to "colors")), AnalyticsEvent.rewardedWatched(RewardType.COLORS))
         assertEquals(AnalyticsEvent("streak_day", mapOf("length" to 3L)), AnalyticsEvent.streakDay(3))
         assertEquals(
+            AnalyticsEvent("streak_celebration_shown", mapOf("length" to 7L, "milestone" to 7L, "saved_by" to "day_off")),
+            AnalyticsEvent.streakCelebrationShown(7, 7, "day_off"),
+        )
+        assertEquals(AnalyticsEvent("streak_screen_opened", mapOf("source" to "chip")), AnalyticsEvent.streakScreenOpened("chip"))
+        assertEquals(
             AnalyticsEvent("todays_picture_started", mapOf("size" to "medium", "tier" to "free")),
             AnalyticsEvent.todaysPictureStarted(CanvasRef(CanvasKind.BUNDLED, "cherries"), 104, 78, vip = false),
         )

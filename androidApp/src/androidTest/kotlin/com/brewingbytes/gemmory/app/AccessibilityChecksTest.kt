@@ -33,6 +33,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.streak.CELEBRATION_SEE_TAG
+import com.brewingbytes.gemmory.streak.CELEBRATION_TAG
+import com.brewingbytes.gemmory.streak.STREAK_SCREEN_TAG
 import com.brewingbytes.gemmory.achievements.ACHIEVEMENTS_TAG
 import com.brewingbytes.gemmory.achievements.AchievementsCopy
 import com.brewingbytes.gemmory.achievements.FakeGames
@@ -154,10 +157,13 @@ class AccessibilityChecksTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val photo = CanvasRef(CanvasKind.PHOTO, "a11y-scan")
+    private val app get() = context.applicationContext as GemmoryApp
     private lateinit var scenario: ActivityScenario<MainActivity>
 
     @Before
     fun setUp() {
+        // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
+        app.resetStreakForTest(celebrations = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         compose.enableAccessibilityChecks(scannerValidator())
@@ -165,6 +171,7 @@ class AccessibilityChecksTest {
 
     @After
     fun tearDown() {
+        app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
     }
@@ -213,6 +220,39 @@ class AccessibilityChecksTest {
         compose.onNodeWithTag("settings-delete-all").performClick()
         waitForText("Delete all photo canvases?")
         scan()
+    }
+
+    /**
+     * #101: the streak celebration (a missed one, shown on the gallery visit after a cold start, G9) and the streak
+     * screen it opens, at 1x and 2x font.
+     */
+    @Test
+    fun streakCelebrationAndScreen() {
+        val prefs = context.getSharedPreferences("streak", Context.MODE_PRIVATE)
+        val today = java.time.LocalDate.now().toEpochDay()
+        try {
+            for (scale in listOf("1.0", "2.0")) {
+                A11yTestSupport.shell("settings put system font_scale $scale")
+                prefs.edit().clear()
+                    .putInt("length", 7).putLong("lastDay", today).putLong("restDay", today - 3)
+                    .putLong("pendingDay", today).putInt("pendingLength", 7).putString("pendingCovered", "")
+                    .putLong("pendingFinishedAt", System.currentTimeMillis()).putString("pendingCanvas", "BUNDLED/starter")
+                    .commit()
+                app.resetStreakForTest()
+                scenario = ActivityScenario.launch(MainActivity::class.java)
+                waitForTag(CELEBRATION_TAG)
+                compose.mainClock.advanceTimeBy(4_000)
+                scan()
+                compose.onNodeWithTag(CELEBRATION_SEE_TAG).performClick()
+                waitForTag(STREAK_SCREEN_TAG)
+                scan()
+                scenario.close()
+            }
+        } finally {
+            A11yTestSupport.shell("settings put system font_scale 1.0")
+            prefs.edit().clear().commit()
+            app.resetStreakForTest(celebrations = false)
+        }
     }
 
     @Test

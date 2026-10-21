@@ -85,6 +85,8 @@ class ReviewFlowTest {
 
     @Before
     fun setUp() {
+        // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
+        app.resetStreakForTest(celebrations = false)
         clearState()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
@@ -102,6 +104,7 @@ class ReviewFlowTest {
 
     @After
     fun tearDown() {
+        app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
         clearState()
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()

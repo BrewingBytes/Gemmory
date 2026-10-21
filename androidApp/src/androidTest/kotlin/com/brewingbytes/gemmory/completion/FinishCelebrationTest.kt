@@ -46,6 +46,7 @@ class FinishCelebrationTest {
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+    private val app get() = context.applicationContext as GemmoryApp
     private val ref = CanvasRef(CanvasKind.PHOTO, "celebration")
     private lateinit var scenario: ActivityScenario<MainActivity>
     private var animatorScale: String? = null
@@ -61,6 +62,8 @@ class FinishCelebrationTest {
 
     @Before
     fun setUp() {
+        // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
+        app.resetStreakForTest(celebrations = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
@@ -70,6 +73,7 @@ class FinishCelebrationTest {
 
     @After
     fun tearDown() {
+        app.resetStreakForTest()
         compose.mainClock.autoAdvance = true
         if (::scenario.isInitialized) scenario.close()
         animatorScale?.let { shell("settings put global animator_duration_scale $it") }
