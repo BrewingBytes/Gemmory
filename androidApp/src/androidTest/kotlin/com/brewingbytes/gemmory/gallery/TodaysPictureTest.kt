@@ -29,6 +29,8 @@ import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.policy.Products
+import com.brewingbytes.gemmory.remote.FakeSource
+import com.brewingbytes.gemmory.remote.TestCatalog
 import com.brewingbytes.gemmory.storage.StorageLayout
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -69,6 +71,8 @@ class TodaysPictureTest {
         NoVideos.asked = false
         app.resetMonetizationForTest(NoVideos)
         app.resetTodaysForTest()
+        // An empty catalog from a fake source (#111): live pictures/v1 drops would add tiles and win today's pick.
+        app.resetRemoteForTest(FakeSource(TestCatalog()), listOf(TestCatalog.KEY))
         setVip(false)
     }
 
@@ -80,6 +84,7 @@ class TodaysPictureTest {
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
         app.resetMonetizationForTest()
         app.resetTodaysForTest()
+        app.resetRemoteForTest()
     }
 
     /** No canvases, no unlocks, no pick yet today. */
@@ -100,6 +105,7 @@ class TodaysPictureTest {
     private fun launch() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         waitFor(hasTestTag("tile-bundled-starter"))
+        assertEquals(emptyList(), app.remote.listed().map { it.id }, "no remote pictures: the counts and picks below are bundled ones")
     }
 
     private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
