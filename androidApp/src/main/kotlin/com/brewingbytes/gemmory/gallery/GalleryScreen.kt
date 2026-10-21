@@ -91,13 +91,14 @@ import com.brewingbytes.gemmory.ads.isLocked
 import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.photo.allowanceLine
 import com.brewingbytes.gemmory.policy.Allowance
-import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.WheelPrize
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.streak.Flame
+import com.brewingbytes.gemmory.streak.StreakText
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.AppTopBar
@@ -234,6 +235,8 @@ fun GalleryScreen(
     musicChip: Boolean = false,
     onMusicChipGone: () -> Unit = {},
     onMusicOff: () -> Unit = {},
+    /** The streak chip (#101) opens the streak screen. */
+    onStreak: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
@@ -288,7 +291,7 @@ fun GalleryScreen(
                 if (showVip) GemTextButton("VIP", onVip, Modifier.testTag(VIP_ACTION_TAG))
                 IconAction(GemIcons.Settings, "Settings", onSettings)
             }
-            Tabs(tab, onTab = vm::selectTab, streak = state.streak)
+            Tabs(tab, onTab = vm::selectTab, streak = state.streak, streakDone = state.streakDone, ignite = vm.streakIgnite, onIgnited = vm::streakIgnited, onStreak = onStreak)
             if (notice != null) {
                 // Billing's one-time line (design D6, D7), read out when it appears.
                 Text(
@@ -591,11 +594,11 @@ private fun NoteAndButton(note: (@Composable () -> Unit)?, button: @Composable (
 }
 
 /**
- * Selected tab on felt-deep; both are 48dp targets. The daily play streak (#33) sits at the end of the row from
- * [DailyStreak.SHOWN_FROM] days, and wraps under the tabs when they leave no room (200% font).
+ * Selected tab on felt-deep; both are 48dp targets. The daily play streak's chip (#33, #101) sits at the end of the row
+ * from the first day, and wraps under the tabs when they leave no room (200% font).
  */
 @Composable
-private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int) {
+private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int, streakDone: Boolean, ignite: Boolean, onIgnited: () -> Unit, onStreak: () -> Unit) {
     FlowRow(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -621,9 +624,10 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int) {
                 Text(label, style = GemType.button, color = GemColors.Bone)
             }
         }
-        if (streak >= DailyStreak.SHOWN_FROM) {
+        // From day 1 now that it opens the streak screen (#101, G18); hidden while there's no streak.
+        if (streak > 0) {
             Spacer(Modifier.weight(1f))
-            StreakChip(streak)
+            StreakChip(streak, streakDone, ignite, onIgnited, onStreak)
         }
     }
 }
@@ -787,20 +791,33 @@ private fun todayLine(card: TodayCard) = buildAnnotatedString {
 
 private val TODAY_THUMB = 72.dp
 
-/** "3 days in a row" (#33): the count in mono, like every number; one TalkBack node. Calm: no flame, no warning. */
+/**
+ * The streak chip (#101, G18): a 48dp button with the flame, grey until today's picture is finished and lit after
+ * ([ignite]: it lights up once, after a celebration skipped on a cold start, G9), and the count in mono; it opens the
+ * streak screen. One TalkBack node.
+ */
 @Composable
-private fun StreakChip(days: Int) {
+private fun StreakChip(days: Int, done: Boolean, ignite: Boolean, onIgnited: () -> Unit, onClick: () -> Unit) {
+    val description = StreakText.chip(days, done)
     Row(
         Modifier
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(LocalFelt.current.deep)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .semantics(mergeDescendants = true) {}
-            .testTag(STREAK_TAG),
+            .testTag(STREAK_TAG)
+            .clickable(onClick = onClick)
+            .clearAndSetSemantics {
+                contentDescription = description
+                role = Role.Button
+                onClick { onClick(); true }
+            }
+            .padding(start = 8.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("$days", style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.Bone)
-        Text(" days in a row", style = GemType.label, color = GemColors.Bone)
+        Flame(lit = done, length = days, size = 16.dp, still = true, ignite = ignite, onIgnited = onIgnited)
+        Text("$days", style = GemType.mono.copy(fontSize = 15.sp), color = GemColors.Bone)
+        Text("›", style = GemType.button, color = GemColors.Bone)
     }
 }
 

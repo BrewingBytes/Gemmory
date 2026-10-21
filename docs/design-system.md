@@ -122,6 +122,7 @@ Token roles:
 - `patina` fills VIP and success states (switch-on track, perk bullets). `patina-text` is VIP wording in text (4.5:1 on felt).
 - `fault` covers offline / no-video wording only (5.1:1 on felt-deep). **It is never used for a wrong-color tap.**
 - `scrim` at 55% sits behind sheets. `frame-text` is text on the darkened 9:16 band.
+- **Streak flame** (#101, G1): `flame` `#F5A623` (days 1-29), `flame-30` `#F08A2C` (30+), `flame-100` `#E0563B` (100+), core `#FCE3A6`; before today's finish, `ember` `#7E8880` with core `#A3ACA4`. A flat shape, never a glow and never text. It is the one saturated color outside a picture, and only the streak uses it (decision log).
 
 **Valid grounds for text tokens** (WCAG AA 4.5:1 for small text, measured 2026-10-13; Phase 5 D15):
 
@@ -145,12 +146,14 @@ Every face is OFL and verified in the google/fonts METADATA on 2026-10-13. **Bun
 - **Figtree** (400 / 600) handles all UI and body: 16sp body at line-height 1.5, 16sp/600 buttons, 13sp captions.
 - **Atkinson Hyperlegible Mono** (700, tabular figures) is for gem numbers on the canvas (0.46 × cell size), trough numbers and counts, and progress figures (`4,812 / 8,112`) and prices. It was designed for low-vision legibility, which matters for tiny cells and tired evening eyes. Use it only for figures, never for labels.
 
+- **`streak-hero`** (#101, G8): Atkinson Hyperlegible Mono 700, tabular, for the streak number only: 88sp on the celebration (and the share card, #104), 56sp on the streak screen, at most 64sp above 1.5x font.
+
 Scale: 34 / 30 / 22 / 16 / 13 sp. Adjacent levels differ by size *and* role, never by weight alone. Respect the system font scale. At 200% the canvas numbers do not scale (they follow cell size), but all chrome does.
 
 ## Layout
 
 - Material 3 structure (top app bar, bottom sheets, system back) so Android feels native, with 16dp side gutters and a 4dp base grid.
-- **Gallery:** a 2-column staggered grid (10dp gap) that honors 1:1 / 3:4 / 4:3 tiles. Tabs are "Pictures" and "My Photos", with the daily play streak chip (#33) at the end of their row. On Pictures, the Today's picture card (#34, with the Tomorrow line from T36) sits above the grid, spans its width and scrolls with it; at most two collection or event rows (T37/T38) follow it, then the "All collections" text button, then the grid. A "New from photo" primary button floats bottom-right. The first Pictures tile is the free starter picture (24×32, about 5 minutes; Phase 5 D13). After it come every picture the player can open (free, unlocked by a video or today's grace, started, today's free picture (#34) or today's drop (T36); all of them for VIP), then every locked one (#58). Each group is a difficulty ramp: every Quick picture, then Medium, then Big (#31). A remote picture (#43) sits in its size's run after the bundled ones, oldest published first, in the open or locked group like any picture; new ones appear when a check that brings them finishes, or on the next Gallery visit, and a gallery left showing reloads at local midnight for the day's drop (T36). The order is set each time the Gallery shows, so a picture unlocked by a video moves up on the next visit, never under the player's finger; its locked label goes at once.
+- **Gallery:** a 2-column staggered grid (10dp gap) that honors 1:1 / 3:4 / 4:3 tiles. Tabs are "Pictures" and "My Photos", with the daily play streak chip (#33; a button to the streak screen, #101) at the end of their row. On Pictures, the Today's picture card (#34, with the Tomorrow line from T36) sits above the grid, spans its width and scrolls with it; at most two collection or event rows (T37/T38) follow it, then the "All collections" text button, then the grid. A "New from photo" primary button floats bottom-right. The first Pictures tile is the free starter picture (24×32, about 5 minutes; Phase 5 D13). After it come every picture the player can open (free, unlocked by a video or today's grace, started, today's free picture (#34) or today's drop (T36); all of them for VIP), then every locked one (#58). Each group is a difficulty ramp: every Quick picture, then Medium, then Big (#31). A remote picture (#43) sits in its size's run after the bundled ones, oldest published first, in the open or locked group like any picture; new ones appear when a check that brings them finishes, or on the next Gallery visit, and a gallery left showing reloads at local midnight for the day's drop (T36). The order is set each time the Gallery shows, so a picture unlocked by a video moves up on the next visit, never under the player's finger; its locked label goes at once.
 - **Finished section** (#89): each tab ends with its finished canvases, after the locked group on Pictures and after the unfinished photo canvases on My Photos, so a tab shows what's left to play first. A full-width quiet heading on the felt, 8dp below the last tile: "Finished" in the label style (`text-muted`), " · ", the count in mono, and a 20dp chevron (`expand_more`, `text-muted`) that turns up when open (150ms, instant under reduced motion). No card and no divider. At least 48dp tall, its text at most 480dp wide (D19); at 200% font the count wraps under "Finished". Collapsed by default; a tap expands it in place, and the state is remembered per tab (Settings preferences, backed up). No heading when nothing in the tab is finished. Inside: the same tiles in the same staggered grid, newest finish first (the T35 `play` file's first finished day); canvases finished before T35 have no date and go after the dated ones, and a same-day tie or an undated pair goes newest created first. A tile there opens the completion still as before. A tile moves into the section on the next Gallery visit after its finish, never under the finger (as #58); Play again or Start over makes it unfinished, so it goes back to its group on the next visit. The Today card, the Tomorrow line and the collection/event rows (T37/T38) don't change, and a finished picture still counts in its collection's row.
 - **Play canvas:** a top app bar (back, title, the Peek eye, Share progress from the first gem (#36), mono progress), then a full-bleed canvas on `felt-deep`, then the tray bar at the bottom (for VIP it also holds the placement tools, #20). No ads and no other chrome; the milestone banner (#35) is a 3s moment over the canvas, not chrome.
 - **Size picker:** the face hint sits on top, followed by three option rows, each with a mini gem preview, gem count and color count (the Standard count; the color choice is on Preview, #29).
@@ -176,6 +179,8 @@ first launch ─► UMP consent (EEA only, first launch, before any ad request; 
                  ├─ collection / event row thumbnail ─► as its gallery tile (T37/T38)
                  ├─ "All collections" (after the rows) ─► All collections sheet ─► thumbnail ─► as its tile
                  ├─ back from a fresh finish ─► at most one of: reminder ask sheet (T35) · Play review sheet (T39) · interstitial
+                 │    (on a new streak day the celebration comes first; the one interruption runs when the gallery shows after it, #101 G6)
+                 ├─ streak chip (#101) ─► Your streak ─back─► Gallery
                  ├─ tile damaged ─► "Can't open" sheet (see Gallery tile)
                  ├─ tile ⋮ menu: photo canvas "Rename" / "Delete" · bundled "Start over" · first "Share progress" once a gem is placed (#36)
                  ├─ "VIP" ─► Paywall
@@ -184,6 +189,9 @@ first launch ─► UMP consent (EEA only, first launch, before any ad request; 
 Canvas ─finish─► Completion ─Share─► progress sheet ─► Android share sheet ─► back to Completion
 Canvas / tile ⋮ ─Share progress─► progress sheet ─► Android share sheet ─► back where it started (#36)
 Completion ─Done/back─► Gallery ─► interstitial check (Ad rules), never before or during Share
+Completion ─Done/back, a new streak day (#101)─► Streak celebration ─Continue/back─► Gallery ─► the return's one interruption
+                                                                    └─ "See your streak" ─► Your streak ─back─► Gallery ─► the same
+Gallery after a cold start with today's celebration unshown (G9) ─► Streak celebration if the finish was < 30 min ago, else the chip's flame lights up once
 Reminder notification (T35) ─tap─► drop or Today's picture: its canvas, no video (as the Today card) · streak: the last played unfinished canvas, else Gallery
                                    · almost finished: that canvas, else Gallery · stale: Gallery, no message
 ```
@@ -410,13 +418,29 @@ The volume keys move the music while it plays. The time-lapse is video only, so 
 - TalkBack: tile "Mystery picture, hidden until finished, 12% done"; Today card "Today's mystery picture, new today, hidden until finished, Quick, free to start today"; the canvas top bar's title reads the neutral name, and the canvas has no "Peek at picture" action.
 - Which pictures: a dated drop flagged `mystery` in the catalog (the batch CSV's `mystery` column), stamped for versionCode 16, so older apps never list it. The canvas keeps the flag in its `record` file, so a mystery the catalog withdraws stays hidden until it's finished. `canvas_started` carries `mystery=true`.
 
-**Daily play streak** (#33).
-- A day counts once the player finishes a picture that day, any picture, bundled or their own photo (local date, the allowance's clock). Placing gems without finishing, or reopening a finished picture, doesn't count.
-- One missed day a week is forgiven: a single day off doesn't break the streak (and isn't counted). A longer gap starts over at the next day played. A clock moved back changes nothing.
-- From 2 days in a row, a `felt-deep` chip (`sm` radius, 12/8dp padding, like the allowance chip) at the end of the tabs row reads "4 days in a row": the count in mono 13sp, the words in Figtree 13sp, both `bone`. When the tabs leave no room (200% font) it wraps under them. TalkBack reads it as one node, "4 days in a row".
-- A broken streak just isn't shown. No flame, no "don't lose your streak", no in-app reminder; never on the play canvas or the completion screen. The one exception (plan-design-review D10): the opt-in evening reminder (T35) may state the streak fact ("4 days in a row" / "Finish any picture today to keep it going."), and only on a night it really breaks at midnight.
-- Every 5th day in a row earns a gift wheel spin for players without VIP (#38, see Inventory); the Inventory sheet shows the way to the next one.
-- Stored in the "streak" preferences, which may be backed up (no photo data; a restore can't add days).
+**Daily play streak** (#33; Duolingo-style since #101, founder D1, `docs/designs/streak-screen.md`, mockup `docs/designs/mockups/streak-screen/ui.html`). This reverses the 2026-10-17 calm rules (no flame, no in-app streak moment) on purpose; the copy rules below still hold.
+- **A day** counts once the player finishes a picture that day, any picture, bundled or their own photo (local date, the allowance's clock). Placing gems without finishing, or reopening a finished picture, doesn't count. A clock moved back changes nothing.
+- **Covers:** a missed day is covered, in order, by the weekly day off (one in any 7 days, rolling), the VIP weekly freeze (VIP only, one in any 7 days), then a streak freeze held (#102). Covered days aren't counted. A gap with a day nothing covers starts over at the next day played.
+- **The flame** (G1): flat, two shapes (outer and core). Grey `ember` until today's picture is finished, lit after, in the length's color. It flickers (1.6s loop) at 40dp and up; on the chip, the week row, the calendar and under reduced motion it's still. It ignites (800ms) on the celebration.
+- **Chip** (G18): from day 1, a 48dp `felt-deep` button (`sm` radius, 8/10dp padding) at the end of the tabs row: the 16dp flame, the count in mono 15sp and "›", all `bone`. Hidden while there's no streak (0 or broken), back once a new one starts. It opens Your streak. TalkBack, one node: "6 days in a row, not done today, button, opens your streak". At 200% it wraps under the tabs.
+- **Celebration** (E3, G6-G11, G15): full screen on `felt-deep-dark` after leaving a fresh completion on a new streak day, from day 1. The flame (96dp, 112dp on milestones) ignites, the `streak-hero` number rolls up from the day before (600ms from 500ms), then the title and line in the copy table below, the week row (the locale's week; covered days in their marks, today in the `lamp` outline), and on every 5th day for players without VIP "Your 5-day gift spin is in the bag." Primary "Continue" (back does the same) and a text "See your streak"; on milestones the text button becomes "Share" once the share card exists (#104). No auto-advance. Milestones 7, 30, 50, 100, 365 get the bigger flame and a 2dp `lamp` edge that brightens and fades once (1.4s). Sound: the milestone bell on ordinary days, the finish chime on milestones, with the confirm haptic; silent and still when Settings → Milestones is off (G15). TalkBack: the words are one node and one polite announcement ("5 days in a row. Your day off on Tuesday kept it going."); the roll-up isn't read digit by digit. The moment scrolls at 200% font; the buttons stay at the bottom.
+
+| Case | Title | Line |
+|---|---|---|
+| Day 1 | "You started a streak" | "Finish a picture tomorrow to make it 2." |
+| Ordinary | "n days in a row" | "Finish one tomorrow to make it n+1." |
+| Kept by the day off | "n days in a row" | "Your day off on Tuesday kept it going." |
+| Kept by a freeze (#102) | "n days in a row" | "A streak freeze kept it going on Tuesday." |
+| Kept by the VIP freeze | "n days in a row" | "Your VIP freeze kept it going." |
+| Several covers | "n days in a row" | "Your day off and a streak freeze kept it going." |
+| Milestone 7 / 30 / 50 / 100 / 365 | "A week of gems" / "A month of gems" / "50 days of gems" / "100 days of gems" / "A year of gems" | "n days in a row." |
+
+- **Your streak** (the streak screen): top app bar "Your streak". The hero (72dp flame, the number in `streak-hero` 56sp, "days in a row", "Best: n" when there was one; stacked at 200%). A `felt-deep` section with today's status: "Done for today" with a small lit flame, or "Finish a picture today to keep it" (never started or broken: "Finish any picture to start a streak.") with a quiet "Today's picture" button when there is one to finish; a missed day awaiting cover adds "Yesterday is covered by your day off when you finish today." (G13). The weekly covers while a streak stands: "Day off ready" / "Day off used Saturday" + "Ready again next Saturday", and for VIP the same for "VIP freeze". "Next gift spin at n days in a row" (not VIP). Then the month calendar.
+- **Calendar** (G16, the cell table): 7 columns in the locale's week, max 420dp, cells 1:1 with a 2dp radius on `felt` for past days. A finished day shows the first picture finished that day, center-cropped (photo canvases included: it's in-app); a finished day whose canvas is gone, or a kept day before the log existed (O7), a small still lit flame; day off a 2dp `bone` outline; a freeze or VIP freeze `patina` with a `felt-deep` cross; repaired (#102) `bone` with a dashed `on-bone` stitch; awaiting cover a dashed `text-muted` outline; today a 2dp `lamp` outline; other past days the date in mono 11sp `text-muted` (hidden at 200% in picture cells); future days the date only. Months go back to the first month with history and never ahead; 48dp arrows "Previous month" / "Next month". Cells aren't tappable; each is one TalkBack node ("Tuesday 14, finished Lighthouse", "…, day off", "Today, not finished yet").
+- **Copy rules** (G7): true facts and weekday names only; no countdowns, hours left, "!", guilt, "don't lose" or "last chance". Never on the play canvas or the completion screen. The opt-in evening reminder (T35) may state the streak fact, only on a night it really breaks at midnight with every cover counted.
+- **One switch** (O5): a build flag turns the celebration (and #102's nudge) off; the chip and the screen stay.
+- Every 5th day in a row earns a gift wheel spin for players without VIP (#38, see Inventory); the Inventory sheet and Your streak show the way to the next one.
+- Stored in the "streak" preferences and the day log `streak/history` ("GMRS": each day, how it counted and its first canvas id), both backed up (no photo data; a restore can't add days past the stored streak).
 
 **Evening reminder** (T35; mockup `t40-gem-redesign/ui.html`).
 - **The ask** (a sheet on the gallery, after leaving the completion screen of the 1st finished picture; again after the 3rd if "Not now"; never at first launch, never over the completion screen, Share or the canvas). Finishes count from the version that brought T35, so a player who already had finishes is asked at their next one (founder, 2026-10-20):
@@ -448,6 +472,8 @@ The volume keys move the music while it plays. The time-lapse is video only, so 
 3. An interstitial, under the existing caps.
 
 A skipped ask or review attempt waits for the next eligible finish. None of them appears over the canvas, the completion screen, Share or the completion still.
+
+**The streak celebration is part of the exit, not one of these** (#101, G6, founder O4 "the ad should still show after the day"): on a new streak day it shows first, and the one interruption runs when the gallery next shows, after Continue or after Your streak closes, never between them. A rotation keeps it waiting.
 
 **A reward return shows none of them** (plan-design-review D7): the return that completes a collection or earns an event's keepsake has no interstitial, and the ask or review waits for the next eligible finish. The gallery scrolls that row into view (it takes a row slot for this visit, at any font size) and its completion glint plays once the row is on screen.
 
@@ -632,7 +658,8 @@ A finished picture reopened from the gallery shows the **completion still**:
 ## Do's and Don'ts
 
 - **Do** keep the picture the only saturated thing on screen. New UI color needs a decision-log entry.
-- **Do** use `lamp` for two meanings only: "this is the selected one", and the game's own reward moments (the milestone banner's edges, #35; a collection's completion glint, T37). Nothing else is lamp (plan-design-review D15).
+- **Do** use `lamp` for two meanings only: "this is the selected one", and the game's own reward moments (the milestone banner's edges, #35; a collection's completion glint, T37; the streak's today cell and milestone edge, #101). Nothing else is lamp (plan-design-review D15).
+- **Do** keep the streak flame the only saturated UI color (#101): flat, on the streak's surfaces only, never as text, a button or a glow.
 - **Do** show progress as the art itself (tiles, tray heaps). Use numbers only in mono, small.
 - **Do** design the empty, loading, offline and error state of every component (see Rewarded states and Restore).
 - **Do** keep calm copy plain and specific: "You're offline, connect to watch a video", not "Oops!".
@@ -646,7 +673,8 @@ A finished picture reopened from the gallery shows the **completion still**:
 
 ## Motion
 
-- **Approach:** intentional and slow. Motion confirms; it celebrates only at the finish (#57) and, briefly, at a milestone (#35).
+- **Approach:** intentional and slow. Motion confirms; it celebrates only at the finish (#57), briefly at a milestone (#35), and on a new streak day (#101).
+- **Streak** (#101): the flame flickers in a 1.6s loop at 40dp and up (taller-narrower and back, its core on a 1.1s beat) and ignites over 800ms (scale 0.25 → 1.14 → 1, grey to its color by 55%); the celebration's number rolls up over 600ms (ease-out) from 500ms; a milestone's `lamp` edge brightens and fades over 1.4s once. The flame is drawn in an offscreen layer, so its flicker doesn't re-tessellate the screen (#115).
 - **Easing:** enter ease-out (`FastOutSlowIn` decelerate), exit ease-in, move ease-in-out.
 - **Duration:** micro 80ms (placement glint), short 150-250ms (trough lift and flap, sheet), medium 250-400ms (screen transitions, chrome slide), long 2.4s (the completion's sparkle sweep only) and 2s (its confetti, during the hold).
 - **Placement glint:** a 180ms specular pass across the placed gem at 20dp and up. No particles.
@@ -670,6 +698,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - The "Opens tomorrow" toast and the first-music chip fade in over 150ms, like every chip.
   - The lights-down dim (a fade) stays.
   - The finish celebration (#57) drops its sparkle, haptic crescendo and confetti; the dim, the chime and the soft finish haptic stay.
+  - The streak flame (#101) doesn't flicker or ignite; the celebration's number shows at once (no roll-up), the week row is already filled and the milestone edge doesn't show. Its sound and haptic stay (unless Milestones is off).
 - Haptics also follow the system touch-feedback setting.
 - The Selected color styles have no motion of their own; switching style redraws the canvas at once, with or without reduced motion.
 
@@ -721,3 +750,4 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-21 | Placing sounds built (T41, #82): every canvas sound replaced by in-house synthesis (`tools/make_sounds.py`, no third-party audio): 5 takes of a glass "tink" over a knock for a placed gem and a batch, 3 softer drag ticks (±1.5 semitones), 3 color-done thumps with a rising glass run, 3 milestone bell voicings recorded a fifth up, 3 finish-chime metals (fifth and octave still layered). A random take per event, never the same twice in a row; the wheel spin keeps the tap voice | Founder approved every event by ear from a before/after listening page (2026-10-21) over sourcing CC0 samples: the existing sounds were already synthesized here, so this keeps one provenance story and nothing to license. Takes and pitch live in pure `SoundCues` so the toggle and the variation are unit-tested |
 | 2026-10-21 | Ambient music built (T42, #83): six CC0 tracks instead of 2-4 (Heavenly Loop × 3, Contemplation, Vaporware, Lifewave 2k, Synthwave 421k, The Budding of Consciousness), random order with no repeat, 1s fade-in; volume slider 10%-100%; music plays on every screen once the first canvas has opened, not only the gallery and canvas; the chip's "Music off" line is a 4s polite toast where the chip was | Founder asked the agent to find the loops, then picked "all" from a listening page of six CC0 OpenGameArt candidates (2026-10-21) and "random rotation". About 8 MB of audio in the AAB. Gates and rotation live in pure `Music` so every rule is unit-tested |
 | 2026-10-21 | In-app review built (T39, #80): Play's sheet takes the return's one interruption after the reminder ask and before the interstitial, as specified; while Play's flow runs the one-time "Music is playing" chip waits, as it does for the ask; nothing of ours is drawn around Play's sheet. Switched on by `features.review` in the signed catalog at production | The spec named the order (D22) and the reward-return rule (D7) but not the music chip, which T42 added later; waiting keeps two things from landing on one return. The switch is the CEO C1 / eng gate: one AAB serves both tracks |
+| 2026-10-21 | Streak (#101, Streak A): the Duolingo-style streak replaces the calm #33 chip. A literal flat flame in three new UI colors (`flame` `#F5A623`, `flame-30` `#F08A2C`, `flame-100` `#E0563B`, grey `ember` `#7E8880` before today's finish) and one new type style, `streak-hero` (mono 700, 88/56sp, at most 64sp above 1.5x font). A celebration on every new streak day before the gallery, Your streak with a month calendar, and the chip as a button from day 1. The week row and calendar follow the locale's first day of the week. Until the share card (#104), a milestone's text button is "See your streak" | Founder D1 "full Duolingo" and G1 (flame over the recommended streak gem), the CEO, eng and design review ledgers in `docs/designs/streak-screen.md`. The flame is the one saturated color outside a picture, kept to the streak's own surfaces. G12 names "Monday-Sunday" as "the locale's calendar week", so a US phone starts on Sunday. The celebration is part of the exit and the ad still follows it (O4) |

@@ -299,6 +299,31 @@ object GemIcons {
         }
         .build()
 
+    /** Material "chevron left" and "chevron right", for the streak calendar's month arrows (#101). */
+    val PreviousMonth: ImageVector = ImageVector.Builder("PreviousMonth", 24.dp, 24.dp, 24f, 24f, autoMirror = true)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(15.41f, 7.41f)
+            lineTo(14f, 6f)
+            lineToRelative(-6f, 6f)
+            lineToRelative(6f, 6f)
+            lineToRelative(1.41f, -1.41f)
+            lineTo(10.83f, 12f)
+            close()
+        }
+        .build()
+
+    val NextMonth: ImageVector = ImageVector.Builder("NextMonth", 24.dp, 24.dp, 24f, 24f, autoMirror = true)
+        .path(fill = SolidColor(Color.White)) {
+            moveTo(10f, 6f)
+            lineTo(8.59f, 7.41f)
+            lineTo(13.17f, 12f)
+            lineToRelative(-4.58f, 4.59f)
+            lineTo(10f, 18f)
+            lineToRelative(6f, -6f)
+            close()
+        }
+        .build()
+
     /** A check for a finished member's mark in a collection row (T37), 10dp in its 16dp square. */
     val Check: ImageVector = ImageVector.Builder("Check", 10.dp, 10.dp, 24f, 24f)
         .path(fill = SolidColor(Color.White)) {

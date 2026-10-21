@@ -210,9 +210,18 @@ class GemmoryApp : Application() {
         processStart = false,
     )
 
-    /** Connected tests only (#33): re-reads the streak from its preferences, which a test seeded. */
+    /** The streak celebration shows (#101); a connected test that asserts the plain return chain turns it off. */
     @VisibleForTesting
-    internal fun resetStreakForTest() {
+    var streakCelebrations = true
+        private set
+
+    /**
+     * Connected tests only (#33): re-reads the streak from its preferences, which a test seeded. [celebrations] false
+     * leaves the new streak day uncelebrated (#101), for tests of what follows a finish.
+     */
+    @VisibleForTesting
+    internal fun resetStreakForTest(celebrations: Boolean = true) {
+        streakCelebrations = celebrations
         streakView.close()
         streak = newStreak()
         streakView = newStreakView()

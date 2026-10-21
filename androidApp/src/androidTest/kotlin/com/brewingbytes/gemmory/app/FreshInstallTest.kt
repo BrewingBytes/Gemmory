@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CanvasViewport
@@ -41,10 +42,13 @@ class FreshInstallTest {
     val compose = createEmptyComposeRule()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    private val app get() = context.applicationContext as GemmoryApp
     private lateinit var scenario: ActivityScenario<MainActivity>
 
     @Before
     fun freshInstall() {
+        // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
+        app.resetStreakForTest(celebrations = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         // The UMP form belongs to a real first launch (ConsentManager); in the EEA it would cover the canvas here.
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
@@ -53,6 +57,7 @@ class FreshInstallTest {
 
     @After
     fun close() {
+        app.resetStreakForTest()
         scenario.close()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
     }

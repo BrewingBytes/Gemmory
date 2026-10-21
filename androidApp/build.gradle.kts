@@ -60,6 +60,9 @@ android {
         buildConfigField("String", "REMOTE_PICTURES_URL", "\"$REMOTE_PICTURES_URL\"")
         // Play Games achievements (#49): on in release builds once games-ids.xml has the project id.
         buildConfigField("boolean", "PLAY_GAMES", "true")
+        // The streak celebration (#101, O5): one switch turns it (and #102's nudge) off. Debug builds can try either
+        // with `-Pgemmory.streakCelebration=false`.
+        buildConfigField("boolean", "STREAK_CELEBRATION", "true")
     }
 
     signingConfigs {
@@ -91,6 +94,7 @@ android {
             // also needs the debug key's SHA-1 on a Play Games OAuth client (README → Play Games setup). The debug manifest
             // removes the SDK's init provider, which would start Play Games regardless (#113).
             buildConfigField("boolean", "PLAY_GAMES", providers.gradleProperty("gemmory.playGames").getOrElse("false"))
+            buildConfigField("boolean", "STREAK_CELEBRATION", providers.gradleProperty("gemmory.streakCelebration").getOrElse("true"))
         }
         release {
             // R8: the mapping file goes into the App Bundle, so Play Console shows readable stack traces for crashes

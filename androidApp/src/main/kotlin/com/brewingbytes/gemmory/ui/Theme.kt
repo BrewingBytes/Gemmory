@@ -61,6 +61,16 @@ object GemColors {
     val Fault = Color(0xFFE8B09E)
     val Scrim = Color(0xFF141815)
     val FrameText = Color(0xFFF2EEE4)
+
+    /** The streak flame (#101, G1): the one saturated color outside a picture. Amber, orange from 30 days, red-orange from 100. */
+    val Flame = Color(0xFFF5A623)
+    val Flame30 = Color(0xFFF08A2C)
+    val Flame100 = Color(0xFFE0563B)
+    val FlameCore = Color(0xFFFCE3A6)
+
+    /** The flame before today's finish (G1): grey ember. */
+    val Ember = Color(0xFF7E8880)
+    val EmberCore = Color(0xFFA3ACA4)
 }
 
 /** The three felt tokens drop one step under system dark mode; every other token stays the same. */
@@ -87,6 +97,9 @@ object GemType {
     val button = TextStyle(fontFamily = Figtree, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
     val label = TextStyle(fontFamily = Figtree, fontSize = 13.sp)
     val mono = TextStyle(fontFamily = AtkinsonMono, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+
+    /** The streak number (#101, G8): mono 700, tabular; 88sp on the celebration, 56sp on the streak screen. */
+    val streakHero = mono.copy(fontSize = 88.sp, lineHeight = 92.sp)
 }
 
 @Composable

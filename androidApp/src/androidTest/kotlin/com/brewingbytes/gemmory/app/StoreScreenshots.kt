@@ -64,6 +64,8 @@ class StoreScreenshots {
 
     @Before
     fun setUp() {
+        // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
+        app.resetStreakForTest(celebrations = false)
         assumeDeviceChecks()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
@@ -99,6 +101,7 @@ class StoreScreenshots {
 
     @After
     fun tearDown() {
+        app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
         A11yTestSupport.shell("am broadcast -a com.android.systemui.demo -e command exit")
         A11yTestSupport.shell("wm size reset")

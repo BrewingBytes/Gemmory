@@ -72,16 +72,28 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.brewingbytes.gemmory.game.MusicRules
+import com.brewingbytes.gemmory.gallery.locked
+import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.streak.StreakCelebration
+import com.brewingbytes.gemmory.streak.StreakDayViewModel
+import com.brewingbytes.gemmory.streak.StreakScreen
+import com.brewingbytes.gemmory.streak.StreakViewModel
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
     private val photoFlow: PhotoFlowViewModel by viewModels()
     private val gallery: GalleryViewModel by viewModels()
     private val completion: CompletionViewModel by viewModels()
     private val rewarded: RewardedViewModel by viewModels()
+    private val streakDay: StreakDayViewModel by viewModels()
+    private val streakScreen: StreakViewModel by viewModels()
 
     /** The canvas's ViewModel (PlayScreen's), closed here when a reminder tap leaves an open canvas. */
     private val play: PlayViewModel by viewModels()
     private val app: GemmoryApp get() = application as GemmoryApp
+
+    /** The streak celebration is on (#101): the build's kill switch (O5), and a connected test's own switch. */
+    private fun celebrations() = BuildConfig.STREAK_CELEBRATION && app.streakCelebrations
 
     /** An evening reminder was tapped (T35): routed once the screen is up. */
     private var reminderTap by mutableStateOf<ReminderTap?>(null)
@@ -200,6 +212,21 @@ class MainActivity : ComponentActivity() {
         var reminderAsk by rememberSaveable { mutableStateOf<Int?>(null) }
         // Play's review flow is running (T39): the music chip waits for it like for the ask.
         var reviewing by remember { mutableStateOf(false) }
+        // The fresh finish whose return chain waits behind its streak celebration (#101), as a canvas key.
+        var pendingChain by rememberSaveable { mutableStateOf<String?>(null) }
+        // Done (or back) on a fresh completion (#101): the new streak day's celebration takes its place, once the
+        // finish's day is resolved (bounded); otherwise the gallery as before.
+        val leaveCompletion: (Route.Completion) -> Unit = { route ->
+            if (!completion.fresh.isFresh(route) || !celebrations()) {
+                stack.popToGallery()
+            } else {
+                scope.launch {
+                    withTimeoutOrNull(SETTLE_MS) { app.streak.settled() }
+                    if (stack.top != route) return@launch
+                    if (app.streak.pendingCelebration() != null) stack.celebrate(route.ref, freshExit = true) else stack.popToGallery()
+                }
+            }
+        }
         val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             app.reminders.askAnswered(if (granted) AskResult.GRANTED else AskResult.DENIED_SYSTEM)
         }
@@ -209,41 +236,72 @@ class MainActivity : ComponentActivity() {
             // The first music plays when the first canvas opens, never on the cold-opened gallery (T42, D24).
             if (top is Route.Canvas) app.music.canvasOpened()
         }
+        // The return to the gallery after a fresh finish: at most one interruption.
+        suspend fun returnChain(ref: CanvasRef) {
+            // A return that completes a collection (T37, plan-design-review D7) has no interruption: the ask and
+            // the interstitial wait for the next eligible finish, and the gallery brings the row into view.
+            val summaries = app.store.summaries()
+            app.collections.settle(summaries.first)
+            val reward = ref.kind != CanvasKind.PHOTO && app.collections.takeRewardReturn(ref.id)
+            val attempt = app.reminders.onLeftFreshFinish(ask = !reward)
+            // Pictures and photo canvases alike: the player's first finish may well be a photo.
+            app.reviews.onFreshFinish {
+                (summaries.first + summaries.second).mapNotNull { it as? CanvasSummary.Playable }.filter { it.state.isFinished }.map { it.firstFinishedDay }
+            }
+            val review = if (attempt == null && !reward) app.reviews.due() else null
+            when (GalleryReturn.choose(askDue = attempt != null, reviewDue = review != null, reward = reward)) {
+                ReturnInterruption.REMINDER_ASK -> attempt?.let {
+                    app.reminders.askShown(it)
+                    reminderAsk = it
+                }
+                // Outside this effect, so leaving the gallery doesn't cancel Play's flow.
+                ReturnInterruption.REVIEW -> review?.let {
+                    reviewing = true
+                    scope.launch {
+                        try {
+                            app.reviews.request(this@MainActivity, it)
+                        } finally {
+                            reviewing = false
+                        }
+                    }
+                }
+                ReturnInterruption.INTERSTITIAL -> app.interstitials.onLeftFreshCompletion(this@MainActivity, ref)
+                ReturnInterruption.NONE -> Unit
+            }
+        }
+
+        // G9: a celebration not shown (the process died on the completion screen, or Play again left it): in full when
+        // the finish was under 30 minutes ago, else the chip's flame lights up once. The day counted either way.
+        fun celebrateLate() {
+            if (!celebrations()) return
+            val pending = app.streak.pendingCelebration() ?: return
+            val ref = CanvasStore.refOfReminderKey(pending.canvas)
+            if (ref != null && app.dayClock.nowMillis() - pending.finishedAt < LATE_CELEBRATION_MS) {
+                stack.push(Route.StreakDay(ref, freshExit = false))
+            } else {
+                app.streak.takeCelebration()
+                gallery.igniteStreakChip()
+            }
+        }
         LaunchedEffect(top) {
             val left = previous
             previous = top
             if (top is Route.Completion && completion.fresh.isFresh(top)) app.interstitials.onFreshCompletion()
             // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
-            if (left is Route.Completion && left != top && completion.fresh.left(left) && top == Route.Gallery) {
-                // A return that completes a collection (T37, plan-design-review D7) has no interruption: the ask and
-                // the interstitial wait for the next eligible finish, and the gallery brings the row into view.
-                val summaries = app.store.summaries()
-                app.collections.settle(summaries.first)
-                val reward = left.ref.kind != CanvasKind.PHOTO && app.collections.takeRewardReturn(left.ref.id)
-                val attempt = app.reminders.onLeftFreshFinish(ask = !reward)
-                // Pictures and photo canvases alike: the player's first finish may well be a photo.
-                app.reviews.onFreshFinish {
-                    (summaries.first + summaries.second).mapNotNull { it as? CanvasSummary.Playable }.filter { it.state.isFinished }.map { it.firstFinishedDay }
-                }
-                val review = if (attempt == null && !reward) app.reviews.due() else null
-                when (GalleryReturn.choose(askDue = attempt != null, reviewDue = review != null, reward = reward)) {
-                    ReturnInterruption.REMINDER_ASK -> attempt?.let {
-                        app.reminders.askShown(it)
-                        reminderAsk = it
+            val leftFresh = left is Route.Completion && left != top && completion.fresh.left(left)
+            when {
+                // A new streak day (#101): the celebration is part of the exit, and the return chain waits for the
+                // gallery (G6), after Continue or after the streak screen closes. Saved, so a rotation keeps it (O6).
+                leftFresh && top is Route.StreakDay -> pendingChain = CanvasStore.reminderKey(left.ref)
+                leftFresh && top == Route.Gallery -> returnChain(left.ref)
+                top == Route.Gallery -> {
+                    val waiting = pendingChain
+                    if (waiting != null) {
+                        pendingChain = null
+                        CanvasStore.refOfReminderKey(waiting)?.let { returnChain(it) }
+                    } else {
+                        celebrateLate()
                     }
-                    // Outside this effect, so leaving the gallery doesn't cancel Play's flow.
-                    ReturnInterruption.REVIEW -> review?.let {
-                        reviewing = true
-                        scope.launch {
-                            try {
-                                app.reviews.request(this@MainActivity, it)
-                            } finally {
-                                reviewing = false
-                            }
-                        }
-                    }
-                    ReturnInterruption.INTERSTITIAL -> app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
-                    ReturnInterruption.NONE -> Unit
                 }
             }
         }
@@ -285,7 +343,9 @@ class MainActivity : ComponentActivity() {
         }
         // System back always goes one step up (design D3); on the Gallery it leaves the app. The canvas handles
         // its own back so it can close its session first.
-        BackHandler(enabled = top != Route.Gallery && top !is Route.Canvas) { stack.pop() }
+        BackHandler(enabled = top != Route.Gallery && top !is Route.Canvas) {
+            if (top is Route.Completion) leaveCompletion(top) else stack.pop()
+        }
         LaunchedEffect(top is Route.Completion) { if (top !is Route.Completion) completion.onLeft() }
 
         // The one-time "Music is playing" chip (T42, D24): on a gallery visit while music plays, once the return's
@@ -316,6 +376,7 @@ class MainActivity : ComponentActivity() {
                     onOpen = { tile, entry -> scope.launch { stack.openTile(tile.ref, entry, app.store::isFinished) } },
                     onLocked = { tile -> rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity) },
                     onSettings = { stack.push(Route.Settings) },
+                    onStreak = { stack.openStreak("chip") },
                     showVip = firstSessionOver,
                     onVip = { openVip(VIP_ACTION_TAG) },
                     notice = galleryNotice,
@@ -392,9 +453,53 @@ class MainActivity : ComponentActivity() {
                 // Still fresh after a rotation (no "Play again", leaving checks the interstitial).
                 fresh = completion.fresh.isFresh(top),
                 vm = completion,
-                onDone = { stack.popToGallery() },
+                onDone = { leaveCompletion(top) },
                 onPlayAgain = { stack.playAgain(top.ref) },
             )
+            is Route.StreakDay -> {
+                val data = remember(top) { streakDay.take() }
+                if (data == null) {
+                    // Nothing to show (already shown, or the process died since): straight on to the gallery.
+                    LaunchedEffect(top) { stack.popToGallery() }
+                } else {
+                    StreakCelebration(
+                        data,
+                        streakDay,
+                        onContinue = {
+                            streakDay.done()
+                            stack.popToGallery()
+                        },
+                        onSeeStreak = {
+                            streakDay.done()
+                            stack.openStreak("celebration")
+                        },
+                    )
+                }
+            }
+            is Route.Streak -> {
+                // Logged once per opening, not again after a rotation.
+                var logged by rememberSaveable(top) { mutableStateOf(false) }
+                LaunchedEffect(top) {
+                    streakScreen.opened(top.source, log = !logged)
+                    logged = true
+                }
+                val galleryState by gallery.state.collectAsStateWithLifecycle()
+                // Today's picture (the screen's quiet button) opens like the Today card, while it's there to finish.
+                val todayTile = galleryState.today?.tile?.takeIf { !it.done }
+                StreakScreen(
+                    streakScreen,
+                    onBack = { stack.pop() },
+                    onToday = todayTile?.let { tile ->
+                        {
+                            if (tile.locked(unlocked, entitlements, galleryState.todayFree)) {
+                                rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity)
+                            } else {
+                                scope.launch { stack.openTile(tile.ref, CanvasEntry.TODAY_CARD, app.store::isFinished) }
+                            }
+                        }
+                    },
+                )
+            }
         }
 
         val ask = reminderAsk
@@ -455,3 +560,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+/** How long Done waits for the finish's streak day to resolve (#101) before leaving without a celebration. */
+private const val SETTLE_MS = 1_000L
+
+/** A celebration missed by a cold start still shows in full this soon after the finish (G9). */
+private const val LATE_CELEBRATION_MS = 30 * 60 * 1_000L

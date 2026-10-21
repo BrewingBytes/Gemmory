@@ -21,6 +21,7 @@ import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.gallery.STREAK_TAG
+import com.brewingbytes.gemmory.streak.STREAK_SCREEN_TAG
 import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DayKind
 import com.brewingbytes.gemmory.policy.HistoryDay
@@ -44,7 +45,8 @@ import kotlin.test.assertTrue
 /**
  * The daily play streak (#33): finishing a picture today extends yesterday's streak (a gem alone doesn't), and the
  * gallery shows it from two days on; a streak that broke shows nothing. #101: the new day is committed with its
- * pending celebration, which survives a recreate and a restart, and logged in the day log with any covered day.
+ * pending celebration, which survives a recreate and a restart, and logged in the day log with any covered day; the
+ * chip shows from day 1 and opens the streak screen.
  */
 @RunWith(AndroidJUnit4::class)
 class PlayStreakTest {
@@ -94,27 +96,28 @@ class PlayStreakTest {
             .putLong("lastDay", LocalDate.now().toEpochDay() - daysAgo)
             .commit()
         File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
-        app.resetStreakForTest()
+        // The day itself, not its celebration (#101, StreakFlowTest): Done goes straight to the gallery.
+        app.resetStreakForTest(celebrations = false)
     }
 
     @Test
     fun finishingAPictureTodayExtendsYesterdaysStreak() {
         seed(length = 2, daysAgo = 1)
         launchOnMyPhotos()
-        compose.waitUntil(5_000) { chipText() == "2 days in a row" }
+        compose.waitUntil(5_000) { chipText()?.startsWith("2 days in a row,") == true }
         openTile()
         instrumentation.runOnMainSync { session()!!.placeNext() }
         compose.waitForIdle()
         back()
         compose.waitUntil(5_000) { exists(TILE) }
         compose.waitForIdle()
-        assertEquals("2 days in a row", chipText(), "a gem alone doesn't count the day")
+        assertEquals("2 days in a row, not done today, opens your streak", chipText(), "a gem alone doesn't count the day")
 
         openTile()
         instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
         compose.waitUntil(10_000) { exists("completion-done") }
         compose.onNodeWithTag("completion-done").performClick()
-        compose.waitUntil(5_000) { chipText() == "3 days in a row" }
+        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
     }
 
     /** #101 E2, O3: the new day and its celebration are committed together, and outlive a recreate and a restart. */
@@ -123,7 +126,7 @@ class PlayStreakTest {
         seed(length = 2, daysAgo = 1)
         launchOnMyPhotos()
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText() == "3 days in a row" }
+        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
         val today = LocalDate.now().toEpochDay()
         val pending = assertNotNull(app.streak.pendingCelebration())
         assertEquals(today, pending.day)
@@ -135,7 +138,7 @@ class PlayStreakTest {
 
         scenario.recreate()
         assertEquals(pending, app.streak.pendingCelebration(), "a rotation keeps it")
-        app.resetStreakForTest() // what a new process reads
+        app.resetStreakForTest(celebrations = false) // what a new process reads
         assertEquals(pending, app.streak.pendingCelebration(), "so does a restart")
         assertEquals(pending, app.streak.takeCelebration())
         assertNull(app.streak.takeCelebration(), "shown once")
@@ -150,13 +153,30 @@ class PlayStreakTest {
         seed(length = 2, daysAgo = 2)
         launchOnMyPhotos()
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText() == "3 days in a row" }
+        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
         val today = LocalDate.now().toEpochDay()
         assertEquals(listOf(CoveredDay(today - 1, DayKind.DAY_OFF)), app.streak.pendingCelebration()?.covered)
         val logged = listOf(HistoryDay(today - 1, DayKind.DAY_OFF), HistoryDay(today, DayKind.FINISHED, "PHOTO/streak"))
         assertEquals(logged, app.streak.history())
         assertNull(runBlocking { app.streak.played("PHOTO/other").await() }, "the same day counts once")
         assertEquals(logged, app.streak.history())
+    }
+
+    /** #101 G18: the chip shows from day 1, its flame lit once today is done, and it opens "Your streak". */
+    @Test
+    fun theChipShowsFromDayOneAndOpensTheStreakScreen() {
+        seed(length = 0, daysAgo = 0)
+        prefs.edit().clear().commit()
+        app.resetStreakForTest(celebrations = false)
+        launchOnMyPhotos()
+        assertFalse(exists(STREAK_TAG), "no streak yet: no chip")
+        finishAndLeave()
+        compose.waitUntil(5_000) { chipText() == "1 day in a row, done today, opens your streak" }
+        compose.onNodeWithTag(STREAK_TAG).performClick()
+        compose.waitUntil(5_000) { exists(STREAK_SCREEN_TAG) }
+        compose.onNode(hasText("Your streak")).assertExists()
+        back()
+        compose.waitUntil(5_000) { exists(STREAK_TAG) }
     }
 
     @Test
@@ -190,7 +210,7 @@ class PlayStreakTest {
     }
 
     private fun chipText(): String? = compose.onAllNodes(hasTestTag(STREAK_TAG)).fetchSemanticsNodes().firstOrNull()
-        ?.config?.getOrNull(SemanticsProperties.Text)?.joinToString("") { it.text }
+        ?.config?.getOrNull(SemanticsProperties.ContentDescription)?.joinToString("")
 
     private fun session(): PlaySession? {
         var session: PlaySession? = null

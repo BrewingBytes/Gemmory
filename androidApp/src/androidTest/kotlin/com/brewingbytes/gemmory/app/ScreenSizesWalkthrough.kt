@@ -92,6 +92,8 @@ class ScreenSizesWalkthrough {
 
     @Before
     fun setUp() {
+        // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
+        app.resetStreakForTest(celebrations = false)
         assumeDeviceChecks()
         app.resetMonetizationForTest(NoAds)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
@@ -110,6 +112,7 @@ class ScreenSizesWalkthrough {
 
     @After
     fun tearDown() {
+        app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
         app.resetMonetizationForTest()
         A11yTestSupport.shell("wm size reset")

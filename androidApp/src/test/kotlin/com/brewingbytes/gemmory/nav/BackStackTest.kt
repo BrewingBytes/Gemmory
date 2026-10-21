@@ -104,6 +104,27 @@ class BackStackTest {
         assertEquals(listOf(Route.Gallery, Route.Settings), stack.routes)
     }
 
+    /** #101: the celebration replaces the completion it left, and "See your streak" replaces the celebration (back = gallery). */
+    @Test
+    fun theCelebrationAndTheStreakScreenSitOneStepAboveTheGallery() {
+        val stack = BackStack()
+        stack.started(photo)
+        stack.finished(photo)
+        stack.celebrate(starter, freshExit = true)
+        assertEquals(Route.Completion(photo, fresh = true), stack.top, "only the completion it left")
+        stack.celebrate(photo, freshExit = true)
+        assertEquals(listOf(Route.Gallery, Route.StreakDay(photo, true)), stack.routes)
+        stack.openStreak("celebration")
+        assertEquals(listOf(Route.Gallery, Route.Streak("celebration")), stack.routes)
+        stack.openStreak("chip")
+        assertEquals(listOf(Route.Gallery, Route.Streak("celebration")), stack.routes, "once")
+        stack.popToGallery()
+        stack.openStreak("chip")
+        assertEquals(listOf(Route.Gallery, Route.Streak("chip")), stack.routes)
+        assertEquals(null, Route.decode("streakday:PHOTO:photo-1:maybe"))
+        assertEquals(null, Route.decode("streakday:PHOTO:photo-1"))
+    }
+
     @Test
     fun dropPhotoFlowLeavesTheRest() {
         val stack = BackStack(listOf(Route.Gallery, Route.Crop, Route.Size))
@@ -120,7 +141,7 @@ class BackStackTest {
         val saved = stack.routes.map(Route::encode)
         assertEquals(listOf("gallery", "completion:PHOTO:photo-1"), saved)
         assertEquals(listOf(Route.Gallery, Route.Completion(photo, fresh = false)), BackStack(saved.mapNotNull(Route::decode)).routes)
-        for (r in listOf(Route.Settings, Route.Crop, Route.Size, Route.Preview, Route.Canvas(starter))) {
+        for (r in listOf(Route.Settings, Route.Crop, Route.Size, Route.Preview, Route.Canvas(starter), Route.StreakDay(photo, true), Route.StreakDay(starter, false), Route.Streak("chip"))) {
             assertEquals(r, Route.decode(Route.encode(r)))
         }
     }

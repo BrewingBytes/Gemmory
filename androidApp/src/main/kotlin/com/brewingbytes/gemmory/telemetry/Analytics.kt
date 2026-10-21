@@ -103,6 +103,19 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** The first picture finished on a new day (#33): the daily play streak is now [length] days. */
         fun streakDay(length: Int) = AnalyticsEvent("streak_day", mapOf("length" to length.toLong()))
 
+        /**
+         * The new streak day's celebration showed (#101): [length] days, [milestone] (7, 30, 50, 100 or 365; 0 for none)
+         * and what kept it across a missed day ([savedBy]: `finish`, `day_off`, `vip_freeze`, `freeze`, or several
+         * joined by `+`).
+         */
+        fun streakCelebrationShown(length: Int, milestone: Int, savedBy: String) = AnalyticsEvent(
+            "streak_celebration_shown",
+            mapOf("length" to length.toLong(), "milestone" to milestone.toLong(), "saved_by" to savedBy),
+        )
+
+        /** The streak screen opened (#101), from [source]: `chip` or `celebration`. */
+        fun streakScreenOpened(source: String) = AnalyticsEvent("streak_screen_opened", mapOf(SOURCE to source))
+
         /** The first gem on today's picture (#34). [vip]: it was VIP's "Today's pick", not a free grant. */
         fun todaysPictureStarted(ref: CanvasRef, width: Int, height: Int, vip: Boolean) =
             AnalyticsEvent("todays_picture_started", mapOf(SIZE to size(ref, width, height), "tier" to if (vip) "vip" else "free"))
