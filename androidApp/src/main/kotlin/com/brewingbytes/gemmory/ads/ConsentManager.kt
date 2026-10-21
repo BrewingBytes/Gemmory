@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.policy.ConsentModeV2
+import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
@@ -23,10 +24,20 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * player asks for instead, never over a later launch (founder call for #7). Nothing here requests an ad: the gateway
  * asks [canRequestAds] first. Not child-directed (adults only).
  */
-class ConsentManager(context: Context) {
+class ConsentManager(context: Context, reporter: NonFatalReporter) {
     private val app = context.applicationContext
     private val info: ConsentInformation = UserMessagingPlatform.getConsentInformation(app)
     private val prefs = app.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+
+    /** UMP writes the IAB TCF and GPP strings to the default shared preferences. */
+    private val iab: SharedPreferences by lazy { app.getSharedPreferences("${app.packageName}_preferences", Context.MODE_PRIVATE) }
+
+    /** Unity's US-states privacy.consent (T34), rewritten on every [publish] and before the SDK initializes. */
+    private val unity = UnityConsent(
+        gpp = { runCatching { iab.getString(UsPrivacy.GPP_STRING, null) }.getOrNull() },
+        sink = UnityMetaDataPrivacy(app),
+        report = reporter::report,
+    )
 
     private val _canRequestAds = MutableStateFlow(info.canRequestAds())
     val canRequestAds: StateFlow<Boolean> = _canRequestAds.asStateFlow()
@@ -42,10 +53,12 @@ class ConsentManager(context: Context) {
 
     private fun parameters(): ConsentRequestParameters {
         val builder = ConsentRequestParameters.Builder().setTagForUnderAgeOfConsent(false)
-        if (BuildConfig.DEBUG && (BuildConfig.UMP_DEBUG_EEA || BuildConfig.UMP_TEST_DEVICE.isNotEmpty())) {
+        if (BuildConfig.DEBUG && (BuildConfig.UMP_DEBUG_EEA || BuildConfig.UMP_DEBUG_US_STATE || BuildConfig.UMP_TEST_DEVICE.isNotEmpty())) {
             val debug = ConsentDebugSettings.Builder(app)
             if (BuildConfig.UMP_DEBUG_EEA) {
                 debug.setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA).setForceTesting(true)
+            } else if (BuildConfig.UMP_DEBUG_US_STATE) {
+                debug.setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_REGULATED_US_STATE).setForceTesting(true)
             }
             if (BuildConfig.UMP_TEST_DEVICE.isNotEmpty()) debug.addTestDeviceHashedId(BuildConfig.UMP_TEST_DEVICE)
             builder.setConsentDebugSettings(debug.build())
@@ -112,7 +125,15 @@ class ConsentManager(context: Context) {
         }
     }
 
+    /** Writes Unity's privacy.consent from the GPP string UMP stored last. Main thread. */
+    fun updateUnity() = unity.update()
+
+    /**
+     * After every consent update (each launch, the first-ad form, the privacy options form): the flows, and Unity's
+     * privacy.consent, so a withdrawal in the privacy options reaches Unity at once.
+     */
     private fun publish() {
+        updateUnity()
         _canRequestAds.value = info.canRequestAds()
         _privacyOptionsRequired.value = privacyOptionsRequired()
         _consentMode.value = readConsentMode()
@@ -122,10 +143,10 @@ class ConsentManager(context: Context) {
     private fun privacyOptionsRequired(): Boolean =
         info.privacyOptionsRequirementStatus == ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED
 
-    /** UMP writes the IAB TCF strings to the default shared preferences. Outside the regulated regions all is granted. */
+    /** Consent Mode from the TCF strings UMP stored. Outside the regulated regions all is granted. */
     private fun readConsentMode(): ConsentModeV2 {
         if (info.consentStatus == ConsentInformation.ConsentStatus.NOT_REQUIRED) return ConsentModeV2.GRANTED
-        val tcf: SharedPreferences = app.getSharedPreferences("${app.packageName}_preferences", Context.MODE_PRIVATE)
+        val tcf = iab
         val applies = when (runCatching { tcf.getInt("IABTCF_gdprApplies", -1) }.getOrDefault(-1)) {
             1 -> true
             0 -> false

@@ -1,6 +1,6 @@
 # Gemmory privacy policy
 
-Effective date: 19 October 2026
+Effective date: 21 October 2026
 
 Gemmory: Photo Diamond Art ("Gemmory", "the app") is made by BrewingBytes ("we", "us"). This policy explains what data the app handles, why, who receives it and how long it is kept. Contact: andrei.serban@brewingbytes.com.
 
@@ -8,7 +8,7 @@ Gemmory: Photo Diamond Art ("Gemmory", "the app") is made by BrewingBytes ("we",
 
 - **Your photos never leave your phone.** We have no servers for your pictures, and the app never uploads them.
 - There are no Gemmory accounts. We don't ask for your name, email or phone number, and we never attach a user ID to anything the app sends. If you use Google Play Games, the app tells Play Games which achievements you earned, under your Play Games profile (see "Achievements").
-- The app sends Google three kinds of data: **crash reports** (always, to keep the app working), **usage statistics** (only where you allow them) and the **data Google AdMob uses to show ads**.
+- The app sends Google three kinds of data: **crash reports** (always, to keep the app working), **usage statistics** (only where you allow them) and the **data Google AdMob uses to show ads**. Ads can also come from **Unity Ads**, which receives the same kind of ad data (see "Ads").
 - Purchases go through Google Play. We never see your payment details.
 - Once a day the app downloads the list of new pictures from **GitHub** (Microsoft). That request carries nothing about you.
 
@@ -64,20 +64,25 @@ With your permission, the app uses Google Analytics for Firebase to learn how th
 - **How long:** user-level data is kept for 2 months. Reports made from it are aggregated counts that don't identify anyone.
 - **Sharing:** we have turned off sharing Analytics data with Google for its own products and services. Google processes it for us.
 
-## Ads (Google AdMob)
+## Ads (Google AdMob and Unity Ads)
 
-Gemmory shows ads from Google AdMob: a short video you choose to watch (to unlock a picture or get another photo canvas) and, occasionally, a full-screen ad after you finish a picture. Ads are never shown while you are placing gems. VIP and Remove ads turn the full-screen ads off.
+Gemmory shows ads through Google AdMob: a short video you choose to watch (to unlock a picture or get another photo canvas) and, occasionally, a full-screen ad after you finish a picture. Ads are never shown while you are placing gems. VIP and Remove ads turn the full-screen ads off.
 
-To show and measure ads and to prevent ad fraud, Google may collect:
+Each ad comes from Google or from Unity Ads (Unity Technologies), whichever offers more for it in AdMob's auction. To show and measure ads and to prevent ad fraud, Google and Unity may collect:
 
 - your device's advertising ID, app set ID and other device identifiers;
 - your IP address, which may be used to estimate your general location;
 - how you interact with ads (for example taps and video views) and app launches;
-- diagnostic information about the app and the ads software.
+- diagnostic information about the app and the ads software;
+- for Unity, an identifier it uses to run its ads software, and whether purchases were made in apps that show its ads (Unity's own disclosure).
 
-In the EEA, the UK and Switzerland, the app asks for your consent through Google's consent form before requesting ads, and Google shows non-personalised or limited ads when you don't consent. You can change your choice at any time in Settings → Privacy choices. You can also reset or delete your advertising ID in your Android settings.
+Neither of them ever receives your photos, your canvases or anything you make in the app.
+
+In the EEA, the UK and Switzerland, the app asks for your consent through Google's consent form before requesting ads, and Google and Unity show non-personalised or limited ads when you don't consent. In US states with privacy laws, the same form lets you opt out of the sale or sharing of your data and of targeted ads; the app passes that choice to Unity too. You can change your choice at any time in Settings → Privacy choices. You can also reset or delete your advertising ID in your Android settings.
 
 Google uses this data as an independent controller, as described in Google's privacy policy: https://policies.google.com/privacy and in "How Google uses information from sites or apps that use our services": https://policies.google.com/technologies/partner-sites
+
+Unity uses this data as an independent controller too, as described in Unity's privacy policy: https://unity.com/legal/game-player-and-app-user-privacy-policy. Unity lets you ask it to delete the data it holds about you through that page.
 
 ## Purchases (Google Play)
 
@@ -91,7 +96,7 @@ If Android backup is on, Android may include some of it in your own Google backu
 
 ## Who receives data
 
-Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Google Play for purchases; Google Play Games for achievements, only if you use Play Games. And GitHub (Microsoft), which receives your IP address and user agent when the app downloads new pictures (see "New pictures"). We don't sell your data, and we don't give it to anyone else. Google and GitHub may process data outside your country, including in the United States, with the safeguards described in their privacy policies and data processing terms. All of it is sent encrypted (HTTPS/TLS).
+Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Unity Technologies for ads (see "Ads"); Google Play for purchases; Google Play Games for achievements, only if you use Play Games. And GitHub (Microsoft), which receives your IP address and user agent when the app downloads new pictures (see "New pictures"). We don't sell your data, and we don't give it to anyone else. Google, Unity and GitHub may process data outside your country, including in the United States, with the safeguards described in their privacy policies and data processing terms. All of it is sent encrypted (HTTPS/TLS).
 
 ## Your choices and rights
 

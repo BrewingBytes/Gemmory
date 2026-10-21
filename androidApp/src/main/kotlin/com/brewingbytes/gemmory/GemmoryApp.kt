@@ -11,6 +11,7 @@ import com.brewingbytes.gemmory.achievements.GamesBackend
 import com.brewingbytes.gemmory.achievements.PlayGamesBackend
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.AdMobGateway
+import com.brewingbytes.gemmory.ads.ResumedActivity
 import com.brewingbytes.gemmory.ads.ConsentManager
 import com.brewingbytes.gemmory.ads.Interstitials
 import com.brewingbytes.gemmory.ads.Monetization
@@ -493,7 +494,7 @@ class GemmoryApp : Application() {
         analytics = ConsentFirst(Analytics.forBuild(BuildConfig.FIREBASE) { FirebaseAnalyticsLogger(FirebaseAnalytics.getInstance(this)) })
         // The saved consent reaches Firebase before anything can log (eng D6): a reminder or reboot may start the app in
         // the background and log at once. Later changes follow below.
-        consent = ConsentManager(this)
+        consent = ConsentManager(this, reporter)
         analytics.consent(consent.consentMode.value)
         settings = AppSettings(this)
         streak = newStreak()
@@ -526,7 +527,9 @@ class GemmoryApp : Application() {
         achievements = newAchievements(games)
         // Consent Mode v2 from the UMP result, on every change (R3-7); the saved one was applied above.
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }
-        ads = AdMobGateway(this, consent, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+        // Interstitial loads use the Activity on screen (T34), held weakly.
+        val resumed = ResumedActivity().also(::registerActivityLifecycleCallbacks)
+        ads = AdMobGateway(this, consent, resumed, CoroutineScope(SupervisorJob() + Dispatchers.Main))
         adMob = ads
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
         gateways = MutableStateFlow(ads)
