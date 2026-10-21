@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.play
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Matrix
@@ -24,7 +25,8 @@ import kotlin.math.sin
 /**
  * The play canvas renderer (eng finding 13, design system Play canvas). Below 8dp cells it draws one baked
  * 1 px-per-cell bitmap of the whole canvas, kept current one pixel per placement. From 8dp it visits only the
- * cells on screen and draws each as its color's cached sprite for the current zoom bucket: placed gems as table cuts
+ * cells on screen and draws them all in one vertex batch (#117), each as its color's cached sprite in the current zoom
+ * bucket's atlas: placed gems as table cuts
  * from 8dp (T40), numbers on unplaced cells from 16dp and the table's catchlight from 20dp. The selected color stands
  * out per the player's [HighlightStyle] (#19): stronger tint, the D17 ring from 8dp, or the other colors dimmed. On
  * top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). A tool's batch (#20) is placed at once and
@@ -43,6 +45,7 @@ class CanvasRenderer(context: Context, private val pattern: Pattern, mystery: Bo
         make = { atlas, spec, slot, kind -> drawSprite(atlas, spec, slot, kind) },
     )
     private val src = Rect()
+    private val quads = CellQuads()
 
     private val bakePaint = Paint().apply { isFilterBitmap = false }
     private val spritePaint = Paint().apply { isFilterBitmap = true }
@@ -117,12 +120,13 @@ class CanvasRenderer(context: Context, private val pattern: Pattern, mystery: Bo
                 // A direct call, not a stored (Int) -> Boolean: no boxing per visible cell per frame. A cell the sweep
                 // hasn't reached yet still looks like the selected color it was placed as.
                 val kind = if (effects.hidden(index, nowNanos)) SpriteKind.SELECTED else kindOf(session.isPlaced(index), slot, selectedSlot)
-                val left = ox + col * cell
-                dst.set(left, top, left + cell, top + cell)
-                drawSprite(canvas, spec, slot, kind)
+                atlasSource(spec, slot, kind)
+                quads.add(ox + col * cell, top, cell, src.left, src.top, spec.px)
+                if (quads.full) drawQuads(canvas)
                 index++
             }
         }
+        drawQuads(canvas)
         if (spec.facets) drawGlints(canvas, viewport, effects, nowNanos)
         drawPulse(canvas, session, spec, effects, nowNanos)
     }
@@ -172,10 +176,26 @@ class CanvasRenderer(context: Context, private val pattern: Pattern, mystery: Bo
 
     /** Draws [slot]'s [kind] sprite into [dst]. */
     private fun drawSprite(canvas: Canvas, spec: SpriteSpec, slot: Int, kind: SpriteKind) {
+        val atlas = atlasSource(spec, slot, kind)
+        canvas.drawBitmap(atlas.bitmap, src, dst, spritePaint)
+    }
+
+    /** Sets [src] to [slot]'s [kind] sprite in the bucket's atlas, drawing it there first if it's new. */
+    private fun atlasSource(spec: SpriteSpec, slot: Int, kind: SpriteKind): Atlas {
         val index = sprites.get(spec, slot, kind)
         val atlas = sprites.payload!!
         atlas.source(index, src)
-        canvas.drawBitmap(atlas.bitmap, src, dst, spritePaint)
+        return atlas
+    }
+
+    /** Draws the batched cells as one op from the bucket's atlas, instead of one drawBitmap per cell. */
+    private fun drawQuads(canvas: Canvas) {
+        if (quads.count == 0) return
+        canvas.drawVertices(
+            Canvas.VertexMode.TRIANGLES, quads.floatCount, quads.positions, 0, quads.texs, 0, null, 0,
+            quads.indices, 0, quads.indexCount, sprites.payload!!.paint,
+        )
+        quads.reset()
     }
 
     /**
@@ -248,6 +268,12 @@ class CanvasRenderer(context: Context, private val pattern: Pattern, mystery: Bo
      */
     private class Atlas(val bitmap: Bitmap, private val px: Int) {
         val canvas = Canvas(bitmap)
+
+        /** Samples the atlas for [drawQuads]: texture coordinates are atlas pixels. */
+        val paint = Paint().apply {
+            isFilterBitmap = true
+            shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+        }
         private val pitch = px + 2
 
         fun source(index: Int, out: Rect) {
