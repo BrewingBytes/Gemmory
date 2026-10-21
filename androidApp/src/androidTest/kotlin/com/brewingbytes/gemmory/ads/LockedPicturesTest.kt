@@ -33,6 +33,8 @@ import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.Products
 import com.brewingbytes.gemmory.policy.RewardType
+import com.brewingbytes.gemmory.remote.FakeSource
+import com.brewingbytes.gemmory.remote.TestCatalog
 import com.brewingbytes.gemmory.storage.StorageLayout
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -100,6 +102,8 @@ class LockedPicturesTest {
         app.resetMonetizationForTest(ads)
         // No picture of the day (#34): these tests pin which pictures are locked and where they sit.
         app.resetTodaysForTest(enabled = false)
+        // An empty catalog from a fake source (#108): the live pictures/v1 drops would add tiles and move the order.
+        app.resetRemoteForTest(FakeSource(TestCatalog()), listOf(TestCatalog.KEY))
         setVip(false)
     }
 
@@ -110,6 +114,7 @@ class LockedPicturesTest {
         clearState()
         app.resetMonetizationForTest()
         app.resetTodaysForTest()
+        app.resetRemoteForTest()
     }
 
     /** No canvases, no unlocks and an unused grace today. */
