@@ -204,6 +204,22 @@ tasks.register<JavaExec>("publishPictureBatch") {
     )
 }
 
+/**
+ * Real ads (T34): fails when the release AdMob IDs (`gemmory.admob.*` in gradle.properties) are missing, blank or
+ * Google's test publisher. `:androidApp:bundleRelease` and `assembleRelease` depend on it; debug builds don't.
+ */
+tasks.register<JavaExec>("validateReleaseAdIds") {
+    group = "verification"
+    description = "Fails on missing or test AdMob IDs for the release build (T34)."
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    dependsOn(jvmMain.compileTaskProvider)
+    classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("com.brewingbytes.gemmory.tools.ReleaseAdIdsTool")
+    args(listOf("gemmory.admob.appId", "gemmory.admob.rewardedUnit", "gemmory.admob.interstitialUnit").map {
+        providers.gradleProperty(it).getOrElse("")
+    })
+}
+
 tasks.register<JavaExec>("checkDropCalendar") {
     group = "verification"
     description = "Fails when the published catalog has fewer than 7 days of drops ahead (T44)."

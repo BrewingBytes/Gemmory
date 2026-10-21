@@ -12,6 +12,9 @@ mlkit-face = "16.1.7"
 kotlinx-datetime = "0.8.0"
 play-services-ads = "25.5.0"
 ump = "4.0.0"
+unity-ads = "4.21.0"
+unity-adapter = "4.21.0.0"
+iabgpp = "4.0.0"
 play-billing = "9.1.0"
 play-services-games-v2 = "22.1.0"
 play-review = "2.0.2"
@@ -42,6 +45,9 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 play-services-ads = { module = "com.google.android.gms:play-services-ads", version.ref = "play-services-ads" }
 ump = { module = "com.google.android.ump:user-messaging-platform", version.ref = "ump" }
+unity-ads = { module = "com.unity3d.ads:unity-ads", version.ref = "unity-ads" }
+unity-adapter = { module = "com.google.ads.mediation:unity", version.ref = "unity-adapter" }
+iabgpp-encoder = { module = "com.iabgpp:iabgpp-encoder", version.ref = "iabgpp" }
 play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "play-billing" }
 play-services-games-v2 = { module = "com.google.android.gms:play-services-games-v2", version.ref = "play-services-games-v2" }
 play-review = { module = "com.google.android.play:review", version.ref = "play-review" }

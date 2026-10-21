@@ -6,6 +6,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.SystemClock
 import android.util.Log
+import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.RewardedRules
 import com.google.android.gms.ads.AdError
@@ -29,10 +30,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Ad unit IDs. Google's test units only, until production IDs are set up (#7 scope; the app ID is in the manifest). */
+/**
+ * Ad unit IDs from the build (T34): production units in release builds (gradle.properties, checked by
+ * `:shared:validateReleaseAdIds`), Google's test units in debug builds and connected tests. The app ID is in the manifest.
+ */
 object AdUnits {
-    const val REWARDED = "ca-app-pub-3940256099942544/5224354917"
-    const val INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712"
+    const val REWARDED = BuildConfig.ADMOB_REWARDED
+    const val INTERSTITIAL = BuildConfig.ADMOB_INTERSTITIAL
 }
 
 /** How a rewarded load ended. */
@@ -83,15 +87,40 @@ interface AdGateway {
 private val NO_FULL_SCREEN: StateFlow<Boolean> = MutableStateFlow(false).asStateFlow()
 
 /**
- * AdMob (design doc Ad rules, R3-10; eng D15). Never initializes or requests anything before UMP allows ad requests.
- * Not child-directed and not under the age of consent: the app is for adults only (AGENTS.md).
+ * AdMob (design doc Ad rules, R3-10; eng D15), with Unity Ads bidding through AdMob mediation (T34). Never initializes
+ * or requests anything before UMP allows ad requests. Not child-directed and not under the age of consent: the app is
+ * for adults only (AGENTS.md).
  */
-class AdMobGateway(context: Context, private val consent: ConsentManager, private val scope: CoroutineScope) : AdGateway {
+class AdMobGateway(
+    context: Context,
+    private val consent: ConsentManager,
+    private val resumed: ResumedActivity,
+    private val scope: CoroutineScope,
+) : AdGateway {
     private val app = context.applicationContext
 
-    override var sdkReady = false
-        private set
-    private var starting: CompletableDeferred<Unit>? = null
+    private val startup = AdStartup(
+        scope,
+        // Unity reads the US-states choice before the mediated SDK starts (ad-mediation.md "Ordering").
+        beforeInitialize = { consent.updateUnity() },
+        initialize = { done ->
+            // Adults only: no child or teen treatment (replaces the deprecated child-directed / under-age tags).
+            MobileAds.setRequestConfiguration(
+                RequestConfiguration.Builder().setAgeRestrictedTreatment(AgeRestrictedTreatment.UNSPECIFIED).build(),
+            )
+            // Google recommends initializing off the main thread.
+            scope.launch(Dispatchers.IO) {
+                MobileAds.initialize(app) {
+                    scope.launch(Dispatchers.Main) {
+                        Log.i(TAG, "MobileAds initialized")
+                        done()
+                    }
+                }
+            }
+        },
+    )
+
+    override val sdkReady: Boolean get() = startup.ready
 
     private var rewarded: RewardedAd? = null
     private var rewardedAt = 0L
@@ -100,6 +129,18 @@ class AdMobGateway(context: Context, private val consent: ConsentManager, privat
     private var interstitial: InterstitialAd? = null
     private var interstitialAt = 0L
     private var interstitialLoading = false
+
+    /** No Activity was on screen for an interstitial load: it runs on the next resume. */
+    private var interstitialRetry = false
+
+    init {
+        resumed.onResumed = {
+            if (interstitialRetry) {
+                interstitialRetry = false
+                preloadInterstitial()
+            }
+        }
+    }
 
     private val _fullScreen = MutableStateFlow(false)
     override val fullScreen: StateFlow<Boolean> = _fullScreen.asStateFlow()
@@ -115,24 +156,7 @@ class AdMobGateway(context: Context, private val consent: ConsentManager, privat
 
     override suspend fun start() {
         if (sdkReady || !consent.canRequestAds.value) return
-        val pending = starting ?: CompletableDeferred<Unit>().also { done ->
-            starting = done
-            // Adults only: no child or teen treatment (replaces the deprecated child-directed / under-age tags).
-            MobileAds.setRequestConfiguration(
-                RequestConfiguration.Builder().setAgeRestrictedTreatment(AgeRestrictedTreatment.UNSPECIFIED).build(),
-            )
-            // Google recommends initializing off the main thread.
-            scope.launch(Dispatchers.IO) {
-                MobileAds.initialize(app) {
-                    scope.launch(Dispatchers.Main) {
-                        sdkReady = true
-                        Log.i(TAG, "MobileAds initialized")
-                        done.complete(Unit)
-                    }
-                }
-            }
-        }
-        pending.await()
+        startup.start()
     }
 
     private fun canLoad(): Boolean = sdkReady && consent.canRequestAds.value
@@ -188,8 +212,10 @@ class AdMobGateway(context: Context, private val consent: ConsentManager, privat
 
     override fun preloadInterstitial() {
         if (!canLoad() || freshInterstitial() != null || interstitialLoading) return
+        // Interstitials load with the Activity on screen (Unity mediation); rewarded loads keep the app context.
+        val activity = resumed.current() ?: run { interstitialRetry = true; return }
         interstitialLoading = true
-        InterstitialAd.load(app, AdUnits.INTERSTITIAL, AdRequest.Builder().build(), object : InterstitialAdLoadCallback() {
+        InterstitialAd.load(activity, AdUnits.INTERSTITIAL, AdRequest.Builder().build(), object : InterstitialAdLoadCallback() {
             override fun onAdLoaded(ad: InterstitialAd) {
                 interstitial = ad
                 interstitialAt = SystemClock.elapsedRealtime()
