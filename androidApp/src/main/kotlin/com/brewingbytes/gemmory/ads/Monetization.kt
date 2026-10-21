@@ -11,6 +11,7 @@ import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.ConsumeResult
 import com.brewingbytes.gemmory.policy.DailyLedger
 import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.policy.DayResult
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.InterstitialContext
 import com.brewingbytes.gemmory.policy.Inventory
@@ -210,12 +211,14 @@ class Monetization(
     /** The 5-day streak gift's spin (#38): the prize is added at once. Null when none is waiting, and for VIP. */
     suspend fun spin(): WheelPrize? = onPolicy { if (entitlements.value.vip) null else items.spin() }
 
-    /** The streak reached [length] days on a new day (#33): every 5th earns a spin, for players without VIP. */
-    fun onStreakDay(length: Int) {
-        scope.launch(policy) {
-            if (!entitlements.value.vip) items.onStreakDay(length)
-            refreshLocked()
-        }
+    /**
+     * A picture was finished (#101, O2): [day] resolves the streak with VIP and the streak freezes held (none until
+     * #102) and saves it, then, for a new streak day, the freezes it used are spent and every 5th day earns a spin for
+     * players without VIP (#33). VIP never spends a held freeze: those are kept for after a lapse.
+     */
+    suspend fun streakDay(day: (vip: Boolean, freezes: Int) -> DayResult?): DayResult? = onPolicy {
+        val vip = entitlements.value.vip
+        day(vip, 0)?.also { if (!vip) items.onStreakDay(it.length) }
     }
 
     suspend fun interstitialBlock(ctx: InterstitialContext): AdBlock? = onPolicy { ads.blockFor(ctx) }

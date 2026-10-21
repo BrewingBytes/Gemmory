@@ -42,6 +42,8 @@ data class ReminderInputs(
     /** Every canvas with at least one gem placed. */
     val started: List<ReminderCanvas>,
     val streak: StreakState,
+    /** What covers a missed day besides the day off (#101): the VIP freeze, streak freezes held. */
+    val cover: Cover = Cover.NONE,
 )
 
 /** The run's result. */
@@ -101,8 +103,8 @@ object ReminderReasons {
 
     private val streak: (Run) -> ReminderOutcome.Post? = { run ->
         val state = run.inputs.streak
-        val days = DailyStreak.shown(state, run.inputs.today)
-        val breaksAtMidnight = DailyStreak.shown(state, run.inputs.today + 1) == 0
+        val days = DailyStreak.shown(state, run.inputs.today, run.inputs.cover)
+        val breaksAtMidnight = DailyStreak.shown(state, run.inputs.today + 1, run.inputs.cover) == 0
         if (days >= DailyStreak.SHOWN_FROM && state.lastDay != run.inputs.today && breaksAtMidnight) {
             ReminderOutcome.Post(ReminderReason.STREAK, canvas = run.unfinished.firstOrNull(), streak = days)
         } else {

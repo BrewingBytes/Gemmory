@@ -3,55 +3,168 @@ package com.brewingbytes.gemmory.play
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.brewingbytes.gemmory.policy.Cover
+import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.policy.DayKind
+import com.brewingbytes.gemmory.policy.DayResult
+import com.brewingbytes.gemmory.policy.HistoryDay
 import com.brewingbytes.gemmory.policy.StateStore
+import com.brewingbytes.gemmory.policy.StreakHistory
+import com.brewingbytes.gemmory.policy.StreakHistoryState
 import com.brewingbytes.gemmory.policy.StreakState
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /**
- * The daily play streak (#33) on this phone. Kept in the "streak" preferences, which may be backed up: it's no photo
- * data, and a restore can't add days. Every 5th day earns a gift spin (#38) through [onDay]. Main thread only.
+ * A new streak day to celebrate (#101, E2): the [day] it counted on, the new [length], the missed days [covered] on the
+ * way, when the picture was [finishedAt] (G9: a cold start celebrates only within 30 minutes) and which [canvas].
+ */
+data class PendingCelebration(
+    val day: Long,
+    val length: Int,
+    val covered: List<CoveredDay>,
+    val finishedAt: Long,
+    val canvas: String,
+)
+
+/**
+ * The daily play streak (#33, #101) on this phone. Kept in the "streak" preferences, which may be backed up: it's no
+ * photo data, and a restore can't add days. Each new streak day is resolved on the monetization policy thread with VIP
+ * and the freezes held ([resolve], O2), committed with the day's pending celebration before anything is spent (O3),
+ * then logged in the day log [history] (E4). Every 5th day earns a gift spin (#38) inside [resolve]; [onDay] tells
+ * achievements. Safe from any thread.
  */
 class PlayStreak(
     context: Context,
-    clock: DayClock,
+    private val clock: DayClock,
     private val analytics: Analytics,
-    /** A new streak day of this length (#38: every 5th earns a wheel spin). */
+    private val history: StateStore<StreakHistoryState>,
+    private val scope: CoroutineScope,
+    /** Runs [block] on the policy thread with VIP and the streak freezes held (`Monetization.streakDay`). */
+    private val resolve: suspend (block: (vip: Boolean, freezes: Int) -> DayResult?) -> DayResult?,
+    /** A new streak day of this length (#49 achievements). */
     private val onDay: (length: Int) -> Unit = {},
 ) {
-    private val streak = DailyStreak(clock, PrefsStore(context.getSharedPreferences(FILE, Context.MODE_PRIVATE)))
+    private val prefs: SharedPreferences = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    private var state: StreakState = load(prefs)
+    private var pending: PendingCelebration? = loadPending(prefs)
+    private var log: StreakHistoryState? = null
 
-    /** A picture was finished: the first one of a new day extends the streak, and says so to Analytics. */
-    fun played() {
-        streak.played()?.let {
-            analytics.log(AnalyticsEvent.streakDay(it))
-            onDay(it)
+    private val _changes = MutableStateFlow(0)
+
+    /** Ticks on every change to the streak, for [com.brewingbytes.gemmory.streak.StreakView]. */
+    val changes: StateFlow<Int> = _changes.asStateFlow()
+
+    @Volatile
+    private var lastPlay: Deferred<DayResult?>? = null
+
+    /**
+     * A picture, [canvas] (`CanvasStore.reminderKey`), was finished: the first one of a new day extends the streak, and
+     * says so to Analytics. Runs on its own, so a screen closing right after can't drop it.
+     */
+    fun played(canvas: String): Deferred<DayResult?> = scope.async {
+        val result = resolve { vip, freezes -> resolveLocked(Cover(vip, freezes), canvas) }
+        if (result != null) {
+            analytics.log(AnalyticsEvent.streakDay(result.length))
+            onDay(result.length)
+            _changes.update { it + 1 }
         }
+        result
+    }.also { lastPlay = it }
+
+    /** The last finish's result, once it's resolved (the completion exit waits for it, #101 E3). */
+    suspend fun settled(): DayResult? = lastPlay?.await()
+
+    @Synchronized
+    private fun resolveLocked(cover: Cover, canvas: String): DayResult? {
+        val today = clock.today()
+        val result = DailyStreak.played(state, today, cover) ?: return null
+        val celebration = PendingCelebration(today, result.length, result.covered, clock.nowMillis(), canvas)
+        // Committed before the caller spends a freeze (O3): a crash in between keeps the freeze, never loses the day.
+        prefs.edit(commit = true) {
+            putState(result.state)
+            putPending(celebration)
+        }
+        state = result.state
+        pending = celebration
+        val days = result.covered.map { HistoryDay(it.day, it.kind) } + HistoryDay(today, DayKind.FINISHED, canvas)
+        saveLog(StreakHistory.record(logLocked(), days))
+        return result
     }
 
-    /** Days in a row as of today; 0 once broken. The gallery shows it from [DailyStreak.SHOWN_FROM]. */
-    fun current(): Int = streak.current()
+    /** The stored state, for the evening reminder (T35) and the streak view. */
+    @Synchronized
+    fun state(): StreakState = state
 
-    /** The stored state, for the evening reminder (T35). */
-    fun state(): StreakState = streak.state()
+    /** Days in a row as of today with [cover]; 0 once broken. */
+    fun current(cover: Cover = Cover.NONE): Int = DailyStreak.shown(state(), clock.today(), cover)
 
-    private class PrefsStore(private val prefs: SharedPreferences) : StateStore<StreakState> {
-        override fun load(): StreakState? {
-            if (!prefs.contains(LAST_DAY)) return null
-            return StreakState(
-                length = prefs.getInt(LENGTH, 0),
-                lastDay = prefs.getLong(LAST_DAY, StreakState.NEVER),
-                restDay = prefs.getLong(REST_DAY, StreakState.NEVER),
-            )
+    /** Today's celebration not shown yet (E2), if any. */
+    @Synchronized
+    fun pendingCelebration(): PendingCelebration? = pending?.takeIf { it.day == clock.today() }
+
+    /** Today's celebration, now being shown, or dropped (G9); null if there is none. Either way it's gone after. */
+    @Synchronized
+    fun takeCelebration(): PendingCelebration? {
+        val taken = pendingCelebration()
+        if (pending != null) {
+            pending = null
+            prefs.edit(commit = true) { clearPending() }
         }
+        return taken
+    }
 
-        override fun save(value: StreakState) = prefs.edit {
-            putInt(LENGTH, value.length)
-            putLong(LAST_DAY, value.lastDay)
-            putLong(REST_DAY, value.restDay)
-        }
+    /** The day log as far as the streak vouches for it (E4). */
+    @Synchronized
+    fun history(): List<HistoryDay> = StreakHistory.reconciled(logLocked(), state)
+
+    /**
+     * Once per install (E4): logs the days canvases were first finished on, read from the play files by [finishes]
+     * (day to canvas). A log already backfilled reads nothing.
+     */
+    suspend fun backfill(finishes: suspend () -> List<Pair<Long, String>>) {
+        if (synchronized(this) { logLocked().backfilled }) return
+        val found = finishes()
+        synchronized(this) { saveLog(StreakHistory.backfill(logLocked(), found, state)) }
+        _changes.update { it + 1 }
+    }
+
+    private fun logLocked(): StreakHistoryState = log ?: (history.load() ?: StreakHistoryState()).also { log = it }
+
+    private fun saveLog(next: StreakHistoryState) {
+        if (next == log) return
+        log = next
+        history.save(next)
+    }
+
+    private fun SharedPreferences.Editor.putState(value: StreakState) {
+        putInt(LENGTH, value.length)
+        putLong(LAST_DAY, value.lastDay)
+        putLong(REST_DAY, value.restDay)
+        putLong(VIP_FREEZE_DAY, value.vipFreezeDay)
+        putInt(BROKEN_LENGTH, value.brokenLength)
+        putLong(BROKEN_LAST_DAY, value.brokenLastDay)
+    }
+
+    private fun SharedPreferences.Editor.putPending(value: PendingCelebration) {
+        putLong(P_DAY, value.day)
+        putInt(P_LENGTH, value.length)
+        putString(P_COVERED, value.covered.joinToString(",") { "${it.day}:${it.kind.name}" })
+        putLong(P_FINISHED_AT, value.finishedAt)
+        putString(P_CANVAS, value.canvas)
+    }
+
+    private fun SharedPreferences.Editor.clearPending() {
+        for (key in listOf(P_DAY, P_LENGTH, P_COVERED, P_FINISHED_AT, P_CANVAS)) remove(key)
     }
 
     private companion object {
@@ -59,5 +172,41 @@ class PlayStreak(
         const val LENGTH = "length"
         const val LAST_DAY = "lastDay"
         const val REST_DAY = "restDay"
+        const val VIP_FREEZE_DAY = "vipFreezeDay"
+        const val BROKEN_LENGTH = "brokenLength"
+        const val BROKEN_LAST_DAY = "brokenLastDay"
+        const val P_DAY = "pendingDay"
+        const val P_LENGTH = "pendingLength"
+        const val P_COVERED = "pendingCovered"
+        const val P_FINISHED_AT = "pendingFinishedAt"
+        const val P_CANVAS = "pendingCanvas"
+
+        fun load(prefs: SharedPreferences): StreakState {
+            if (!prefs.contains(LAST_DAY)) return StreakState()
+            return StreakState(
+                length = prefs.getInt(LENGTH, 0),
+                lastDay = prefs.getLong(LAST_DAY, StreakState.NEVER),
+                restDay = prefs.getLong(REST_DAY, StreakState.NEVER),
+                vipFreezeDay = prefs.getLong(VIP_FREEZE_DAY, StreakState.NEVER),
+                brokenLength = prefs.getInt(BROKEN_LENGTH, 0),
+                brokenLastDay = prefs.getLong(BROKEN_LAST_DAY, StreakState.NEVER),
+            )
+        }
+
+        /** The saved celebration; an unreadable one (a newer app's kind, say) is dropped. */
+        fun loadPending(prefs: SharedPreferences): PendingCelebration? {
+            if (!prefs.contains(P_DAY)) return null
+            val covered = prefs.getString(P_COVERED, "").orEmpty().split(',').filter { it.isNotEmpty() }.map { entry ->
+                val (day, kind) = entry.split(':').takeIf { it.size == 2 } ?: return null
+                CoveredDay(day.toLongOrNull() ?: return null, DayKind.entries.firstOrNull { it.name == kind } ?: return null)
+            }
+            return PendingCelebration(
+                day = prefs.getLong(P_DAY, StreakState.NEVER),
+                length = prefs.getInt(P_LENGTH, 0),
+                covered = covered,
+                finishedAt = prefs.getLong(P_FINISHED_AT, 0),
+                canvas = prefs.getString(P_CANVAS, null) ?: return null,
+            )
+        }
     }
 }

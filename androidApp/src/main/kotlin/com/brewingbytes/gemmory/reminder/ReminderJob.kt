@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.reminder
 
+import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.policy.ReminderInputs
@@ -30,6 +31,8 @@ class ReminderJob(
     /** Today's picture (or VIP's pick) for these started ids, picking and storing it if the day has none yet. */
     private val pickToday: (started: Set<String>) -> String?,
     private val streak: () -> StreakState,
+    /** What else covers a missed day (#101): the VIP freeze, streak freezes held. */
+    private val cover: () -> Cover = { Cover.NONE },
     /** Android lets Gemmory post: notifications allowed for the app and the "Evening reminder" channel on. */
     private val allowed: () -> Boolean,
     private val foreground: () -> Boolean,
@@ -54,6 +57,7 @@ class ReminderJob(
             todaysPick = pickToday(started.mapNotNullTo(HashSet()) { it.pictureId }),
             started = started,
             streak = streak(),
+            cover = cover(),
         )
         val outcome = ReminderReasons.decide(inputs)
         when (outcome) {

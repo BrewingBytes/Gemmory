@@ -77,6 +77,15 @@ class ReminderReasonsTest {
         assertEquals(ReminderOutcome.Quiet(false), ReminderReasons.decide(inputs(streak = breakingStreak.copy(lastDay = today - 3))))
     }
 
+    /** #101: the VIP freeze or a streak freeze would cover today, so the streak doesn't break at midnight. */
+    @Test
+    fun aReadyFreezeKeepsTheStreakQuiet() {
+        assertEquals(ReminderOutcome.Quiet(false), ReminderReasons.decide(inputs(streak = breakingStreak).copy(cover = Cover(vip = true))))
+        assertEquals(ReminderOutcome.Quiet(false), ReminderReasons.decide(inputs(streak = breakingStreak).copy(cover = Cover(freezes = 1))))
+        val vipUsed = breakingStreak.copy(vipFreezeDay = today - 2)
+        assertEquals(ReminderReason.STREAK, post(inputs(streak = vipUsed).copy(cover = Cover(vip = true))).reason, "VIP freeze used this week")
+    }
+
     @Test
     fun aStreakAfterAForgivenDayCountsTheForgivenDayOut() {
         // Played the day before yesterday, yesterday forgiven: the streak stands today and breaks at midnight.

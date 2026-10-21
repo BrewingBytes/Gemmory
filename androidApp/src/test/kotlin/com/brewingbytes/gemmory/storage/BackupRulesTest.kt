@@ -85,6 +85,19 @@ class BackupRulesTest {
         }
     }
 
+    /** #101: the streak's day log and its preferences are backed up together (canvas ids only, no photo data). */
+    @Test
+    fun theStreakLogIsBackedUp() {
+        val dir = StorageLayout.STREAK_HISTORY.substringBefore('/')
+        val sections = listOf(rules(xml("backup_rules.xml"), "exclude")) + listOf("cloud-backup", "device-transfer").map {
+            rules(xml("data_extraction_rules.xml").getElementsByTagName(it).item(0) as Element, "exclude")
+        }
+        for (excluded in sections) {
+            assertTrue(excluded.none { it == "file:$dir/" || it == "file:${StorageLayout.STREAK_HISTORY}" }, "$excluded")
+            assertTrue("sharedpref:streak.xml" !in excluded, "$excluded")
+        }
+    }
+
     /**
      * #43: the download cache (catalog, state, grids) is excluded and can be fetched again; a started remote picture's
      * progress and grid copy are backed up like a bundled picture's.

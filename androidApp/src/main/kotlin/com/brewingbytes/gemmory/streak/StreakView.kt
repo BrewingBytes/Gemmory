@@ -1,0 +1,56 @@
+package com.brewingbytes.gemmory.streak
+
+import com.brewingbytes.gemmory.play.PlayStreak
+import com.brewingbytes.gemmory.policy.Cover
+import com.brewingbytes.gemmory.policy.CoveredDay
+import com.brewingbytes.gemmory.policy.DailyStreak
+import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.StreakState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
+
+/** The streak as it stands on [today] with [cover] (#101, O8). */
+data class StreakSnapshot(val state: StreakState, val today: Long, val cover: Cover) {
+    /** Days in a row; 0 once broken. */
+    val shown: Int get() = DailyStreak.shown(state, today, cover)
+
+    /** A picture was finished today. */
+    val doneToday: Boolean get() = state.lastDay == today
+
+    /** The missed days a finish today would cover (G13). */
+    val awaiting: List<CoveredDay> get() = DailyStreak.awaitingCover(state, today, cover)
+}
+
+/**
+ * The one reader of the streak (#101, O8): the stored state with what covers a missed day (the VIP freeze while VIP;
+ * streak freezes from #102), for the chip, the streak screen, the evening reminder and the achievements backfill. It
+ * follows every finish and VIP change; [refresh] picks up a new day.
+ */
+class StreakView(
+    private val streak: PlayStreak,
+    private val clock: DayClock,
+    private val entitlements: StateFlow<Entitlements>,
+    scope: CoroutineScope,
+) {
+    private val _snapshot = MutableStateFlow(read())
+    val snapshot: StateFlow<StreakSnapshot> = _snapshot.asStateFlow()
+
+    private val following: Job = scope.launch { combine(streak.changes, entitlements) { _, _ -> }.collect { refresh() } }
+
+    /** What covers a missed day right now. */
+    fun cover(): Cover = Cover(vip = entitlements.value.vip)
+
+    /** Re-reads the streak as of today. */
+    fun refresh(): StreakSnapshot = read().also { _snapshot.value = it }
+
+    /** Stops following, for a test that replaces this instance. */
+    fun close() = following.cancel()
+
+    private fun read() = StreakSnapshot(streak.state(), clock.today(), cover())
+}

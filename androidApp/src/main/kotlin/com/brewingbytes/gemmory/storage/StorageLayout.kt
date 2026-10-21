@@ -60,4 +60,10 @@ object StorageLayout {
      * transferred like the streak (no user content): a new phone doesn't resend what was confirmed, nor lose what wasn't.
      */
     const val ACHIEVEMENTS = "achievements/state"
+
+    /**
+     * The streak's day log (#101), "GMRS": each streak day, how it counted and the first canvas finished that day (an
+     * id, never photo data). Backed up and transferred with the streak preferences; a restore can't add days.
+     */
+    const val STREAK_HISTORY = "streak/history"
 }
