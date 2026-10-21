@@ -13,6 +13,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | `tools/bundled` | Source images, review PNGs and `PROVENANCE.md` for every bundled picture |
 | `pictures/v1` | The remote pictures' signed catalog and grids, which the app downloads from GitHub (created by the first publish) |
 | `tools/remote` | Source images, review PNGs and `PROVENANCE.md` for every remote picture |
+| `tools/sounds` | `PROVENANCE.md` for every app sound, which `tools/make_sounds.py` synthesizes into `res/raw` |
 | `docs` | Design doc, design system, issue snapshot, Play compliance, privacy policy, deferred work |
 
 ## Docs
@@ -26,6 +27,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | [docs/privacy-policy.md](docs/privacy-policy.md) | The published privacy policy |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
 | [tools/remote/PROVENANCE.md](tools/remote/PROVENANCE.md) | The same for every remote picture, with when it was published |
+| [tools/sounds/PROVENANCE.md](tools/sounds/PROVENANCE.md) | Every app sound, made in-house by `tools/make_sounds.py` |
 
 ## Build and test
 
