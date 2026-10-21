@@ -129,6 +129,8 @@ dependencies {
     implementation(libs.play.billing.ktx)
     // Play Games Services v2 (#49): achievements only, automatic sign-in. No leaderboards or friends.
     implementation(libs.play.services.games.v2)
+    // Play In-App Review (T39): Play's own rating sheet after a finished picture, once features.review is on.
+    implementation(libs.play.review)
     // Bundled (on-device) model: the face check never sends the photo anywhere (design doc, photo privacy).
     implementation(libs.mlkit.face.detection)
     // Crash + non-fatal reports (always on, D17) and Analytics events under UMP consent (Consent Mode v2, R3-7).

@@ -87,6 +87,9 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** A reminder was tapped (T35). */
         fun reminderOpened(reason: ReminderReason) = AnalyticsEvent("reminder_opened", mapOf("reason" to reason.param))
 
+        /** The in-app review prompt asked Play for its sheet (T39): [attempt] 1-3. Play never says whether it showed. */
+        fun reviewRequested(attempt: Int) = AnalyticsEvent("review_requested", mapOf("attempt" to attempt.toLong()))
+
         fun photoCanvasStarted(colors: ColorChoice) = AnalyticsEvent("photo_canvas_started", colors(colors))
 
         /** [progress]: shared before the last gem (#36), from the canvas or the gallery tile. */

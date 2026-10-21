@@ -47,6 +47,10 @@ import com.brewingbytes.gemmory.remote.HttpRemoteSource
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePictures
 import com.brewingbytes.gemmory.remote.RemoteSource
+import com.brewingbytes.gemmory.review.PlayReviewGateway
+import com.brewingbytes.gemmory.review.ReviewGateway
+import com.brewingbytes.gemmory.review.ReviewPrefs
+import com.brewingbytes.gemmory.review.Reviews
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -116,6 +120,10 @@ class GemmoryApp : Application() {
         private set
 
     private lateinit var reminderNotifier: ReminderNotifier
+
+    /** The in-app review prompt (T39): off until `features.review` is on in the signed catalog. */
+    lateinit var reviews: Reviews
+        private set
 
     /** The app is on screen (between the process's onStart and onStop): the reminder skips its evening then. */
     @Volatile
@@ -298,6 +306,24 @@ class GemmoryApp : Application() {
             { TimeZone.currentSystemDefault() },
         )
         return Reminders(prefs, scheduler, reminderNotifier, analytics)
+    }
+
+    private fun newReviews(gateway: ReviewGateway = PlayReviewGateway(), finishes: () -> Int = { achievements.finishes }) = Reviews(
+        prefs = ReviewPrefs(getSharedPreferences(ReviewPrefs.FILE, MODE_PRIVATE)),
+        gateway = gateway,
+        analytics = analytics,
+        flagOn = { remote.catalog()?.features?.review == true },
+        finishes = finishes,
+        today = dayClock::today,
+    )
+
+    /**
+     * Connected tests only (T39): re-reads the review counter, which a test cleared, asks [gateway] instead of Play
+     * and, given [finishes], counts those instead of the achievements ledger's. No arguments puts Play back.
+     */
+    @VisibleForTesting
+    internal fun resetReviewsForTest(gateway: ReviewGateway = PlayReviewGateway(), finishes: (() -> Int)? = null) {
+        reviews = if (finishes == null) newReviews(gateway) else newReviews(gateway, finishes)
     }
 
     /** Connected tests only (T35): re-reads the reminder settings from their preferences, which a test cleared or seeded. */
@@ -507,6 +533,7 @@ class GemmoryApp : Application() {
         music = newMusic()
         reminderNotifier = ReminderNotifier(this)
         reminders = newReminders()
+        reviews = newReviews()
         // Every start re-arms the alarm, since a force-stop clears it (T35).
         reminders.reschedule()
         // The first session ends on the first foreground after ≥ 30 min in the background (eng D6). Billing asks Play

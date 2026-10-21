@@ -43,10 +43,21 @@ data class RemotePicture(
 data class RemoteCollection(val id: String, val title: String, val members: List<String>, val event: Boolean = false)
 
 /**
+ * Switches the founder flips without an app release, inside the signed bytes. [review]: the in-app review prompt
+ * (T39), turned on once the app is in production (one AAB goes from closed to production, so a build flag can't).
+ */
+data class RemoteFeatures(val review: Boolean = false)
+
+/**
  * A verified catalog. [issuedAt] (epoch seconds) only moves forward, so an old signed catalog can't be replayed.
  * [collections] are in catalog order, oldest first (T37: "newest" is the last listed).
  */
-data class RemoteCatalog(val issuedAt: Long, val pictures: List<RemotePicture>, val collections: List<RemoteCollection> = emptyList())
+data class RemoteCatalog(
+    val issuedAt: Long,
+    val pictures: List<RemotePicture>,
+    val collections: List<RemoteCollection> = emptyList(),
+    val features: RemoteFeatures = RemoteFeatures(),
+)
 
 /** Why a catalog was refused. Every refusal keeps the cached catalog as it is. */
 sealed interface CatalogRefusal {
@@ -228,7 +239,13 @@ object RemoteCatalogs {
                 collections += c
             }
         }
-        return CatalogCheck.Ok(RemoteCatalog(issuedAt, pictures, collections))
+        // Apps before T39 ignore the key; a key this app doesn't know is ignored too, so a later switch is safe.
+        val features = root.fields["features"]?.let { f ->
+            val o = f as? Json.Obj ?: return malformed("features")
+            val review = if ("review" in o.fields) (o.fields["review"] as? Json.Bool)?.value ?: return malformed("features.review") else false
+            RemoteFeatures(review)
+        } ?: RemoteFeatures()
+        return CatalogCheck.Ok(RemoteCatalog(issuedAt, pictures, collections, features))
     }
 
     /** A downloaded grid against its catalog entry: SHA-256, then the GMRY file, then its CRC, then its shape. */
@@ -288,6 +305,10 @@ object RemoteCatalogs {
             "members" to Json.Arr(c.members.map { Json.Str(it) }),
         ).apply { if (c.event) put("event", Json.Bool(true)) },
     )
+
+    /** The publishing tool's `features` object (T39): only the switches that are on, or null when none is. */
+    fun featuresEntry(f: RemoteFeatures): Json.Obj? =
+        if (f.review) Json.Obj(linkedMapOf<String, Json>("review" to Json.Bool(true))) else null
 
     /** The publishing tool's catalog entry, fields in the documented order. */
     fun entry(p: RemotePicture): Json.Obj = Json.Obj(
