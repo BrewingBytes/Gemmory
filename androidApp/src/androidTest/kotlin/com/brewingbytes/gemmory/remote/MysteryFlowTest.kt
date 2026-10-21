@@ -181,9 +181,17 @@ class MysteryFlowTest {
         assertTrue("Peek at picture" !in canvasActions, "$canvasActions")
         assertNothingNamesIt("canvas")
 
-        // The finish is the reveal: the completion meta line names it.
+        // The finish is the reveal: the completion meta line names it. The celebration keeps Compose busy, so the
+        // test clock is stepped by hand, as FinishCelebrationTest does.
+        compose.mainClock.autoAdvance = false
         instrumentation.runOnMainSync { while (!session.isFinished) session.placeNext() }
-        waitFor(hasTestTag("completion-fresh"))
-        waitFor(hasText("Lantern", substring = true))
+        val deadline = System.currentTimeMillis() + 15_000
+        while (!(exists(hasTestTag("completion-fresh")) && exists(hasText("Lantern", substring = true)))) {
+            assertTrue(System.currentTimeMillis() < deadline, "the completion screen names it")
+            compose.mainClock.advanceTimeByFrame()
+            Thread.sleep(16)
+        }
     }
+
+    private fun exists(matcher: SemanticsMatcher) = compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 }
