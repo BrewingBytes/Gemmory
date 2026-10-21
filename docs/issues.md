@@ -815,6 +815,8 @@ Labels: P2, game
 
 Depends on: production access (the 12 × 14 closed test and the D18 gate), beside #74. Effort: human ~4h / CC ~30min.
 
+- **Built (2026-10-21):** the catalog's `features` object (unknown keys ignored, `review` must be true/false) and `:shared:setRemoteFeature` to flip it; publishes and withdraws keep it. The gate is pure `ReviewPrompt`, the order pure `GalleryReturn`. The finish count is the achievements ledger's (backfilled for older players); the first-finish day is stored once in the `review` preferences at the first return from a fresh finish: the earliest `firstFinishedDay` of the finished canvases, or "before T35" when any finished canvas has no day (code review on #106: stored, so a Start over or a deleted photo canvas can't move it later). The one-time music chip waits for Play's flow like for the ask. Connected `ReviewFlowTest` uses a counting gateway: Play's sheet can't be driven on an emulator.
+
 ---
 
 ## T40: Gem redesign (founder: the current gems are ugly)

@@ -14,6 +14,7 @@ play-services-ads = "25.5.0"
 ump = "4.0.0"
 play-billing = "9.1.0"
 play-services-games-v2 = "22.1.0"
+play-review = "2.0.2"
 firebase-bom = "34.19.0"
 google-services = "4.5.0"
 firebase-crashlytics-gradle = "3.0.8"
@@ -43,6 +44,7 @@ play-services-ads = { module = "com.google.android.gms:play-services-ads", versi
 ump = { module = "com.google.android.ump:user-messaging-platform", version.ref = "ump" }
 play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "play-billing" }
 play-services-games-v2 = { module = "com.google.android.gms:play-services-games-v2", version.ref = "play-services-games-v2" }
+play-review = { module = "com.google.android.play:review", version.ref = "play-review" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }

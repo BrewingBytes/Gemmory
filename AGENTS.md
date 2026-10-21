@@ -12,13 +12,14 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 - **`shared/src/commonMain` is pure Kotlin.** No `android.*` or `java.awt` imports.
 - **A wrong-color tap is rejected with no state change.** The save log is an ordered list of placed cell indices.
 - **UI follows `docs/design-system.md`.** Ask the user before departing from it. When reviewing or QA-ing UI, flag code that doesn't match it.
+- **Every PR shows what it changes.** Its body carries emulator screenshots of each screen or state it adds or changes, before and after where something existed (how in [docs/agents/workflow.md](docs/agents/workflow.md)). When the change has no screen of ours (a system or Play sheet, a background job), say so in the body and show the nearest thing that can be captured.
 - **Every long-running command has a hard time limit.** Wrap emulator and device work in `timeout` and never wait on one without a bound (details in [docs/agents/workflow.md](docs/agents/workflow.md)).
 
 ## Docs index
 
 | Doc | What's in it |
 |---|---|
-| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, how to add a bundled picture and how to publish a remote one (#43) and a dated batch from ChatGPT sheets (#85) |
+| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, how to add a bundled picture and how to publish a remote one (#43), a dated batch from ChatGPT sheets (#85), and flip a catalog switch such as the review prompt (T39) |
 | [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, plus the CEO and eng review decision ledgers (E1-E7, D1-D20) |
 | [docs/designs/ad-mediation.md](docs/designs/ad-mediation.md) | Real ads design (T34, #74): production AdMob IDs from committed build config, Unity Ads via AdMob mediation bidding, Unity and US-states consent, app-ads.txt, closed-test vs production-launch criteria |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, fonts, components, navigation map, canvas zoom/gesture/haptics rules, copy for every state, accessibility (TalkBack, font scale, reduced motion, large screens) (`DESIGN.md` at the root is a symlink to it) |

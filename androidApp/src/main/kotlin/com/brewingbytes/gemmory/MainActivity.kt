@@ -35,6 +35,8 @@ import com.brewingbytes.gemmory.gallery.VIP_ACTION_TAG
 import com.brewingbytes.gemmory.policy.Membership
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.EarnSource
+import com.brewingbytes.gemmory.policy.GalleryReturn
+import com.brewingbytes.gemmory.policy.ReturnInterruption
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -52,6 +54,7 @@ import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
 import com.brewingbytes.gemmory.photo.PhotoNav
 import com.brewingbytes.gemmory.photo.PreviewScreen
 import com.brewingbytes.gemmory.photo.SizeScreen
+import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.play.PlayScreen
 import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.reminder.AskResult
@@ -193,8 +196,10 @@ class MainActivity : ComponentActivity() {
         // (design doc Ad rules): never on the canvas, never before or during Share.
         var previous by remember { mutableStateOf<Route?>(null) }
         // The reminder ask (T35): its attempt (1 or 2) while the sheet shows. One interruption per return to the
-        // gallery: the ask, else the interstitial check.
+        // gallery: the ask, else Play's review sheet (T39), else the interstitial check.
         var reminderAsk by rememberSaveable { mutableStateOf<Int?>(null) }
+        // Play's review flow is running (T39): the music chip waits for it like for the ask.
+        var reviewing by remember { mutableStateOf(false) }
         val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             app.reminders.askAnswered(if (granted) AskResult.GRANTED else AskResult.DENIED_SYSTEM)
         }
@@ -212,14 +217,33 @@ class MainActivity : ComponentActivity() {
             if (left is Route.Completion && left != top && completion.fresh.left(left) && top == Route.Gallery) {
                 // A return that completes a collection (T37, plan-design-review D7) has no interruption: the ask and
                 // the interstitial wait for the next eligible finish, and the gallery brings the row into view.
-                app.collections.settle(app.store.summaries().first)
+                val summaries = app.store.summaries()
+                app.collections.settle(summaries.first)
                 val reward = left.ref.kind != CanvasKind.PHOTO && app.collections.takeRewardReturn(left.ref.id)
                 val attempt = app.reminders.onLeftFreshFinish(ask = !reward)
-                if (attempt != null) {
-                    app.reminders.askShown(attempt)
-                    reminderAsk = attempt
-                } else if (!reward) {
-                    app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
+                // Pictures and photo canvases alike: the player's first finish may well be a photo.
+                app.reviews.onFreshFinish {
+                    (summaries.first + summaries.second).mapNotNull { it as? CanvasSummary.Playable }.filter { it.state.isFinished }.map { it.firstFinishedDay }
+                }
+                val review = if (attempt == null && !reward) app.reviews.due() else null
+                when (GalleryReturn.choose(askDue = attempt != null, reviewDue = review != null, reward = reward)) {
+                    ReturnInterruption.REMINDER_ASK -> attempt?.let {
+                        app.reminders.askShown(it)
+                        reminderAsk = it
+                    }
+                    // Outside this effect, so leaving the gallery doesn't cancel Play's flow.
+                    ReturnInterruption.REVIEW -> review?.let {
+                        reviewing = true
+                        scope.launch {
+                            try {
+                                app.reviews.request(this@MainActivity, it)
+                            } finally {
+                                reviewing = false
+                            }
+                        }
+                    }
+                    ReturnInterruption.INTERSTITIAL -> app.interstitials.onLeftFreshCompletion(this@MainActivity, left.ref)
+                    ReturnInterruption.NONE -> Unit
                 }
             }
         }
@@ -265,10 +289,10 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(top is Route.Completion) { if (top !is Route.Completion) completion.onLeft() }
 
         // The one-time "Music is playing" chip (T42, D24): on a gallery visit while music plays, once the return's
-        // reminder ask or rewarded sheet has closed.
+        // reminder ask, Play's review sheet (T39) or rewarded sheet has closed.
         val musicPlaying by app.music.playing.collectAsStateWithLifecycle()
         var musicChip by remember { mutableStateOf(false) }
-        val sheetUp = reminderAsk != null || rewarded.ui != null
+        val sheetUp = reminderAsk != null || reviewing || rewarded.ui != null
         LaunchedEffect(top == Route.Gallery, musicPlaying, sheetUp) {
             if (top != Route.Gallery) {
                 musicChip = false

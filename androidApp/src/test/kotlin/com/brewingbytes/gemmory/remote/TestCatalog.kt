@@ -19,6 +19,9 @@ class TestCatalog(private val seed: ByteArray = SEED) {
     val collections = mutableListOf<RemoteCollection>()
     var issuedAt = 1_792_000_000L
 
+    /** The catalog's switches (T39); [publish] writes the ones that are on. */
+    var features = RemoteFeatures()
+
     /**
      * [availableFrom] makes it a dated drop (T36), for an app that knows drops; [rewardOf] a collection's keepsake
      * (T37), for an app that knows keepsakes.
@@ -70,7 +73,10 @@ class TestCatalog(private val seed: ByteArray = SEED) {
                     "version" to Json.Num("1"),
                     "issuedAt" to Json.Num(issuedAt.toString()),
                     "pictures" to Json.Arr(pictures.map { RemoteCatalogs.entry(it) }),
-                ).apply { if (collections.isNotEmpty()) put("collections", Json.Arr(collections.map { RemoteCatalogs.collectionEntry(it) })) },
+                ).apply {
+                    if (collections.isNotEmpty()) put("collections", Json.Arr(collections.map { RemoteCatalogs.collectionEntry(it) }))
+                    RemoteCatalogs.featuresEntry(features)?.let { put("features", it) }
+                },
             ),
         ).encodeToByteArray()
         files[RemotePictures.CATALOG] = json

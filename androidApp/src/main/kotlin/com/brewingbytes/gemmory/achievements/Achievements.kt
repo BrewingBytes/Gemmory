@@ -107,6 +107,9 @@ class Achievements(
         return OpenResult.OPENED to intent
     }
 
+    /** Every finish counted on this phone, the one-time backfill included: the review prompt's thresholds (T39). */
+    val finishes: Int get() = ledger.state.finishes
+
     /** The ledger as it stands (tests). */
     val state: AchievementState get() = ledger.state
 

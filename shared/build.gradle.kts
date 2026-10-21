@@ -117,7 +117,7 @@ tasks.register<JavaExec>("freezeBundledGrid") {
 
 /**
  * Remote pictures (#43): publish one into `pictures/v1/` (freeze, CRC + SHA-256, catalog entry, Ed25519 signature, the
- * app's own checks, provenance row), or withdraw one. The signing key path comes from `-PsigningKey=` or
+ * app's own checks, provenance row), or withdraw one; `setRemoteFeature` flips a catalog switch (T39). The signing key path comes from `-PsigningKey=` or
  * `remotePictures.signingKey` in local.properties; the key itself is never in a repo. README → Publishing remote pictures.
  */
 /** The tool's `key=value` arguments, read when the task is configured (tracked by the configuration cache). */
@@ -138,6 +138,8 @@ fun remoteToolArgs(mode: String): List<String> {
         "minAppVersion=${p("minAppVersion").orEmpty()}",
         "id=${p("id").orEmpty()}",
         "title=${p("title").orEmpty()}",
+        "feature=${p("feature").orEmpty()}",
+        "on=${p("on").orEmpty()}",
         "source=${p("source")?.let { root.file(it).asFile.path }.orEmpty()}",
         "spec=${p("spec").orEmpty()}",
         "focus=${p("focus") ?: "0.5"}",
@@ -149,13 +151,13 @@ fun remoteToolArgs(mode: String): List<String> {
     )
 }
 
-listOf("publishRemotePicture" to "publish", "withdrawRemotePicture" to "withdraw").forEach { (taskName, mode) ->
+listOf("publishRemotePicture" to "publish", "withdrawRemotePicture" to "withdraw", "setRemoteFeature" to "feature").forEach { (taskName, mode) ->
     tasks.register<JavaExec>(taskName) {
         group = "build"
-        description = if (mode == "publish") {
-            "Freezes, signs and adds a remote picture to pictures/v1 (#43)."
-        } else {
-            "Removes a remote picture from pictures/v1 and re-signs the catalog (#43)."
+        description = when (mode) {
+            "publish" -> "Freezes, signs and adds a remote picture to pictures/v1 (#43)."
+            "withdraw" -> "Removes a remote picture from pictures/v1 and re-signs the catalog (#43)."
+            else -> "Turns a catalog switch (-Pfeature=review) on or off (-Pon=true|false) and re-signs the catalog (T39)."
         }
         val jvmMain = kotlin.jvm().compilations.getByName("main")
         dependsOn(jvmMain.compileTaskProvider)

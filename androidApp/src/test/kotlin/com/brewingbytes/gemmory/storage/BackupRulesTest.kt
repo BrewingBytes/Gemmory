@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.storage
 import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.collections.CollectionPrefs
 import com.brewingbytes.gemmory.reminder.ReminderPrefs
+import com.brewingbytes.gemmory.review.ReviewPrefs
 import org.junit.Test
 import org.w3c.dom.Element
 import java.io.File
@@ -118,6 +119,8 @@ class BackupRulesTest {
             assertTrue(excluded.any { it.startsWith("file:") && photoPlay.startsWith(it.removePrefix("file:")) }, "$photoPlay in $excluded")
             assertTrue(excluded.none { it.startsWith("file:canvases/bundled") || it == "file:canvases/" }, "$excluded")
             assertTrue("sharedpref:${ReminderPrefs.FILE}.xml" !in excluded)
+            // T39: the review counter goes along, so a restored phone doesn't start its three attempts over.
+            assertTrue("sharedpref:${ReviewPrefs.FILE}.xml" !in excluded)
         }
     }
 

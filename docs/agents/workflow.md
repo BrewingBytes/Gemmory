@@ -9,6 +9,7 @@ How changes are made, verified and shipped in this repo. The product rules that 
 - One issue per PR. Work the user asks for outside that issue (a README during a feature, say) gets its own PR.
 - A PR that builds on another open PR is stacked, not merged into it: `gh stack init <lower-branch> <new-branch>`, then `gh stack submit --auto` (it pushes every branch and opens the missing PRs, so set the real title and body afterwards with `gh pr edit`). Later commits on a stacked branch go up with `gh stack submit --auto`. The upper PR lands after the one below it.
 - Never commit keystores, passwords or service-account files. The release upload key is read from `local.properties` (git-ignored).
+- Screenshots (AGENTS.md: every PR shows what it changes): capture them on the emulator during the connected run (`adb exec-out screencap -p > shot.png`, or from a test with `screencap -p /data/local/tmp/…`), commit them to the `pr-screenshots` branch under `<issue number>/` (e.g. `80/1-gallery-return.png`, numbered in reading order), push that branch, and embed each in the PR body with `<img src="https://raw.githubusercontent.com/BrewingBytes/Gemmory/pr-screenshots/<issue>/<file>" width="270">`. Never put them on the feature branch or `main`. Before/after pairs: take "before" from main's APKs (lessons, 2026-10-20 #84: stash, build, copy the APKs out).
 - After the user says a PR is merged: switch to `main`, pull, delete the merged branch locally, update `.idea-to-pr-state.md`.
 
 ## Verification

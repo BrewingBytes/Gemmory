@@ -313,6 +313,23 @@ class RemoteCatalogTest {
         assertEquals(listOf(false, true), now.pictures.map { it.mystery })
     }
 
+    /** T39: `features.review` is the review prompt's switch; absent means off, and a switch this app doesn't know is ignored. */
+    @Test
+    fun featuresReadTheReviewSwitch() {
+        fun with(features: String?): CatalogCheck {
+            val text = catalogJson(pictures).decodeToString()
+            val bytes = (if (features == null) text else text.replaceFirst("\"pictures\": [", "\"features\": $features,\n  \"pictures\": [")).encodeToByteArray()
+            return check(bytes, sign(bytes))
+        }
+        assertEquals(RemoteFeatures(), assertIs<CatalogCheck.Ok>(with(null)).catalog.features, "R1: no features, review off")
+        assertEquals(RemoteFeatures(review = true), assertIs<CatalogCheck.Ok>(with("""{"review": true}""")).catalog.features)
+        assertEquals(RemoteFeatures(), assertIs<CatalogCheck.Ok>(with("""{"review": false}""")).catalog.features)
+        assertEquals(RemoteFeatures(review = true), assertIs<CatalogCheck.Ok>(with("""{"review": true, "later": 3}""")).catalog.features)
+        assertEquals(RemoteFeatures(), assertIs<CatalogCheck.Ok>(with("""{}""")).catalog.features)
+        assertEquals(CatalogRefusal.Malformed("features.review"), refusal(with("""{"review": "yes"}""")))
+        assertEquals(CatalogRefusal.Malformed("features"), refusal(with("""[true]""")))
+    }
+
     @Test
     fun jsonIsStrict() {
         for (bad in listOf("{\"a\":1,}", "{\"a\":1,\"a\":2}", "[01]", "\"\u0001\"", "{} {}", "[" .repeat(40) + "]".repeat(40), "tru")) {
