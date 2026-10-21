@@ -56,9 +56,17 @@ class Reviews(
     private val finishes: () -> Int,
     private val today: () -> Long,
 ) {
-    /** The attempt (1-3) due now, or null. [firstFinishDay]: the player's first finish, null when none has a day. */
-    fun due(firstFinishDay: Long?): Int? =
-        ReviewPrompt.attemptDue(prefs.made, finishes(), flagOn(), today(), prefs.lastAttemptDay, firstFinishDay)
+    /**
+     * Every return from a fresh finish, whatever it shows: stores the player's first-finish day the first time anything
+     * is finished. [finishedDays]: each finished canvas's first-finish day, null for one finished before T35.
+     */
+    fun onFreshFinish(finishedDays: () -> List<Long?>) {
+        if (prefs.firstFinishDay == null) prefs.firstFinishDay = ReviewPrompt.firstFinishDay(finishedDays())
+    }
+
+    /** The attempt (1-3) due now, or null. */
+    fun due(): Int? =
+        ReviewPrompt.attemptDue(prefs.made, finishes(), flagOn(), today(), prefs.lastAttemptDay, prefs.firstFinishDay)
 
     /**
      * Makes [attempt]: it's counted before Play is asked, so an error, a sheet Play didn't show or a process killed

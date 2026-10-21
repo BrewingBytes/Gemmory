@@ -222,8 +222,10 @@ class MainActivity : ComponentActivity() {
                 val reward = left.ref.kind != CanvasKind.PHOTO && app.collections.takeRewardReturn(left.ref.id)
                 val attempt = app.reminders.onLeftFreshFinish(ask = !reward)
                 // Pictures and photo canvases alike: the player's first finish may well be a photo.
-                val firstFinishDay = (summaries.first + summaries.second).mapNotNull { (it as? CanvasSummary.Playable)?.firstFinishedDay }.minOrNull()
-                val review = if (attempt == null && !reward) app.reviews.due(firstFinishDay) else null
+                app.reviews.onFreshFinish {
+                    (summaries.first + summaries.second).mapNotNull { it as? CanvasSummary.Playable }.filter { it.state.isFinished }.map { it.firstFinishedDay }
+                }
+                val review = if (attempt == null && !reward) app.reviews.due() else null
                 when (GalleryReturn.choose(askDue = attempt != null, reviewDue = review != null, reward = reward)) {
                     ReturnInterruption.REMINDER_ASK -> attempt?.let {
                         app.reminders.askShown(it)

@@ -54,6 +54,17 @@ class ReviewPromptTest {
         assertEquals(1, due(first = null), "finishes from before T35 have no day: never today")
     }
 
+    /** Code review on #106: a finish from before T35 has no day, so the first finish wasn't today. */
+    @Test
+    fun theFirstFinishDayCountsFinishesFromBeforeT35() {
+        assertNull(ReviewPrompt.firstFinishDay(emptyList()))
+        assertEquals(day, ReviewPrompt.firstFinishDay(listOf(day)))
+        assertEquals(day - 3, ReviewPrompt.firstFinishDay(listOf(day, day - 3)))
+        assertEquals(ReviewPrompt.BEFORE_T35, ReviewPrompt.firstFinishDay(listOf(null, day)))
+        assertEquals(1, due(first = ReviewPrompt.firstFinishDay(listOf(null, day))), "older finishes plus one today: due")
+        assertNull(due(first = ReviewPrompt.firstFinishDay(listOf(day))), "only today's finishes: not yet")
+    }
+
     /** Already past 10 when the flag flips: one attempt at a time, the second at least 14 days after the first. */
     @Test
     fun aPlayerPastAThresholdGetsOneAttemptAtATime() {

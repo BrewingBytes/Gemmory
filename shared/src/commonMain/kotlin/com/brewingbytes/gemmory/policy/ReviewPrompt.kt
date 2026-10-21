@@ -12,11 +12,26 @@ object ReviewPrompt {
     val THRESHOLDS = listOf(3, 10, 25)
     const val GAP_DAYS = 14L
 
+    /** The first finish came before T35 recorded finish days: long before any today. */
+    const val BEFORE_T35 = Long.MIN_VALUE
+
+    /**
+     * The player's first-finish day from what's on the phone: [finishedDays] holds each finished canvas's first-finish
+     * day, null for one finished before T35 (whose play file has no day). Any such finish means the first finish was
+     * [BEFORE_T35]; null when nothing is finished. Stored once (`ReviewPrefs`), since a Start over or a deleted
+     * photo canvas would later drop its day and move the minimum.
+     */
+    fun firstFinishDay(finishedDays: List<Long?>): Long? = when {
+        finishedDays.isEmpty() -> null
+        finishedDays.any { it == null } -> BEFORE_T35
+        else -> finishedDays.filterNotNull().min()
+    }
+
     /**
      * The attempt (1-3) due now, or null. [made]: attempts already made; [finishes]: every finish counted so far, this
-     * one included; [today], [lastAttemptDay] and [firstFinishDay] are local epoch days ([firstFinishDay] null when no
-     * finish has a recorded day, i.e. all came before T35, so never today). A clock moved back before the last
-     * attempt waits until the gap has really passed.
+     * one included; [today], [lastAttemptDay] and [firstFinishDay] are local epoch days ([firstFinishDay] from
+     * [firstFinishDay], [BEFORE_T35] or null never being today). A clock moved back before the last attempt waits until
+     * the gap has really passed.
      */
     fun attemptDue(made: Int, finishes: Int, flagOn: Boolean, today: Long, lastAttemptDay: Long?, firstFinishDay: Long?): Int? {
         if (!flagOn) return null
