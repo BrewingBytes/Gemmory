@@ -48,7 +48,7 @@ Debug build switches (`-P…`):
 - `gemmory.fakeBilling` (default `true`) uses a fake Play Billing backend.
 - `gemmory.firebaseInDebug=true` sends Crashlytics/Analytics from debug builds. By default they only log to Logcat.
 - `gemmory.playGames=true` turns Play Games achievements on in a debug build (#49). By default debug builds keep earned achievements in the ledger and hide the Settings row. It needs the debug key's SHA-1 on a Play Games OAuth client and a tester account (Play Games setup below).
-- `gemmory.umpDebugEea=true` and `gemmory.umpTestDevice=…` show the EEA consent form.
+- `gemmory.umpDebugEea=true` and `gemmory.umpTestDevice=…` show the EEA consent form; `gemmory.umpDebugUsState=true` shows the US-states one (T34). Logcat `GemmoryAds` then prints the consent result, and `adb shell run-as com.brewingbytes.gemmory cat shared_prefs/com.brewingbytes.gemmory_preferences.xml` shows the GPP string UMP stored.
 - `android.testInstrumentationRunnerArguments.deviceChecks=true` runs the `@DeviceCheck` walkthroughs. `@PerfTest` classes (canvas frame timing, gallery load timing) run only on request via `am instrument -e class …`. The canvas frame-timing test fails past its pass line (Frame timing on Firebase Test Lab below).
 
 ## Encoder smoke on Firebase Test Lab
@@ -82,6 +82,8 @@ The same workflow runs `CanvasFrameTimingTest` (#54, design doc → #10 note) on
 ## Release
 
 `./gradlew :androidApp:bundleRelease` builds an R8-shrunk AAB. It's signed with the upload key when `local.properties` (git-ignored) sets `gemmory.upload.storeFile`, `gemmory.upload.storePassword`, `gemmory.upload.keyAlias` and `gemmory.upload.keyPassword`. The keystore lives outside the repo, and keystores, passwords and service-account files are never committed. The Play Console answers and the production gate are in [docs/play-compliance.md](docs/play-compliance.md).
+
+Real ads (T34): release builds take the production AdMob IDs from the committed `gradle.properties` (`gemmory.admob.appId`, `gemmory.admob.rewardedUnit`, `gemmory.admob.interstitialUnit`; they aren't secret). `:shared:validateReleaseAdIds` runs first in every release build and fails it when any is missing, blank or Google's test publisher, so a release can't ship test ads or none. Debug builds and connected tests always use Google's test IDs. Unity Ads bids through AdMob mediation with no Unity IDs in the app (they live in the AdMob console). Console setup, test mode and rollback: [docs/play-compliance.md](docs/play-compliance.md) → Real ads.
 
 The app icon (launcher foreground and monochrome, and the 512×512 Play Store icon `tools/store/icon-512.png`) comes from `tools/store/icon.py`; its docstring has the render command.
 

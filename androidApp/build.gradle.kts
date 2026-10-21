@@ -40,11 +40,16 @@ android {
         // (the runner takes one annotation here; @DeviceCheck tests skip themselves unless -e deviceChecks true).
         testInstrumentationRunnerArguments["notAnnotation"] = "com.brewingbytes.gemmory.PerfTest"
 
-        // Google's sample AdMob app ID: only test ads until production IDs are set up (#7 scope).
+        // Google's sample AdMob IDs: debug builds and connected tests only ever get test ads. Release builds take the
+        // production IDs from gradle.properties (T34), checked by :shared:validateReleaseAdIds.
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+        buildConfigField("String", "ADMOB_REWARDED", "\"ca-app-pub-3940256099942544/5224354917\"")
+        buildConfigField("String", "ADMOB_INTERSTITIAL", "\"ca-app-pub-3940256099942544/1033173712\"")
         // UMP debug settings for device checks: `-Pgemmory.umpDebugEea=true` forces the EEA geography,
+        // `-Pgemmory.umpDebugUsState=true` a regulated US state (T34: the US-states form, GPP strings for UsPrivacyTest),
         // `-Pgemmory.umpTestDevice=<hashed id from logcat>` marks the device as a test device. Debug builds only.
         buildConfigField("boolean", "UMP_DEBUG_EEA", "false")
+        buildConfigField("boolean", "UMP_DEBUG_US_STATE", "false")
         buildConfigField("String", "UMP_TEST_DEVICE", "\"\"")
         buildConfigField("boolean", "FAKE_BILLING", "false")
         // Crashlytics and Analytics send from release builds only (#12). The manifest reads the same switch.
@@ -71,6 +76,7 @@ android {
     buildTypes {
         debug {
             buildConfigField("boolean", "UMP_DEBUG_EEA", providers.gradleProperty("gemmory.umpDebugEea").getOrElse("false"))
+            buildConfigField("boolean", "UMP_DEBUG_US_STATE", providers.gradleProperty("gemmory.umpDebugUsState").getOrElse("false"))
             buildConfigField("String", "UMP_TEST_DEVICE", "\"${providers.gradleProperty("gemmory.umpTestDevice").getOrElse("")}\"")
             // Debug builds use the fake billing backend (src/debug) unless `-Pgemmory.fakeBilling=false`, which the
             // license-tester run on a Play Store emulator needs (#8). Release builds always use Google Play.
@@ -93,6 +99,10 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (uploadStoreFile != null) signingConfig = signingConfigs.getByName("upload")
+            // Real ads (T34): the committed production IDs. The task below fails the build when any is missing or a test ID.
+            manifestPlaceholders["admobAppId"] = providers.gradleProperty("gemmory.admob.appId").getOrElse("")
+            buildConfigField("String", "ADMOB_REWARDED", "\"${providers.gradleProperty("gemmory.admob.rewardedUnit").getOrElse("")}\"")
+            buildConfigField("String", "ADMOB_INTERSTITIAL", "\"${providers.gradleProperty("gemmory.admob.interstitialUnit").getOrElse("")}\"")
         }
     }
 
@@ -122,9 +132,14 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.lifecycle.process)
-    // Rewarded + interstitial ads and the UMP consent form (#7). Test ad units only for now (ads/AdUnits.kt).
+    // Rewarded + interstitial ads and the UMP consent form (#7). Real units in release builds (T34, BuildConfig.ADMOB_*).
     implementation(libs.play.services.ads)
     implementation(libs.ump)
+    // Unity Ads as a second bidder through AdMob mediation (T34, ad-mediation.md). No code races the two SDKs.
+    implementation(libs.unity.ads)
+    implementation(libs.unity.adapter)
+    // Reads the US-states opt-out UMP stores (IABGPP_HDR_GppString) for Unity's privacy.consent (T34).
+    implementation(libs.iabgpp.encoder)
     // Play Billing (#8): VIP subscriptions and remove_ads. Its manifest adds com.android.vending.BILLING.
     implementation(libs.play.billing.ktx)
     // Play Games Services v2 (#49): achievements only, automatic sign-in. No leaderboards or friends.
@@ -155,3 +170,7 @@ dependencies {
 // The Crashlytics plugin makes the mapping upload task but doesn't hang it on the App Bundle: every release AAB
 // uploads its R8 mapping, so the Crashlytics Console shows readable stack traces (#12). Needs network.
 tasks.matching { it.name == "bundleRelease" }.configureEach { finalizedBy("uploadCrashlyticsMappingFileRelease") }
+
+// Real ads (T34): a release can never ship with test ads or no ads. Hung on the release variant's first task, so
+// bundleRelease and assembleRelease fail in seconds, before R8; debug builds and connected tests never run it.
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(":shared:validateReleaseAdIds") }

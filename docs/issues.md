@@ -666,6 +666,22 @@ Out of scope: which pictures are free (#32). Effort: human ~1-2h / CC ~15min.
 
 ---
 
+## T34: Real ads: AdMob production units + Unity Ads mediation bidding
+Labels: P1, ads · Issue #74 (live scope there) · Design: `docs/designs/ad-mediation.md`
+
+**Why:** every release so far served Google's sample ads, worth €0. Real AdMob IDs in release builds, and Unity Ads as a second bidder through AdMob mediation. No code races the two SDKs, and the ad rules don't change.
+
+**Built (2026-10-21):**
+- **IDs:** committed `gemmory.admob.*` in `gradle.properties`. The release app ID goes in through `manifestPlaceholders`, the units through `BuildConfig.ADMOB_*`. Debug builds and connected tests keep Google's test IDs.
+- **Fail closed:** pure `ReleaseAdIds` (commonMain) behind `:shared:validateReleaseAdIds`. The task hangs on `preReleaseBuild`, so a release fails in seconds on a missing, blank, test-publisher or malformed ID.
+- **SDKs:** Unity Ads 4.21.0 with adapter 4.21.0.0.
+- **US-states consent:** `UsPrivacy` decodes UMP's GPP string with `iabgpp-encoder` 4.0.0. Its opt-out table covers every US section the library knows, and a test fails on a new one. `UnityConsent` writes Unity's `privacy.consent` after every consent update, and `AdStartup` writes it again before `MobileAds.initialize`. GDPR is left to the adapter, with no `gdpr.consent` write.
+- **Interstitial loads:** they use the resumed Activity (`ResumedActivity`, a weak reference cleared on pause and destroy) and retry on the next resume. Rewarded loads stay on the app context.
+- **Docs:** Data safety and the privacy policy are updated from Unity's disclosure.
+- **Debug switch:** `-Pgemmory.umpDebugUsState=true` shows the US-states form.
+
+---
+
 # Round 2: a reason to come back tonight (eng review, 2026-10-19)
 
 Source: `docs/designs/gemmory-round2.md` → Recommended Approach (T35-T44, amended by the CEO review C1-C7, E1-E4, D14-D15) and "Eng Review (Phase 3)" (D1-D13, E1-E9, O1-O3, R1, required repairs). Build order (CEO C1): **1a** = T35, T36, T44; **1b** = T37, T38; **T39** is a launch item beside #74; **wave 2** (T40-T43) runs in parallel with 1b. One PR per issue. Every issue keeps the AGENTS.md rules: photos never leave the phone, no ads on the canvas, adults only, pure `commonMain`, UI follows `docs/design-system.md`.
