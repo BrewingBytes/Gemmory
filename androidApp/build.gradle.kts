@@ -105,7 +105,35 @@ android {
             buildConfigField("String", "ADMOB_REWARDED", "\"${providers.gradleProperty("gemmory.admob.rewardedUnit").getOrElse("")}\"")
             buildConfigField("String", "ADMOB_INTERSTITIAL", "\"${providers.gradleProperty("gemmory.admob.interstitialUnit").getOrElse("")}\"")
         }
+        // Release-like build for the frame-timing check (#117): R8 and not debuggable, like what players run, but signed
+        // with the debug key so Test Lab installs it beside its test APK. Nothing leaves the phone: Google's test ad IDs,
+        // no Firebase, no Play Games (the debug manifest drops its init provider, #113), the fake billing backend.
+        create("perf") {
+            initWith(getByName("release"))
+            proguardFile("proguard-perf.pro")
+            testProguardFile("proguard-perf-test.pro")
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+            buildConfigField("String", "ADMOB_REWARDED", "\"ca-app-pub-3940256099942544/5224354917\"")
+            buildConfigField("String", "ADMOB_INTERSTITIAL", "\"ca-app-pub-3940256099942544/1033173712\"")
+            buildConfigField("boolean", "FIREBASE", "false")
+            manifestPlaceholders["firebaseEnabled"] = "false"
+            buildConfigField("boolean", "PLAY_GAMES", "false")
+            buildConfigField("boolean", "FAKE_BILLING", "true")
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> { mappingFileUploadEnabled = false }
+        }
     }
+
+    sourceSets {
+        getByName("perf") {
+            kotlin.srcDir("src/debug/kotlin")
+            manifest.srcFile("src/debug/AndroidManifest.xml")
+        }
+    }
+
+    // Connected tests run against debug; `-Pgemmory.testBuildType=perf` runs them against the release-like build (#117).
+    testBuildType = providers.gradleProperty("gemmory.testBuildType").getOrElse("debug")
 
     buildFeatures {
         compose = true

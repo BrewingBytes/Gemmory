@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.play
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
@@ -17,6 +18,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.PerfTest
@@ -28,6 +30,7 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -43,7 +46,8 @@ import kotlin.math.sin
  * a frame is missed when it ends more than [SLACK_NANOS] past its deadline, and a pan phase may miss [MAX_PAN_MISSED] of its frames,
  * a pinch phase [MAX_PINCH_MISSED] (a new zoom bucket builds its sprite atlas), the whole run [MAX_ALL_MISSED].
  * A phase with fewer than [MIN_FRAMES] frames fails too, since then nothing was measured. Test Lab runs it on the
- * low-end phone (README → "Frame timing on Firebase Test Lab"). Left out of connectedDebugAndroidTest; run it with
+ * low-end phone, on the release-like perf build (#117; README → "Frame timing on Firebase Test Lab"). Left out of
+ * connectedDebugAndroidTest; run it with
  * `am instrument -w -e class com.brewingbytes.gemmory.play.CanvasFrameTimingTest ...`; `-e highlight outline|dim`
  * times another Selected color style (#19, default tint), and `-e colors 60` a More colors canvas (#29, default 36).
  */
@@ -60,6 +64,10 @@ class CanvasFrameTimingTest {
 
     @Before
     fun setUp() {
+        // Every run says which build it timed (#117): the pass line is checked on the release-like perf build.
+        val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        Log.i(TAG, "build ${BuildConfig.BUILD_TYPE} debuggable=$debuggable")
+        if (BuildConfig.BUILD_TYPE == "perf") assertFalse("The perf build must not be debuggable", debuggable)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val app = context.applicationContext as GemmoryApp

@@ -15,6 +15,11 @@ on:
         type: choice
         options: [all, pixel, samsung, mediatek, frames]
         default: all
+      frame_build:
+        description: Build the frame-timing check runs on, perf (release-like, the pass line) or debug (for comparison)
+        type: choice
+        options: [perf, debug]
+        default: perf
       list_models:
         description: Only print the physical-device catalog (no test run, no quota used)
         type: boolean
@@ -74,8 +79,17 @@ jobs:
 
       # Instrumentation needs an APK pair of one build type; the encoder code is the same in debug and release.
       - name: Build the app and test APKs
-        if: ${{ !inputs.list_models }}
+        if: ${{ !inputs.list_models && inputs.phones != 'frames' }}
         run: ./gradlew :androidApp:assembleDebug :androidApp:assembleDebugAndroidTest
+
+      # Frame timing runs on the release-like perf build (#117: R8, not debuggable, debug-signed), or debug by hand.
+      - name: Build the frame-timing APKs
+        if: ${{ !inputs.list_models && (github.event_name == 'push' || inputs.phones == 'frames') }}
+        run: |
+          type="${{ inputs.frame_build || 'perf' }}"
+          Type="${type^}"
+          ./gradlew -Pgemmory.testBuildType=$type :androidApp:assemble$Type :androidApp:assemble${Type}AndroidTest
+          echo "FRAME_BUILD=$type" >> "$GITHUB_ENV"
 
       - name: Run on Test Lab
         if: ${{ !inputs.list_models && inputs.phones != 'frames' }}
@@ -109,15 +123,15 @@ jobs:
           gcloud firebase test android run \
             --type instrumentation \
             --no-auto-google-login \
-            --app androidApp/build/outputs/apk/debug/androidApp-debug.apk \
-            --test androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk \
+            --app "androidApp/build/outputs/apk/$FRAME_BUILD/androidApp-$FRAME_BUILD.apk" \
+            --test "androidApp/build/outputs/apk/androidTest/$FRAME_BUILD/androidApp-$FRAME_BUILD-androidTest.apk" \
             --test-targets "$FRAME_TARGETS" \
             --device "$MEDIATEK" \
             --timeout 10m \
             --num-flaky-test-attempts 0 \
             --results-history-name 'Gemmory frame timing' \
             --results-dir "frame-timing/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            --client-details "matrixLabel=$GITHUB_REF_NAME ${GITHUB_SHA::7}" \
+            --client-details "matrixLabel=$GITHUB_REF_NAME ${GITHUB_SHA::7} $FRAME_BUILD" \
             --format json > frames-outcome.json 2> >(tee frames.log >&2)
 
       - name: Summary and videos
