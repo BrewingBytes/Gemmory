@@ -4,7 +4,7 @@ Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decis
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
 Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
-Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88 and #90-#91 are PRs): #89 (founder request, 2026-10-20) is the last section.
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end.
 
 ---
 
@@ -956,3 +956,118 @@ Labels: none
 **Done when:** each tab shows what's left to play first, finished canvases sit in a collapsed "Finished · n" section at the end of each tab, a tap there opens the completion still as before, and the design system describes it.
 
 Depends on: T35 (#76) for the finish dates; the order works without them (undated canvases go last). Effort: human ~1d / CC ~45min.
+
+---
+
+## Streak A: celebration, streak screen and calendar, milestones (#101)
+Labels: P1, game, ui, persistence
+
+**Why:** the daily streak (#33) is a small chip nobody notices. A Duolingo-style streak (founder, CEO D1, 2026-10-21) gives a reason to come back tomorrow inside the app: a celebration on every new day, a screen that shows what you've built, milestones. Plan: [`docs/designs/streak-screen.md`](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/streak-screen.md) (CEO, eng and design reviews; the spec tables there are the source of truth).
+
+![Streak mockup v3](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/mockups/streak-screen/streak-v3.png?raw=true)
+
+Mockup page: `docs/designs/mockups/streak-screen/ui.html` (open locally; animated).
+
+**Scope**
+- **Streak math (commonMain, `DailyStreak`):** cover order day off → VIP weekly freeze (`vipFreezeDay`, E6) → inventory freezes (count passed in; freezes themselves land in #102, so A ships with 0); `DayResult(length, keptBy, freezesUsed, coveredDays)`; `shown()` counts cover; best length; repair state derived at read time (break day = lastDay + 1 + covered days, O1). Existing `DailyStreakTest` rows stay unchanged with `Cover.NONE`.
+- **Where it runs:** a suspend `Monetization.streakDay(...)` on the policy dispatcher with the loaded Inventory and entitlements (O2); streak prefs saved with `commit()` before any freeze spend (O3); a pending celebration (day, length, kept by) saved with it (E2).
+- **`StreakView` provider** (state + cover + VIP, policy thread, StateFlow) used by the chip, the screen, the reminder, achievements, and later the nudge and widget (O8).
+- **History:** "GMRS" codec file (Envelope + CRC, AtomicFiles), (day, kind, canvas ref), 400 days, days past lastDay ignored, backfilled once from play files; unrecorded days inside the current streak draw as kept (O7). Backed up (canvas ids only); `BackupRulesTest` + data extraction rules.
+- **Celebration** (`Route.StreakDay(fromRef, freshExit)`, O6): full screen on `felt-deep-dark` after leaving a fresh completion on a new streak day, from day 1 (E3). Animated literal flame (G1: grey until today is done, ignites 800ms, flickers), streak-hero number (G8) rolling up, Mon-Sun week row (G12), kept-by line, 5th-day gift line (G11), milestones 7/30/50/100/365 with the lamp edge and tier color; Continue primary, "See your streak" / "Share" as text (G10; Share wires up in #104). Then the existing chain: at most one of reminder ask → Play review → interstitial (caps), run when the gallery next shows (G6, O4). Killed app: full celebration if the finish was < 30 min ago, else the chip's flame ignites (G9). Milestones off = silent (G15).
+- **Streak screen** ("Your streak"): hero, today status, safety rows, next gift (`NextGift` moved to a shared file), the month calendar with every cell state from the spec table (G13 awaiting-cover dashed cell; cells not tappable, G16). Never-started and window-closed states. The repair panel arrives in #102.
+- **Chip:** a 48dp button from day 1 with the flame (grey/lit) and the count, opening the screen (G18).
+- **Kill switch:** one build-config flag turns the celebration (and B's nudge) off (O5).
+
+**Docs this issue owns:** `docs/design-system.md` (#33 rewrite, flame colors and `streak-hero` in the decision log, One interruption per return, Motion and reduced-motion list, Navigation map, lamp on the today cell and milestone edge), `docs/designs/gemmory.md` (#33 paragraph), `docs/privacy-policy.md` + `docs/play-compliance.md` (streak history on the phone; new events).
+
+**Analytics:** `streak_celebration_shown` (length, milestone, saved_by), `streak_screen_opened` (source).
+
+**Tests:** `DailyStreakTest` (cover order, VIP freeze week, `shown` with cover, repair derivation: back after N days, repair after finishing today), `StreakHistoryTest` (codec, cap, reconcile, backfill), `PlayStreakTest` (pending celebration across recreate; save-then-spend order), `StreakFlowTest` (finish → celebration → gallery → chain; day 1 → ask follows; rotation on the celebration), `BackupRulesTest`, screenshot + `AccessibilityChecksTest` at 1x and 2x font.
+
+**Target and kill rule (O5):** next-day return after a celebration beats next-day return after a finish today; turn the flag off on 1-star reviews citing pressure or a median session drop.
+
+**Done when:** every new streak day is celebrated once (surviving rotation and process death per G9), the screen and calendar match the spec tables and the mockup, the existing return chain still runs after the celebration, and all tests above pass.
+
+Effort: human ~5d / CC ~3h. Blocks: #102, #103, #104.
+
+---
+
+## Streak B: keep-alive nudge, streak freezes, repair, streak-first reminder (#102)
+Labels: P2, game, ui, ads
+
+**Why:** a streak people can lose needs ways to keep it: a nudge toward the quickest finish, freezes, a repair after a break, and an evening note on the night it really ends. Plan: [`docs/designs/streak-screen.md`](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/streak-screen.md); mockup sections 3-5:
+
+![Streak mockup v3](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/mockups/streak-screen/streak-v3.png?raw=true)
+
+**Scope**
+- **Nudge** (G2-G4): a line under a hairline in the Today card when the streak is 2+ and nothing is finished today: "Finish a picture today to keep your 6 days" + "Today's picture is Quick" or "Harbour is 82% done"; opens that canvas directly (Today's picture if Quick and unfinished, else the canvas closest to done, else a Quick picture). No Today card: its own felt-deep card in that slot; above 1.5x font it replaces the 2nd collection row. Broken, in the repair window: chip grey flame "0 ›" and the line "Your 12 days can still be restored" → streak screen.
+- **Freezes** (E5, E7): `Item.STREAK_FREEZE` (InventoryCodec v3, v2 files decode with 0); held up to 2; spent after the streak save; wheel odds Fills 5: 45, Fills 10: 20, Photo canvas: 15, Token: 10, Freeze: 10; at 2 held the slice pays and reads "5 fills". Inventory sheet row "Streak freezes" / "Covers a missed day after your day off. Hold up to 2." VIP: never spends inventory freezes (kept for after a lapse).
+- **Repair** (E8, O1, E6): offered while today - break day ≤ 2, once per 30 days, broken length ≥ 2; `RewardType.STREAK_REPAIR` with the standard online no-fill grace (`LedgerCodec` version bump, O10); VIP free ("Bring it back"). Panel and every state's copy from the spec tables (ready, offline in `fault`, grace, closed early, restored roll-up). Missed days log as repaired; repair on an already-finished day keeps today.
+- **Evening reminder** (G5, eng finding 4): the streak reason counts the day off and freezes, and on a night the streak really ends it outranks drop and Today: "Your 6-day streak ends at midnight" / "Finish any picture tonight to keep it. Lighthouse is Quick."; tap → the nudge's canvas.
+- Copy follows G7: true facts and weekday dates, no countdowns, no "!", no guilt.
+
+**Docs this issue owns:** `docs/design-system.md` (Inventory row, wheel odds, Rewarded states for repair, Evening reminder copy and priority), `docs/designs/ad-mediation.md` (repair placement), `docs/play-compliance.md` (new events).
+
+**Analytics:** `streak_nudge_shown` / `_tapped`, `streak_repair_offered` / `_completed` (vip), `streak_freeze_earned` / `_used`; repair also logs the existing `rewarded_*` and `grace_unlock_granted` events.
+
+**Tests:** `InventoryTest` (v2 → v3 decode, odds, at-cap payout), `RewardedRulesTest` + ledger codec (STREAK_REPAIR grace, old version), `ReminderReasonsTest` (freeze held suppresses the streak reason; streak first), `DailyStreakTest` (freezes cover 2 missed days, 3rd breaks), connected nudge and repair flows (video, grace, offline, VIP).
+
+**Target and kill rule (O5):** share of 7-day streaks kept alive by a freeze or repair; the build flag also hides the nudge.
+
+**Done when:** the nudge, freezes, repair and reminder behave per the spec tables, no video failure ever loses a streak that grace should save, and the tests above pass.
+
+Depends on: #101. Effort: human ~4d / CC ~2h.
+
+---
+
+## Streak C: home-screen widget (#103)
+Labels: P2, ui
+
+**Why:** Duolingo's home-screen widget keeps the streak in view without opening the app. Plan: [`docs/designs/streak-screen.md`](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/streak-screen.md) (G17); mockup section 5:
+
+![Streak mockup v3](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/mockups/streak-screen/streak-v3.png?raw=true)
+
+**Scope**
+- One 2x2 Glance widget (`androidx.glance:glance-appwidget`, new dependency) on a fixed felt ground (no dynamic color): the count in mono, the flame grey until today's finish and lit after, and "Not yet today" / "Done today" / "Start a streak". Never a picture, never a photo.
+- Reads `StreakView` (#101), so it agrees with the chip and the screen, freezes included.
+- Updates on a finish, at local midnight, and on time-zone or date change. Picker preview image and description.
+- Tap → the streak screen with the gallery under it, so back goes to the gallery.
+- TalkBack: "Gemmory streak, 6 days, done today".
+
+**Docs this issue owns:** `docs/design-system.md` (Widget component and Navigation map), README (the new dependency), `docs/play-compliance.md` if anything changes there.
+
+**Analytics:** `streak_widget_added`.
+
+**Tests:** Glance unit test for each state; a check that a finish and midnight both update it; R8 release smoke (new dependency).
+
+**Target and kill rule (O5):** widget adds per weekly active player; remove it if it adds crashes or ANRs.
+
+**Done when:** the widget shows the right state within a minute of a finish and after midnight, opens the streak screen, and passes the release smoke.
+
+Depends on: #101. Effort: human ~3d / CC ~1.5h.
+
+---
+
+## Streak D: milestone share card (#104)
+Labels: P2, ui
+
+**Why:** milestones are when people are proudest; a share card at 7, 30, 50, 100 and 365 days spreads the app the way the time-lapse does. Plan: [`docs/designs/streak-screen.md`](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/streak-screen.md) (G14); mockup section 5:
+
+![Streak mockup v3](https://github.com/BrewingBytes/Gemmory/blob/465ddba25adcb3d2396056a79a8f43b59477e9a8/docs/designs/mockups/streak-screen/streak-v3.png?raw=true)
+
+**Scope**
+- A 1080×1920 PNG on the felt ground with grain: the tier flame, the number (streak-hero), the milestone line ("A week of gems", "A month of gems", "50 days of gems", "100 days of gems", "A year of gems"), the milestone week Monday-Sunday, and the app name.
+- Week cells: each day the bundled or remote picture finished that day (first one); a photo-only day or a kept day shows the lit flame; later days are empty outlines. **Never a photo canvas, its pixels or its colors** (AGENTS.md: user photos never leave the phone).
+- Entry: the milestone celebration's "Share" text button (#101, G10); shared through the existing share sheet.
+
+**Docs this issue owns:** `docs/design-system.md` (share card spec next to the 9:16 frame), `docs/privacy-policy.md` if wording about shared content needs it.
+
+**Analytics:** `streak_share_completed` (milestone).
+
+**Tests:** renderer test asserting a photo canvas is never drawn (photo-only day → flame), golden for one milestone card, connected share flow.
+
+**Target and kill rule (O5):** share rate at milestones; no kill needed beyond the build flag.
+
+**Done when:** a milestone celebration's Share produces the card per spec, with no photo-derived content, through the share sheet.
+
+Depends on: #101. Effort: human ~1.5d / CC ~45min.

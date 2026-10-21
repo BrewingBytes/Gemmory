@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemmory streak v3</title>
+<style>
+@font-face { font-family: "Bricolage"; src: url("../../../../androidApp/src/main/res/font/bricolage_grotesque.ttf"); }
+@font-face { font-family: "Figtree"; src: url("../../../../androidApp/src/main/res/font/figtree.ttf"); }
+@font-face { font-family: "AHMono"; src: url("../../../../androidApp/src/main/res/font/atkinson_hyperlegible_mono.ttf"); font-weight: 700; }
+:root {
+  --felt:#4F5A52; --felt-deep:#3E4741; --felt-raised:#5C685F; --felt-deep-dark:#2E3530;
+  --bone:#E9E4D8; --on-bone:#2B322D; --muted:#CDD3C9; --lamp:#F4E3B1; --patina:#7FB3A0;
+  --fault:#E8B09E; --ground:#262c28; --flame:#F5A623; --flame-30:#F08A2C; --flame-100:#E0563B; --ember:#7E8880;
+}
+* { box-sizing: border-box; }
+::selection { background: var(--lamp); color: var(--on-bone); }
+body { margin:0; padding:28px 32px 80px; background:var(--ground); color:var(--bone); font-family:Figtree, sans-serif; }
+h1 { font-family:Bricolage; font-weight:600; font-size:30px; margin:0 0 6px; }
+h2 { font-family:Bricolage; font-weight:600; font-size:22px; margin:48px 0 4px; }
+p.lead, .note { color:var(--muted); max-width:1100px; line-height:1.5; font-size:14px; margin:4px 0 12px; }
+.note b, .lead b { color:var(--bone); }
+.row { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+.col { width:360px; }
+.cap { font-size:13px; color:var(--muted); line-height:1.45; margin-top:8px; }
+.cap b { color:var(--bone); }
+.opt { font-family:Bricolage; font-size:18px; margin:0 0 6px; }
+.chosen { color:var(--patina); font-size:13px; font-family:Figtree; }
+.pend { color:var(--lamp); font-size:13px; font-family:Figtree; }
+code { font-family:AHMono; font-size:12px; }
+a { color:var(--lamp); }
+.decided { max-width:1100px; background:var(--felt-deep); border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.6; color:var(--muted); }
+.decided b { color:var(--bone); }
+
+.phone { width:360px; min-height:640px; background:var(--felt); border-radius:18px; overflow:hidden; position:relative; }
+.bar { height:56px; display:flex; align-items:center; padding:0 8px 0 4px; gap:4px; }
+.bar .t { font-family:Bricolage; font-weight:600; font-size:22px; flex:1; }
+.ib { width:48px; height:48px; display:grid; place-items:center; font-size:22px; }
+.tabs { display:flex; gap:8px; padding:0 16px 8px; align-items:center; font-size:15px; flex-wrap:wrap; }
+.tab { padding:10px 14px; border-radius:6px; } .tab.on { background:var(--felt-deep); font-weight:600; }
+.chipS { margin-left:auto; background:var(--felt-deep); border-radius:4px; padding:0 10px 0 8px; font-size:13px; display:flex; align-items:center; gap:6px; min-height:48px; }
+.chipS b { font-family:AHMono; font-size:15px; }
+.today { margin:4px 16px 12px; background:var(--felt-deep); border-radius:12px; padding:12px; }
+.today .top { display:flex; gap:12px; }
+.today .k { font-size:13px; color:var(--muted); } .today .ti { font-size:16px; font-weight:600; margin:2px 0; } .today .l { font-size:13px; color:var(--muted); }
+.today .line { border-top:1px solid rgba(233,228,216,.14); margin-top:12px; padding-top:10px; display:flex; gap:10px; align-items:center; min-height:56px; }
+.qb { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:0 16px; background:var(--felt-raised); color:var(--bone); border-radius:6px; font-weight:600; font-size:15px; margin-top:8px; }
+.pb { display:flex; align-items:center; justify-content:center; min-height:48px; padding:0 18px; background:var(--bone); color:var(--on-bone); border-radius:6px; font-weight:600; font-size:16px; }
+.tb { min-height:48px; display:flex; align-items:center; justify-content:center; text-decoration:underline; text-underline-offset:3px; font-size:16px; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px 16px; }
+.grid canvas { width:100%; border-radius:4px; display:block; }
+
+.cele { background:var(--felt-deep-dark); min-height:640px; display:flex; flex-direction:column; padding:48px 24px 24px; position:relative; }
+.cele .anchor { align-self:center; margin:12px 0 0; height:112px; display:grid; place-items:end center; }
+.cele .num { font-family:AHMono; font-size:88px; line-height:1; text-align:center; height:92px; overflow:hidden; }
+.cele .num span { display:block; transition: transform 600ms cubic-bezier(.2,.8,.2,1); }
+.cele .what { font-family:Bricolage; font-weight:600; font-size:22px; text-align:center; margin:6px 0 4px; }
+.cele .sub { font-size:16px; text-align:center; color:var(--muted); line-height:1.5; margin:0 8px; }
+.cele .giftline { margin:14px 0 0; text-align:center; font-size:15px; color:var(--bone); }
+.cele .spacer { flex:1; }
+.cele .milestone { position:absolute; inset:0; pointer-events:none; animation: edge 1400ms 300ms ease-in-out 1 forwards; }
+@keyframes edge { 40% { box-shadow: inset 0 0 0 2px rgba(244,227,177,.9); } 100% { box-shadow: inset 0 0 0 2px rgba(244,227,177,0); } }
+.week { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:6px; margin:22px 0 0; }
+.week .d { text-align:center; font-size:12px; color:var(--muted); }
+.week .c { aspect-ratio:1; border-radius:2px; display:grid; place-items:center; background:var(--felt-deep); }
+.week .c.today { box-shadow: 0 0 0 2px var(--lamp); }
+
+.hero { display:flex; gap:14px; align-items:center; padding:8px 16px 4px; }
+.hero .n { font-family:AHMono; font-size:56px; line-height:1; }
+.hero .w { font-family:Bricolage; font-weight:600; font-size:22px; }
+.hero .b { font-size:13px; margin-top:2px; } .hero .b b { font-family:AHMono; }
+.todayline { margin:4px 16px 0; font-size:15px; display:flex; gap:8px; align-items:center; }
+.sect { margin:12px 16px; background:var(--felt-deep); border-radius:12px; padding:12px 14px; }
+.sect h4 { margin:0 0 8px; font-size:13px; font-weight:600; color:var(--muted); }
+.status { display:flex; gap:10px; align-items:center; font-size:15px; min-height:32px; }
+.status + .status { margin-top:8px; }
+.status .ic { width:22px; display:grid; place-items:center; flex:none; }
+.status small { color:var(--muted); font-size:13px; }
+.steps { display:flex; gap:4px; margin-top:8px; } .steps i { flex:1; height:6px; border-radius:2px; background:var(--felt); } .steps i.on { background:var(--bone); }
+.cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
+.cal .h { font-size:12px; color:var(--muted); text-align:center; }
+.cal .c { aspect-ratio:1; border-radius:2px; position:relative; display:grid; place-items:center; font-family:AHMono; font-size:11px; color:var(--muted); }
+.cal .c.past { background:var(--felt); }
+.cal .c canvas { width:100%; height:100%; display:block; border-radius:2px; }
+.cal .c.today { box-shadow:0 0 0 2px var(--lamp); }
+.cal .c .mk { position:absolute; inset:0; display:grid; place-items:center; }
+.calnav { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.calnav .m { font-weight:600; font-size:15px; }
+.repair { margin:12px 16px; background:var(--felt-deep); border-radius:12px; padding:14px; }
+.repair .t { font-family:Bricolage; font-weight:600; font-size:22px; margin-bottom:4px; }
+.repair p { margin:0 0 12px; font-size:16px; line-height:1.5; }
+.repair .mut { font-size:13px; color:var(--muted); margin-top:8px; }
+
+.sheetwrap { background:rgba(20,24,21,.55); padding-top:150px; min-height:640px; }
+.sheet { background:var(--felt-deep); border-radius:16px 16px 0 0; padding:8px 20px 20px; }
+.handle { width:32px; height:4px; background:var(--muted); opacity:.6; border-radius:2px; margin:10px auto 14px; }
+.sheet h3 { font-family:Bricolage; font-weight:600; font-size:22px; margin:0 0 10px; }
+.item { display:flex; gap:12px; align-items:center; padding:8px 0; }
+.item .well { width:56px; height:56px; border-radius:6px; background:var(--felt-deep-dark); box-shadow: inset 0 3px 6px rgba(0,0,0,.45); display:grid; place-items:center; flex:none; position:relative; }
+.item .well b { position:absolute; right:4px; bottom:2px; font-family:AHMono; font-size:13px; }
+.item .tx { font-size:16px; } .item .tx small { display:block; font-size:13px; color:var(--muted); line-height:1.4; }
+
+.home { width:360px; height:220px; border-radius:18px; background: linear-gradient(160deg,#2c3a46,#1f2730); padding:20px; display:flex; gap:12px; }
+.wid { width:100px; height:100px; border-radius:20px; background:var(--felt); padding:10px; display:flex; flex-direction:column; justify-content:space-between; }
+.wid .n { font-family:AHMono; font-size:30px; line-height:1; } .wid .s { font-size:11px; }
+.card916 { width:270px; height:480px; border-radius:12px; background:var(--felt-deep); display:flex; flex-direction:column; align-items:center; padding:56px 20px 24px; }
+.card916 .n { font-family:AHMono; font-size:96px; line-height:1; margin-top:12px; }
+.card916 .t { font-family:Bricolage; font-weight:600; font-size:26px; margin-top:4px; }
+.card916 .brand { margin-top:auto; font-family:Bricolage; font-weight:600; font-size:16px; color:#F2EEE4; }
+.shade { width:360px; background:#1d2022; border-radius:18px; padding:12px; }
+.notif { background:#2c3134; border-radius:20px; padding:12px 14px; display:flex; gap:12px; color:#e8eaed; }
+.notif .body { flex:1; } .notif .app { font-size:12px; color:#aab0b5; } .notif .tt { font-size:15px; font-weight:600; margin-top:2px; } .notif .tx { font-size:14px; color:#c9cdd1; margin-top:1px; }
+
+.states { display:flex; gap:28px; align-items:flex-end; flex-wrap:wrap; }
+.states figure { margin:0; text-align:center; } .states figcaption { font-size:12px; color:var(--muted); margin-top:6px; max-width:110px; }
+
+/* flame motion */
+.flm { transform-origin:50% 95%; animation: flick 1.6s ease-in-out infinite; }
+.flm .core { transform-origin:50% 95%; animation: flick2 1.1s ease-in-out infinite; }
+@keyframes flick { 0%,100% { transform: scale(1,1) skewX(0); } 30% { transform: scale(.97,1.05) skewX(-2deg); } 60% { transform: scale(1.02,.97) skewX(1.5deg); } }
+@keyframes flick2 { 0%,100% { transform: scale(1,1); } 50% { transform: scale(.88,1.14); } }
+.ignite { animation: ignite 800ms cubic-bezier(.2,.8,.2,1) 1 both; transform-origin:50% 95%; }
+@keyframes ignite { 0% { transform: scale(.25); filter: grayscale(1); } 55% { transform: scale(1.14); filter: grayscale(0); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .flm, .flm .core, .ignite { animation:none !important; } }
+</style>
+</head>
+<body>
+<h1>Streak v3 · every decision applied</h1>
+<p class="lead">Final mockup for the Duolingo-style streak (design review G1-G18, eng E1-E8 / O1-O11). Every screen follows an approved decision; the full copy, state, accessibility and motion tables are in <code>docs/designs/streak-screen.md</code>. Thumbnails are stand-in pixel art; phones are 360dp.</p>
+<div class="decided"><b>Applied:</b> literal flame, animated like Duolingo (grey until today's picture is done, lit after) · nudge = a line in the Today card that opens the canvas · the evening reminder puts the streak first on a night it really ends · during the 2-day repair window the chip shows a grey flame and "0" and the nudge offers the repair · after the celebration, at most one of reminder ask → Play review → interstitial, run when the gallery next shows (never between the celebration and the streak screen) · copy: true facts and weekday dates, no countdowns, no "!", no guilt · streak-hero number: mono 88sp (celebration, share card), 56sp (streak screen), capped at 64sp above 1.5× font · a killed app shows the celebration if the finish was under 30 min ago, else the chip's flame ignites · milestones: Continue primary, Share as text · gift: a line only · week row Monday-Sunday · awaiting-cover day is dashed · share card shows bundled pictures only · Milestones off = silent celebration · calendar days aren't tappable · widget 2×2 on felt.</div>
+
+<h2>1 · The flame</h2>
+<p class="lead">Flat vector, no glow. It flickers in a 1.6s loop wherever it's 40dp or bigger (static on the chip, in lists and under reduced motion). Color says how far along you are: amber from day 1, orange from 30, red-orange from 100.</p>
+<div class="sect" style="max-width:1100px;margin:0"><div class="states" id="flames"></div></div>
+
+<h2>2 · Day-extended celebration</h2>
+<p class="lead">Full screen on <code>felt-deep-dark</code> after the completion screen, on the first finish of a new day. The flame ignites (grey → lit, 800ms), the number rolls up (600ms), then the week fills. <a href="#" onclick="replay();return false">replay</a></p>
+<div class="row">
+  <div class="col"><div class="opt">Day 1</div><div class="phone" id="c1"></div>
+    <div class="cap"><b>Copy:</b> "You started a streak" / "Finish a picture tomorrow to make it 2." On the first finish the reminder ask follows on the gallery. <b>TalkBack:</b> polite "Streak started. 1 day."</div></div>
+  <div class="col"><div class="opt">Day 5 · gift line</div><div class="phone" id="c2"></div>
+    <div class="cap"><b>Copy:</b> "5 days in a row" / "Finish one tomorrow to make it 6." Gift line: "Your 5-day gift spin is in the bag." No third button; the bag shows its dot as today. VIP: no line.</div></div>
+  <div class="col"><div class="opt">Kept by the day off or a freeze</div><div class="phone" id="c3"></div>
+    <div class="cap"><b>Copy:</b> "Your day off on Tuesday kept it going." / "A streak freeze kept it going on Tuesday. 1 left." / "Your VIP freeze kept it going." The covered day fills first in its own mark, then today's flame.</div></div>
+  <div class="col"><div class="opt">Milestone 7</div><div class="phone" id="c4"></div>
+    <div class="cap"><b>7, 30, 50, 100, 365:</b> bigger flame and a 2dp lamp edge that brightens and fades once. "A week of gems" (30 "A month of gems", 50 "50 days of gems", 100 "100 days of gems", 365 "A year of gems"). <b>Reduced motion:</b> flame lit and still, number shown, no edge; sound and haptic stay.</div></div>
+</div>
+
+<h2>3 · The streak screen</h2>
+<p class="lead">From the chip, "See your streak", or the broken nudge. Order: flame + number + best, today's status, safety (day off, freezes), next gift, the month. The week row is Monday-Sunday.</p>
+<div class="row">
+  <div class="col"><div class="opt">Alive, not done today</div><div class="phone" id="s1"></div>
+    <div class="cap">The flame is <b>grey</b> until today's finish. Status: "Finish a picture today to keep it" with a quiet "Today's picture" (opens the canvas). Yesterday was missed and will be covered: dashed cell and "Yesterday is covered by your day off when you finish today."</div></div>
+  <div class="col"><div class="opt">Alive, done today</div><div class="phone" id="s2"></div>
+    <div class="cap">Flame lit and flickering. Status: "Done for today". Calendar: each finished day shows the first picture finished that day; days kept before round 2 show a small lit flame; day off = bone outline; freeze = patina square; today = lamp outline. Cells are not tappable.</div></div>
+  <div class="col"><div class="opt">Broken, repair window (free)</div><div class="phone" id="s3"></div>
+    <div class="cap">Grey flame, "0", "Best: 12". Repair first: "Bring back your 12 days" / "Your streak ended on Tuesday. Watch a short video to restore it." / "Watch a video" / "You can do this until Thursday, once a month." VIP: "Bring it back". Offline: "You're offline. Connect to watch a video." in fault.</div></div>
+  <div class="col"><div class="opt">Never started / window closed</div><div class="phone" id="s4"></div>
+    <div class="cap">Grey flame, "0", "Finish any picture to start a streak." and a quiet "Today's picture". Best shows only if there was one. The calendar still shows finished days.</div></div>
+</div>
+
+<h2>4 · Gallery and the evening reminder</h2>
+<div class="row">
+  <div class="col"><div class="opt">Not done today <span class="chosen">chosen: N1</span></div><div class="phone" id="g1"></div>
+    <div class="cap">Chip: grey flame + "6" until today's finish (lit after, nudge gone). Line in the Today card: "Finish a picture today to keep your 6 days" / "Today's picture is Quick" → opens Lighthouse. <b>TalkBack</b> chip: "6 days in a row, not done today, button, opens your streak".</div></div>
+  <div class="col"><div class="opt">Target is another canvas</div><div class="phone" id="g2"></div>
+    <div class="cap">When Today's picture isn't Quick or is done, the line names the canvas closest to done: "Harbour is 82% done" → opens it. With no Today card, the same line is its own felt-deep card in that slot.</div></div>
+  <div class="col"><div class="opt">Broken, repair window</div><div class="phone" id="g3"></div>
+    <div class="cap">Chip: grey flame + "0 ›". Line: "Your 12 days can still be restored" → streak screen. After the window both go away.</div></div>
+  <div class="col"><div class="opt">Evening reminder <span class="chosen">chosen: streak first</span></div><div class="shade"><div class="notif"><div id="nfl" style="flex:none"></div><div class="body"><div class="app">Gemmory · 20:30</div><div class="tt">Your 6-day streak ends at midnight</div><div class="tx">Finish any picture tonight to keep it. Lighthouse is Quick.</div></div></div></div>
+    <div class="cap">Only on a night it really ends (day off and freezes counted). Ranks first, ahead of a drop and Today's picture. Tap → the nudge's canvas. Large icon: the app icon (never a photo).</div></div>
+</div>
+
+<h2>5 · Freeze, widget, share card</h2>
+<div class="row">
+  <div class="col"><div class="opt">Inventory sheet</div><div class="phone" id="i1"></div>
+    <div class="cap">New 4th row "Streak freezes" / "Covers a missed day after your day off. Hold up to 2." The wheel's freeze slice reads "Freeze" (at 2 held: "5 fills").</div></div>
+  <div class="col"><div class="opt">Widget 2×2</div><div class="home" id="w1"></div>
+    <div class="cap">Fixed felt ground (no dynamic color). Not done today: grey flame "Not yet today"; done: lit "Done today"; broken/new: "Start a streak". Tap → streak screen with the gallery under it.</div></div>
+  <div class="col"><div class="opt">Milestone share card</div><div class="card916" id="sc"></div>
+    <div class="cap">The tier flame, the number, the milestone line, then the milestone week Monday-Sunday: each day the bundled or remote picture finished that day; a photo-only day or a kept day shows the lit flame (never a photo canvas or its colors); days after the milestone are empty outlines. 1080×1920 PNG.</div></div>
+</div>
+
+<script>
+const C = { felt:'#4F5A52', deep:'#3E4741', raised:'#5C685F', bone:'#E9E4D8', onBone:'#2B322D', muted:'#CDD3C9', lamp:'#F4E3B1', patina:'#7FB3A0', fault:'#E8B09E', ember:'#7E8880' };
+function flameCol(t){ return t>=100?'#E0563B':t>=30?'#F08A2C':'#F5A623'; }
+function flame(size, tier=1, lit=true, opts={}) {
+  const col = lit?flameCol(tier):C.ember, core = lit?'#FCE3A6':'#A3ACA4';
+  const anim = lit && size>=40 && !opts.still ? 'flm' : '';
+  return `<svg class="${anim} ${opts.ignite?'ignite':''}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5-1.5 5-1.5 7.5 0 1.6 1.2 2.6 2.4 2.6 1.8 0 2.6-1.6 2.1-3.6C17.6 10.4 19 13 19 15.3 19 19 15.9 22 12 22s-7-3-7-6.7c0-4.4 4.5-6.2 7-13.3z" fill="${col}"/><path class="core" d="M12 13.5c.4 1.4-.8 2.2-.8 3.4 0 .9.7 1.5 1.5 1.5 1.2 0 1.9-1 1.6-2.4.9.7 1.4 1.7 1.4 2.6 0 1.9-1.6 3.4-3.6 3.4s-3.6-1.5-3.6-3.4c0-2.2 2.2-3.2 3.5-5.1z" fill="${core}"/></svg>`;
+}
+function mark(m,s){
+  if(m==='o') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="none" stroke="${C.bone}" stroke-width="2"/></svg>`;
+  if(m==='f') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="${C.patina}"/><path d="M${s/2} 7v${s-14}M7 ${s/2}h${s-14}" stroke="${C.deep}" stroke-width="1.6"/></svg>`;
+  if(m==='r') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="${C.bone}"/><path d="M6 ${s/2}h${s-12}" stroke="${C.onBone}" stroke-width="1.6" stroke-dasharray="3 2"/></svg>`;
+  if(m==='p') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="none" stroke="${C.muted}" stroke-width="1.5" stroke-dasharray="3 3"/></svg>`;
+  return '';
+}
+// flame states
+document.getElementById('flames').innerHTML = [
+  [flame(16,6,false),'chip, not done today'],[flame(16,6,true),'chip, done'],[flame(64,6,false),'not done today'],[flame(64,6,true),'done (flickers)'],
+  [flame(48,1),'day 1-29'],[flame(48,30),'30+'],[flame(48,100),'100+'],[flame(48,6,false,{still:true}),'broken (0)']
+].map(([s,c])=>`<figure>${s}<figcaption>${c}</figcaption></figure>`).join('');
+
+function rnd(seed){ let x=seed*9301+49297; return ()=>{ x=(x*9301+49297)%233280; return x/233280; }; }
+const PALS = [['#2f4f6f','#6f9fbf','#e8d8a8','#c86f3f','#1f2f3f'],['#5f7f3f','#9fbf5f','#3f5f2f','#e8e0b0','#8f6f3f'],['#8f3f4f','#df8f8f','#f0d0c0','#5f2f3f','#2f1f2f'],['#3f6f6f','#7fbfaf','#d0e8d8','#1f3f3f','#e0b060'],['#6f4f8f','#a08fc0','#e8d8f0','#3f2f4f','#d0a060']];
+function pic(w,h,seed,cells=10){ const cv=document.createElement('canvas'); cv.width=cells; cv.height=Math.round(cells*h/w); const g=cv.getContext('2d'); const r=rnd(seed); const pal=PALS[seed%PALS.length];
+  for(let y=0;y<cv.height;y++)for(let x=0;x<cells;x++){ const band=Math.floor((y/cv.height)*3+r()*1.2); g.fillStyle=pal[Math.min(pal.length-1,band+(r()<.2?1:0))]; g.fillRect(x,y,1,1);} cv.style.imageRendering='pixelated'; return cv; }
+
+// rolling 7 days ending today (today = Thu)
+const last7 = ['M','T','W','T','F','S','S']; const TODAY=3;
+function weekRow(marks, tier=5){
+  return `<div class="week">${last7.map(d=>`<div class="d">${d}</div>`).join('')}${marks.map((m,i)=>`<div class="c${i===TODAY?' today':''}">${m==='g'?flame(22,tier,true,{still:true}):m==='e'?'':mark(m,26)}</div>`).join('')}</div>`; }
+
+function celebration(o){
+  return `<div class="cele">${o.milestone?'<div class="milestone"></div>':''}
+    <div class="anchor">${flame(o.milestone?112:96, o.to, true, {ignite:true})}</div>
+    <div class="num"><span class="rollnum" data-from="${o.from}" data-to="${o.to}">${o.to}</span></div>
+    <div class="what">${o.what}</div><div class="sub">${o.sub}</div>
+    ${weekRow(o.week, o.to)}
+    ${o.gift?`<div class="giftline">Your 5-day gift spin is in the bag.</div>`:''}
+    <div class="spacer"></div><div class="pb">Continue</div><div class="tb">${o.milestone?'Share':'See your streak'}</div></div>`; }
+const cel = [
+  ['c1',{from:0,to:1,what:'You started a streak',sub:'Finish a picture tomorrow to make it 2.',week:['e','e','e','g','e','e','e']}],
+  ['c2',{from:4,to:5,what:'5 days in a row',sub:'Finish one tomorrow to make it 6.',week:['g','g','g','g','e','e','e'],gift:true}],
+  ['c3',{from:7,to:8,what:'8 days in a row',sub:'Your day off on Tuesday kept it going.',week:['g','o','g','g','e','e','e']}],
+  ['c4',{from:6,to:7,what:'A week of gems',sub:'7 days in a row.',week:['g','g','g','g','e','e','e'],milestone:true}]];
+function drawCel(){ cel.forEach(([id,o])=>document.getElementById(id).innerHTML=celebration(o)); roll(); }
+function roll(){ document.querySelectorAll('.rollnum').forEach(el=>{ const p=el.parentElement; p.innerHTML=`<span>${el.dataset.from}</span><span>${el.dataset.to}</span>`; const [a,b]=p.children; setTimeout(()=>{ a.style.transform='translateY(-100%)'; b.style.transform='translateY(-100%)'; }, 500); }); }
+function replay(){ drawCel(); }
+drawCel();
+
+function calendar(spec){ let h=`<div class="calnav"><span class="ib" style="width:48px;height:48px">‹</span><span class="m">October</span><span class="ib" style="width:48px;height:48px;opacity:.35">›</span></div><div class="cal">${['M','T','W','T','F','S','S'].map(d=>`<div class="h">${d}</div>`).join('')}<div></div><div></div>`;
+  spec.forEach((m,i)=>{ const d=i+1;
+    if(m==='p') h+=`<div class="c past" data-pic="${d}"></div>`;
+    else if(m==='u') h+=`<div class="c">${d}</div>`;
+    else if(m==='t') h+=`<div class="c past today">${d}</div>`;
+    else if(m==='T') h+=`<div class="c past today" data-pic="${d}"></div>`;
+    else if(m==='x') h+=`<div class="c past">${d}</div>`;
+    else if(m==='k') h+=`<div class="c past"><span class="mk">${flame(20,5,true,{still:true})}</span></div>`;
+    else h+=`<div class="c past"><span class="mk">${mark(m,30)}</span></div>`; });
+  return h+`</div>`; }
+function fillPics(root){ root.querySelectorAll('[data-pic]').forEach(el=>el.appendChild(pic(1,1,+el.dataset.pic*7,8))); }
+const bar = t => `<div class="bar"><span class="ib">←</span><span class="t">${t}</span></div>`;
+const hero = (n,best,lit) => `<div class="hero"><div>${flame(72,n,lit)}</div><div><div class="n">${n}</div><div class="w">days in a row</div>${best?`<div class="b">Best: <b>${best}</b></div>`:''}</div></div>`;
+const safety = `<div class="sect"><div class="status"><span class="ic">${mark('o',22)}</span><span>Day off used Saturday<br><small>Ready again next Saturday</small></span></div><div class="status"><span class="ic">${mark('f',22)}</span><span>Streak freezes <b style="font-family:AHMono">1</b><br><small>Covers a missed day. Hold up to 2.</small></span></div></div>
+  <div class="sect"><h4>Next gift spin at 15 days in a row</h4><div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div>`;
+document.getElementById('s1').innerHTML = bar('Your streak') + hero(12,12,false) +
+  `<div class="sect"><div class="status"><span class="ic">${mark('p',22)}</span><span>Finish a picture today to keep it<br><small>Yesterday is covered by your day off when you finish today.</small></span></div><div class="qb" style="width:100%">Today's picture</div></div>
+   <div class="sect">${calendar('x x p x x k k k p p o p p p f p p p p a t u u u u u u u u u u'.split(' ').map(v=>v==='a'?'p_':v).map(v=>v==='p_'?'p':v).map((v,i)=>i===19?'pend':v).map(v=>v==='pend'?'p':v))}</div>`;
+// replace yesterday with pending mark
+document.getElementById('s1').querySelectorAll('.cal > div')[28].innerHTML = `<span class="mk">${mark('p',30)}</span>`;
+document.getElementById('s1').querySelectorAll('.cal > div')[28].removeAttribute('data-pic');
+document.getElementById('s2').innerHTML = bar('Your streak') + hero(13,13,true) +
+  `<div class="todayline">${flame(18,13,true,{still:true})} Done for today</div>` + safety +
+  `<div class="sect">${calendar('x x p x x k k k p p o p p p f p p p p o T u u u u u u u u u u'.split(' '))}</div>`;
+document.getElementById('s3').innerHTML = bar('Your streak') + hero(0,12,false) +
+  `<div class="repair"><div class="t">Bring back your 12 days</div><p>Your streak ended on Tuesday. Watch a short video to restore it.</p><div class="pb">Watch a video</div><div class="mut">You can do this until Thursday, once a month.</div></div>
+   <div class="sect">${calendar('x x p x x k k k p p o p p p f p p p x x t u u u u u u u u u u'.split(' '))}</div>`;
+document.getElementById('s4').innerHTML = bar('Your streak') + hero(0,0,false) +
+  `<div class="repair"><p style="margin-bottom:4px">Finish any picture to start a streak.</p><div class="qb" style="width:100%">Today's picture</div></div>
+   <div class="sect">${calendar('x x x x x x x x x p x x x x x x x x x x t u u u u u u u u u u'.split(' '))}</div>`;
+['s1','s2','s3','s4'].forEach(id=>fillPics(document.getElementById(id)));
+
+function gallery(o){
+  const chip = `<span class="chipS">${flame(16, o.n, false)}<b>${o.n}</b>${o.n?'':''}<span>›</span></span>`;
+  const top = `<div class="bar" style="padding-left:16px"><span class="t">Gemmory</span><span class="ib">▣</span><span class="ib">⚙</span></div><div class="tabs"><span class="tab on">Pictures</span><span class="tab">My Photos</span>${chip}</div>`;
+  const line = `<div class="line"><div style="flex:none">${flame(20,o.n||1,false)}</div><div style="flex:1;font-size:15px">${o.line}<div class="l">${o.hint}</div></div><span>›</span></div>`;
+  return top + `<div class="today"><div class="top"><div id="${o.id}-tp" style="width:72px;height:72px;flex:none"></div><div><div class="k">Today's picture</div><div class="ti">${o.title}</div><div class="l">${o.meta}</div><span class="qb">Start</span></div></div>${line}</div><div class="grid" id="${o.id}-grid"></div>`; }
+for (const o of [
+  {id:'g1',n:6,title:'Lighthouse',meta:'Quick · free today',line:'Finish a picture today to keep your <b style="font-family:AHMono">6</b> days',hint:"Today's picture is Quick"},
+  {id:'g2',n:6,title:'Old Town',meta:'Big · free today',line:'Finish a picture today to keep your <b style="font-family:AHMono">6</b> days',hint:'Harbour is 82% done'},
+  {id:'g3',n:0,title:'Lighthouse',meta:'Quick · free today',line:'Your 12 days can still be restored',hint:'See your streak'}]) {
+  const el=document.getElementById(o.id); el.innerHTML=gallery(o);
+  const c=pic(1,1,3,10); c.style.width='72px'; c.style.height='72px'; c.style.borderRadius='4px'; document.getElementById(o.id+'-tp').appendChild(c);
+  const g=document.getElementById(o.id+'-grid'); [5,9,12,4].forEach(s=>g.appendChild(pic(3,4,s,12)));
+}
+document.getElementById('nfl').innerHTML = flame(20,6,true,{still:true});
+
+document.getElementById('i1').innerHTML = `<div class="sheetwrap"><div class="sheet"><div class="handle"></div><h3>Inventory</h3>
+  <div class="item"><div class="well">▦<b>12</b></div><div class="tx">Fills<small>One fills a region, the rest of a color, or a brush stroke.</small></div></div>
+  <div class="item"><div class="well">▣<b>1</b></div><div class="tx">Photo canvases<small>For a photo after today's free one.</small></div></div>
+  <div class="item"><div class="well">◆<b>0</b></div><div class="tx">Unlock tokens<small>Opens any locked picture for good.</small></div></div>
+  <div class="item"><div class="well">${mark('f',30)}<b>1</b></div><div class="tx">Streak freezes<small>Covers a missed day after your day off. Hold up to 2.</small></div></div>
+  <div style="height:12px"></div><div class="pb">Watch a video: +5 fills</div></div></div>`;
+
+const wid=(n,lit,s)=>`<div class="wid"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div class="n">${n}</div>${flame(28,n||1,lit,{still:true})}</div><div class="s">${s}</div></div>`;
+document.getElementById('w1').innerHTML = wid(6,false,'Not yet today') + wid(6,true,'Done today') + wid(0,false,'Start a streak');
+(function(){ const sc=document.getElementById('sc'); sc.innerHTML = `${flame(110,7,true)}<div class="n">7</div><div class="t">A week of gems</div><div class="week" style="width:100%;margin-top:22px">${last7.map(d=>`<div class="d">${d}</div>`).join('')}${['p','p','f','p','e','e','e'].map((m,i)=>`<div class="c" data-k="${m}" data-i="${i}" style="${m==='e'?'background:none;box-shadow:inset 0 0 0 1px rgba(233,228,216,.25)':''}">${m==='f'?flame(22,7,true,{still:true}):''}</div>`).join('')}</div><div class="brand">Gemmory</div>`;
+  sc.querySelectorAll('[data-k="p"]').forEach(el=>{ const c=pic(1,1,+el.dataset.i*5+2,8); c.style.width='100%'; c.style.height='100%'; c.style.borderRadius='2px'; el.appendChild(c); }); })();
+</script>
+</body>
+</html>
