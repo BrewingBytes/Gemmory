@@ -49,6 +49,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-16 (#11): a workflow's "Run workflow" button (and `gh workflow run`) only exists once the file is on `main`. To try a new workflow from its branch, push a throwaway tag it triggers on (`v0.3.1-t11-smoke`) and delete it afterwards.
 - 2026-10-18 (#54): in a workflow `run:` script, `"${var:-text with a 'quote}"` doesn't parse: bash treats a `'` inside `${…:-…}` as a quote even within double quotes ("unexpected EOF while looking for matching `''"). Keep apostrophes out of default values, and check every step with `bash -n` before pushing (extract them with `yaml.safe_load`).
 - 2026-10-16 (#11): Gradle's `testInstrumentationRunnerArguments` (the `@PerfTest` exclusion) don't reach Test Lab, which runs the APKs directly. Pick classes with `--test-targets`, never a whole-package run.
+- 2026-10-21 (#113): Play Games v2 merges `PlayGamesInitProvider`, which initializes the SDK at every process start from the `games.APP_ID` meta-data, so `BuildConfig.PLAY_GAMES=false` alone doesn't keep it off. Test Lab signs a Google account in by default, so automatic sign-in on a debug-signed build sometimes opened the translucent `GamesResolutionActivity` over `MainActivity`, and Compose tests failed with "No compose hierarchies found" (not every run: v0.5.0 passed). If a Test Lab test can't find the app's UI, grep its logcat for `ActivityTaskManager` starts from the app's pid.
 
 ## Bundled pictures
 

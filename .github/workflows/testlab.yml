@@ -39,6 +39,8 @@ env:
     class com.brewingbytes.gemmory.timelapse.TimelapseEncoderSmokeTest,class com.brewingbytes.gemmory.timelapse.EncodeCancelTest
   # @PerfTest is left out of connectedDebugAndroidTest by a runner argument, which Test Lab doesn't get: name the class.
   FRAME_TARGETS: class com.brewingbytes.gemmory.play.CanvasFrameTimingTest
+  # Both runs use --no-auto-google-login: no test needs a Google account, and with one signed in Play Games'
+  # automatic sign-in can cover the app (#113).
 
 jobs:
   encoder-smoke:
@@ -88,6 +90,7 @@ jobs:
           esac
           gcloud firebase test android run \
             --type instrumentation \
+            --no-auto-google-login \
             --app androidApp/build/outputs/apk/debug/androidApp-debug.apk \
             --test androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk \
             --test-targets "$TEST_TARGETS" \
@@ -105,6 +108,7 @@ jobs:
         run: |
           gcloud firebase test android run \
             --type instrumentation \
+            --no-auto-google-login \
             --app androidApp/build/outputs/apk/debug/androidApp-debug.apk \
             --test androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk \
             --test-targets "$FRAME_TARGETS" \
