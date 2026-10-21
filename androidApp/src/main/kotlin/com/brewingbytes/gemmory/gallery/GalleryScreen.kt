@@ -291,7 +291,7 @@ fun GalleryScreen(
                 if (showVip) GemTextButton("VIP", onVip, Modifier.testTag(VIP_ACTION_TAG))
                 IconAction(GemIcons.Settings, "Settings", onSettings)
             }
-            Tabs(tab, onTab = vm::selectTab, streak = state.streak, streakDone = state.streakDone, ignite = vm.streakIgnite, onStreak = onStreak)
+            Tabs(tab, onTab = vm::selectTab, streak = state.streak, streakDone = state.streakDone, ignite = vm.streakIgnite, onIgnited = vm::streakIgnited, onStreak = onStreak)
             if (notice != null) {
                 // Billing's one-time line (design D6, D7), read out when it appears.
                 Text(
@@ -598,7 +598,7 @@ private fun NoteAndButton(note: (@Composable () -> Unit)?, button: @Composable (
  * from the first day, and wraps under the tabs when they leave no room (200% font).
  */
 @Composable
-private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int, streakDone: Boolean, ignite: Boolean, onStreak: () -> Unit) {
+private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int, streakDone: Boolean, ignite: Boolean, onIgnited: () -> Unit, onStreak: () -> Unit) {
     FlowRow(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -627,7 +627,7 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int, streakDone: B
         // From day 1 now that it opens the streak screen (#101, G18); hidden while there's no streak.
         if (streak > 0) {
             Spacer(Modifier.weight(1f))
-            StreakChip(streak, streakDone, ignite, onStreak)
+            StreakChip(streak, streakDone, ignite, onIgnited, onStreak)
         }
     }
 }
@@ -797,7 +797,7 @@ private val TODAY_THUMB = 72.dp
  * streak screen. One TalkBack node.
  */
 @Composable
-private fun StreakChip(days: Int, done: Boolean, ignite: Boolean, onClick: () -> Unit) {
+private fun StreakChip(days: Int, done: Boolean, ignite: Boolean, onIgnited: () -> Unit, onClick: () -> Unit) {
     val description = StreakText.chip(days, done)
     Row(
         Modifier
@@ -815,7 +815,7 @@ private fun StreakChip(days: Int, done: Boolean, ignite: Boolean, onClick: () ->
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Flame(lit = done, length = days, size = 16.dp, still = true, ignite = ignite)
+        Flame(lit = done, length = days, size = 16.dp, still = true, ignite = ignite, onIgnited = onIgnited)
         Text("$days", style = GemType.mono.copy(fontSize = 15.sp), color = GemColors.Bone)
         Text("›", style = GemType.button, color = GemColors.Bone)
     }

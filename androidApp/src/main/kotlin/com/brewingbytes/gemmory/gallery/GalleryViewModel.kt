@@ -202,6 +202,11 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         streakIgnite = true
     }
 
+    /** The chip's ignite played: it doesn't replay on the next return to the gallery. */
+    fun streakIgnited() {
+        streakIgnite = false
+    }
+
     /** Millis to the next local midnight, when the gallery reloads for the day's drop (T36). */
     fun millisUntilNextDay(): Long = app.dayClock.millisUntilNextDay()
 

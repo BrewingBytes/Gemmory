@@ -50,16 +50,31 @@ fun flameColor(length: Int): Color = when {
 /**
  * The streak flame (#101, G1): flat, no glow. Grey ember until today's picture is finished ([lit] false), then the
  * [length]'s color. It flickers in a 1.6s loop at 40dp and up unless [still]; [ignite] plays the 800ms grey-to-lit
- * scale-up once. Reduced motion: neither, the flame is drawn as it ends. Decorative: callers describe it.
+ * scale-up each time it turns true, then calls [onIgnited] (a one-shot trigger is consumed there). Reduced motion:
+ * neither, the flame is drawn as it ends. Decorative: callers describe it.
  */
 @Composable
-fun Flame(lit: Boolean, length: Int, size: Dp, modifier: Modifier = Modifier, still: Boolean = false, ignite: Boolean = false) {
+fun Flame(
+    lit: Boolean,
+    length: Int,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    still: Boolean = false,
+    ignite: Boolean = false,
+    onIgnited: () -> Unit = {},
+) {
     val reduced = rememberReducedMotion()
     val color = if (lit) flameColor(length) else GemColors.Ember
     val core = if (lit) GemColors.FlameCore else GemColors.EmberCore
     val igniting = remember { Animatable(if (ignite && lit && !reduced) 0f else 1f) }
+    // From grey whenever the trigger arrives, also after the flame was first drawn lit (the chip, G9).
     LaunchedEffect(ignite, lit) {
-        if (ignite && lit && !reduced) igniting.animateTo(1f, tween(IGNITE_MS, easing = FastOutSlowInEasing))
+        if (!ignite || !lit) return@LaunchedEffect
+        if (!reduced) {
+            igniting.snapTo(0f)
+            igniting.animateTo(1f, tween(IGNITE_MS, easing = FastOutSlowInEasing))
+        }
+        onIgnited()
     }
     val flickers = lit && !still && !reduced && size >= FLICKER_FROM
     // Flicker (mockup v3): the flame breathes taller and narrower and back, its core on its own faster beat.
