@@ -32,7 +32,6 @@ sealed interface PlayUi {
 /** Holds the open canvas across rotation and fold changes. At most one session at a time. */
 class PlayViewModel(application: Application) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
-    private val streak = (application as GemmoryApp).streak
     private val app = application as GemmoryApp
     private var ref: CanvasRef? = null
     private var opening: Job? = null
@@ -93,7 +92,7 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             // The daily play streak (#33) counts a day when a picture is finished here; reopening a finished one isn't.
-            snapshotFlow { session.placedCount == session.cellCount }.drop(1).filter { it }.collect { streak.played() }
+            snapshotFlow { session.placedCount == session.cellCount }.drop(1).filter { it }.collect { app.streak.played(CanvasStore.reminderKey(ref)) }
         }
     }
 

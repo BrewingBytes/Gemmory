@@ -37,6 +37,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -186,6 +187,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     init {
         // A background check that brought something new (T36): reload now, not on the next visit.
         viewModelScope.launch { app.remote.updates.drop(1).collect { refresh() } }
+        // The streak (#101): a finish resolves on the policy thread after Done, so the chip follows it as it lands.
+        viewModelScope.launch { app.streakView.snapshot.collect { s -> _state.update { it.copy(streak = s.shown) } } }
     }
 
     /** Millis to the next local midnight, when the gallery reloads for the day's drop (T36). */
@@ -238,7 +241,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 photos = tiles.second.filterNot { it.done },
                 finishedPictures = finishedInOrder(tiles.first),
                 finishedPhotos = finishedInOrder(tiles.second),
-                streak = app.streak.current(),
+                streak = app.streakView.refresh().shown,
                 today = today,
                 todayFree = todayFree,
                 tomorrow = tomorrow,

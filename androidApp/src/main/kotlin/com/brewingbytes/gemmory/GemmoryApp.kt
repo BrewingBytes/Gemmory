@@ -36,6 +36,7 @@ import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
 import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.policy.ReminderReason
+import com.brewingbytes.gemmory.policy.StreakHistoryCodec
 import com.brewingbytes.gemmory.reminder.ReminderJob
 import com.brewingbytes.gemmory.reminder.ReminderNotifier
 import com.brewingbytes.gemmory.reminder.ReminderPicture
@@ -60,6 +61,7 @@ import com.brewingbytes.gemmory.settings.AppSettings
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.StorageLayout
+import com.brewingbytes.gemmory.streak.StreakView
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.ConsentFirst
 import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
@@ -99,6 +101,10 @@ class GemmoryApp : Application() {
 
     /** The daily play streak (#33). */
     lateinit var streak: PlayStreak
+        private set
+
+    /** The streak with what covers a missed day (#101, O8): every streak reader goes through it. */
+    lateinit var streakView: StreakView
         private set
 
     /** Play Games achievements (#49): counted on the phone, sent while the Gallery or Settings shows. */
@@ -207,7 +213,9 @@ class GemmoryApp : Application() {
     /** Connected tests only (#33): re-reads the streak from its preferences, which a test seeded. */
     @VisibleForTesting
     internal fun resetStreakForTest() {
+        streakView.close()
         streak = newStreak()
+        streakView = newStreakView()
     }
 
     /**
@@ -349,6 +357,7 @@ class GemmoryApp : Application() {
             todaysDrops = { remote.todaysDrops().toList() },
             pickToday = { started -> todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew) },
             streak = { streak.state() },
+            cover = { streakView.cover() },
             allowed = reminderNotifier::allowed,
             foreground = { foreground },
             notify = { post -> reminderNotifier.post(post, post.pictureId?.let(::reminderPicture), vip, dayClock.today()) },
@@ -412,11 +421,16 @@ class GemmoryApp : Application() {
 
     private val storeWriter = Dispatchers.IO.limitedParallelism(1)
 
-    private fun newStreak() =
-        PlayStreak(this, DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() }, analytics) {
-            monetization.onStreakDay(it)
-            achievements.record(GameEvent.StreakDay(it))
-        }
+    private fun newStreak() = PlayStreak(
+        context = this,
+        clock = dayClock,
+        analytics = analytics,
+        history = FileStateStore(File(filesDir, StorageLayout.STREAK_HISTORY), StreakHistoryCodec::encode, StreakHistoryCodec::decode, reporter),
+        scope = appScope,
+        resolve = { monetization.streakDay(it) },
+    ) { achievements.record(GameEvent.StreakDay(it)) }
+
+    private fun newStreakView() = StreakView(streak, dayClock, billing.entitlements, appScope)
 
     private fun newAchievements(backend: GamesBackend, ids: (Achievement) -> String = { getString(achievementId(it)) }) = Achievements(
         store = FileStateStore(File(filesDir, StorageLayout.ACHIEVEMENTS), AchievementCodec::encode, AchievementCodec::decode, reporter),
@@ -434,6 +448,14 @@ class GemmoryApp : Application() {
     @VisibleForTesting
     internal fun resetAchievementsForTest(backend: GamesBackend? = null, ids: ((Achievement) -> String)? = null) {
         achievements = if (backend == null) newAchievements(games) else newAchievements(backend, ids ?: { getString(achievementId(it)) })
+    }
+
+    /** Each canvas's first finished day, for the streak log's one-time backfill (#101, E4): day to canvas. */
+    private suspend fun firstFinishes(): List<Pair<Long, String>> {
+        val (pictures, photos) = store.summaries()
+        return (pictures + photos).filterIsInstance<CanvasSummary.Playable>().mapNotNull { summary ->
+            summary.firstFinishedDay?.let { it to CanvasStore.reminderKey(summary.ref) }
+        }
     }
 
     /** Every canvas finished on the phone, for the one-time achievements backfill (founder, 2026-10-18). */
@@ -497,7 +519,6 @@ class GemmoryApp : Application() {
         consent = ConsentManager(this, reporter)
         analytics.consent(consent.consentMode.value)
         settings = AppSettings(this)
-        streak = newStreak()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         encodes = EncodeManager(
             cacheDir = cacheDir,
@@ -521,6 +542,8 @@ class GemmoryApp : Application() {
             analytics = analytics,
         )
         monetization = newMonetization()
+        streak = newStreak()
+        streakView = newStreakView()
         todays = newTodays()
         collections = newCollections()
         dayPlayed = DayPlayed(dayClock, PrefsDayStore(this, PLAYED_FILE))
@@ -569,7 +592,8 @@ class GemmoryApp : Application() {
     private fun onFirstForeground() {
         monetization.onProcessStart()
         playGames.available
-        val streakNow = streak.current()
+        val streakNow = streakView.refresh().shown
         achievements.backfill { finishedOnPhone() to streakNow }
+        appScope.launch { streak.backfill(::firstFinishes) }
     }
 }

@@ -21,6 +21,9 @@ import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.gallery.STREAK_TAG
+import com.brewingbytes.gemmory.policy.CoveredDay
+import com.brewingbytes.gemmory.policy.DayKind
+import com.brewingbytes.gemmory.policy.HistoryDay
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
@@ -34,10 +37,14 @@ import java.io.File
 import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The daily play streak (#33): finishing a picture today extends yesterday's streak (a gem alone doesn't), and the
- * gallery shows it from two days on; a streak that broke shows nothing.
+ * gallery shows it from two days on; a streak that broke shows nothing. #101: the new day is committed with its
+ * pending celebration, which survives a recreate and a restart, and logged in the day log with any covered day.
  */
 @RunWith(AndroidJUnit4::class)
 class PlayStreakTest {
@@ -74,6 +81,8 @@ class PlayStreakTest {
         app.resetMonetizationForTest()
         if (::scenario.isInitialized) scenario.close()
         prefs.edit().clear().commit()
+        File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
+        app.resetStreakForTest()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
     }
@@ -84,6 +93,7 @@ class PlayStreakTest {
             .putInt("length", length)
             .putLong("lastDay", LocalDate.now().toEpochDay() - daysAgo)
             .commit()
+        File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
         app.resetStreakForTest()
     }
 
@@ -107,12 +117,62 @@ class PlayStreakTest {
         compose.waitUntil(5_000) { chipText() == "3 days in a row" }
     }
 
+    /** #101 E2, O3: the new day and its celebration are committed together, and outlive a recreate and a restart. */
+    @Test
+    fun aNewDayLeavesACelebrationThatSurvivesARecreateAndARestart() {
+        seed(length = 2, daysAgo = 1)
+        launchOnMyPhotos()
+        finishAndLeave()
+        compose.waitUntil(5_000) { chipText() == "3 days in a row" }
+        val today = LocalDate.now().toEpochDay()
+        val pending = assertNotNull(app.streak.pendingCelebration())
+        assertEquals(today, pending.day)
+        assertEquals(3, pending.length)
+        assertTrue(pending.covered.isEmpty())
+        assertEquals("PHOTO/streak", pending.canvas)
+        assertEquals(3, prefs.getInt("length", 0), "committed, not waiting on apply()")
+        assertEquals(today, prefs.getLong("pendingDay", 0))
+
+        scenario.recreate()
+        assertEquals(pending, app.streak.pendingCelebration(), "a rotation keeps it")
+        app.resetStreakForTest() // what a new process reads
+        assertEquals(pending, app.streak.pendingCelebration(), "so does a restart")
+        assertEquals(pending, app.streak.takeCelebration())
+        assertNull(app.streak.takeCelebration(), "shown once")
+        app.resetStreakForTest()
+        assertNull(app.streak.pendingCelebration())
+        assertEquals(3, app.streak.state().length, "taking it leaves the streak alone")
+    }
+
+    /** #101 E4: the finish is logged with its canvas, and yesterday's day off with it; a second finish adds nothing. */
+    @Test
+    fun aDayOffIsLoggedWithTheFinishThatUsedIt() {
+        seed(length = 2, daysAgo = 2)
+        launchOnMyPhotos()
+        finishAndLeave()
+        compose.waitUntil(5_000) { chipText() == "3 days in a row" }
+        val today = LocalDate.now().toEpochDay()
+        assertEquals(listOf(CoveredDay(today - 1, DayKind.DAY_OFF)), app.streak.pendingCelebration()?.covered)
+        val logged = listOf(HistoryDay(today - 1, DayKind.DAY_OFF), HistoryDay(today, DayKind.FINISHED, "PHOTO/streak"))
+        assertEquals(logged, app.streak.history())
+        assertNull(runBlocking { app.streak.played("PHOTO/other").await() }, "the same day counts once")
+        assertEquals(logged, app.streak.history())
+    }
+
     @Test
     fun aBrokenStreakShowsNothing() {
         seed(length = 5, daysAgo = 3)
         launchOnMyPhotos()
         compose.waitForIdle()
         assertFalse(exists(STREAK_TAG), "two days missed: no chip, and no message about it")
+    }
+
+    private fun finishAndLeave() {
+        openTile()
+        instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
+        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.onNodeWithTag("completion-done").performClick()
+        runBlocking { app.streak.settled() }
     }
 
     private fun openTile() {
