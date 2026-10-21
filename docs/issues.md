@@ -857,6 +857,8 @@ Labels: P2, game
 
 **Done when:** every listed event has the new sounds with variations, provenance is recorded, the toggle governs them, and the AAB size delta is noted in the PR.
 
+**Built (2026-10-21):** sounds synthesized in-house by `tools/make_sounds.py` (founder pick, approved by ear), provenance in `tools/sounds/PROVENANCE.md`; takes and pitch in `SoundCues` (commonMain), `SoundCuesTest` covers the toggle, determinism and no repeated take.
+
 Depends on: sourced audio. Coordinate with T42 (both touch Settings and audio). Effort: human ~1d / CC ~45min plus sourcing.
 
 ---

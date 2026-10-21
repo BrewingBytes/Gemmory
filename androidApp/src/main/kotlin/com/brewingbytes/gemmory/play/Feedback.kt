@@ -14,19 +14,22 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.game.FinishCelebration
+import com.brewingbytes.gemmory.game.SoundCue
+import com.brewingbytes.gemmory.game.SoundCues
+import com.brewingbytes.gemmory.game.SoundEvent
 import com.brewingbytes.gemmory.game.Sweep
 import com.brewingbytes.gemmory.settings.AppSettings
-import kotlin.math.pow
 import kotlin.random.Random
 
 /**
  * Haptics and sound for the play canvas and the completion screen (design system, Haptics and sound). Each follows
- * its Settings toggle, read at the moment it plays; haptics also follow the system touch-feedback setting.
+ * its Settings toggle, read at the moment it plays; haptics also follow the system touch-feedback setting. Which
+ * recording plays, and at what pitch, comes from [SoundCues] (T41; made by tools/make_sounds.py).
  */
 class Feedback(context: Context, private val settings: AppSettings) {
     private val appContext = context.applicationContext
     private val sounds = SoundPool.Builder()
-        .setMaxStreams(4)
+        .setMaxStreams(MAX_STREAMS)
         .setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
@@ -34,9 +37,14 @@ class Feedback(context: Context, private val settings: AppSettings) {
                 .build(),
         )
         .build()
-    private val click = sounds.load(appContext, R.raw.gem_click, 1)
-    private val thump = sounds.load(appContext, R.raw.flap_thump, 1)
-    private val chime = sounds.load(appContext, R.raw.finish_chime, 1)
+    private val takes = mapOf(
+        SoundEvent.PLACE to listOf(R.raw.gem_place_1, R.raw.gem_place_2, R.raw.gem_place_3, R.raw.gem_place_4, R.raw.gem_place_5),
+        SoundEvent.DRAG to listOf(R.raw.gem_drag_1, R.raw.gem_drag_2, R.raw.gem_drag_3),
+        SoundEvent.COLOR_DONE to listOf(R.raw.color_done_1, R.raw.color_done_2, R.raw.color_done_3),
+        SoundEvent.MILESTONE to listOf(R.raw.milestone_1, R.raw.milestone_2, R.raw.milestone_3),
+        SoundEvent.FINISH to listOf(R.raw.finish_chime_1, R.raw.finish_chime_2, R.raw.finish_chime_3),
+    ).mapValues { (_, raws) -> raws.map { sounds.load(appContext, it, 1) } }
+    private val cues = SoundCues(Random.Default) { settings.sound.value }
     private var lastTickAt = 0L
     private val confirm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         HapticFeedbackConstants.CONFIRM
@@ -44,18 +52,19 @@ class Feedback(context: Context, private val settings: AppSettings) {
         HapticFeedbackConstants.CONTEXT_CLICK
     }
 
-    private val soundOn: Boolean get() = settings.sound.value
     private val hapticsOn: Boolean get() = settings.haptics.value
 
-    /** Tick throttled to one per 40ms (drag paint lands with #10); soft click at a random ±3 semitone pitch. */
-    fun gemPlaced(view: View) {
+    /**
+     * Tick throttled to one per 40ms; a placing click at a random ±3 semitone pitch, or while [drag] painting a softer
+     * tick at ±1.5.
+     */
+    fun gemPlaced(view: View, drag: Boolean = false) {
         val now = SystemClock.uptimeMillis()
         if (now - lastTickAt >= TICK_THROTTLE_MS) {
             lastTickAt = now
             haptic(view, HapticFeedbackConstants.CLOCK_TICK)
         }
-        val semitones = Random.nextFloat() * 6f - 3f
-        play(click, CLICK_VOLUME, rate = 2f.pow(semitones / 12f))
+        play(cues.placed(drag))
     }
 
     /**
@@ -85,21 +94,21 @@ class Feedback(context: Context, private val settings: AppSettings) {
         if (effect == null || !vibrate(vibrator!!, effect)) haptic(view, HapticFeedbackConstants.CLOCK_TICK)
     }
 
-    /** The [step]th click of a batch's run (#20): the gem click, a semitone higher each time. */
-    fun sweepClick(step: Int) = play(click, CLICK_VOLUME, rate = 2f.pow(step / 12f))
+    /** The [step]th click of a batch's run (#20): a placing click, a semitone higher each time. */
+    fun sweepClick(step: Int) = play(cues.batchClick(step))
 
     /** Lighter than the tick, and silent. */
     fun wrongColor(view: View) = haptic(view, HapticFeedbackConstants.TEXT_HANDLE_MOVE)
 
     fun colorFinished(view: View) {
         haptic(view, confirm)
-        play(thump, THUMP_VOLUME)
+        play(cues.colorDone())
     }
 
-    /** A progress milestone (#35): the finish chime a fifth higher and softer, and the color-finished haptic. */
+    /** A progress milestone (#35): a short bell a fifth above the finish chime, and the color-finished haptic. */
     fun milestone(view: View) {
         haptic(view, confirm)
-        play(chime, MILESTONE_VOLUME, rate = MILESTONE_RATE)
+        play(cues.milestone())
     }
 
     /** Whether [crescendo] is playing, so the chime doesn't add the soft finish vibration on top of its peak. */
@@ -142,9 +151,7 @@ class Feedback(context: Context, private val settings: AppSettings) {
      * [crescendo] is already peaking on it.
      */
     fun pictureFinished() {
-        play(chime, CHIME_VOLUME)
-        play(chime, CHIME_FIFTH_VOLUME, rate = 1.5f)
-        play(chime, CHIME_OCTAVE_VOLUME, rate = 2f)
+        play(cues.finish())
         if (crescendoPlaying) {
             crescendoPlaying = false
             return
@@ -199,8 +206,9 @@ class Feedback(context: Context, private val settings: AppSettings) {
         if (hapticsOn) view.performHapticFeedback(constant)
     }
 
-    private fun play(sound: Int, volume: Float, rate: Float = 1f) {
-        if (soundOn) sounds.play(sound, volume, volume, 1, 0, rate)
+    /** [SoundCues] has already left out every cue while Sound is off. */
+    private fun play(cues: List<SoundCue>) {
+        for (cue in cues) sounds.play(takes.getValue(cue.event)[cue.take], cue.volume, cue.volume, 1, 0, cue.rate)
     }
 
     /** Before API 33 the vibration can't carry a touch usage, so the touch-feedback setting is read directly. */
@@ -213,12 +221,7 @@ class Feedback(context: Context, private val settings: AppSettings) {
         const val FINISH_VIBRATION_MS = 400L
         const val SWEEP_PULSE_MS = 12L
         const val SOFT_AMPLITUDE = 60
-        const val CLICK_VOLUME = 0.35f
-        const val THUMP_VOLUME = 0.6f
-        const val CHIME_VOLUME = 0.7f
-        const val CHIME_FIFTH_VOLUME = 0.35f
-        const val CHIME_OCTAVE_VOLUME = 0.25f
-        const val MILESTONE_VOLUME = 0.4f
-        const val MILESTONE_RATE = 1.5f
+        // The finish's three layers ring for ~1.8s; the rest leaves room for clicks over them.
+        const val MAX_STREAMS = 6
     }
 }

@@ -395,11 +395,11 @@ private class CanvasController(
         if (session.selectedSlot != slot) return
         // The brush (#20) stamps its 3×3 around every cell the finger crosses, whatever that cell's color.
         if (session.tool == PlacementTool.BRUSH) {
-            session.brush(cell)?.let(::placed)
+            session.brush(cell)?.let { placed(it, drag = true) }
             return
         }
         if (session.pattern.cells[cell] != slot || session.isPlaced(cell)) return
-        (session.place(cell) as? PlaceResult.Placed)?.let(::placed)
+        (session.place(cell) as? PlaceResult.Placed)?.let { placed(it, drag = true) }
     }
 
     /** Fill color (#20), the tray's "Fill N": the rest of the selected color, nearest the middle of the view first. */
@@ -452,14 +452,14 @@ private class CanvasController(
      * A tool's batch (#20): one sweep instead of a tick per gem. Placed already, it's revealed ring by ring with a
      * glint on each gem as its ring shows (from 20dp), a light haptic sweep and a run of rising clicks; the color-done
      * thump waits for the end. A single-ring batch (a brush stamp) or reduced motion shows at once with one tick and
-     * click, like a tap.
+     * click, like a tap ([drag]: the drag's softer tick).
      */
-    private fun placed(batch: Batch) {
+    private fun placed(batch: Batch, drag: Boolean = false) {
         val durationMs = if (reducedMotion) 0 else Sweep.durationMs(batch.lastRing)
         val now = System.nanoTime()
         val ringNanos = (Sweep.ringMs(batch.lastRing) * 1_000_000).toLong()
         if (durationMs == 0) {
-            feedback.gemPlaced(view)
+            feedback.gemPlaced(view, drag)
         } else {
             effects.reveal(session.cellCount, batch.placed, batch.rings, now, ringNanos)
             feedback.sweep(view, durationMs)
@@ -488,11 +488,11 @@ private class CanvasController(
         hints.onPlaced()
     }
 
-    private fun placed(result: PlaceResult.Placed) {
+    private fun placed(result: PlaceResult.Placed, drag: Boolean = false) {
         for (event in result.events) {
             when (event) {
                 is GameEvent.GemPlaced -> {
-                    feedback.gemPlaced(view)
+                    feedback.gemPlaced(view, drag)
                     if (!reducedMotion && viewport.zoomDp >= CanvasZoom.FACET_MIN_DP) {
                         effects.glint(event.cell, System.nanoTime())
                         tick()
