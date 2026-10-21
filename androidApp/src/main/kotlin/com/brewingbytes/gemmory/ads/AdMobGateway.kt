@@ -22,6 +22,9 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -72,7 +75,12 @@ interface AdGateway {
 
     /** Shows a loaded interstitial; false (skipped silently) when none is loaded, e.g. no fill. */
     fun showInterstitial(activity: Activity, onShown: () -> Unit): Boolean
+
+    /** A full-screen ad is showing, from its show until it's dismissed or fails to show: the music pauses (T42). */
+    val fullScreen: StateFlow<Boolean> get() = NO_FULL_SCREEN
 }
+
+private val NO_FULL_SCREEN: StateFlow<Boolean> = MutableStateFlow(false).asStateFlow()
 
 /**
  * AdMob (design doc Ad rules, R3-10; eng D15). Never initializes or requests anything before UMP allows ad requests.
@@ -92,6 +100,9 @@ class AdMobGateway(context: Context, private val consent: ConsentManager, privat
     private var interstitial: InterstitialAd? = null
     private var interstitialAt = 0L
     private var interstitialLoading = false
+
+    private val _fullScreen = MutableStateFlow(false)
+    override val fullScreen: StateFlow<Boolean> = _fullScreen.asStateFlow()
 
     override fun online(): Boolean {
         val cm = app.getSystemService(ConnectivityManager::class.java) ?: return false
@@ -159,13 +170,18 @@ class AdMobGateway(context: Context, private val consent: ConsentManager, privat
         val ad = freshRewarded() ?: return false
         rewarded = null
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdDismissedFullScreenContent() = onClosed(true)
+            override fun onAdDismissedFullScreenContent() {
+                _fullScreen.value = false
+                onClosed(true)
+            }
 
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 Log.i(TAG, "rewarded failed to show: ${error.code} ${error.message}")
+                _fullScreen.value = false
                 onClosed(false)
             }
         }
+        _fullScreen.value = true
         ad.show(activity) { onEarned() }
         return true
     }
@@ -192,7 +208,16 @@ class AdMobGateway(context: Context, private val consent: ConsentManager, privat
         interstitial = null
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdShowedFullScreenContent() = onShown()
+
+            override fun onAdDismissedFullScreenContent() {
+                _fullScreen.value = false
+            }
+
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                _fullScreen.value = false
+            }
         }
+        _fullScreen.value = true
         ad.show(activity)
         return true
     }

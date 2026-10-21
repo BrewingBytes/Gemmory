@@ -15,6 +15,7 @@ import com.brewingbytes.gemmory.ads.ConsentManager
 import com.brewingbytes.gemmory.ads.Interstitials
 import com.brewingbytes.gemmory.ads.Monetization
 import com.brewingbytes.gemmory.ads.isLocked
+import com.brewingbytes.gemmory.audio.MusicController
 import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.billing.BillingRepository
@@ -67,6 +68,9 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -168,6 +172,13 @@ class GemmoryApp : Application() {
         private set
 
     private lateinit var adMob: AdGateway
+
+    /** The gateway in use, so the music follows a test's fake ads too (T42). */
+    private lateinit var gateways: MutableStateFlow<AdGateway>
+
+    /** Ambient music (T42). */
+    lateinit var music: MusicController
+        private set
 
     lateinit var appScope: CoroutineScope
         private set
@@ -415,10 +426,21 @@ class GemmoryApp : Application() {
     @VisibleForTesting
     internal fun resetMonetizationForTest(ads: AdGateway = adMob) {
         this.ads = ads
+        gateways.value = ads
         monetization.close()
         monetization = newMonetization()
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
     }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun newMusic() = MusicController(
+        context = this,
+        settings = settings,
+        reporter = reporter,
+        adShowing = gateways.flatMapLatest { it.fullScreen },
+        exporting = encodes.encoding,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    )
 
     /** An achievement's Play Console id resource (games-ids.xml, named as Play Console exports them). */
     private fun achievementId(achievement: Achievement): Int = when (achievement) {
@@ -481,6 +503,8 @@ class GemmoryApp : Application() {
         ads = AdMobGateway(this, consent, CoroutineScope(SupervisorJob() + Dispatchers.Main))
         adMob = ads
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
+        gateways = MutableStateFlow(ads)
+        music = newMusic()
         reminderNotifier = ReminderNotifier(this)
         reminders = newReminders()
         // Every start re-arms the alarm, since a force-stop clears it (T35).
@@ -496,11 +520,13 @@ class GemmoryApp : Application() {
                 }
                 monetization.onForeground()
                 billing.onForeground()
+                music.setForeground(true)
             }
 
             override fun onStop(owner: LifecycleOwner) {
                 foreground = false
                 monetization.onBackground()
+                music.setForeground(false)
             }
         })
     }

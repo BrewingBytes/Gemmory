@@ -43,6 +43,28 @@ class AppSettingsTest {
         assertFalse(AppSettings(prefs).finishedOpen(1))
     }
 
+    /** T42: Music on at 30% by default, its own switch apart from Sound (R1), in 10% steps, and the first-music flags. */
+    @Test
+    fun musicIsOnAtThirtyPercentApartFromSound() {
+        val prefs = FakePrefs()
+        val settings = AppSettings(prefs)
+        assertTrue(settings.music.value)
+        assertEquals(30, settings.musicVolume.value)
+        assertFalse(settings.musicUnlocked.value, "no music before the first canvas (D24)")
+        assertFalse(settings.musicChipShown)
+        settings.setMusic(false)
+        assertTrue(settings.sound.value, "Music off leaves Sound on")
+        settings.setSound(false)
+        settings.setMusic(true)
+        assertTrue(AppSettings(prefs).music.value, "Sound off leaves Music on")
+        settings.setMusicVolume(73)
+        assertEquals(70, AppSettings(prefs).musicVolume.value)
+        settings.unlockMusic()
+        settings.musicChipShown()
+        assertTrue(AppSettings(prefs).musicUnlocked.value)
+        assertTrue(AppSettings(prefs).musicChipShown)
+    }
+
     @Test
     fun milestonesOffIsKept() {
         val prefs = FakePrefs()

@@ -881,6 +881,8 @@ Labels: P2, game, ui
 
 **Done when:** music plays at 30% by default, never in silent/vibrate, yields to other audio, ads and export, stops in the background, the toggle and volume work, and the AAB size delta is noted.
 
+**Built (2026-10-21):** six CC0 tracks (founder: "all", random rotation; provenance in `tools/sounds/PROVENANCE.md`), Ogg Opus 48 kbps, about 8 MB in the AAB. Gates, focus and rotation in `Music` (commonMain, `MusicTest` incl. decode failure); `MusicController` + `MediaMusicOutput` in the app; ads report `AdGateway.fullScreen`, exports `EncodeManager.encoding`.
+
 Depends on: sourced audio; coordinate with T41. Effort: human ~1.5d / CC ~1h plus sourcing.
 
 ---

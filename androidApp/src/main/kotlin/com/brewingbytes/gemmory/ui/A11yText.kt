@@ -37,6 +37,9 @@ object A11yText {
     /** Fill color's TalkBack action and button label (#20): "Fill the rest of color 7". */
     fun fillColor(color: Int): String = "Fill the rest of color $color"
 
+    /** The Music volume slider's value (T42): "30 percent", read after "Music volume". */
+    fun musicVolume(percent: Int): String = "$percent percent"
+
     /** A progress milestone's headline (#35), shown on its banner and spoken by TalkBack. */
     fun milestone(percent: Int): String = when (percent) {
         25 -> "A quarter done"

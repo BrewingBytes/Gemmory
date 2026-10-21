@@ -48,6 +48,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -105,6 +106,9 @@ import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
 import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.GemTextButton
+import com.brewingbytes.gemmory.ui.withFullMotion
+import com.brewingbytes.gemmory.game.MusicRules
+import com.brewingbytes.gemmory.settings.MusicCopy
 import com.brewingbytes.gemmory.ui.GemToast
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
@@ -117,6 +121,11 @@ import com.brewingbytes.gemmory.ui.galleryColumns
 import com.brewingbytes.gemmory.ui.noteFitsBeside
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import kotlinx.coroutines.delay
+import android.view.accessibility.AccessibilityManager
+import androidx.annotation.VisibleForTesting
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 
 /** Which sheet the gallery shows; saved as a string so it survives rotation. */
 private sealed interface GallerySheet {
@@ -179,6 +188,14 @@ private const val SHARE_PROGRESS = "Share progress"
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
 fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.id}"
 
+/** The one-time "Music is playing · Turn off" chip (T42) and its "Music off" line. */
+const val MUSIC_CHIP_TAG = "gallery-music-chip"
+const val MUSIC_OFF_TAG = "gallery-music-off"
+
+/** Connected tests only (T42): TalkBack's touch exploration as the music chip reads it. */
+@VisibleForTesting
+internal var touchExplorationForTest: Boolean? = null
+
 /** The "New" label on a remote picture's tile (#43). */
 const val NEW_LABEL_TAG = "new-label"
 const val MYSTERY_LABEL_TAG = "mystery-label"
@@ -213,6 +230,10 @@ fun GalleryScreen(
     inventory: InventoryState? = null,
     onWatchFills: () -> Unit = {},
     onSpin: suspend () -> WheelPrize? = { null },
+    /** The first-music chip (T42, D24) is up; it goes on a tap, a tile tap or after 8s (no timeout under TalkBack). */
+    musicChip: Boolean = false,
+    onMusicChipGone: () -> Unit = {},
+    onMusicOff: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
@@ -230,6 +251,18 @@ fun GalleryScreen(
     }
     // "Opens tomorrow" (T36): a new tap restarts its 4s.
     var toast by remember { mutableIntStateOf(0) }
+    // "Music off. Turn it back on in Settings." after the chip's Turn off (T42).
+    var musicOffLine by remember { mutableStateOf(false) }
+    val chipGone by rememberUpdatedState(onMusicChipGone)
+    val context = LocalContext.current
+    LaunchedEffect(musicChip) {
+        if (!musicChip) return@LaunchedEffect
+        val touchExploration = touchExplorationForTest
+            ?: context.getSystemService(AccessibilityManager::class.java)?.isTouchExplorationEnabled ?: false
+        val timeout = MusicRules.chipTimeoutMs(touchExploration) ?: return@LaunchedEffect
+        delay(timeout)
+        chipGone()
+    }
     val tab = vm.tab
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
     // The Inventory sheet (#38) and its gift wheel: 0 none, 1 inventory, 2 wheel.
@@ -285,6 +318,7 @@ fun GalleryScreen(
                 // gallery left open past midnight no longer grants them.
                 val todayFree = state.todayFree
                 val open: (Tile, CanvasEntry) -> Unit = { tile, entry ->
+                    if (musicChip) onMusicChipGone()
                     vm.opened(tile)
                     when {
                         tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
@@ -293,6 +327,8 @@ fun GalleryScreen(
                     }
                 }
                 val tomorrowTapped: () -> Unit = {
+                    // A music chip still showing goes first (T36, T42).
+                    if (musicChip) onMusicChipGone()
                     vm.teaserTapped()
                     toast++
                 }
@@ -358,15 +394,32 @@ fun GalleryScreen(
         if (!(tab == 1 && state.loaded && state.photos.isEmpty() && state.finishedPhotos.isEmpty())) {
             // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
             val note = allowanceLine(allowance, inventory?.canvases ?: 0).takeIf { allowance != Allowance.Free }
-            NoteAndButton(
-                note = note?.let { { AllowanceChip(it) } },
-                button = { PrimaryButton("New from photo", onNewFromPhoto) },
-                modifier = Modifier
+            Column(
+                Modifier
                     .align(Alignment.BottomEnd)
                     .fillMaxWidth()
                     .padding(16.dp)
                     .onSizeChanged { overlayHeight = it.height },
-            )
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // The first-music chip (T42, D24) sits above New from photo, right-aligned with it.
+                if (musicChip) {
+                    MusicChip(onTurnOff = {
+                        onMusicOff()
+                        onMusicChipGone()
+                        musicOffLine = true
+                    })
+                }
+                if (musicOffLine) {
+                    GemToast(MusicCopy.OFF_LINE, key = Unit, onGone = { musicOffLine = false }, modifier = Modifier.testTag(MUSIC_OFF_TAG))
+                }
+                NoteAndButton(
+                    note = note?.let { { AllowanceChip(it) } },
+                    button = { PrimaryButton("New from photo", onNewFromPhoto) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         if (toast > 0) {
             // Centred 16dp above New from photo (plan-design-review D8); the overlay's own 16dp padding is below it.
@@ -456,6 +509,30 @@ fun GalleryScreen(
         }
     }
 }
+
+/**
+ * "Music is playing" + "Turn off" on a felt-deep chip (T42, D24; the allowance chip's ground, 16sp body per D14),
+ * fading in over 150ms like every chip.
+ */
+@Composable
+private fun MusicChip(onTurnOff: () -> Unit) {
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { withFullMotion { alpha.animateTo(1f, tween(MUSIC_CHIP_FADE_MS)) } }
+    Row(
+        Modifier
+            .graphicsLayer { this.alpha = alpha.value }
+            .clip(RoundedCornerShape(4.dp))
+            .background(LocalFelt.current.deep)
+            .padding(start = 12.dp)
+            .testTag(MUSIC_CHIP_TAG),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(MusicCopy.CHIP, style = GemType.body, color = GemColors.Bone)
+        GemTextButton(MusicCopy.TURN_OFF, onTurnOff, Modifier.testTag("gallery-music-off-button"))
+    }
+}
+
+private const val MUSIC_CHIP_FADE_MS = 150
 
 /**
  * The allowance note on a felt-deep chip, so tile art scrolling underneath never meets its text (founder call #14;

@@ -70,13 +70,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Fails on every Accessibility Scanner finding, warnings included: touch targets, contrast, labels, duplicates. Two
+ * Fails on every Accessibility Scanner finding, warnings included: touch targets, contrast, labels, duplicates. These
  * findings are suppressed on named nodes only:
  * - image contrast on the player's picture itself (previews, the finished picture, Before/After): it is the artwork,
  *   not an icon, and its colors are the photo's;
  * - "Color 7 selected" in the canvas description (design D19 wording): it names the selected color, not a state of
  *   the canvas node, which the check can't tell apart;
- * - text contrast on disabled controls (Start, "Loading video…" at 55%): WCAG exempts inactive components.
+ * - text contrast on disabled controls (Start, "Loading video…" at 55%): WCAG exempts inactive components;
+ * - text contrast on a row the scroll edge cuts to a sliver (under [SLIVER_PX] high): the check estimates the colors
+ *   from a few antialiased pixels (Settings grew with T42's Music rows and a row's top edge sits at the screen's foot).
  */
 internal fun scannerValidator(): AccessibilityValidator =
     AccessibilityValidator().setRunChecksFromRootView(true).setThrowExceptionFor(AccessibilityCheckResultType.WARNING)
@@ -85,6 +87,7 @@ internal fun scannerValidator(): AccessibilityValidator =
                 Allowed("ImageContrastCheck") { it in ARTWORK || it.endsWith(" preview") },
                 Allowed("RedundantDescriptionCheck") { it.startsWith("Canvas. ") },
                 Disabled("TextContrastCheck"),
+                Sliver("TextContrastCheck"),
             ),
         )
 
@@ -105,6 +108,22 @@ private class Disabled(private val check: String) : BaseMatcher<AccessibilityVie
 
     override fun describeTo(text: Description) {
         text.appendText("disabled $check")
+    }
+}
+
+private const val SLIVER_PX = 8
+
+/** A finding of [check] on a node the scroll edge leaves under [SLIVER_PX] high on screen. */
+private class Sliver(private val check: String) : BaseMatcher<AccessibilityViewCheckResult>() {
+    override fun matches(item: Any?): Boolean {
+        val result = item as? AccessibilityViewCheckResult ?: return false
+        if (result.accessibilityHierarchyCheck?.simpleName != check) return false
+        val bounds = result.element?.boundsInScreen ?: return false
+        return bounds.height in 0 until SLIVER_PX
+    }
+
+    override fun describeTo(text: Description) {
+        text.appendText("sliver $check")
     }
 }
 

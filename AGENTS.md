@@ -32,7 +32,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 | [docs/agents/skill-routing.md](docs/agents/skill-routing.md) | Which gstack skill to use for which kind of request |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
 | [tools/remote/PROVENANCE.md](tools/remote/PROVENANCE.md) | The same for every remote picture (#43), published to `pictures/v1/` with `:shared:publishRemotePicture` (README) |
-| [tools/sounds/PROVENANCE.md](tools/sounds/PROVENANCE.md) | Every app sound (T41, #82): made in-house by `tools/make_sounds.py`, no third-party audio |
+| [tools/sounds/PROVENANCE.md](tools/sounds/PROVENANCE.md) | Every app sound (T41, #82): made in-house by `tools/make_sounds.py`, no third-party audio; and the six CC0 music tracks (T42, #83) with source, author and conversion |
 
 ## Skill routing
 
