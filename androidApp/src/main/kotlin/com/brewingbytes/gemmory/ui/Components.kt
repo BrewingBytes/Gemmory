@@ -42,6 +42,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
@@ -250,6 +252,37 @@ object GemIcons {
             lineTo(1f, 12f)
             lineTo(9.4f, 9.4f)
             close()
+        }
+        .build()
+
+    /**
+     * A square-gem outline (an outer square, its table and the facet lines between their corners) for the "Mystery"
+     * label on a mystery picture's tile (T43), the reminder's small icon drawn as a 12dp vector.
+     */
+    val GemOutline: ImageVector = ImageVector.Builder("GemOutline", 12.dp, 12.dp, 24f, 24f)
+        .path(stroke = SolidColor(Color.White), strokeLineWidth = 2f, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(4f, 4f)
+            horizontalLineToRelative(16f)
+            verticalLineToRelative(16f)
+            horizontalLineToRelative(-16f)
+            close()
+        }
+        .path(stroke = SolidColor(Color.White), strokeLineWidth = 1.5f, strokeLineJoin = StrokeJoin.Round) {
+            moveTo(8.5f, 8.5f)
+            horizontalLineToRelative(7f)
+            verticalLineToRelative(7f)
+            horizontalLineToRelative(-7f)
+            close()
+        }
+        .path(stroke = SolidColor(Color.White), strokeLineWidth = 1.2f, strokeLineCap = StrokeCap.Round) {
+            moveTo(4f, 4f)
+            lineTo(8.5f, 8.5f)
+            moveTo(20f, 4f)
+            lineTo(15.5f, 8.5f)
+            moveTo(20f, 20f)
+            lineTo(15.5f, 15.5f)
+            moveTo(4f, 20f)
+            lineTo(8.5f, 15.5f)
         }
         .build()
 

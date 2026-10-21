@@ -211,6 +211,27 @@ class RenderCachesTest {
         assertTrue(CellColors.contrast(colors.tint[1], colors.dimmed[1]) >= 1.7)
     }
 
+    /**
+     * T43 (plan-design-review D9): a mystery's unplaced cells are one neutral tint, bone 20% toward felt-deep, numbers
+     * in on-bone; placed gems, the stronger tint and Dim the rest work as usual. R1: an ordinary picture is unchanged.
+     */
+    @Test
+    fun aMysteryHasOneNeutralTintAndEverythingElseAsUsual() {
+        val mystery = CellColors(pattern, mystery = true)
+        val neutral = CellColors.mix(CellColors.BONE, CellColors.FELT_DEEP, 0.20f)
+        assertEquals(neutral, CellColors.MYSTERY_TINT)
+        for (slot in pattern.palette.indices) {
+            assertEquals(neutral, mystery.face(slot, CellLook.TINT))
+            assertEquals(CellColors.ON_BONE, mystery.number(slot, CellLook.TINT))
+            assertEquals(colors.gem[slot], mystery.face(slot, CellLook.GEM))
+            assertEquals(colors.selectedTint[slot], mystery.face(slot, CellLook.STRONG))
+            assertEquals(CellColors.mix(neutral, CellColors.FELT_DEEP, CellColors.DIM), mystery.face(slot, CellLook.DIMMED))
+        }
+        assertTrue(CellColors.contrast(CellColors.ON_BONE, neutral) >= 4.5, "numbers stay readable")
+        assertEquals(colors.tint.toList(), CellColors(pattern, mystery = false).tint.toList())
+        assertTrue(colors.tint.distinct().size > 1, "an ordinary picture keeps a tint per color")
+    }
+
     @Test
     fun aStyleSwitchRecolorsOnlyTheCellsItChanges() {
         val sink = FakeSink()

@@ -14,6 +14,7 @@ import kotlin.io.encoding.Base64
  * repo and never changed (saves bind to [crc32]; a fix is a new id). [grid] is a path relative to the catalog.
  * [minAppVersion] is a versionCode. [availableFrom] makes it a dated drop (T36): hidden on the phone before that local
  * date, free to start on it. [rewardOf] makes it a collection's keepsake (T37): hidden until that collection is earned.
+ * [mystery] makes a dated drop a mystery picture (T43): its title and art stay hidden until it's finished.
  */
 data class RemotePicture(
     val id: String,
@@ -31,6 +32,7 @@ data class RemotePicture(
     val addedAt: LocalDate,
     val availableFrom: LocalDate? = null,
     val rewardOf: String? = null,
+    val mystery: Boolean = false,
 )
 
 /**
@@ -102,7 +104,7 @@ sealed interface GridCheck {
  *
  * Format v1 (`catalog.json`, UTF-8): `{"version": 1, "issuedAt": <epoch s>, "pictures": [{"id", "title", "ratio"
  * ("1:1" | "3:4" | "4:3"), "size" ("quick" | "medium" | "big"), "width", "height", "colors", "grid"
- * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD"), optional "availableFrom" ("YYYY-MM-DD", T36), optional "rewardOf" (a collection id, T37)}],
+ * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD"), optional "availableFrom" ("YYYY-MM-DD", T36), optional "rewardOf" (a collection id, T37), optional "mystery" (true, on a dated drop, T43)}],
  * optional "collections": [{"id", "title", "members" ([picture ids]), optional "event" (true, T38)}]}`. A member the
  * catalog doesn't list is allowed (it may need a newer app, or be withdrawn). Unknown fields are ignored. `catalog.json.sig` is the Ed25519 signature of the exact catalog bytes, in base64.
  */
@@ -140,13 +142,19 @@ object RemoteCatalogs {
      */
     const val REWARDS_MIN_APP = 15
 
+    /**
+     * The first app (versionCode) that knows mystery pictures (T43). An older app would show a mystery's title and art,
+     * so an entry with `mystery` must name this or a later version; one naming an older version is malformed.
+     */
+    const val MYSTERY_MIN_APP = 16
+
     /** The first app (versionCode) that reads the remote catalog at all (#43). */
     const val REMOTE_MIN_APP = 11
 
     /**
      * The lowest app that reads [p] right (D14): an older app would refuse the whole catalog over its colors, or show
      * a dated drop or an unearned keepsake at once. The publishing tool stamps this as the picture's `minAppVersion`.
-     * Each later hiding field (`mystery` with T43) adds its own version here; fields an older app can safely ignore,
+     * Each later hiding field adds its own version here; fields an older app can safely ignore,
      * like collections, never raise it.
      */
     fun lowestApp(p: RemotePicture): Int = maxOf(
@@ -154,6 +162,7 @@ object RemoteCatalogs {
         if (p.colors > p.size.paletteCap) MORE_COLORS_MIN_APP else REMOTE_MIN_APP,
         if (p.availableFrom != null) DROPS_MIN_APP else REMOTE_MIN_APP,
         if (p.rewardOf != null) REWARDS_MIN_APP else REMOTE_MIN_APP,
+        if (p.mystery) MYSTERY_MIN_APP else REMOTE_MIN_APP,
     )
 
     fun gridPath(id: String): String = "grids/$id.gmrg"
@@ -254,8 +263,11 @@ object RemoteCatalogs {
         if (from != null && minApp < DROPS_MIN_APP) return null
         val reward = if ("rewardOf" in o.fields) o.string("rewardOf")?.takeIf { ID.matches(it) } ?: return null else null
         if (reward != null && minApp < REWARDS_MIN_APP) return null
+        // Only a dated drop is a mystery (T43): `false` is never written, so it's malformed too.
+        val mystery = if ("mystery" in o.fields) (o.fields["mystery"] as? Json.Bool)?.value?.takeIf { it } ?: return null else false
+        if (mystery && (from == null || minApp < MYSTERY_MIN_APP)) return null
         val crc32 = crc.fold(0) { acc, b -> (acc shl 8) or (b.toInt() and 0xFF) }
-        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added, from, reward)
+        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added, from, reward, mystery)
     }
 
     private fun collection(o: Json.Obj): RemoteCollection? {
@@ -296,6 +308,7 @@ object RemoteCatalogs {
         ).apply {
             p.availableFrom?.let { put("availableFrom", Json.Str(it.toString())) }
             p.rewardOf?.let { put("rewardOf", Json.Str(it)) }
+            if (p.mystery) put("mystery", Json.Bool(true))
         },
     )
 

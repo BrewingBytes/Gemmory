@@ -99,6 +99,32 @@ class PictureBatchTest {
         assertFalse(dir.exists(), "nothing published")
     }
 
+    /** T43: the optional `mystery` column makes a dated drop a mystery, stamped for the mystery app; undated is refused. */
+    @Test
+    fun theMysteryColumnFlagsADatedDrop() {
+        ImageIO.write(SheetSplitterTest.sheet(1536, 1024, columns = 3, rows = 2), "png", File(batchDir, "sheet-1.png"))
+        val dated = (1..6).joinToString("\n") { t -> "sheet-1.png,$t,garden-$t,Garden $t,quick-1:1,2026-11-0$t,a quiet garden $t,2026-10-30,yes,${if (t == 3) "yes" else ""}" }
+        File(batchDir, PictureBatch.CSV).writeText("$header,mystery\n$dated\n")
+        val published = PictureBatch.run(settings)
+        assertEquals(listOf("garden-3"), published.pictures.filter { it.mystery }.map { it.id })
+        assertEquals(RemoteCatalogs.MYSTERY_MIN_APP, published.pictures.single { it.mystery }.minAppVersion)
+        assertTrue(published.pictures.filterNot { it.mystery }.all { it.minAppVersion == RemoteCatalogs.DROPS_MIN_APP }, "R1: the others keep their stamp")
+
+        val undated = assertFailsWith<IllegalArgumentException> {
+            PictureBatch.read("$header,mystery\na.png,1,x,X,quick-1:1,,s,2026-10-30,yes,maybe\n")
+        }
+        assertTrue("mystery must be yes" in undated.message.orEmpty(), undated.message)
+    }
+
+    @Test
+    fun anUndatedMysteryIsRefused() {
+        ImageIO.write(SheetSplitterTest.sheet(1536, 1024, columns = 3, rows = 2), "png", File(batchDir, "sheet-1.png"))
+        File(batchDir, PictureBatch.CSV).writeText("$header,mystery\nsheet-1.png,1,garden-1,Garden 1,quick-1:1,,a garden,2026-10-30,yes,yes\n")
+        val error = assertFailsWith<IllegalArgumentException> { PictureBatch.run(settings) }
+        assertTrue("a mystery picture is a dated drop" in error.message.orEmpty(), error.message)
+        assertFalse(dir.exists(), "nothing published")
+    }
+
     /** T38: the optional `event` column flags a weekly event; a T37 file without it still reads. */
     @Test
     fun theEventColumnFlagsAWeeklyEvent() {

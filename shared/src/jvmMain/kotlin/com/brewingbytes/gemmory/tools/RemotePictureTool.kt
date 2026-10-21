@@ -82,6 +82,11 @@ object RemotePictureTool {
          * [RemoteCatalogs.REWARDS_MIN_APP] and no [availableFrom]; the collection must be in the catalog or the batch.
          */
         val rewardOf: String? = null,
+        /**
+         * A mystery picture (T43): its title and art stay hidden on phones until it's finished. Needs an [availableFrom]
+         * and [RemoteCatalogs.MYSTERY_MIN_APP].
+         */
+        val mystery: Boolean = false,
     )
 
     fun publish(r: Request): RemotePicture = publish(listOf(r)).single()
@@ -139,6 +144,11 @@ object RemotePictureTool {
             "a keepsake would show to everyone on an app before versionCode ${RemoteCatalogs.REWARDS_MIN_APP}, so run with " +
                 "-PminAppVersion=${RemoteCatalogs.REWARDS_MIN_APP} or later (or leave it out to stamp it)"
         }
+        require(!r.mystery || r.availableFrom != null) { "a mystery picture is a dated drop: give it an availableFrom" }
+        require(!r.mystery || r.minAppVersion == null || r.minAppVersion >= RemoteCatalogs.MYSTERY_MIN_APP) {
+            "a mystery would show its title and art on an app before versionCode ${RemoteCatalogs.MYSTERY_MIN_APP}, so run with " +
+                "-PminAppVersion=${RemoteCatalogs.MYSTERY_MIN_APP} or later (or leave it out to stamp it)"
+        }
         require(r.availableFrom == null || r.minAppVersion == null || r.minAppVersion >= RemoteCatalogs.DROPS_MIN_APP) {
             "a dated drop would show at once on an app before versionCode ${RemoteCatalogs.DROPS_MIN_APP}, so run with " +
                 "-PminAppVersion=${RemoteCatalogs.DROPS_MIN_APP} or later (or leave it out to stamp it)"
@@ -173,6 +183,7 @@ object RemotePictureTool {
             addedAt = r.availableFrom ?: r.addedAt,
             availableFrom = r.availableFrom,
             rewardOf = r.rewardOf,
+            mystery = r.mystery,
         )
         val picture = unstamped.copy(minAppVersion = r.minAppVersion ?: RemoteCatalogs.lowestApp(unstamped))
         check(picture.minAppVersion >= RemoteCatalogs.lowestApp(picture)) { "${r.id}: minAppVersion below ${RemoteCatalogs.lowestApp(picture)}" }
@@ -276,6 +287,9 @@ object RemotePictureTool {
         // An app that doesn't know keepsakes (before REWARDS_MIN_APP) must never list one (T37).
         val older = RemoteCatalogs.check(catalog, sig, r.trustedKeys, RemoteCatalogs.REWARDS_MIN_APP - 1, oldIssued, r.reservedIds)
         check(older is CatalogCheck.Ok && older.catalog.pictures.none { it.rewardOf != null }) { "an older app would see a keepsake: $older" }
+        // Nor one that doesn't know mystery pictures (before MYSTERY_MIN_APP) one of those (T43).
+        val beforeMystery = RemoteCatalogs.check(catalog, sig, r.trustedKeys, RemoteCatalogs.MYSTERY_MIN_APP - 1, oldIssued, r.reservedIds)
+        check(beforeMystery is CatalogCheck.Ok && beforeMystery.catalog.pictures.none { it.mystery }) { "an older app would see a mystery picture: $beforeMystery" }
     }
 
     /** JPEG has no alpha, and ImageIO silently writes nothing for an ARGB image. */

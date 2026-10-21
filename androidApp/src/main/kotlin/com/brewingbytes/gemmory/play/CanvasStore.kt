@@ -12,7 +12,9 @@ import com.brewingbytes.gemmory.policy.AchievementRules
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.policy.ReminderCanvas
+import com.brewingbytes.gemmory.remote.Mystery
 import com.brewingbytes.gemmory.remote.RemoteCatalogView
+import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.remote.RemotePictureRules
 import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.save.Decoded
@@ -36,6 +38,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -43,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * One gallery tile's data. [size] is a picture's Quick / Medium / Big (null for the starter and photo canvases);
  * [locked] is its catalog flag (`BundledPictures.FREE`, or a remote picture's `locked`), before unlocks and VIP.
+ * [hiddenAs]: an unfinished mystery picture's neutral name (T43); its [title] and art aren't shown while it's set.
  */
 sealed interface CanvasSummary {
     val ref: CanvasRef
@@ -50,6 +54,7 @@ sealed interface CanvasSummary {
     val createdAtMillis: Long
     val size: CanvasSize?
     val locked: Boolean
+    val hiddenAs: String?
 
     /**
      * [state] is the restored progress (empty for a picture never opened). [firstFinishedDay] is the local epoch day
@@ -63,6 +68,7 @@ sealed interface CanvasSummary {
         override val size: CanvasSize? = null,
         override val locked: Boolean = false,
         val firstFinishedDay: Long? = null,
+        override val hiddenAs: String? = null,
     ) : CanvasSummary
 
     /**
@@ -77,6 +83,7 @@ sealed interface CanvasSummary {
         val height: Int,
         override val size: CanvasSize?,
         override val locked: Boolean,
+        override val hiddenAs: String? = null,
     ) : CanvasSummary {
         override val createdAtMillis: Long get() = 0L
     }
@@ -89,6 +96,7 @@ sealed interface CanvasSummary {
         val thumb: File?,
         override val size: CanvasSize? = null,
         override val locked: Boolean = false,
+        override val hiddenAs: String? = null,
     ) : CanvasSummary
 }
 
@@ -148,6 +156,8 @@ class CanvasStore(
             val entry: CanvasEntry = CanvasEntry.GALLERY,
             /** Its `play` file (T35), carried into the session so each save updates it without a read. */
             val play: PlayTimes = PlayTimes(),
+            /** An unfinished mystery picture's neutral name (T43): the canvas hides its title, tints, Peek and Share. */
+            val hiddenAs: String? = null,
         ) : Opened
 
         /** "Can't open" (design D9). */
@@ -179,6 +189,7 @@ class CanvasStore(
                         daysSinceAvailable = days,
                         collectionId = remote.collectionOf(ref.id),
                         eventId = remote.eventOf(ref.id),
+                        mystery = ref.kind == CanvasKind.REMOTE && remote.listed().any { it.id == ref.id && it.mystery },
                     ),
                 )
             }
@@ -186,7 +197,8 @@ class CanvasStore(
             val state = CanvasState.restore(grid.pattern, log) ?: return@withContext Opened.Damaged(null)
             val record = repository.readRecord(ref)
             val play = repository.readPlay(ref) ?: PlayTimes()
-            Opened.Ready(ref, titleOf(ref, record), grid, state, repository.readView(ref, grid.pattern.palette.size), record, entry, play)
+            val hidden = hiddenName(ref, record, state.isFinished, remote.listed().firstOrNull { it.id == ref.id })
+            Opened.Ready(ref, titleOf(ref, record), grid, state, repository.readView(ref, grid.pattern.palette.size), record, entry, play, hidden)
         }
     }
 
@@ -216,6 +228,7 @@ class CanvasStore(
         return PlaySession(
             ref = ref,
             title = opened.title,
+            hiddenAs = opened.hiddenAs,
             pattern = opened.grid.pattern,
             state = opened.state,
             view = opened.view,
@@ -313,9 +326,10 @@ class CanvasStore(
             val inCatalog = listed.map { picture ->
                 val ref = CanvasRef(CanvasKind.REMOTE, picture.id)
                 if (repository.dirOf(ref).isDirectory) {
-                    summarize(ref, picture.size, picture.locked)
+                    summarize(ref, picture.size, picture.locked, picture)
                 } else {
-                    CanvasSummary.Listed(ref, picture.title, picture.width, picture.height, picture.size, picture.locked)
+                    val hidden = hiddenName(ref, null, finished = false, picture)
+                    CanvasSummary.Listed(ref, picture.title, picture.width, picture.height, picture.size, picture.locked, hidden)
                 }
             }
             // Withdrawn from the catalog (or a restored save before the first check): shown only once started, or when
@@ -394,6 +408,18 @@ class CanvasStore(
         return withContext(writer) {
             repository.dirOf(ref).isDirectory && (summarize(ref, null, false) as? CanvasSummary.Playable)?.state?.isFinished == true
         }
+    }
+
+    /**
+     * [ref]'s neutral name while it's an unfinished mystery picture (T43), else null: what the evening reminder names
+     * and draws instead of the picture. Reads only, off [writer], like the reminder's other reads (files are replaced
+     * atomically, so a read never sees half a write).
+     */
+    fun hiddenAs(ref: CanvasRef): String? {
+        if (ref.kind != CanvasKind.REMOTE) return null
+        val entry = remote.listed().firstOrNull { it.id == ref.id }
+        if (!repository.dirOf(ref).isDirectory) return hiddenName(ref, null, finished = false, entry)
+        return summarize(ref, null, false, entry).hiddenAs
     }
 
     /** The title is drawn into the time-lapse band, so the canvas's cached videos and pictures go with the old one. */
@@ -485,30 +511,52 @@ class CanvasStore(
             CanvasKind.REMOTE -> {
                 val picture = remote.listed().firstOrNull { it.id == ref.id } ?: return false
                 val grid = remote.grid(ref.id) ?: return false
-                repository.create(ref, grid, CanvasRecord(picture.title, now, 0L)) == WriteResult.Written
+                repository.create(ref, grid, CanvasRecord(picture.title, now, 0L, picture.mystery)) == WriteResult.Written
             }
         }
     }
 
-    private fun summarize(ref: CanvasRef, size: CanvasSize?, locked: Boolean): CanvasSummary {
+    /** [entry]: its catalog entry, when listed; a withdrawn mystery is still hidden by its record (T43). */
+    private fun summarize(ref: CanvasRef, size: CanvasSize?, locked: Boolean, entry: RemotePicture? = null): CanvasSummary {
         val record = repository.readRecord(ref)
         val title = titleOf(ref, record)
         val (grid, log) = when (val r = repository.load(ref)) {
             is LoadResult.Loaded -> r.grid to r.log
             is LoadResult.RecoveredFromLastGood -> r.grid to r.log
-            is LoadResult.Damaged -> return damaged(ref, title, record, size, locked)
+            is LoadResult.Damaged -> return damaged(ref, title, record, size, locked, entry)
         }
-        val state = CanvasState.restore(grid.pattern, log) ?: return damaged(ref, title, record, size, locked)
+        val state = CanvasState.restore(grid.pattern, log) ?: return damaged(ref, title, record, size, locked, entry)
         // The Finished section's order (#89): only a finished canvas reads its play file.
         val finishedDay = if (state.isFinished) repository.readPlay(ref)?.firstFinishedDay else null
-        return CanvasSummary.Playable(ref, title, state, record?.createdAtMillis ?: 0L, size, locked, finishedDay)
+        val hidden = hiddenName(ref, record, state.isFinished, entry)
+        return CanvasSummary.Playable(ref, title, state, record?.createdAtMillis ?: 0L, size, locked, finishedDay, hidden)
     }
 
-    private fun damaged(ref: CanvasRef, title: String, record: CanvasRecord?, size: CanvasSize?, locked: Boolean) =
-        CanvasSummary.Damaged(ref, title, record?.createdAtMillis ?: 0L, repository.thumbFile(ref).takeIf { it.isFile }, size, locked)
+    /** A damaged mystery can't show it's finished, so it stays hidden (T43). */
+    private fun damaged(ref: CanvasRef, title: String, record: CanvasRecord?, size: CanvasSize?, locked: Boolean, entry: RemotePicture?) =
+        CanvasSummary.Damaged(
+            ref,
+            title,
+            record?.createdAtMillis ?: 0L,
+            repository.thumbFile(ref).takeIf { it.isFile },
+            size,
+            locked,
+            hiddenName(ref, record, finished = false, entry),
+        )
+
+    /**
+     * The neutral name of a mystery picture (T43) while it's unfinished, from its record (kept after a withdrawal) or
+     * its catalog [entry]; null for anything else.
+     */
+    private fun hiddenName(ref: CanvasRef, record: CanvasRecord?, finished: Boolean, entry: RemotePicture?): String? {
+        if (ref.kind != CanvasKind.REMOTE) return null
+        val mystery = record?.mystery == true || entry?.mystery == true
+        if (!Mystery.hidden(mystery, finished)) return null
+        return Mystery.name(entry?.availableFrom, LocalDate.fromEpochDays(dayClock.today()))
+    }
 
     private fun CanvasSummary.Playable.withSize(size: CanvasSize?) =
-        CanvasSummary.Playable(ref, title, state, createdAtMillis, size, locked, firstFinishedDay)
+        CanvasSummary.Playable(ref, title, state, createdAtMillis, size, locked, firstFinishedDay, hiddenAs)
 
     /** A canvas's size for achievements: a bundled picture's catalog size, else its grid's shape (null for the starter). */
     private fun sizeOf(ref: CanvasRef, pattern: Pattern): CanvasSize? =

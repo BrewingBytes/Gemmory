@@ -163,6 +163,42 @@ class RemoteCanvasStoreTest {
         assertIs<CanvasSummary.Playable>(store.summaries().first.single { it.ref.kind == CanvasKind.REMOTE })
     }
 
+    /**
+     * T43: a mystery is summarized and opened under its neutral name until it's finished, its record keeps it hidden
+     * after a withdrawal, and its start says `mystery`. The finish shows its title again.
+     */
+    @Test
+    fun aMysteryIsHiddenUntilFinishedEvenAfterWithdrawal() = runBlocking<Unit> {
+        val lantern = catalog.add("lantern", availableFrom = "2026-10-01", mystery = true)
+        listed = listOf(lantern)
+        val unopened = store.summaries().first.single { it.ref == ref("lantern") }
+        assertEquals("Mystery picture", unopened.hiddenAs)
+        assertEquals("Mystery picture", store.hiddenAs(ref("lantern")))
+        val opened = assertIs<CanvasStore.Opened.Ready>(store.open(ref("lantern")))
+        assertEquals("Mystery picture", opened.hiddenAs)
+        assertEquals("true", events.single { it.name == "canvas_started" }.params["mystery"])
+        val grid = (GridCodec.decode(catalog.files[lantern.grid]!!) as Decoded.Ok<GridFile>).value
+        store.repository.writeSave(ref("lantern"), grid.binding, intArrayOf(0))
+        listed = emptyList()
+        val withdrawn = store.summaries().first.single { it.ref == ref("lantern") }
+        assertEquals("Mystery picture", withdrawn.hiddenAs, "its record keeps it hidden")
+        assertEquals("Lantern", withdrawn.title, "the real title is kept for the finish")
+        store.repository.writeSave(ref("lantern"), grid.binding, IntArray(grid.pattern.cells.size) { it })
+        val finished = store.summaries().first.single { it.ref == ref("lantern") }
+        assertEquals(null, finished.hiddenAs)
+        assertEquals(null, store.hiddenAs(ref("lantern")))
+        assertEquals("Lantern", store.record(ref("lantern")).first, "the completion meta line names it")
+    }
+
+    /** R1: an ordinary remote picture is never hidden, and its start carries no `mystery`. */
+    @Test
+    fun anOrdinaryPictureIsNeverHidden() = runBlocking<Unit> {
+        listed = listOf(catalog.add("fox", availableFrom = "2026-10-01"))
+        assertEquals(null, store.summaries().first.single { it.ref == ref("fox") }.hiddenAs)
+        assertEquals(null, assertIs<CanvasStore.Opened.Ready>(store.open(ref("fox"))).hiddenAs)
+        assertEquals(null, events.single { it.name == "canvas_started" }.params["mystery"])
+    }
+
     /** T36: an id the catalog doesn't list now (tomorrow's drop, crafted or stale) never gets a canvas. */
     @Test
     fun aHiddenPictureCantBeOpenedById() = runBlocking<Unit> {

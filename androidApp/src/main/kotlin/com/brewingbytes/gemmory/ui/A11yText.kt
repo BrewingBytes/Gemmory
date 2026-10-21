@@ -59,9 +59,24 @@ object A11yText {
      * Sunflowers, Medium" (VIP) / "Today's picture: Sunflowers, 12% done" / "…, done".
      */
 
-    fun today(title: String, size: String, vip: Boolean, free: Boolean, started: Boolean, percent: Int, done: Boolean, drop: Boolean = false): String {
-        // Today's drop (T36) folds its "New today" chip in: "Today's picture, new today: Lighthouse, …".
-        val head = "${if (vip) "Today's pick" else "Today's picture"}${if (drop) ", new today" else ""}: $title"
+    fun today(
+        title: String,
+        size: String,
+        vip: Boolean,
+        free: Boolean,
+        started: Boolean,
+        percent: Int,
+        done: Boolean,
+        drop: Boolean = false,
+        mystery: Boolean = false,
+    ): String {
+        // Today's drop (T36) folds its "New today" chip in: "Today's picture, new today: Lighthouse, …". A mystery
+        // (T43) is read by its neutral name alone: "Today's mystery picture, new today, hidden until finished, …".
+        val head = if (mystery) {
+            "$title${if (drop) ", new today" else ""}, hidden until finished"
+        } else {
+            "${if (vip) "Today's pick" else "Today's picture"}${if (drop) ", new today" else ""}: $title"
+        }
         return when {
             done -> "$head, done"
             started -> "$head, $percent% done"
@@ -99,10 +114,15 @@ object A11yText {
 
     /**
      * "Sunflowers, 42% done" / "Sunflowers, done" / "Sunflowers, locked, watch a video to unlock"; a remote picture
-     * that just arrived (#43) reads "Fox in Snow, new, 0% done" / "…, new, locked, watch a video to unlock".
+     * that just arrived (#43) reads "Fox in Snow, new, 0% done" / "…, new, locked, watch a video to unlock". An
+     * unfinished mystery picture (T43) reads its neutral name: "Mystery picture, hidden until finished, 12% done".
      */
-    fun tile(title: String, percent: Int, done: Boolean, locked: Boolean, damaged: Boolean, new: Boolean = false): String {
-        val head = if (new && !damaged) "$title, new" else title
+    fun tile(title: String, percent: Int, done: Boolean, locked: Boolean, damaged: Boolean, new: Boolean = false, mystery: Boolean = false): String {
+        val head = when {
+            mystery -> "$title, hidden until finished"
+            new && !damaged -> "$title, new"
+            else -> title
+        }
         return when {
             damaged -> "$title, can't open"
             locked -> "$head, locked, watch a video to unlock"

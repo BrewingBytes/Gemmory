@@ -31,14 +31,15 @@ class TestCatalog(private val seed: ByteArray = SEED) {
         salt: Int = id.hashCode(),
         availableFrom: String? = null,
         rewardOf: String? = null,
+        mystery: Boolean = false,
     ): RemotePicture {
         val grid = grid(size, salt)
         val file = (GridCodec.decode(grid) as Decoded.Ok).value
         val p = RemotePicture(
             id, id.replace('-', ' ').replaceFirstChar { it.uppercase() }, AspectRatio.SQUARE, size, file.pattern.width,
             file.pattern.height, file.pattern.palette.size, RemoteCatalogs.gridPath(id), Sha256.digest(grid).toHex(),
-            file.crc32, locked, 0, LocalDate.parse(addedAt), availableFrom?.let(LocalDate::parse), rewardOf,
-        ).let { it.copy(minAppVersion = if (availableFrom == null && rewardOf == null) 1 else RemoteCatalogs.lowestApp(it)) }
+            file.crc32, locked, 0, LocalDate.parse(addedAt), availableFrom?.let(LocalDate::parse), rewardOf, mystery,
+        ).let { it.copy(minAppVersion = if (availableFrom == null && rewardOf == null && !mystery) 1 else RemoteCatalogs.lowestApp(it)) }
         pictures += p
         files[p.grid] = grid
         publish()

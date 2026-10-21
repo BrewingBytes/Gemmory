@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -180,6 +181,7 @@ fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.i
 
 /** The "New" label on a remote picture's tile (#43). */
 const val NEW_LABEL_TAG = "new-label"
+const val MYSTERY_LABEL_TAG = "mystery-label"
 
 /**
  * Whether [this] tile is a locked picture the player hasn't unlocked (design D14). [todayFree], today's free picture
@@ -563,7 +565,7 @@ private fun TodayCardView(card: TodayCard, tomorrow: ImageBitmap?, onTomorrow: (
         tile.started -> "Continue"
         else -> "Start"
     }
-    val description = A11yText.today(tile.title, card.size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop)
+    val description = A11yText.today(tile.title, card.size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop, tile.mystery)
     Column(
         Modifier
             .fillMaxWidth()
@@ -591,6 +593,7 @@ private fun TodayCardView(card: TodayCard, tomorrow: ImageBitmap?, onTomorrow: (
             ) {
                 card.preview?.let {
                     Image(it, contentDescription = null, contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.None, modifier = Modifier.fillMaxSize())
+                    if (tile.mystery) FrostCover()
                 }
             }
             // Large screens (plan-design-review D19): the card spans the grid, its text at most 480dp wide.
@@ -661,14 +664,19 @@ private fun TomorrowLine(frost: ImageBitmap, onTap: () -> Unit) {
     ) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(4.dp))) {
             Image(frost, contentDescription = null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize())
-            // The frost's felt-deep cover (design system, Hidden pictures), from the theme.
-            Box(Modifier.matchParentSize().background(LocalFelt.current.deep.copy(alpha = Frost.OVERLAY_ALPHA)))
+            FrostCover()
         }
         Column(Modifier.widthIn(max = 480.dp)) {
             Text("Tomorrow", style = GemType.label, color = GemColors.TextMuted)
             Text("A new picture opens at midnight", style = GemType.label, color = GemColors.Bone)
         }
     }
+}
+
+/** The frost's `felt-deep` cover at 45% (design system, Hidden pictures), from the theme: T36's teaser, T43's mystery. */
+@Composable
+internal fun BoxScope.FrostCover() {
+    Box(Modifier.matchParentSize().background(LocalFelt.current.deep.copy(alpha = Frost.OVERLAY_ALPHA)))
 }
 
 /** The Tomorrow line on its own `felt-deep` card, when there's no Today card (T36). */
@@ -847,7 +855,7 @@ private fun TileView(
 ) {
     var menu by remember { mutableStateOf(false) }
     val photo = tile.ref.kind == CanvasKind.PHOTO
-    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew)
+    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
     // TalkBack (design D19): one node per tile that reads exactly its state, with the ⋮ menu's items as its custom
     // actions (the ⋮ button itself is folded into them).
     val share = !locked && tile.shareable
@@ -895,6 +903,7 @@ private fun TileView(
                     filterQuality = FilterQuality.None,
                     modifier = Modifier.fillMaxSize(),
                 )
+                if (tile.mystery) FrostCover()
             }
             if (locked) {
                 // Locked art stays fully visible: a small label, never a padlock or a dim (design D14).
@@ -929,6 +938,23 @@ private fun TileView(
                     Image(GemIcons.Spark, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("New", style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (tile.mystery && !tile.damaged) {
+                // An unfinished mystery picture (T43): New's shape and place, with the gem outline.
+                Row(
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(LocalFelt.current.deep)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .testTag(MYSTERY_LABEL_TAG),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(GemIcons.GemOutline, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Mystery", style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (tile.damaged) {

@@ -14,12 +14,16 @@ import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.policy.ReminderCopy
 import com.brewingbytes.gemmory.policy.ReminderOutcome
 import com.brewingbytes.gemmory.policy.ReminderReason
 
-/** What the notification needs to know about a picture: its title, size and (lazily) its finished grid. */
-class ReminderPicture(val title: String, val size: CanvasSize?, val pattern: () -> Pattern?)
+/**
+ * What the notification needs to know about a picture: its title, size and (lazily) its finished grid. [mystery]: an
+ * unfinished mystery picture (T43), named neutrally and drawn as its frost.
+ */
+class ReminderPicture(val title: String, val size: CanvasSize?, val mystery: Boolean = false, val pattern: () -> Pattern?)
 
 /**
  * Posts the evening reminder (T35; design system, Evening reminder): channel "Evening reminder" at default importance,
@@ -50,8 +54,8 @@ class ReminderNotifier(context: Context) : ReminderChannel {
     fun post(post: ReminderOutcome.Post, picture: ReminderPicture?, vip: Boolean, day: Long): Boolean {
         if (!allowed()) return false
         ensureChannel()
-        val text = ReminderCopy.of(post, picture?.title, picture?.size, vip)
-        val icon = picture?.pattern?.invoke()?.let(::flat) ?: appIcon()
+        val text = ReminderCopy.of(post, picture?.title, picture?.size, vip, picture?.mystery == true)
+        val icon = picture?.pattern?.invoke()?.let { if (picture.mystery) frost(it) else flat(it) } ?: appIcon()
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification_gem)
             .setColor(PATINA)
@@ -93,6 +97,7 @@ class ReminderNotifier(context: Context) : ReminderChannel {
         const val EXTRA_CANVAS = "reminder_canvas"
         const val EXTRA_DAY = "reminder_day"
         private const val PATINA = 0xFF7FB3A0.toInt()
+        private const val FELT_DEEP = 0xFF3E4741.toInt()
         private const val ICON_PX = 256
 
         /** The picture drawn flat: one color per cell, whole pixels per cell, center-cropped square (no gem shading). */
@@ -107,6 +112,13 @@ class ReminderNotifier(context: Context) : ReminderChannel {
             val scale = (ICON_PX / side).coerceAtLeast(1)
             return cells.scale(side * scale, side * scale, filter = false)
         }
+
+        /**
+         * A mystery picture's frost (T43; design system, Hidden pictures), square, with the `felt-deep` cover baked in:
+         * a notification has no theme to lay it on.
+         */
+        fun frost(pattern: Pattern): Bitmap =
+            Bitmap.createBitmap(Frost.image(pattern, ICON_PX, ICON_PX, FELT_DEEP), ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888)
 
         /** The reason named by a tap's [EXTRA_REASON], or null for anything else. */
         fun reasonOf(name: String?): ReminderReason? = ReminderReason.entries.firstOrNull { it.name == name }

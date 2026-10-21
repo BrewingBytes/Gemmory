@@ -216,12 +216,14 @@ fun PlayScreen(
                 val inventory by monetization.inventory.collectAsStateWithLifecycle()
                 LaunchedEffect(s, entitlements.vip, inventory.fills) { s.offerTools(entitlements.vip, inventory.fills) }
                 val peek = remember(s) { Peek(scope) }
+                // A mystery picture (T43, D23) keeps its title, Peek and Share progress hidden (not dimmed) until finished.
+                val hidden = s.hiddenAs != null
                 TopBar(
-                    s.title,
+                    s.hiddenAs ?: s.title,
                     progress = s.placedCount to s.cellCount,
                     onBack = leave,
-                    peek = peek,
-                    onShare = if (ProgressShare.isOffered(s.placedCount, s.cellCount)) ({ vm.shareProgress(s) }) else null,
+                    peek = peek.takeUnless { hidden },
+                    onShare = if (!hidden && ProgressShare.isOffered(s.placedCount, s.cellCount)) ({ vm.shareProgress(s) }) else null,
                     modifier = Modifier.graphicsLayer {
                         alpha = chrome.value
                         translationY = -(1f - chrome.value) * size.height * slide
@@ -531,7 +533,8 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
     val viewport = session.viewport
     val context = LocalContext.current
     val density = LocalDensity.current.density
-    val renderer = remember(session.pattern) { CanvasRenderer(context, session.pattern) }
+    val mystery = session.hiddenAs != null
+    val renderer = remember(session.pattern, mystery) { CanvasRenderer(context, session.pattern, mystery) }
     // Read in the draw block, so a change in Settings redraws an open canvas at once (#19).
     val highlight by (context.applicationContext as GemmoryApp).settings.highlight.collectAsStateWithLifecycle()
 
@@ -556,7 +559,7 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
     // Placement tools (#20, VIP): "Fill region at next gem", and "Fill the rest of color 7" while Fill color shows.
     val toolsOn = session.toolsUsable
     val fillColor = session.fillColorVisible
-    val actions = remember(controller, peeking, toolsOn, fillColor, slot) {
+    val actions = remember(controller, peeking, toolsOn, fillColor, slot, mystery) {
         listOfNotNull(
             CustomAccessibilityAction("Place next gem") { controller.placeNext() },
             if (toolsOn) CustomAccessibilityAction("Fill region at next gem") { controller.fillRegionNext() } else null,
@@ -565,9 +568,13 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
             CustomAccessibilityAction("Zoom in") { controller.zoomStep(zoomIn = true) },
             CustomAccessibilityAction("Zoom out") { controller.zoomStep(zoomIn = false) },
             CustomAccessibilityAction("Whole picture") { controller.wholePicture() },
-            CustomAccessibilityAction(if (peeking) "Back to canvas" else "Peek at picture") {
-                session.announcePeek(peek.toggle())
-                true
+            if (mystery) {
+                null
+            } else {
+                CustomAccessibilityAction(if (peeking) "Back to canvas" else "Peek at picture") {
+                    session.announcePeek(peek.toggle())
+                    true
+                }
             },
         )
     }

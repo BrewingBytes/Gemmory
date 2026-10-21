@@ -268,6 +268,51 @@ class RemoteCatalogTest {
         assertEquals(listOf("seaside"), now.collections.map { it.id })
     }
 
+    /** T43: a mystery is a dated drop for an app that knows mysteries; it round-trips through the tool's entry. */
+    @Test
+    fun aMysteryRoundTripsAndNeedsADateAndTheMysteryApp() {
+        val app = RemoteCatalogs.MYSTERY_MIN_APP
+        val mystery = picture("lantern", lanterns, CanvasSize.MEDIUM, AspectRatio.LANDSCAPE, minAppVersion = app, availableFrom = "2026-11-03", mystery = true)
+        val bytes = catalogJson(pictures + mystery)
+        assertEquals(pictures + mystery, assertIs<CatalogCheck.Ok>(check(bytes, appVersion = app)).catalog.pictures)
+        assertFalse(catalogJson(pictures).decodeToString().contains("mystery"), "ordinary entries keep their bytes")
+        assertEquals(app, RemoteCatalogs.lowestApp(mystery.copy(minAppVersion = 0)))
+        val early = catalogJson(listOf(mystery.copy(minAppVersion = app - 1)))
+        assertIs<CatalogRefusal.Malformed>(refusal(check(early, appVersion = app)))
+        val undated = catalogJson(listOf(mystery.copy(availableFrom = null)))
+        assertIs<CatalogRefusal.Malformed>(refusal(check(undated, appVersion = app)))
+        for (bad in listOf("false", "\"yes\"")) {
+            val text = bytes.decodeToString().replace("\"mystery\": true", "\"mystery\": $bad").encodeToByteArray()
+            assertIs<CatalogRefusal.Malformed>(refusal(check(text, appVersion = app)), bad)
+        }
+    }
+
+    /**
+     * R1 (eng D10): 0.7.0 (versionCode 15) reading a catalog with a mystery drop lists every other picture as before and
+     * never the mystery, so it can't show its title or art. The catalog is pinned text.
+     */
+    @Test
+    fun aZeroSevenZeroPhoneNeverSeesAMystery() {
+        val golden = """
+            {
+              "version": 1,
+              "issuedAt": 1792000000,
+              "pictures": [
+                {"id": "harbor", "title": "Harbor", "ratio": "1:1", "size": "quick", "width": 56, "height": 56, "colors": 4,
+                 "grid": "grids/harbor.gmrg", "sha256": "${"0".repeat(64)}", "crc32": "0a0b0c0d", "locked": true,
+                 "minAppVersion": 12, "addedAt": "2026-10-18"},
+                {"id": "lantern", "title": "Lantern", "ratio": "1:1", "size": "quick", "width": 56, "height": 56, "colors": 4,
+                 "grid": "grids/lantern.gmrg", "sha256": "${"1".repeat(64)}", "crc32": "01020304", "locked": true,
+                 "minAppVersion": 16, "addedAt": "2026-11-03", "availableFrom": "2026-11-03", "mystery": true}
+              ]
+            }
+        """.trimIndent().encodeToByteArray()
+        val old = assertIs<CatalogCheck.Ok>(RemoteCatalogs.parse(golden, appVersion = 15)).catalog
+        assertEquals(listOf("harbor"), old.pictures.map { it.id })
+        val now = assertIs<CatalogCheck.Ok>(RemoteCatalogs.parse(golden, appVersion = RemoteCatalogs.MYSTERY_MIN_APP)).catalog
+        assertEquals(listOf(false, true), now.pictures.map { it.mystery })
+    }
+
     @Test
     fun jsonIsStrict() {
         for (bad in listOf("{\"a\":1,}", "{\"a\":1,\"a\":2}", "[01]", "\"\u0001\"", "{} {}", "[" .repeat(40) + "]".repeat(40), "tru")) {

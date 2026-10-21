@@ -44,7 +44,11 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
     val sharing = ProgressSharing(application as GemmoryApp)
 
     /** Share progress tap: the time-lapse of [session]'s log so far. */
-    fun shareProgress(session: PlaySession) = sharing.share(session.ref, session.pattern, session.log(), session.title)
+    fun shareProgress(session: PlaySession) {
+        // An unfinished mystery (T43, D23) is shared only from its completion screen.
+        if (session.hiddenAs != null) return
+        sharing.share(session.ref, session.pattern, session.log(), session.title)
+    }
 
     /** First-time hints (design D12); kept here so a rotation doesn't lose the one showing. */
     val hints = CoachHints(application)

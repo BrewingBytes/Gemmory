@@ -17,6 +17,7 @@ import com.brewingbytes.gemmory.collections.CollectionCopy
 import com.brewingbytes.gemmory.collections.Keepsake
 import com.brewingbytes.gemmory.collections.Settled
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
@@ -69,6 +70,11 @@ data class Tile(
     val finishedDay: Long? = null,
     /** When its canvas was made (0 for a picture never opened): the Finished section's tie-break (#89). */
     val createdAtMillis: Long = 0L,
+    /**
+     * An unfinished mystery picture (T43): [title] is its neutral name, [image] the frost (the UI lays `felt-deep` on
+     * it), the "Mystery" label takes New's place, and it can't be shared.
+     */
+    val mystery: Boolean = false,
 ) {
     /** Mono "42%" or "Done"; never "100%" before the last gem. */
     val progressLabel: String get() = if (done) "Done" else "$percent%"
@@ -292,7 +298,9 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     suspend fun thumbnail(tile: Tile): ImageBitmap? {
         lazyThumbs.get(tile.ref)?.let { return it }
         val pattern = withContext(Dispatchers.IO) { store.pattern(tile.ref) } ?: return null
-        val image = withContext(Dispatchers.Default) { GemRenderer.render(pattern, cellPxFor(pattern.width)).asImageBitmap() }
+        val image = withContext(Dispatchers.Default) {
+            if (tile.mystery) frost(pattern).asImageBitmap() else GemRenderer.render(pattern, cellPxFor(pattern.width)).asImageBitmap()
+        }
         lazyThumbs.put(tile.ref, image)
         return image
     }
@@ -345,7 +353,12 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             // A remote picture never opened is only its catalog entry (T36), so its grid is read for the preview.
             val pattern = (summaries.firstOrNull { it.ref == tile.ref } as? CanvasSummary.Playable)?.state?.pattern
                 ?: withContext(Dispatchers.IO) { store.pattern(tile.ref) }
-            pattern?.let { withContext(Dispatchers.Default) { GemRenderer.render(it, cellPxFor(it.width)).asImageBitmap() } } ?: tile.image
+            // A mystery (T43) shows only its frost.
+            if (tile.mystery) {
+                tile.image ?: pattern?.let { withContext(Dispatchers.Default) { frost(it).asImageBitmap() } }
+            } else {
+                pattern?.let { withContext(Dispatchers.Default) { GemRenderer.render(it, cellPxFor(it.width)).asImageBitmap() } } ?: tile.image
+            }
         }
         return TodayCard(tile, preview, size, vip, free = !vip && !tile.started && tile.ref.id !in unlocked, drop = drop != null)
     }
@@ -366,6 +379,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     fun shareProgress(ref: CanvasRef) {
         viewModelScope.launch {
             val opened = store.open(ref) as? CanvasStore.Opened.Ready ?: return@launch
+            // An unfinished mystery (T43, D23) is shared only from its completion screen.
+            if (opened.hiddenAs != null) return@launch
             sharing.share(ref, opened.grid.pattern, opened.state.log(), opened.title)
         }
     }
@@ -389,22 +404,23 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     private suspend fun tile(summary: CanvasSummary): Tile = when (summary) {
         is CanvasSummary.Listed -> Tile(
             ref = summary.ref,
-            title = summary.title,
+            title = summary.hiddenAs ?: summary.title,
             aspect = summary.width / summary.height.toFloat(),
             image = lazyThumbs.get(summary.ref),
             percent = 0,
             done = false,
             damaged = false,
             lockable = summary.locked,
-            isNew = app.remote.isNew(summary.ref.id),
+            isNew = summary.hiddenAs == null && app.remote.isNew(summary.ref.id),
             size = summary.size,
             lazyImage = true,
+            mystery = summary.hiddenAs != null,
         )
         is CanvasSummary.Damaged -> {
             val thumb = summary.thumb?.let { f -> runCatching { BitmapFactory.decodeFile(f.path) }.getOrNull() }
             Tile(
                 ref = summary.ref,
-                title = summary.title,
+                title = summary.hiddenAs ?: summary.title,
                 aspect = thumb?.let { it.width / it.height.toFloat() } ?: (3f / 4f),
                 image = thumb?.asImageBitmap(),
                 percent = 0,
@@ -412,12 +428,15 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 damaged = true,
                 lockable = summary.locked,
                 size = summary.size,
+                mystery = summary.hiddenAs != null,
             )
         }
         is CanvasSummary.Playable -> {
             val state = summary.state
             val pattern = state.pattern
-            val bitmap = GemRenderer.render(pattern, cellPxFor(pattern.width), state::isPlaced)
+            val hidden = summary.hiddenAs != null
+            // An unfinished mystery (T43) is drawn as its frost everywhere, its "Can't open" thumbnail too.
+            val bitmap = if (hidden) frost(pattern) else GemRenderer.render(pattern, cellPxFor(pattern.width), state::isPlaced)
             // Kept for the "Can't open" tile (design D9); only canvases that exist on disk get one.
             val onDisk = summary.ref.kind == CanvasKind.PHOTO || state.placedCount > 0
             if (onDisk && thumbsWritten[summary.ref] != state.placedCount) {
@@ -426,21 +445,29 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             }
             Tile(
                 ref = summary.ref,
-                title = summary.title,
+                title = summary.hiddenAs ?: summary.title,
                 aspect = pattern.width / pattern.height.toFloat(),
                 image = bitmap.asImageBitmap(),
                 percent = (state.placedCount * 100L / state.cellCount).toInt(),
                 done = state.isFinished,
                 damaged = false,
                 started = state.placedCount > 0,
-                shareable = ProgressShare.isOffered(state.placedCount, state.cellCount),
+                shareable = !hidden && ProgressShare.isOffered(state.placedCount, state.cellCount),
                 lockable = summary.locked,
-                isNew = summary.ref.kind == CanvasKind.REMOTE && app.remote.isNew(summary.ref.id),
+                isNew = !hidden && summary.ref.kind == CanvasKind.REMOTE && app.remote.isNew(summary.ref.id),
                 size = summary.size,
                 finishedDay = summary.firstFinishedDay,
                 createdAtMillis = summary.createdAtMillis,
+                mystery = hidden,
             )
         }
+    }
+
+    /** A mystery's frost (T43) in its own aspect, at a tile's resolution; the UI lays `felt-deep` on it. */
+    private fun frost(pattern: Pattern): Bitmap {
+        val width = FROST_TILE_PX
+        val height = (width * pattern.height / pattern.width).coerceAtLeast(1)
+        return Bitmap.createBitmap(Frost.image(pattern, width, height), width, height, Bitmap.Config.ARGB_8888)
     }
 
     private fun Bitmap.toPng(): ByteArray =
@@ -457,5 +484,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
         /** The Tomorrow line's 40dp frost at up to 3× density. */
         const val FROST_PX = 120
+
+        /** A mystery tile's frost (T43): smooth by design, so a smaller image than a tile's gems is enough. */
+        const val FROST_TILE_PX = 160
     }
 }

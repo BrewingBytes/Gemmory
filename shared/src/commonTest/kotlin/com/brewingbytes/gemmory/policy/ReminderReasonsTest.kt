@@ -162,6 +162,21 @@ class ReminderReasonsTest {
         assertEquals(ReminderText("You're 82% through Venice", "Pick up where you left off."), ReminderCopy.of(venice, "Venice", null, vip = false))
     }
 
+    /** T43: an unfinished mystery is never named; its drop has its own line (design system, notification table). */
+    @Test
+    fun aMysteryIsNeverNamed() {
+        val drop = ReminderOutcome.Post(ReminderReason.DROP, pictureId = "lantern")
+        assertEquals(
+            ReminderText("Tonight's mystery picture", "A new picture, hidden until you finish it."),
+            ReminderCopy.of(drop, "Lantern", null, vip = false, mystery = true),
+        )
+        val today = ReminderOutcome.Post(ReminderReason.TODAY, pictureId = "lantern")
+        assertEquals("Today's picture: Mystery picture", ReminderCopy.of(today, "Lantern", CanvasSize.QUICK, vip = false, mystery = true).title)
+        val almost = ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, pictureId = "lantern", canvas = canvas("lantern", placed = 829, total = 1000))
+        assertEquals("You're 82% through your mystery picture", ReminderCopy.of(almost, "Lantern", null, vip = false, mystery = true).title)
+        assertEquals("Tonight: Lantern", ReminderCopy.of(drop, "Lantern", null, vip = false).title, "R1: an ordinary drop is named")
+    }
+
     @Test
     fun aPhotoCanvasIsNeverNamed() {
         val photo = ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, canvas = canvas("photo/abc", placed = 82, photo = true))

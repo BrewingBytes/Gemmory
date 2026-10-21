@@ -54,6 +54,20 @@ class A11yTextTest {
         // #43: a remote picture that just arrived.
         assertEquals("Fox in Snow, new, 0% done", A11yText.tile("Fox in Snow", 0, done = false, locked = false, damaged = false, new = true))
         assertEquals("Fox in Snow, new, locked, watch a video to unlock", A11yText.tile("Fox in Snow", 0, done = false, locked = true, damaged = false, new = true))
+        // T43: an unfinished mystery is read by its neutral name; "Mystery" takes New's place.
+        assertEquals(
+            "Mystery picture, hidden until finished, 12% done",
+            A11yText.tile("Mystery picture", 12, done = false, locked = false, damaged = false, new = true, mystery = true),
+        )
+        assertEquals(
+            "Today's mystery picture, new today, hidden until finished, Medium, free to start today",
+            A11yText.today("Today's mystery picture", "Medium", vip = false, free = true, started = false, percent = 0, done = false, drop = true, mystery = true),
+        )
+        assertEquals(
+            "Today's picture, new today: Lighthouse, Medium, free to start today",
+            A11yText.today("Lighthouse", "Medium", vip = false, free = true, started = false, percent = 0, done = false, drop = true),
+            "R1: an ordinary drop is named",
+        )
     }
 
     /** #89: the Finished heading; its state ("collapsed" / "expanded") and role are separate semantics. */

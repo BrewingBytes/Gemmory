@@ -38,8 +38,11 @@ object PictureBatch {
 
     val REQUIRED = listOf("sheet", "tile", "id", "title", "size", "subject", "generatedOn", "contentChecked")
 
-    /** Optional, with their defaults: colors `standard`, availableFrom none, locked `true`, focus `0.5`, rewardOf none. */
-    val OPTIONAL = listOf("colors", "availableFrom", "locked", "focus", "prompt", "model", "rewardOf")
+    /**
+     * Optional, with their defaults: colors `standard`, availableFrom none, locked `true`, focus `0.5`, rewardOf none,
+     * mystery blank (`yes` makes a dated drop a mystery picture, T43).
+     */
+    val OPTIONAL = listOf("colors", "availableFrom", "locked", "focus", "prompt", "model", "rewardOf", "mystery")
 
     const val DEFAULT_PROMPT = "prompts/sheet-2x3.md"
 
@@ -68,6 +71,8 @@ object PictureBatch {
         val model: String,
         /** A collection's keepsake (T37): hidden until that collection is earned; never dated. */
         val rewardOf: String? = null,
+        /** A mystery picture (T43): a dated drop whose title and art stay hidden until it's finished. */
+        val mystery: Boolean = false,
     )
 
     class Settings(
@@ -141,6 +146,7 @@ object PictureBatch {
                 availableFrom = row.availableFrom,
                 sourceImage = tiles.getValue(row.sheet)[row.tile - 1],
                 rewardOf = row.rewardOf,
+                mystery = row.mystery,
             )
         }
         val pictures = RemotePictureTool.publish(requests, collections)
@@ -165,6 +171,7 @@ object PictureBatch {
             if (File(s.sourcesDir, "${row.id}.jpg").exists()) problems += "line ${row.line}: ${row.id} already has a source; ids are never reused"
             if (row.availableFrom != null && row.availableFrom <= s.today) problems += "line ${row.line}: ${row.availableFrom} isn't after today (${s.today})"
             if (row.rewardOf != null && row.availableFrom != null) problems += "line ${row.line}: a keepsake (rewardOf) has no availableFrom"
+            if (row.mystery && row.availableFrom == null) problems += "line ${row.line}: a mystery picture is a dated drop: give it an availableFrom"
         }
         require(problems.isEmpty()) { problems.joinToString("\n") }
     }
@@ -248,6 +255,11 @@ object PictureBatch {
             prompt = v["prompt"]?.takeIf { it.isNotEmpty() } ?: DEFAULT_PROMPT,
             model = v["model"]?.takeIf { it.isNotEmpty() } ?: DEFAULT_MODEL,
             rewardOf = v["rewardOf"]?.takeIf { it.isNotEmpty() }?.also { require(RemoteCatalogs.ID.matches(it)) { "rewardOf must be a collection id" } },
+            mystery = when (v["mystery"].orEmpty().lowercase()) {
+                "yes" -> true
+                "" -> false
+                else -> throw IllegalArgumentException("mystery must be yes or empty")
+            },
         )
     }
 
