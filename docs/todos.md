@@ -22,6 +22,18 @@
 - **Priority:** P3
 - **Depends on / blocked by:** MVP live; Play Console showing meaningful refund rate or fraud signals.
 
+## Platform
+
+### Play Games only at the first foreground in release builds
+- **What:** Remove the Play Games SDK's `PlayGamesInitProvider` from release builds too, so `PlayGamesSdk.initialize` runs only from `PlayGamesBackend` at the first foreground.
+- **Why:** The provider initializes Play Games at every process start, background ones included (reminder alarm, reboot, update), which round-2 eng D11 says shouldn't happen. Debug builds already drop it (#113).
+- **Pros:** Background starts do what D11 says; one start path for Play Games.
+- **Cons:** It moves when automatic sign-in can first run in production, which only a release-signed phone signed in to Play Games can check.
+- **Context:** Found on 2026-10-21 while fixing the Test Lab frame-timing overlay (#113); release was left alone because it couldn't be verified then.
+- **Effort estimate:** human S / CC S
+- **Priority:** P3
+- **Depends on / blocked by:** a release-signed build on a phone with Play Games (closed testing) to confirm sign-in and achievements still work.
+
 ## Game
 
 ### Home-screen widget (round 2, E2)

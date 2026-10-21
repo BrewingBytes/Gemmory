@@ -78,6 +78,7 @@ The same workflow runs `CanvasFrameTimingTest` (#54, design doc → #10 note) on
 - **When:** every `v*` tag, after the encoder smoke (it runs even if the smoke failed). By hand: Actions → Test Lab → Run workflow → phones `frames`. It runs the debug APK, which is slower than release, so a pass is a safe bound.
 - **Quota:** 1 physical-device run. A tag day uses 4 of the 5 (3 smoke + 1 frames); a by-hand `frames` run fits after a tag run that day, but a full 3-phone re-run doesn't.
 - **Results:** the run summary has a "Frame timing on Test Lab" block with the pass/fail row and the per-phase lines (`frames`, p50-max, `missed`) from the A06's logcat; the `test-lab-results` artifact has its video and logcat under `results-frames/`. On the emulator (boot with `-gpu host`), install both debug APKs and run `adb shell am instrument -w -e class com.brewingbytes.gemmory.play.CanvasFrameTimingTest com.brewingbytes.gemmory.test/androidx.test.runner.AndroidJUnitRunner`; the lines are under the `CanvasFrameTiming` logcat tag.
+- **No Play Games over the canvas (#113):** Test Lab runs with `--no-auto-google-login`, and debug builds drop the Play Games SDK's init provider, so automatic sign-in can't open its overlay on top of the app (the v0.7.0 and v0.8.0 runs failed with "No compose hierarchies found" that way).
 
 ## Release
 

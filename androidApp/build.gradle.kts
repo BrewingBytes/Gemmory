@@ -88,7 +88,8 @@ android {
             val remoteUrl = providers.gradleProperty("gemmory.remotePicturesUrl").getOrElse(REMOTE_PICTURES_URL)
             buildConfigField("String", "REMOTE_PICTURES_URL", "\"$remoteUrl\"")
             // Debug builds log achievements to Logcat and hide the Settings row unless `-Pgemmory.playGames=true`, which
-            // also needs the debug key's SHA-1 on a Play Games OAuth client (README → Play Games setup).
+            // also needs the debug key's SHA-1 on a Play Games OAuth client (README → Play Games setup). The debug manifest
+            // removes the SDK's init provider, which would start Play Games regardless (#113).
             buildConfigField("boolean", "PLAY_GAMES", providers.gradleProperty("gemmory.playGames").getOrElse("false"))
         }
         release {
