@@ -549,7 +549,7 @@ Offered on request, not asked: Play Games Saved Games cloud progress (non-photo 
 - **C4 (D9, approved, not the recommendation):** daily drops: one drop every date (the T36 cadence limit "at most one per date" becomes "one per date"); one event week a month uses 7 of those daily drops plus 1 exclusive, so about 31 pictures a month, plus 1 keepsake per collection (about 1 collection a month besides the event), so about 32, or 6 ChatGPT sheets of 6 through T44. Consequences: Today's picture on a drop date is the drop (reason 1 always applies when the drop is stored and unstarted); a missed publish leaves a visible gap, so T44 should warn when the scheduled calendar has fewer than 14 days left; the Assignment is 4 sheets (24 pictures; see The Assignment).
 - **C5 (D10, approved, not the recommendation):** music is on at first launch at 30% volume, ducks or pauses for other audio (audio focus), never plays when the phone is silent/vibrate (eng review to confirm the ringer-mode rule), stops in the background; Music toggle + volume in Settings. Accepted risk: surprise audio on first open.
 - **C6 (D11, approved, not the recommendation):** finishing every member of a collection earns both a collection-only picture (signed catalog entry `rewardOf` = the collection id, hidden until earned, the T38 mechanism) and 1 unlock token (the #38 inventory, `inventory_earned` source = collection). VIP has no inventory, so VIP gets the picture only. +1 picture per collection in the C4 budget.
-- **C7 (D12, approved):** mystery pictures are drops flagged `mystery` in the catalog (set in the T44 CSV); never a player toggle. A mystery drop's art is never shown before 50%: not in the E3 teaser, not as the reminder's large icon (use the frosted silhouette), not in the Preview.
+- **C7 (D12, approved):** mystery pictures are drops flagged `mystery` in the catalog (set in the T44 CSV); never a player toggle. A mystery drop's art is never shown before 50%: not in the E3 teaser, not as the reminder's large icon (use the frosted silhouette), not in the Preview. *(Superseded by design review D23: hidden until finished, no reveal at 50%; there's no picture Preview, T43 build 2026-10-20.)*
 
 ### Office-hours reviewer concerns after the CEO amendments
 - R3-7 obsolete (`reminder_late` replaced by `reminder_due` status = late). R3-14 resolved by C1. R3-9 resolved by T38's `event: true` marker; the eng review confirms the shared id namespace. R3-12 resolved: drop, collection and event denominators are now defined in Success Criteria. R3-16 resolved by T43's "before 50%, everywhere" rule. R3-17 resolved by the Dependencies "Docs" line.
@@ -690,7 +690,7 @@ Calm-design risks: the event must not read as a countdown or a FOMO banner. The 
 - **#12 content ids in events:** corrected (an explicit exception noted in T37 + privacy/Data safety).
 - **#13 tile resolution:** corrected (not a constraint).
 - **#14 CI check before the first publish:** corrected (gated on `availableFrom` existing).
-- **#15 mystery past 50% named on the lock screen:** accepted, as stated.
+- **#15 mystery past 50% named on the lock screen:** accepted, as stated. *(Moot after D23: a mystery is never named before its finish.)*
 - **#3 / #8 / #11:** pending for /plan-eng-review.
 
 - **O1 (D15, approved):** no holdout. T35 is judged on open rate plus before/after D1/D7, and the parity log is removed.

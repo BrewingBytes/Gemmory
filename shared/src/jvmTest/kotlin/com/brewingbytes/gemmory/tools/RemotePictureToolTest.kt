@@ -45,12 +45,13 @@ class RemotePictureToolTest {
         colors: ColorChoice = ColorChoice.STANDARD,
         availableFrom: LocalDate? = null,
         rewardOf: String? = null,
+        mystery: Boolean = false,
     ) = RemotePictureTool.Request(
         dir = dir, id = id, title = "Night $id", source = source, spec = spec, focus = 0.5, locked = locked,
         minAppVersion = minAppVersion, addedAt = LocalDate(2026, 10, 18), nowSeconds = now, signingKey = key,
         provenance = "starry.jpg (Wikimedia Commons) | Vincent van Gogh, 1889 | Public domain", provenanceFile = provenance,
         reviewPng = File(root, "$id.review.png"), reservedIds = reserved, trustedKeys = trusted, colors = colors,
-        availableFrom = availableFrom, rewardOf = rewardOf,
+        availableFrom = availableFrom, rewardOf = rewardOf, mystery = mystery,
     )
 
     private fun check() = RemoteCatalogs.check(
@@ -238,6 +239,25 @@ class RemotePictureToolTest {
         }
         assertFailsWith<IllegalStateException>("one keepsake a collection") { RemotePictureTool.publish(request("night-second", minAppVersion = null, rewardOf = "nights")) }
         assertFalse(File(dir, "grids/night-orphan.gmrg").exists(), "a refused publish writes nothing")
+    }
+
+    /** T43: a mystery is a dated drop stamped for the mystery app; 0.7.0 (versionCode 15) never lists it. */
+    @Test
+    fun aMysteryIsStampedAndNeedsADate() {
+        val date = LocalDate(2026, 11, 2)
+        val mystery = RemotePictureTool.publish(listOf(request("night-plain", minAppVersion = null), request("night-mystery", minAppVersion = null, availableFrom = date, mystery = true)))[1]
+        assertEquals(RemoteCatalogs.MYSTERY_MIN_APP, mystery.minAppVersion)
+        assertTrue(mystery.mystery)
+        val at15 = RemoteCatalogs.check(File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, 15, null, setOf("starter"))
+        assertEquals(listOf("night-plain"), assertIs<CatalogCheck.Ok>(at15).catalog.pictures.map { it.id }, "0.7.0 never lists the mystery")
+
+        val undated = assertFailsWith<IllegalArgumentException> { RemotePictureTool.publish(request("night-undated", minAppVersion = null, mystery = true)) }
+        assertTrue("availableFrom" in undated.message.orEmpty(), undated.message)
+        val low = assertFailsWith<IllegalArgumentException> {
+            RemotePictureTool.publish(request("night-low", minAppVersion = 15, availableFrom = LocalDate(2026, 11, 3), mystery = true))
+        }
+        assertTrue("-PminAppVersion=${RemoteCatalogs.MYSTERY_MIN_APP}" in low.message.orEmpty(), low.message)
+        assertFalse(File(dir, "grids/night-low.gmrg").exists(), "a refused publish writes nothing")
     }
 
     /** T37: a republish keeps the published collections; a batch adds new ones at the end or replaces one in place. */

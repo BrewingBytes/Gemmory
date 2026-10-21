@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.policy
 
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.remote.Mystery
 
 /** Where the reminder ask (T35) stands. */
 enum class ReminderAskState {
@@ -42,8 +43,16 @@ data class ReminderText(val title: String, val text: String)
  * chance", "hurry", a countdown or an exclamation mark.
  */
 object ReminderCopy {
-    /** [title]: the picture's title; [size]: Today's picture's size; [vip]: Today's pick wording. */
-    fun of(post: ReminderOutcome.Post, title: String?, size: CanvasSize?, vip: Boolean): ReminderText = when (post.reason) {
+    /**
+     * [title]: the picture's title; [size]: Today's picture's size; [vip]: Today's pick wording. [mystery]: an
+     * unfinished mystery picture (T43), never named: "Tonight's mystery picture" on its date, "Mystery picture" after.
+     */
+    fun of(post: ReminderOutcome.Post, title: String?, size: CanvasSize?, vip: Boolean, mystery: Boolean = false): ReminderText {
+        if (mystery && post.reason == ReminderReason.DROP) return ReminderText(Mystery.TONIGHT, "A new picture, hidden until you finish it.")
+        return named(post, if (mystery) Mystery.LATER else title, size, vip, mystery)
+    }
+
+    private fun named(post: ReminderOutcome.Post, title: String?, size: CanvasSize?, vip: Boolean, mystery: Boolean): ReminderText = when (post.reason) {
         ReminderReason.DROP -> ReminderText("Tonight: $title", "A new picture, free to start today.")
         ReminderReason.TODAY -> {
             val sized = size?.let { "A ${it.label} picture" } ?: "A picture"
@@ -57,7 +66,11 @@ object ReminderCopy {
         ReminderReason.ALMOST_FINISHED -> {
             val canvas = post.canvas
             val percent = canvas?.percent ?: 0
-            val what = if (canvas?.photo != false) "your photo canvas" else title
+            val what = when {
+                canvas?.photo != false -> "your photo canvas"
+                mystery -> "your mystery picture"
+                else -> title
+            }
             ReminderText("You're $percent% through $what", "Pick up where you left off.")
         }
     }

@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.StateFlow
 class PlaySession internal constructor(
     val ref: CanvasRef,
     val title: String,
+    /** An unfinished mystery picture's neutral name (T43): shown for [title], with no tints, Peek or Share. */
+    val hiddenAs: String? = null,
     val pattern: Pattern,
     private val state: CanvasState,
     view: ViewState?,

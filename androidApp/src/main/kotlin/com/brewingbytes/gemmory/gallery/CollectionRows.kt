@@ -190,7 +190,7 @@ private fun countLine(row: CollectionRow, largeFont: Boolean) = buildAnnotatedSt
  */
 @Composable
 private fun MemberThumb(tile: Tile, locked: Boolean, onOpen: (Tile) -> Unit, thumbnail: suspend (Tile) -> ImageBitmap?) {
-    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew)
+    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
     Box(
         Modifier
             .size(THUMB)
@@ -211,12 +211,14 @@ private fun MemberThumb(tile: Tile, locked: Boolean, onOpen: (Tile) -> Unit, thu
         }
         image?.let {
             Image(it, contentDescription = null, contentScale = ContentScale.Crop, filterQuality = FilterQuality.None, modifier = Modifier.fillMaxSize())
+            if (tile.mystery) FrostCover()
         }
         when {
             tile.damaged -> CornerMark(GemIcons.Close, Alignment.BottomStart)
             locked -> CornerMark(GemIcons.Play, Alignment.BottomStart)
         }
         if (tile.isNew && !tile.damaged) CornerMark(GemIcons.Spark, Alignment.TopStart)
+        if (tile.mystery && !tile.damaged) CornerMark(GemIcons.GemOutline, Alignment.TopStart)
         if (tile.done) {
             Box(
                 Modifier.align(Alignment.TopEnd).size(16.dp).background(LocalFelt.current.deep),

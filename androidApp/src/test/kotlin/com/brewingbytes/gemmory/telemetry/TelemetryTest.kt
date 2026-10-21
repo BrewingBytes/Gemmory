@@ -166,6 +166,9 @@ class TelemetryTest {
         val params = listOf(AnalyticsEvent.dayPlayed(CanvasEntry.REMINDER), AnalyticsEvent.canvasStarted(drop, 90, 90, daysSinceAvailable = 1))
             .flatMap { it.params.values }
         assertTrue(params.none { it == "lighthouse" }, "no picture id in any param")
+        // T43: a mystery's start says so; every other start keeps its params (R1).
+        assertEquals("true", AnalyticsEvent.canvasStarted(drop, 90, 90, mystery = true).params["mystery"])
+        assertFalse("mystery" in AnalyticsEvent.canvasStarted(drop, 90, 90).params)
     }
 
     /**

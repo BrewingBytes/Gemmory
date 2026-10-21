@@ -209,12 +209,16 @@ class GemmoryApp : Application() {
         { remote.todaysDrops() },
     )
 
-    private fun newRemote(source: RemoteSource = HttpRemoteSource(BuildConfig.REMOTE_PICTURES_URL), keys: List<ByteArray> = RemoteKeys.PRODUCTION) =
+    private fun newRemote(
+        source: RemoteSource = HttpRemoteSource(BuildConfig.REMOTE_PICTURES_URL),
+        keys: List<ByteArray> = RemoteKeys.PRODUCTION,
+        appVersion: Int = BuildConfig.VERSION_CODE,
+    ) =
         RemotePictures(
             filesDir = filesDir,
             source = source,
             keys = keys,
-            appVersion = BuildConfig.VERSION_CODE,
+            appVersion = appVersion,
             reservedIds = BundledPictures.ALL.map { it.id }.toSet(),
             clock = dayClock,
             scope = appScope,
@@ -245,12 +249,13 @@ class GemmoryApp : Application() {
     /**
      * Connected tests only (#43): remote pictures from [source] signed by [keys] (a test key, never trusted in a
      * real build), re-read from disk, which the test cleared or seeded. Call before launching MainActivity. The
-     * canvas store is rebuilt to read them. No argument puts GitHub and the production key back.
+     * canvas store is rebuilt to read them. No argument puts GitHub and the production key back. [appVersion] reads the
+     * catalog as a later app would, for a field this build's versionCode doesn't take yet (T43's mystery before 16).
      */
     @VisibleForTesting
-    internal fun resetRemoteForTest(source: RemoteSource? = null, keys: List<ByteArray> = RemoteKeys.PRODUCTION) {
+    internal fun resetRemoteForTest(source: RemoteSource? = null, keys: List<ByteArray> = RemoteKeys.PRODUCTION, appVersion: Int = BuildConfig.VERSION_CODE) {
         remote.pause()
-        remote = if (source == null) newRemote() else newRemote(source, keys)
+        remote = if (source == null) newRemote() else newRemote(source, keys, appVersion)
         store = newStore()
     }
 
@@ -324,7 +329,9 @@ class GemmoryApp : Application() {
         }
         val listed = remote.listed().firstOrNull { it.id == id }
         val title = listed?.title ?: CanvasStore.titleOf(ref, store.repository.readRecord(ref))
-        return ReminderPicture(title, listed?.size) {
+        // An unfinished mystery (T43) is never named or drawn in the reminder.
+        val mystery = store.hiddenAs(ref) != null
+        return ReminderPicture(title, listed?.size, mystery) {
             store.pattern(ref) ?: (store.repository.load(ref) as? LoadResult.Loaded)?.grid?.pattern
         }
     }

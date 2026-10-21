@@ -24,7 +24,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
          * [colors]: a photo canvas's color choice on Preview (#29); pictures have none. [entry]: where it was opened
          * from (T36); [daysSinceAvailable]: local days since a dated drop's date, 0 on the day (T36); [collectionId]:
          * the newest catalog collection listing the picture (T37), a content id; [eventId]: the newest weekly event
-         * listing it (T38), a content id.
+         * listing it (T38), a content id; [mystery]: a mystery picture (T43), `mystery=true`; the param is absent otherwise.
          */
         fun canvasStarted(
             ref: CanvasRef,
@@ -35,9 +35,11 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
             daysSinceAvailable: Long? = null,
             collectionId: String? = null,
             eventId: String? = null,
+            mystery: Boolean = false,
         ) = AnalyticsEvent(
             "canvas_started",
-            canvas(ref, width, height) + colors(colors) + opened(entry, daysSinceAvailable) + collection(collectionId) + event(eventId),
+            canvas(ref, width, height) + colors(colors) + opened(entry, daysSinceAvailable) + collection(collectionId) + event(eventId) +
+                (if (mystery) mapOf(MYSTERY to "true") else emptyMap()),
         )
 
         fun canvasFinished(
@@ -148,6 +150,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         const val DAYS_SINCE_AVAILABLE = "days_since_available"
         const val COLLECTION_ID = "collection_id"
         const val EVENT_ID = "event_id"
+        const val MYSTERY = "mystery"
 
         /** The share's kind (#36): `progress` before the last gem, `finished` after it. */
         fun kind(progress: Boolean): String = if (progress) "progress" else "finished"

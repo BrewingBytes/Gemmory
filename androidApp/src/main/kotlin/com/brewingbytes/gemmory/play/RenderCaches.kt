@@ -36,11 +36,13 @@ enum class CellLook { GEM, TINT, STRONG, DIMMED }
  * that color mixed 78% toward bone with its number in on-bone; the stronger tint of a selected color is mixed only
  * 40% toward bone, and a dimmed cell (Dim the rest) is the pale tint mixed 35% toward felt-deep, each with its number
  * in on-bone or bone, whichever has more contrast. An unplaced cell's right and bottom seam is its face 8% darker,
- * so the grid reads without dark gaps; a placed gem has none, its table cut's bevels carry the edge (T40).
+ * so the grid reads without dark gaps; a placed gem has none, its table cut's bevels carry the edge (T40). On an
+ * unfinished [mystery] picture (T43, plan-design-review D9) every pale tint is one neutral tint, bone mixed 20% toward
+ * felt-deep, so the picture builds only from the gems placed; the stronger tint and the dimmed tint work as usual.
  */
-class CellColors(pattern: Pattern) {
+class CellColors(pattern: Pattern, mystery: Boolean = false) {
     val gem = IntArray(pattern.palette.size) { pattern.palette[it].argb or OPAQUE }
-    val tint = IntArray(gem.size) { mix(gem[it], BONE, UNPLACED_TINT) }
+    val tint = IntArray(gem.size) { if (mystery) MYSTERY_TINT else mix(gem[it], BONE, UNPLACED_TINT) }
     val tintSeam = IntArray(gem.size) { shade(tint[it], 0.92f) }
     val selectedTint = IntArray(gem.size) { mix(gem[it], BONE, SELECTED_TINT) }
     val selectedSeam = IntArray(gem.size) { shade(selectedTint[it], 0.92f) }
@@ -77,6 +79,8 @@ class CellColors(pattern: Pattern) {
         const val SELECTED_TINT = 0.40f
         const val FELT_DEEP = 0xFF3E4741.toInt()
         const val DIM = 0.35f
+        const val MYSTERY_TOWARD_FELT = 0.20f
+        val MYSTERY_TINT = mix(BONE, FELT_DEEP, MYSTERY_TOWARD_FELT)
 
         /**
          * The look of a cell of [kind] under [style]. [ringed]: the Outline ring is drawn (sprites from 8dp); the

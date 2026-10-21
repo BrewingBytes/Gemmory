@@ -30,8 +30,8 @@ import kotlin.math.sin
  * top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). A tool's batch (#20) is placed at once and
  * revealed ring by ring: its cells keep their unplaced look until their ring's time. Main thread only.
  */
-class CanvasRenderer(context: Context, private val pattern: Pattern) {
-    private val colors = CellColors(pattern)
+class CanvasRenderer(context: Context, private val pattern: Pattern, mystery: Boolean = false) {
+    private val colors = CellColors(pattern, mystery)
     private val labels = Array(pattern.palette.size) { (it + 1).toString() }
     private val bakeBitmap = createBitmap(pattern.width, pattern.height)
     private val bake = CanvasBake(pattern, colors, BitmapSink(bakeBitmap, pattern.width))
