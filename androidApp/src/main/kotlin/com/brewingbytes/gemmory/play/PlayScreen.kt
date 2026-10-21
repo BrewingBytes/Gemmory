@@ -68,6 +68,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
@@ -1032,13 +1033,14 @@ private fun Trough(
 
 /**
  * A recessed 44dp well holding a heap of up to 9 mini table-cut gems (one per ~3.5 cells left, T40), or a closed flap
- * when done.
+ * when done. Its own offscreen layer: the heap is up to 36 anti-aliased paths, which would otherwise be tessellated
+ * again on every canvas frame (#115); the layer redraws only when the well changes.
  */
 @Composable
 private fun Well(color: Color, remaining: Int) {
     val felt = LocalFelt.current
     val cut = remember { TableCut.UnitPaths(TableCut.WIDE_BEVEL) }
-    Canvas(Modifier.fillMaxWidth().height(44.dp)) {
+    Canvas(Modifier.fillMaxWidth().height(44.dp).graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)) {
         val corner = CornerRadius(6.dp.toPx())
         drawRoundRect(felt.ground, cornerRadius = corner)
         if (remaining == 0) {
