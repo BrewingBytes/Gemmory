@@ -68,7 +68,7 @@ Debug build switches (`-P…`):
 - **Quota:** the project is on the Spark plan: 5 physical-device runs a day at no cost, then Test Lab refuses runs (no bill). Each phone is one run, so one matrix uses 3 and there are no automatic retries. A `v*` tag also runs frame timing on the Galaxy A06 (below), so a release-candidate day uses 4 and leaves 1 for a one-phone re-check. A second run the same day is refused whole (`TEST_QUOTA_EXCEEDED`, the run summary says so); run it again the next day.
 - **Catalog:** Run workflow with "Only print the physical-device catalog" ticked lists the phones without using quota; use it when a model above leaves the catalog.
 - **Credentials:** Workload Identity Federation, no key file. Setup: [docs/play-compliance.md](docs/play-compliance.md) → "Test Lab CI credentials".
-- **Test Lab shuts down on 2027-09-30** (Firebase deprecation notice); the move to Google Cloud's Developer Device Platform is #55.
+- **Test Lab shuts down on 2027-09-30** (Firebase deprecation notice). There is no move to a paid replacement (#55, closed as not planned on 2026-10-22); what to do before the shutdown is in [docs/todos.md](docs/todos.md) → CI.
 
 ## Frame timing on Firebase Test Lab
 

@@ -22,6 +22,18 @@
 - **Priority:** P3
 - **Depends on / blocked by:** MVP live; Play Console showing meaningful refund rate or fraud signals.
 
+## CI
+
+### Encoder smoke after Test Lab shuts down
+- **What:** Before Firebase Test Lab shuts down on 2027-09-30, take the `v*` tag trigger out of `.github/workflows/testlab.yml` so release-candidate tags don't fail, then run `TimelapseEncoderSmokeTest` and `EncodeCancelTest` by hand on a real phone (`adb shell am instrument -w -e class …`) for each release, and say so in the release PR.
+- **Why:** The tag job (#11, D7) and the A06 frame timing (#54) run on Test Lab, which stops working then. The move to Google Cloud's Developer Device Platform (#55) was closed as not planned: it has no free tier and the founder doesn't want a paid device service.
+- **Pros:** Tags stay green; the encoder still gets a real-phone check before each release.
+- **Cons:** One phone by hand instead of three chip families; the A06 frame-timing line is no longer checked automatically.
+- **Context:** #55 closed 2026-10-22 (founder). Setup and quota today: README → "Encoder smoke on Firebase Test Lab" and "Frame timing on Firebase Test Lab".
+- **Effort estimate:** human S / CC S
+- **Priority:** P2
+- **Depends on / blocked by:** Pick it up when a free device-test service appears (then re-open the move in #55's place), or by mid-2027 at the latest.
+
 ## Platform
 
 ### Play Games only at the first foreground in release builds
