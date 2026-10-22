@@ -74,6 +74,8 @@ Declare only these. Everything else is **not collected**.
 
 **Streak repair (#102), re-checked 2026-10-22: no change.** New events `streak_repair_offered` (length) and `streak_repair_completed` (vip = 1 for VIP's weekly repair, else 0); `rewarded_offered` / `rewarded_watched` / `rewarded_unavailable` / `grace_unlock_granted` gain reward_type = streak_repair. App interactions, already declared; no new data type, no ids. The last VIP and grace repair days live in the "streak" preferences, backed up like the streak. The privacy policy names them.
 
+**Streak share card (#104), re-checked 2026-10-22: no change.** New event `streak_share_completed` (milestone = 7, 30, 50, 100 or 365) when an app is picked in the share sheet: App interactions, already declared; no new data type, no ids. The card is made on the phone from the streak number and bundled or remote pictures only, never a photo canvas, and leaves only through the player's own share, like the time-lapse. The privacy policy names it.
+
 **Streak freezes (#102), re-checked 2026-10-22: no change.** New events `streak_freeze_earned` (paid = freeze | fills) and `streak_freeze_used` (count); `inventory_earned` / `inventory_spent` gain item = streak_freeze. App interactions, already declared; no new data type, no ids. Freezes live in the inventory file, backed up like the rest of the inventory. The privacy policy names them.
 
 **More colors (#29), re-checked 2026-10-18: no change.** `canvas_started` and `photo_canvas_started` gain `colors` (fewer | standard | more, the player's choice, not the palette) and `reward_type` gains `colors`. Both are App interactions, already declared; no new data type. The privacy policy's event list names them (republish pending with the rest).

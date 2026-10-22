@@ -78,6 +78,21 @@ class StreakShareCardTest {
         assertTrue(pixels.none(::isRed), "no photo pixels on the card")
     }
 
+    /** The renderer's own guard: a photo canvas handed over as a picture is never asked for, nor drawn. */
+    @Test
+    fun theRendererRefusesAPhotoCanvasAsAPicture() {
+        val asked = mutableListOf<CanvasRef>()
+        val redArt = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+        val days = listOf(CardDay.Picture("PHOTO/me")) + List(6) { CardDay.Empty }
+        val card = renderer.render(7, "A week of gems", days, letters) { ref ->
+            asked += ref
+            redArt
+        }
+        assertTrue(asked.isEmpty(), "asked for $asked")
+        val pixels = IntArray(card.width * card.height).also { card.getPixels(it, 0, card.width, 0, 0, card.width, card.height) }
+        assertTrue(pixels.none(::isRed), "no photo pixels on the card")
+    }
+
     @Test
     fun aPhotoCanvasHasNoArt() {
         assertNull(CardPictures.art(CanvasRef(CanvasKind.PHOTO, "me"), solid(Color.RED)))

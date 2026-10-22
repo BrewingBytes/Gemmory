@@ -32,7 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +55,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.GemmoryApp
@@ -76,13 +80,17 @@ import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import com.brewingbytes.gemmory.ui.withFullMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.time.temporal.WeekFields
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * What the celebration shows, read once when it opens, so a rotation shows the same and replays nothing. [repairable]:
@@ -129,41 +137,56 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
         return true
     }
 
-    /** Closed: the next new day takes a new one. */
+    /** Closed: the next new day takes a new one; a card still being made is dropped. */
     fun done() {
         data = null
+        sharing?.cancel()
+        _card.value = null
     }
 
-    private val sharing = AtomicBoolean(false)
+    private var sharing: Job? = null
+    private val _card = MutableStateFlow<File?>(null)
+
+    /** The milestone share card made by [share], until the share sheet opens with it ([shared]). */
+    val card: StateFlow<File?> = _card.asStateFlow()
 
     /**
-     * The milestone share card (#104) as a PNG in the share cache, made off the main thread; null when this isn't a
-     * milestone, the card couldn't be written, or one is already being made (a second tap does nothing).
+     * Makes the milestone share card (#104) in this ViewModel's scope, so a rotation keeps it; it lands in [card]. A
+     * second tap while one is being made does nothing, nor does a day that isn't a milestone.
      */
-    suspend fun shareCard(): File? {
+    fun share() {
+        if (sharing?.isActive == true) return
+        sharing = viewModelScope.launch { shareCard()?.let { _card.value = it } }
+    }
+
+    /** The share sheet opened with [card]. */
+    fun shared() {
+        _card.value = null
+    }
+
+    /**
+     * The card as a PNG in the share cache, made off the main thread; null when this isn't a milestone or the card
+     * couldn't be written.
+     */
+    private suspend fun shareCard(): File? {
         val data = data ?: return null
         val c = data.celebration
         val title = StreakText.milestone(c.length) ?: return null
-        if (!sharing.compareAndSet(false, true)) return null
-        try {
-            val (pictures, photos) = app.store.summaries()
-            val playable = (pictures + photos).filterIsInstance<CanvasSummary.Playable>()
-            val finishes = playable.mapNotNull { s -> s.firstFinishedDay?.let { it to CanvasStore.reminderKey(s.ref) } }.groupBy({ it.first }, { it.second })
-            // Bundled and remote pictures only: a photo canvas's grid is never handed to the card.
-            val patterns = playable.filter { it.ref.kind != CanvasKind.PHOTO }.associate { CanvasStore.reminderKey(it.ref) to it.state.pattern }
-            val days = StreakShareCard.days(data.week, c.day, finishes, CardPictures::isPicture)
-            val letters = data.week.map { StreakText.weekday(it.day).take(1) }
-            return withContext(Dispatchers.Default) {
-                val card = StreakShareCardRenderer(app).render(c.length, title, days, letters) { ref ->
-                    patterns[CanvasStore.reminderKey(ref)]?.let { CardPictures.art(ref, it) }
-                }
-                val png = ByteArrayOutputStream().also { card.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
-                card.recycle()
-                val file = File(File(app.cacheDir, EncodeManager.DIR).apply { mkdirs() }, "streak-${c.length}.png")
-                withContext(Dispatchers.IO) { runCatching { AtomicFiles().write(file, png) } }.map { file }.getOrNull()
+        val (pictures, photos) = app.store.summaries()
+        val playable = (pictures + photos).filterIsInstance<CanvasSummary.Playable>()
+        val finishes = playable.mapNotNull { s -> s.firstFinishedDay?.let { it to CanvasStore.reminderKey(s.ref) } }.groupBy({ it.first }, { it.second })
+        // Bundled and remote pictures only: a photo canvas's grid is never handed to the renderer.
+        val patterns = playable.filter { it.ref.kind != CanvasKind.PHOTO }.associate { CanvasStore.reminderKey(it.ref) to it.state.pattern }
+        val days = StreakShareCard.days(data.week, c.day, finishes, CardPictures::isPicture)
+        val letters = data.week.map { StreakText.weekday(it.day).take(1) }
+        return withContext(Dispatchers.Default) {
+            val card = StreakShareCardRenderer(app).render(c.length, title, days, letters) { ref ->
+                patterns[CanvasStore.reminderKey(ref)]?.let { CardPictures.art(ref, it) }
             }
-        } finally {
-            sharing.set(false)
+            val png = ByteArrayOutputStream().also { card.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+            card.recycle()
+            val file = File(File(app.cacheDir, EncodeManager.DIR).apply { mkdirs() }, "streak-${c.length}.png")
+            withContext(Dispatchers.IO) { runCatching { AtomicFiles().write(file, png) } }.map { file }.getOrNull()
         }
     }
 }
@@ -271,10 +294,18 @@ fun StreakCelebration(
             // says the old streak can still come back.
             val repairable = data.repairable
             if (milestone) {
-                val scope = rememberCoroutineScope()
+                // The share sheet opens once the card is made and the app is in front (it may finish in the background).
+                val card by vm.card.collectAsStateWithLifecycle()
+                val lifecycle = LocalLifecycleOwner.current.lifecycle
+                LaunchedEffect(card) {
+                    val file = card ?: return@LaunchedEffect
+                    lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+                    onShare(file, c.length)
+                    vm.shared()
+                }
                 GemTextButton(
                     "Share",
-                    { scope.launch { vm.shareCard()?.let { onShare(it, c.length) } } },
+                    vm::share,
                     Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SHARE_TAG),
                 )
             } else {

@@ -90,7 +90,10 @@ class StreakShareCardRenderer(private val context: Context) {
             return
         }
         canvas.drawRoundRect(box, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GemColors.Felt.toArgb() })
-        val art = (day as? CardDay.Picture)?.let { picture -> CardPictures.refOf(picture.canvas)?.let(thumbnail) }
+        // A photo canvas is never asked for, whatever the days or the loader say.
+        val art = (day as? CardDay.Picture)?.let { picture ->
+            CardPictures.refOf(picture.canvas)?.takeIf { it.kind != CanvasKind.PHOTO }?.let(thumbnail)
+        }
         if (art == null) {
             val size = CELL_FLAME.toFloat()
             drawFlame(canvas, length, box.centerX() - size / 2, box.centerY() - size / 2, size)

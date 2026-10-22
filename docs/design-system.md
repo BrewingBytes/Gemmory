@@ -192,8 +192,8 @@ Canvas ─finish─► Completion ─Share─► progress sheet ─► Android s
 Canvas / tile ⋮ ─Share progress─► progress sheet ─► Android share sheet ─► back where it started (#36)
 Completion ─Done/back─► Gallery ─► interstitial check (Ad rules), never before or during Share
 Completion ─Done/back, a new streak day (#101)─► Streak celebration ─Continue/back─► Gallery ─► the return's one interruption
-Streak celebration on a milestone ─Share─► Android share sheet (the share card, #104) ─► back to the celebration
                                                                     └─ "See your streak" ─► Your streak ─back─► Gallery ─► the same
+Streak celebration on a milestone ─Share─► Android share sheet (the share card, #104) ─► back to the celebration
 Gallery after a cold start with today's celebration unshown (G9) ─► Streak celebration if the finish was < 30 min ago, else the chip's flame lights up once
 Reminder notification (T35) ─tap─► drop or Today's picture: its canvas, no video (as the Today card) · streak: the nudge's target (#102), else Gallery
                                    · almost finished: that canvas, else Gallery · stale: Gallery, no message
@@ -653,8 +653,8 @@ Video repairs have no limit; VIP gets one free repair every 7 days; a grace repa
 
 **Milestone share card** (#104, G14, mockup `docs/designs/mockups/streak-screen/streak-d.html`), 1080×1920 PNG, the v3 card at ×4.
 - `felt-deep` with the felt's 9% grain. From the top (224px margin): the lit flame in the milestone's tier color (440px), the `streak-hero` number in `bone` (Atkinson Hyperlegible Mono 700, tabular, 384px), the milestone title in Bricolage Grotesque 600 at 104px (the celebration's: "A week of gems", "A month of gems", "50 days of gems", "100 days of gems", "A year of gems"), then the milestone week and "Gemmory" in Bricolage 600 at 64px, `frame-text`, 96px from the bottom. 80px side margins.
-- The week: the celebration's week (the locale's, G12) under its weekday letters (Figtree 48px, `text-muted`), seven 8px-radius cells 24px apart. A finished day shows the first bundled or remote picture finished that day, drawn finished from its grid and center-cropped, on `felt`. A day finished only on photo canvases, a day kept by the day off, a freeze or a repair, and a picture whose grid is gone show the lit flame (88px) on `felt`. Days after the milestone are empty outlines (4px `bone` at 25%). The milestone day has no outline (founder, 2026-10-22). No dates.
-- **Never a photo canvas, its pixels or its colors:** the card is built from bundled and remote grids only; a photo canvas's grid or thumbnail is never read for it (AGENTS.md).
+- The week: the celebration's week (the locale's, G12) under its weekday letters (Figtree 48px, `text-muted`), seven 8px-radius cells 24px apart. A finished day shows a bundled or remote picture finished that day (the day's logged first finish when it is one), drawn finished from its grid and center-cropped, on `felt`. A day finished only on photo canvases, a day kept by the day off, a freeze or a repair, and a picture whose grid is gone show the lit flame (88px) on `felt`. Days after the milestone are empty outlines (4px `bone` at 25%). The milestone day has no outline (founder, 2026-10-22). No dates.
+- **Never a photo canvas, its pixels or its colors:** only bundled and remote grids are handed to the renderer, the day rules drop photo canvases, and the renderer refuses one handed over as a picture (AGENTS.md).
 - Only from the milestone celebration's Share; shared with "Made with Gemmory: <Play link>" (`utm_medium=streak`, `utm_campaign=streak_card`). The file is `cacheDir/timelapse/streak-<n>.png` (the share path, never backed up). No VIP difference.
 
 ## Accessibility
