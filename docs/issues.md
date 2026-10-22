@@ -624,6 +624,8 @@ Labels: P2, ci
 
 Not before the service is GA, and no later than mid-2027. Effort: human ~3h / CC ~30min.
 
+Closed 2026-10-22, not planned: no paid device service (founder). What to do before the shutdown is in `docs/todos.md` → CI.
+
 ## T32: A bigger celebration when a picture is finished (confetti, fireworks or another idea)
 Labels: P2, game, ui
 
