@@ -404,6 +404,14 @@ Buttons: primary "Continue"; text "See your streak" (ordinary) or "Share" (miles
 | Screen/Section | Mockup | Direction | Notes |
 |---|---|---|---|
 | All streak surfaces | `docs/designs/mockups/streak-screen/ui.html` (+ `streak-v3.png`) | v3: animated literal flame, celebration, streak screen + calendar, gallery nudge, reminder, Inventory freeze, widget, share card | Hand-built HTML on the design-system tokens; stand-in pixel art for pictures. Rounds 1-2 kept in `~/.gstack/projects/Gemmory/designs/streak-screen-20261021/` |
+| Streak B (#102) | `docs/designs/mockups/streak-screen/streak-b.html` (+ `streak-b.png`) | Gift wheel with the freeze slice and at-cap state, Inventory freeze row, freeze safety rows, every repair panel state, nudge variants (Quick, closest to done, Quick fallback, awaiting cover, no Today card, broken, 2x font), streak-first reminder | Founder approved 2026-10-22 ("ok"), with the repair rule change below |
+
+**Streak B decisions (founder, 2026-10-22, during #102):**
+- Wheel freeze slice: `felt` with a `bone` cross (the freeze mark), over `patina` + cross and `felt-deep-dark`.
+- Repair grace: the line, then a primary "Bring it back" the player taps, like every other grace.
+- **Repair limits (over E8/O1's "once in 30 days"): "video can be done more than once a month, we want the ads revenue".** A video repair has no limit; the 2-day window and the 2-day minimum length stay. VIP gets one free repair every 7 days, then repairs with a video like anyone. A grace repair (online no-fill) at most once in 30 days. Copy: "You can do this until Thursday."; VIP ready: "Your streak ended on Tuesday. Your weekly VIP repair can bring it back." / "Bring it back"; VIP used: the video panel plus "VIP repair used Monday · ready again next Monday".
+- Freeze row in the Inventory sheet shows at 0 too.
+- Delivered as 3 stacked PRs: freezes, repair, nudge + reminder (closes #102).
 
 ### Design review: NOT in scope
 

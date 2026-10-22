@@ -18,6 +18,9 @@ enum class Item(val param: String) {
 
     /** Opens one locked picture for good. */
     UNLOCK_TOKEN("unlock_token"),
+
+    /** Covers a missed day after the day off (#102, E5); held up to [Inventory.MAX_FREEZES]. */
+    STREAK_FREEZE("streak_freeze"),
 }
 
 /** Where an item came from (#38). [param] is the analytics value. */
@@ -30,12 +33,16 @@ enum class EarnSource(val param: String) {
     COLLECTION("collection"),
 }
 
-/** The gift wheel's prizes and their odds in percent (#38, founder pick 2026-10-17); they add up to 100. */
+/**
+ * The gift wheel's prizes and their odds in percent (#38, founder pick 2026-10-17; the streak freeze from #102, E7);
+ * they add up to 100.
+ */
 enum class WheelPrize(val item: Item, val amount: Int, val percent: Int) {
-    FILLS_5(Item.FILLS, 5, 50),
+    FILLS_5(Item.FILLS, 5, 45),
     FILLS_10(Item.FILLS, 10, 20),
-    PHOTO_CANVAS(Item.PHOTO_CANVAS, 1, 20),
+    PHOTO_CANVAS(Item.PHOTO_CANVAS, 1, 15),
     UNLOCK_TOKEN(Item.UNLOCK_TOKEN, 1, 10),
+    STREAK_FREEZE(Item.STREAK_FREEZE, 1, 10),
     ;
 
     companion object {
@@ -53,6 +60,12 @@ enum class WheelPrize(val item: Item, val amount: Int, val percent: Int) {
 }
 
 /**
+ * A spin's result (#102, E7): the wheel lands on [prize] and pays [amount] of [item], which is the prize itself except
+ * for a streak freeze while [Inventory.MAX_FREEZES] are held: that pays 5 fills.
+ */
+data class Spin(val prize: WheelPrize, val item: Item, val amount: Int)
+
+/**
  * The inventory's state (#38). [spinsEarned] counts the 5-day streak gifts ever earned and [spinsUsed] the ones spun,
  * so missed spins add up. [recent] keeps the latest spends' use ids, so a repeated spend (a double tap, a retry) takes
  * nothing more. [rewarded] keeps every one-time earn's id (T37: a collection's token), kept for good, so it's given once.
@@ -65,6 +78,7 @@ data class InventoryState(
     val spinsUsed: Int = 0,
     val recent: List<Spend> = emptyList(),
     val rewarded: Set<String> = emptySet(),
+    val freezes: Int = 0,
 ) {
     val spinsWaiting: Int get() = spinsEarned - spinsUsed
 
@@ -72,12 +86,14 @@ data class InventoryState(
         Item.FILLS -> fills
         Item.PHOTO_CANVAS -> canvases
         Item.UNLOCK_TOKEN -> tokens
+        Item.STREAK_FREEZE -> freezes
     }
 
     internal fun with(item: Item, count: Int): InventoryState = when (item) {
         Item.FILLS -> copy(fills = count)
         Item.PHOTO_CANVAS -> copy(canvases = count)
         Item.UNLOCK_TOKEN -> copy(tokens = count)
+        Item.STREAK_FREEZE -> copy(freezes = count.coerceAtMost(Inventory.MAX_FREEZES))
     }
 }
 
@@ -98,8 +114,8 @@ interface CanvasBank {
 }
 
 /**
- * The inventory (#38): fill charges, kept photo canvases and unlock tokens, earned from rewarded videos, today's grace
- * and the 5-day streak wheel, and spent one at a time. On the phone only, backed up (no user content). VIP has
+ * The inventory (#38): fill charges, kept photo canvases, unlock tokens and streak freezes (#102), earned from rewarded
+ * videos, today's grace and the 5-day streak wheel, and spent one at a time. On the phone only, backed up (no user content). VIP has
  * everything unlimited, so callers don't earn or spend for VIP. [roll] picks the wheel's prize (0 until 100).
  * Not thread-safe: one caller at a time.
  */
@@ -158,13 +174,19 @@ class Inventory(
 
     /**
      * Spins the wheel: the prize is rolled and added in one step, so killing the app mid-animation can't spin again.
-     * Null when no spin is waiting.
+     * A streak freeze while [MAX_FREEZES] are held pays [FILLS_PER_VIDEO] fills instead (E7). Null when no spin is
+     * waiting.
      */
-    fun spin(): WheelPrize? {
+    fun spin(): Spin? {
         if (state.spinsWaiting <= 0) return null
         val prize = WheelPrize.forRoll(roll())
-        commit(state.with(prize.item, state.count(prize.item) + prize.amount).copy(spinsUsed = state.spinsUsed + 1))
-        return prize
+        val spin = if (prize.item == Item.STREAK_FREEZE && state.freezes >= MAX_FREEZES) {
+            Spin(prize, Item.FILLS, FILLS_PER_VIDEO)
+        } else {
+            Spin(prize, prize.item, prize.amount)
+        }
+        commit(state.with(spin.item, state.count(spin.item) + spin.amount).copy(spinsUsed = state.spinsUsed + 1))
+        return spin
     }
 
     override val canvases: Int get() = state.canvases
@@ -184,6 +206,9 @@ class Inventory(
 
         /** Recent spends kept for idempotency. */
         const val MAX_REMEMBERED = 16
+
+        /** Streak freezes held at most (#102, E5). */
+        const val MAX_FREEZES = 2
     }
 }
 
@@ -191,11 +216,11 @@ class Inventory(
  * The inventory file `filesDir/inventory/items`, "GMRI" v1 (same envelope and CRC trailer as the save files). Body:
  * varint fills, varint canvases, varint tokens, varint spinsEarned, varint spinsUsed, u8 count, then per spend: u16
  * id byte length, the id in UTF-8, u8 item. v2 (T37) adds varint count, then per one-time earn id: u16 byte length,
- * the id in UTF-8. A v1 file reads as having none.
+ * the id in UTF-8. A v1 file reads as having none. v3 (#102) adds varint streak freezes; older files read 0.
  */
 object InventoryCodec {
     val MAGIC = "GMRI".encodeToByteArray()
-    const val VERSION = 2
+    const val VERSION = 3
 
     fun encode(state: InventoryState): ByteArray {
         val w = ByteWriter()
@@ -217,6 +242,7 @@ object InventoryCodec {
             w.u16(bytes.size)
             w.bytes(bytes)
         }
+        w.varint(state.freezes)
         return Envelope.wrap(MAGIC, VERSION, w.toByteArray())
     }
 
@@ -244,9 +270,11 @@ object InventoryCodec {
                 Spend(id, Item.entries.getOrNull(r.u8()) ?: throw MalformedException())
             }
             val rewarded = if (opened.version >= 2) List(r.varint()) { string() }.toSet() else emptySet()
-            val valid = r.remaining == 0 && fills >= 0 && canvases >= 0 && tokens >= 0 && used in 0..earned
+            val freezes = if (opened.version >= 3) r.varint() else 0
+            val valid = r.remaining == 0 && fills >= 0 && canvases >= 0 && tokens >= 0 && used in 0..earned &&
+                freezes in 0..Inventory.MAX_FREEZES
             if (!valid) throw MalformedException()
-            InventoryState(fills, canvases, tokens, earned, used, recent, rewarded)
+            InventoryState(fills, canvases, tokens, earned, used, recent, rewarded, freezes)
         } catch (_: MalformedException) {
             null
         } ?: return Decoded.Refused(Refusal.Malformed)

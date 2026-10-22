@@ -31,8 +31,8 @@ class ReminderJob(
     /** Today's picture (or VIP's pick) for these started ids, picking and storing it if the day has none yet. */
     private val pickToday: (started: Set<String>) -> String?,
     private val streak: () -> StreakState,
-    /** What else covers a missed day (#101): the VIP freeze, streak freezes held. */
-    private val cover: () -> Cover = { Cover.NONE },
+    /** What else covers a missed day (#101): the VIP freeze, streak freezes held (#102). */
+    private val cover: suspend () -> Cover = { Cover.NONE },
     /** Android lets Gemmory post: notifications allowed for the app and the "Evening reminder" channel on. */
     private val allowed: () -> Boolean,
     private val foreground: () -> Boolean,

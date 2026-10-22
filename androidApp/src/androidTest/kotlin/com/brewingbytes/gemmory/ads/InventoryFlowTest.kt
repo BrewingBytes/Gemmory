@@ -193,12 +193,29 @@ class InventoryFlowTest {
         waitFor(hasTestTag("wheel-done"), timeout = 15_000)
         val after = app.monetization.inventory.value
         assertEquals(0, after.spinsWaiting)
-        assertEquals(1, listOf(after.fills > 0, after.canvases > 0, after.tokens > 0).count { it }, "exactly one prize: $after")
+        assertEquals(1, listOf(after.fills > 0, after.canvases > 0, after.tokens > 0, after.freezes > 0).count { it }, "exactly one prize: $after")
         val result = compose.onNodeWithTag("wheel-result", useUnmergedTree = true).fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
         assertTrue(result.endsWith("added to your inventory."), result)
         compose.onNodeWithTag("wheel-done").performClick()
         waitFor(hasTestTag(INVENTORY_TAG) and hasContentDescription("Inventory"))
+    }
+
+    /** #102: the freeze row shows what's held, and at 2 held the wheel's freeze slice reads 5 fills (E7). */
+    @Test
+    fun streakFreezesShowInTheInventoryAndFillTheWheelAtTheCap() {
+        seed(InventoryState(spinsEarned = 1, freezes = 2))
+        launch()
+        compose.onNodeWithTag(INVENTORY_TAG).performClick()
+        waitFor(hasTestTag("inventory-freezes") and hasContentDescription("Streak freezes: 2. Covers a missed day after your day off. Hold up to 2."))
+        compose.onNodeWithTag("inventory-spin").performClick()
+        waitFor(
+            hasTestTag("wheel") and
+                hasContentDescription("Gift wheel. 5 fills 45%, 10 fills 20%, 1 photo canvas 15%, 1 unlock token 10%, 5 fills 10%"),
+        )
+        compose.onNodeWithTag("wheel-spin").performClick()
+        waitFor(hasTestTag("wheel-done"), timeout = 15_000)
+        assertEquals(2, app.monetization.inventory.value.freezes, "never a 3rd")
     }
 
     @Test

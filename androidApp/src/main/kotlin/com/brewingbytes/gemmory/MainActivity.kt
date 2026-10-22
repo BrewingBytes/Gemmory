@@ -36,7 +36,9 @@ import com.brewingbytes.gemmory.policy.Membership
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.EarnSource
 import com.brewingbytes.gemmory.policy.GalleryReturn
+import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.ReturnInterruption
+import com.brewingbytes.gemmory.policy.WheelPrize
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.storage.CanvasKind
@@ -386,6 +388,9 @@ class MainActivity : ComponentActivity() {
                     onSpin = {
                         app.monetization.spin()?.also {
                             app.analytics.log(AnalyticsEvent.inventoryEarned(it.item, EarnSource.WHEEL, it.amount))
+                            if (it.prize == WheelPrize.STREAK_FREEZE) {
+                                app.analytics.log(AnalyticsEvent.streakFreezeEarned(if (it.item == Item.STREAK_FREEZE) "freeze" else "fills"))
+                            }
                         }
                     },
                     musicChip = musicChip,

@@ -30,6 +30,7 @@ import com.brewingbytes.gemmory.play.PlayStreak
 import com.brewingbytes.gemmory.policy.Achievement
 import com.brewingbytes.gemmory.policy.AchievementCodec
 import com.brewingbytes.gemmory.policy.AchievementRules
+import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.DayPlayed
 import com.brewingbytes.gemmory.policy.EntitlementCache
@@ -366,7 +367,8 @@ class GemmoryApp : Application() {
             todaysDrops = { remote.todaysDrops().toList() },
             pickToday = { started -> todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew) },
             streak = { streak.state() },
-            cover = { streakView.cover() },
+            // Read on the policy thread, not the inventory flow: a reminder may start the process (#102).
+            cover = { Cover(vip = vip, freezes = monetization.freezes()) },
             allowed = reminderNotifier::allowed,
             foreground = { foreground },
             notify = { post -> reminderNotifier.post(post, post.pictureId?.let(::reminderPicture), vip, dayClock.today()) },
@@ -439,7 +441,7 @@ class GemmoryApp : Application() {
         resolve = { monetization.streakDay(it) },
     ) { achievements.record(GameEvent.StreakDay(it)) }
 
-    private fun newStreakView() = StreakView(streak, dayClock, billing.entitlements, appScope)
+    private fun newStreakView() = StreakView(streak, dayClock, billing.entitlements, monetization.inventory, appScope)
 
     private fun newAchievements(backend: GamesBackend, ids: (Achievement) -> String = { getString(achievementId(it)) }) = Achievements(
         store = FileStateStore(File(filesDir, StorageLayout.ACHIEVEMENTS), AchievementCodec::encode, AchievementCodec::decode, reporter),
@@ -488,6 +490,9 @@ class GemmoryApp : Application() {
         monetization.close()
         monetization = newMonetization()
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
+        // The streak view follows the inventory's freezes (#102): point it at the new instance's.
+        streakView.close()
+        streakView = newStreakView()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

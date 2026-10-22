@@ -75,6 +75,7 @@ class PlayStreak(
         val result = resolve { vip, freezes -> resolveLocked(Cover(vip, freezes), canvas) }
         if (result != null) {
             analytics.log(AnalyticsEvent.streakDay(result.length))
+            if (result.freezesUsed > 0) analytics.log(AnalyticsEvent.streakFreezeUsed(result.freezesUsed))
             onDay(result.length)
             _changes.update { it + 1 }
         }

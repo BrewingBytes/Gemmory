@@ -11,6 +11,7 @@ import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.ConsumeResult
 import com.brewingbytes.gemmory.policy.DailyLedger
 import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.policy.DayKind
 import com.brewingbytes.gemmory.policy.DayResult
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.InterstitialContext
@@ -20,7 +21,7 @@ import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LedgerCodec
 import com.brewingbytes.gemmory.policy.RewardType
-import com.brewingbytes.gemmory.policy.WheelPrize
+import com.brewingbytes.gemmory.policy.Spin
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
@@ -209,16 +210,26 @@ class Monetization(
     }
 
     /** The 5-day streak gift's spin (#38): the prize is added at once. Null when none is waiting, and for VIP. */
-    suspend fun spin(): WheelPrize? = onPolicy { if (entitlements.value.vip) null else items.spin() }
+    suspend fun spin(): Spin? = onPolicy { if (entitlements.value.vip) null else items.spin() }
+
+    /** Streak freezes held (#102), read on the policy thread; 0 for VIP, which never spends them (O2). */
+    suspend fun freezes(): Int = onPolicy { if (entitlements.value.vip) 0 else items.count(Item.STREAK_FREEZE) }
 
     /**
-     * A picture was finished (#101, O2): [day] resolves the streak with VIP and the streak freezes held (none until
-     * #102) and saves it, then, for a new streak day, the freezes it used are spent and every 5th day earns a spin for
-     * players without VIP (#33). VIP never spends a held freeze: those are kept for after a lapse.
+     * A picture was finished (#101, O2): [day] resolves the streak with VIP and the streak freezes held and saves it
+     * (committed, O3); only then, for a new streak day, is each freeze it used spent, once per covered day (#102, E5:
+     * a crash in between keeps the freeze, never loses the day), and every 5th day earns a spin for players without VIP
+     * (#33). VIP never spends a held freeze: those are kept for after a lapse.
      */
     suspend fun streakDay(day: (vip: Boolean, freezes: Int) -> DayResult?): DayResult? = onPolicy {
         val vip = entitlements.value.vip
-        day(vip, 0)?.also { if (!vip) items.onStreakDay(it.length) }
+        day(vip, if (vip) 0 else items.count(Item.STREAK_FREEZE))?.also { result ->
+            if (vip) return@also
+            for (covered in result.covered) {
+                if (covered.kind == DayKind.FREEZE) items.spend(Item.STREAK_FREEZE, "freeze-${covered.day}")
+            }
+            items.onStreakDay(result.length)
+        }
     }
 
     suspend fun interstitialBlock(ctx: InterstitialContext): AdBlock? = onPolicy { ads.blockFor(ctx) }
