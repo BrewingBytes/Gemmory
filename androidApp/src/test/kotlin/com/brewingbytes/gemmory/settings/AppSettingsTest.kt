@@ -78,4 +78,13 @@ class AppSettingsTest {
         prefs.values["highlight"] = "sparkle"
         assertEquals(HighlightStyle.TINT, AppSettings(prefs).highlight.value)
     }
+
+    /** T45: Play Games' turn waits for the first finish and, once come, is kept (backed-up preferences). */
+    @Test
+    fun playGamesReadyStartsOffAndIsKept() {
+        val prefs = FakePrefs()
+        assertFalse(AppSettings(prefs).playGamesReady)
+        AppSettings(prefs).markPlayGamesReady()
+        assertTrue(AppSettings(prefs).playGamesReady, "read back on the next start")
+    }
 }

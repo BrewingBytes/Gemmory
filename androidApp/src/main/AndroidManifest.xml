@@ -4,7 +4,8 @@
      validated-network check that decides offline vs no-fill (eng D15). ML Kit's datatransport also uses them for its
      diagnostics, never images (design doc R3-6). Remote pictures (#43) download a signed catalog and grids from
      GitHub, with no user data in the request. AdMob merges AD_ID (adults only; declared in Data safety, #5). -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -70,6 +71,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Play Games (#113, T45): the SDK merges PlayGamesInitProvider, which starts Play Games at every process start
+             from the games.APP_ID meta-data, background starts included, and its automatic sign-in can show Google's
+             "Create a Play Games profile" sheet before the first gem. Every build drops it: PlayGamesBackend calls
+             PlayGamesSdk.initialize only at Play Games' turn, after the first finish, on a later gallery visit. -->
+        <provider
+            android:name="com.google.android.gms.games.provider.PlayGamesInitProvider"
+            android:authorities="${applicationId}.playgamesinitprovider"
+            tools:node="remove" />
 
         <!-- Hands the player's own time-lapse (or before/after picture) to the share sheet they open. cacheDir only. -->
         <provider

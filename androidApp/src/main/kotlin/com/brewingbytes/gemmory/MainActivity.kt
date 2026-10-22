@@ -316,6 +316,9 @@ class MainActivity : ComponentActivity() {
                         CanvasStore.refOfReminderKey(waiting)?.let { returnChain(it) }
                     } else {
                         celebrateLate()
+                        // Play Games' turn (T45): a visit that isn't a fresh-finish return, with nothing pushed over it
+                        // and no reminder or widget tap about to open something over it (a cold start from one).
+                        if (stack.top == Route.Gallery && reminderTap == null && !widgetTap) app.onGalleryVisit()
                     }
                 }
             }

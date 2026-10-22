@@ -8,6 +8,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.brewingbytes.gemmory.achievements.Achievements
 import com.brewingbytes.gemmory.achievements.GamesBackend
+import com.brewingbytes.gemmory.achievements.GamesSession
 import com.brewingbytes.gemmory.achievements.PlayGamesBackend
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.AdMobGateway
@@ -37,6 +38,7 @@ import com.brewingbytes.gemmory.policy.DayPlayed
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
 import com.brewingbytes.gemmory.policy.GameEvent
+import com.brewingbytes.gemmory.policy.PlayGamesTurn
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.StreakHistoryCodec
@@ -119,15 +121,43 @@ class GemmoryApp : Application() {
     lateinit var achievements: Achievements
         private set
 
-    /** Play Games, set up at the first foreground of a process (eng D11), never on a background start. */
+    /**
+     * Play Games, set up only at its turn (T45, [onGalleryVisit]): after the first finish, at a gallery visit that
+     * isn't a fresh-finish return, so its automatic sign-in never lands before the first gem or over a canvas.
+     */
     private val playGames: GamesBackend by lazy {
         if (BuildConfig.PLAY_GAMES) PlayGamesBackend(this, getString(R.string.game_services_project_id), reporter) else GamesBackend.Off
     }
 
-    private val games = object : GamesBackend {
-        override val available: Boolean get() = playGames.available
+    /** Play Games has had its turn in this process (T45). Until then every call is a no-op and the Settings row hides. */
+    @Volatile
+    private var playGamesStarted = false
 
-        override fun session(activity: Activity) = playGames.session(activity)
+    private val games = object : GamesBackend {
+        override val available: Boolean get() = playGamesStarted && playGames.available
+
+        override fun session(activity: Activity) = if (playGamesStarted) playGames.session(activity) else GamesSession.SignedOut
+    }
+
+    /** Connected tests only (T45): Play Games has had its turn in this process; false puts the process back before it. */
+    @VisibleForTesting
+    internal var playGamesStartedForTest: Boolean
+        get() = playGamesStarted
+        set(value) {
+            playGamesStarted = value
+        }
+
+    /**
+     * The gallery shows on a visit that isn't a fresh-finish return, with nothing pushed over it (T45): Play Games
+     * starts here once its turn has come, and a gallery that's showing sends what waited in the ledger.
+     */
+    fun onGalleryVisit() {
+        if (playGamesStarted) return
+        // The ledger too, so an upgrader's first visit doesn't wait for the flag to be written.
+        val ready = settings.playGamesReady || achievements.state.let { PlayGamesTurn.ready(it.finishes, it.unlocked) }
+        if (!PlayGamesTurn.startNow(ready, onGallery = true, finishReturn = false)) return
+        playGamesStarted = true
+        if (playGames.available) achievements.resend()
     }
 
     /** The evening reminder (T35): Settings, the ask and the alarm. */
@@ -646,14 +676,21 @@ class GemmoryApp : Application() {
 
     /**
      * The process came to the screen for the first time (T35, eng D11). Only now does it count as a cold start for the
-     * first session, and only now do Play Games and the achievements backfill set up, so a reminder, reboot or update
-     * that starts the process in the background does none of it.
+     * first session, and only now does the achievements backfill run, so a reminder, reboot or update that starts the
+     * process in the background does none of it. Play Games waits for its turn (T45, [onGalleryVisit]).
      */
     private fun onFirstForeground() {
         monetization.onProcessStart()
-        playGames.available
         val streakNow = streakView.refresh().shown
-        achievements.backfill { finishedOnPhone() to streakNow }
+        val backfill = achievements.backfill { finishedOnPhone() to streakNow }
+        // Play Games' turn (T45) comes with the first finish, or at once for an upgrader with a finish or an achievement.
+        appScope.launch {
+            backfill.join()
+            achievements.changes.collect {
+                val state = achievements.state
+                if (PlayGamesTurn.ready(state.finishes, state.unlocked)) settings.markPlayGamesReady()
+            }
+        }
         appScope.launch { streak.backfill(::firstFinishes) }
     }
 }

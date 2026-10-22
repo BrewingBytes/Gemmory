@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * Settings (design system, Settings): Sound, Haptics and Milestones (#35), all on by default, Music and its volume
  * (T42, on at 30%), and the Selected color style (#19), Stronger tint by default, and whether each gallery tab's Finished
  * section is expanded (#89). Also the first-music flags (T42, D24): whether a canvas has opened yet and whether the
- * "Music is playing" chip has shown. Kept in shared preferences, which hold no user content and may be backed up.
+ * "Music is playing" chip has shown, and whether Play Games' turn has come (T45). Kept in shared preferences, which
+ * hold no user content and may be backed up.
  */
 class AppSettings(private val prefs: SharedPreferences) {
     constructor(context: Context) : this(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))
@@ -96,6 +97,16 @@ class AppSettings(private val prefs: SharedPreferences) {
         prefs.edit { putBoolean(finishedKey(tab), open) }
     }
 
+    /**
+     * Play Games' turn has come (T45): set once the player finished a picture or earned an achievement, and kept, so
+     * a restored phone doesn't wait for another finish.
+     */
+    val playGamesReady: Boolean get() = prefs.getBoolean(PLAY_GAMES_READY, false)
+
+    fun markPlayGamesReady() {
+        if (!playGamesReady) prefs.edit { putBoolean(PLAY_GAMES_READY, true) }
+    }
+
     private companion object {
         fun finishedKey(tab: Int) = if (tab == 0) FINISHED_PICTURES else FINISHED_PHOTOS
 
@@ -110,5 +121,6 @@ class AppSettings(private val prefs: SharedPreferences) {
         const val MUSIC_CHIP = "music_chip_shown"
         const val FINISHED_PICTURES = "finished_open_pictures"
         const val FINISHED_PHOTOS = "finished_open_photos"
+        const val PLAY_GAMES_READY = "play_games_ready"
     }
 }

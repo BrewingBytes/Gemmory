@@ -132,7 +132,6 @@ android {
     sourceSets {
         getByName("perf") {
             kotlin.srcDir("src/debug/kotlin")
-            manifest.srcFile("src/debug/AndroidManifest.xml")
         }
     }
 

@@ -64,6 +64,8 @@ class TodaysPictureTest {
     fun setUp() {
         assertTrue(BuildConfig.FAKE_BILLING, "connected tests run on the fake billing backend")
         clearState()
+        // T45 (DR4): the Today card and the Tomorrow line wait for the player's first finish.
+        app.seedFirstFinish()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }

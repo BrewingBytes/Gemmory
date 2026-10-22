@@ -28,6 +28,7 @@ import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.gallery.GalleryViewModel
 import com.brewingbytes.gemmory.gallery.MYSTERY_LABEL_TAG
 import com.brewingbytes.gemmory.gallery.TODAY_TAG
+import com.brewingbytes.gemmory.gallery.seedFirstFinish
 import com.brewingbytes.gemmory.gallery.Tile
 import com.brewingbytes.gemmory.gallery.tileTag
 import com.brewingbytes.gemmory.play.PlaySession
@@ -90,6 +91,8 @@ class MysteryFlowTest {
         // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
         app.resetStreakForTest(celebrations = false)
         clearState()
+        // T45 (DR4): the Today card and the Tomorrow line wait for the player's first finish.
+        app.seedFirstFinish()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val base = LocalDateTime(dropDay, LocalTime(9, 0)).toInstant(zone).toEpochMilliseconds()
         val since = SystemClock.elapsedRealtime()
