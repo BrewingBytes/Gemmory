@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,7 +41,8 @@ import kotlin.test.assertTrue
 /**
  * R1 for T45 (first run clear): a fresh install reaches the starter with nothing in front of it (no Today card or
  * Tomorrow line, no sheet) and no Play Games before the first gem; the first finish gives Play Games its turn, which
- * waits through the finish's return and comes at the next gallery visit; an upgrader with a finish gets it at once.
+ * waits through the finish's return (a rotation on it included) and comes at the next gallery visit; an upgrader with
+ * a finish gets it at once.
  * Debug builds run Play Games off, so its turn is read from the app, not from Play Games' own sheet.
  */
 @RunWith(AndroidJUnit4::class)
@@ -107,11 +109,19 @@ class FirstRunTest {
         instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
         done()
         compose.waitUntil("the turn has come", 5_000) { app.settings.playGamesReady }
-        if (exists(REMINDER_ASK_NOT_NOW_TAG)) compose.onNodeWithTag(REMINDER_ASK_NOT_NOW_TAG).performClick()
         assertFalse(app.playGamesStartedForTest, "not on the return from a fresh finish")
+        // A rotation (or a restored process) on that return is still the return, not a new visit.
+        scenario.recreate()
+        compose.waitUntil("the gallery again", 10_000) { exists("gallery-grid") }
+        assertFalse(app.playGamesStartedForTest, "not after a rotation on the return from a fresh finish")
+        if (exists(REMINDER_ASK_NOT_NOW_TAG)) compose.onNodeWithTag(REMINDER_ASK_NOT_NOW_TAG).performClick()
 
         // Now the Today card shows; it opens a canvas, and the gallery after it is Play Games' turn.
-        compose.waitUntil("the Today card", 10_000) { exists(TODAY_TAG) }
+        // The return can leave the grid scrolled down to the Finished section; the card sits at its top.
+        compose.waitUntil("the Today card", 10_000) {
+            runCatching { compose.onNodeWithTag("gallery-grid").performScrollToIndex(0) }
+            exists(TODAY_TAG)
+        }
         compose.onNodeWithTag(TODAY_TAG).performClick()
         compose.waitUntil("today's canvas", 10_000) { session()?.viewport?.isLaidOut == true }
         assertFalse(app.playGamesStartedForTest, "never over a canvas")

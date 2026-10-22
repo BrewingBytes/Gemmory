@@ -82,6 +82,7 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.SupervisorJob
@@ -151,11 +152,11 @@ class GemmoryApp : Application() {
      * The gallery shows on a visit that isn't a fresh-finish return, with nothing pushed over it (T45): Play Games
      * starts here once its turn has come, and a gallery that's showing sends what waited in the ledger.
      */
-    fun onGalleryVisit() {
+    fun onGalleryVisit(finishReturn: Boolean) {
         if (playGamesStarted) return
         // The ledger too, so an upgrader's first visit doesn't wait for the flag to be written.
         val ready = settings.playGamesReady || achievements.state.let { PlayGamesTurn.ready(it.finishes, it.unlocked) }
-        if (!PlayGamesTurn.startNow(ready, onGallery = true, finishReturn = false)) return
+        if (!PlayGamesTurn.startNow(ready, onGallery = true, finishReturn = finishReturn)) return
         playGamesStarted = true
         if (playGames.available) achievements.resend()
     }
@@ -533,6 +534,25 @@ class GemmoryApp : Application() {
     @VisibleForTesting
     internal fun resetAchievementsForTest(backend: GamesBackend? = null, ids: ((Achievement) -> String)? = null) {
         achievements = if (backend == null) newAchievements(games) else newAchievements(backend, ids ?: { getString(achievementId(it)) })
+        watchPlayGamesTurn()
+    }
+
+    private var playGamesTurnWatch: Job? = null
+
+    /**
+     * Play Games' turn (T45) comes with the first finish, or at once for an upgrader with a finish or an achievement:
+     * the backed-up flag follows the current ledger (a connected test replaces it).
+     */
+    private fun watchPlayGamesTurn(after: Job? = null) {
+        playGamesTurnWatch?.cancel()
+        val current = achievements
+        playGamesTurnWatch = appScope.launch {
+            after?.join()
+            current.changes.collect {
+                val state = current.state
+                if (PlayGamesTurn.ready(state.finishes, state.unlocked)) settings.markPlayGamesReady()
+            }
+        }
     }
 
     /** Each canvas's first finished day, for the streak log's one-time backfill (#101, E4): day to canvas. */
@@ -682,15 +702,7 @@ class GemmoryApp : Application() {
     private fun onFirstForeground() {
         monetization.onProcessStart()
         val streakNow = streakView.refresh().shown
-        val backfill = achievements.backfill { finishedOnPhone() to streakNow }
-        // Play Games' turn (T45) comes with the first finish, or at once for an upgrader with a finish or an achievement.
-        appScope.launch {
-            backfill.join()
-            achievements.changes.collect {
-                val state = achievements.state
-                if (PlayGamesTurn.ready(state.finishes, state.unlocked)) settings.markPlayGamesReady()
-            }
-        }
+        watchPlayGamesTurn(after = achievements.backfill { finishedOnPhone() to streakNow })
         appScope.launch { streak.backfill(::firstFinishes) }
     }
 }

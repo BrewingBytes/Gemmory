@@ -226,6 +226,9 @@ class MainActivity : ComponentActivity() {
         var reviewing by remember { mutableStateOf(false) }
         // The fresh finish whose return chain waits behind its streak celebration (#101), as a canvas key.
         var pendingChain by rememberSaveable { mutableStateOf<String?>(null) }
+        // This gallery visit is the return from a fresh finish (T45): saved, so a rotation or a restored process on
+        // that return doesn't count as a new visit and give Play Games its turn under the return's interruption.
+        var finishReturn by rememberSaveable { mutableStateOf(false) }
         // Done (or back) on a fresh completion (#101): the new streak day's celebration takes its place, once the
         // finish's day is resolved (bounded); otherwise the gallery as before.
         val leaveCompletion: (Route.Completion) -> Unit = { route ->
@@ -304,21 +307,28 @@ class MainActivity : ComponentActivity() {
             if (top is Route.Completion && completion.fresh.isFresh(top)) app.interstitials.onFreshCompletion()
             // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
             val leftFresh = left is Route.Completion && left != top && completion.fresh.left(left)
+            if (top != Route.Gallery) finishReturn = false
             when {
                 // A new streak day (#101): the celebration is part of the exit, and the return chain waits for the
                 // gallery (G6), after Continue or after the streak screen closes. Saved, so a rotation keeps it (O6).
                 leftFresh && top is Route.StreakDay -> pendingChain = CanvasStore.reminderKey(left.ref)
-                leftFresh && top == Route.Gallery -> returnChain(left.ref)
+                leftFresh && top == Route.Gallery -> {
+                    finishReturn = true
+                    returnChain(left.ref)
+                }
                 top == Route.Gallery -> {
                     val waiting = pendingChain
                     if (waiting != null) {
                         pendingChain = null
+                        finishReturn = true
                         CanvasStore.refOfReminderKey(waiting)?.let { returnChain(it) }
                     } else {
                         celebrateLate()
-                        // Play Games' turn (T45): a visit that isn't a fresh-finish return, with nothing pushed over it
-                        // and no reminder or widget tap about to open something over it (a cold start from one).
-                        if (stack.top == Route.Gallery && reminderTap == null && !widgetTap) app.onGalleryVisit()
+                        // Play Games' turn (T45): a visit that isn't a fresh-finish return, with nothing pushed or shown
+                        // over it and no reminder or widget tap about to open something over it (a cold start from one).
+                        val clear = stack.top == Route.Gallery && reminderAsk == null && !reviewing && rewarded.ui == null &&
+                            reminderTap == null && !widgetTap
+                        if (clear) app.onGalleryVisit(finishReturn)
                     }
                 }
             }
