@@ -44,13 +44,16 @@ data class ReminderInputs(
     val streak: StreakState,
     /** What covers a missed day besides the day off (#101): the VIP freeze, streak freezes held. */
     val cover: Cover = Cover.NONE,
+    /** The Quick pictures a tap opens now without a video, unfinished, in catalog order: the streak's fallback (#102). */
+    val quick: List<String> = emptyList(),
 )
 
 /** The run's result. */
 sealed interface ReminderOutcome {
     /**
-     * Post a reminder for [reason]: [pictureId] for a drop or Today's picture; [canvas] for almost finished, and for a
-     * streak the most recently played unfinished canvas, if any (the tap's target); [streak] the days in a row.
+     * Post a reminder for [reason]: [pictureId] for a drop or Today's picture; [canvas] for almost finished. A streak
+     * carries the nudge's target (#102): a [canvas] with its [pictureId], or Today's or a Quick picture's [pictureId];
+     * neither when there's none. [streak] the days in a row.
      */
     data class Post(
         val reason: ReminderReason,
@@ -67,8 +70,9 @@ sealed interface ReminderOutcome {
 }
 
 /**
- * Picks tonight's reminder (T35): the first reason that applies wins, in [RULES] order: tonight's drop, Today's
- * picture, a streak that really breaks at midnight, a canvas almost finished. Nothing when none applies. Copy states
+ * Picks tonight's reminder (T35): the first reason that applies wins, in [RULES] order: a streak that really breaks at
+ * midnight (first since #102, G5; the day off, the VIP freeze and freezes held counted), tonight's drop, Today's
+ * picture, a canvas almost finished. Nothing when none applies. Copy states
  * only true facts (design system, Evening reminder).
  *
  * Skipped while the app is in the foreground or a gem was placed in the [SKIP_AFTER_GEM_MS] before the run: the
@@ -106,7 +110,12 @@ object ReminderReasons {
         val days = DailyStreak.shown(state, run.inputs.today, run.inputs.cover)
         val breaksAtMidnight = DailyStreak.shown(state, run.inputs.today + 1, run.inputs.cover) == 0
         if (days >= DailyStreak.SHOWN_FROM && state.lastDay != run.inputs.today && breaksAtMidnight) {
-            ReminderOutcome.Post(ReminderReason.STREAK, canvas = run.unfinished.firstOrNull(), streak = days)
+            when (val target = StreakNudge.target(run.inputs.todaysPick, run.inputs.quick, run.inputs.started)) {
+                is NudgeTarget.Canvas -> ReminderOutcome.Post(ReminderReason.STREAK, pictureId = target.canvas.pictureId, canvas = target.canvas, streak = days)
+                is NudgeTarget.Today -> ReminderOutcome.Post(ReminderReason.STREAK, pictureId = target.pictureId, streak = days)
+                is NudgeTarget.Quick -> ReminderOutcome.Post(ReminderReason.STREAK, pictureId = target.pictureId, streak = days)
+                null -> ReminderOutcome.Post(ReminderReason.STREAK, streak = days)
+            }
         } else {
             null
         }
@@ -118,8 +127,8 @@ object ReminderReasons {
             ?.let { ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, pictureId = it.pictureId, canvas = it) }
     }
 
-    /** In priority order. */
-    private val RULES = listOf(drop, today, streak, almostFinished)
+    /** In priority order. The streak only applies on a night it really ends, so every other night keeps the old order. */
+    private val RULES = listOf(streak, drop, today, almostFinished)
 
     /**
      * Minutes late when a run at [nowMillis] (local date [today]) is too late for its evening: more than

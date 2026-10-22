@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
 import com.brewingbytes.gemmory.play.PlayStreak
+import com.brewingbytes.gemmory.policy.BrokenStreak
 import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DailyStreak
@@ -26,6 +27,9 @@ data class StreakSnapshot(val state: StreakState, val today: Long, val cover: Co
 
     /** The missed days a finish today would cover (G13). */
     val awaiting: List<CoveredDay> get() = DailyStreak.awaitingCover(state, today, cover)
+
+    /** The broken streak a repair can still bring back (#102): the chip's "0 ›" and the nudge's broken variant. */
+    val repairOffer: BrokenStreak? get() = DailyStreak.repairOffer(state, today, cover)
 }
 
 /**

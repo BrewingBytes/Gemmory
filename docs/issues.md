@@ -1036,6 +1036,8 @@ Labels: P2, game, ui, ads
 
 **Done when:** the nudge, freezes, repair and reminder behave per the spec tables, no video failure ever loses a streak that grace should save, and the tests above pass.
 
+**Built (2026-10-22, PRs #123, #124 and the nudge PR):** as scoped, with the founder's repair limits (video repairs unlimited, VIP one free repair a week, a grace repair once in 30 days; `docs/designs/streak-screen.md`, Streak B decisions) and the PR 3 deviations listed there.
+
 Depends on: #101. Effort: human ~4d / CC ~2h.
 
 ---

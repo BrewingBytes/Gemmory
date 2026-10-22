@@ -62,7 +62,16 @@ object ReminderCopy {
                 ReminderText("Today's picture: $title", "$sized, free to start today.")
             }
         }
-        ReminderReason.STREAK -> ReminderText("${post.streak} days in a row", "Finish any picture today to keep it going.")
+        ReminderReason.STREAK -> {
+            // The nudge's target (#102, G5), named like the gallery does it; none without one.
+            val target = when {
+                post.canvas != null -> NudgeTarget.Canvas(post.canvas)
+                post.pictureId != null -> NudgeTarget.Quick(post.pictureId)
+                else -> null
+            }
+            val hint = StreakNudge.hint(target, title, mystery, inGallery = false)?.let { " $it." }.orEmpty()
+            ReminderText("Your ${post.streak}-day streak ends at midnight", "Finish any picture tonight to keep it.$hint")
+        }
         ReminderReason.ALMOST_FINISHED -> {
             val canvas = post.canvas
             val percent = canvas?.percent ?: 0

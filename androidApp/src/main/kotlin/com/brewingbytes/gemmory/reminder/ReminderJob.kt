@@ -26,6 +26,8 @@ class ReminderJob(
     /** The guarded catalog check ([com.brewingbytes.gemmory.remote.RemotePictures.checkForReminder]). */
     private val check: suspend () -> Unit,
     private val canvases: suspend () -> List<ReminderCanvas>,
+    /** The Quick pictures a tap opens now, unfinished, in catalog order, given the canvases: the streak's fallback (#102). */
+    private val quick: (started: List<ReminderCanvas>) -> List<String> = { emptyList() },
     /** Today's drops, stored and verified, in catalog order. */
     private val todaysDrops: () -> List<String>,
     /** Today's picture (or VIP's pick) for these started ids, picking and storing it if the day has none yet. */
@@ -58,6 +60,7 @@ class ReminderJob(
             started = started,
             streak = streak(),
             cover = cover(),
+            quick = quick(started),
         )
         val outcome = ReminderReasons.decide(inputs)
         when (outcome) {

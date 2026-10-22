@@ -44,6 +44,7 @@ import com.brewingbytes.gemmory.ads.RewardTarget
 import com.brewingbytes.gemmory.ads.RewardedSheet
 import com.brewingbytes.gemmory.ads.RewardedUi
 import com.brewingbytes.gemmory.billing.BillingBackends
+import com.brewingbytes.gemmory.gallery.STREAK_NUDGE_TAG
 import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
@@ -247,6 +248,31 @@ class AccessibilityChecksTest {
                 waitForTag(STREAK_SCREEN_TAG)
                 scan()
                 scenario.close()
+            }
+        } finally {
+            A11yTestSupport.shell("settings put system font_scale 1.0")
+            prefs.edit().clear().commit()
+            app.resetStreakForTest(celebrations = false)
+        }
+    }
+
+    /** #102: the keep-it-alive nudge and its broken variant with the chip's "0 ›", at 1x and 2x font. */
+    @Test
+    fun streakNudge() {
+        val prefs = context.getSharedPreferences("streak", Context.MODE_PRIVATE)
+        val today = java.time.LocalDate.now().toEpochDay()
+        try {
+            for (scale in listOf("1.0", "2.0")) {
+                A11yTestSupport.shell("settings put system font_scale $scale")
+                for (lastDay in listOf(today - 1, today - 3)) {
+                    // Alive through yesterday (the day off used), then broken two days ago with a repair open.
+                    prefs.edit().clear().putInt("length", 6).putLong("lastDay", lastDay).putLong("restDay", lastDay - 2).commit()
+                    app.resetStreakForTest(celebrations = false)
+                    scenario = ActivityScenario.launch(MainActivity::class.java)
+                    waitForTag(STREAK_NUDGE_TAG)
+                    scan()
+                    scenario.close()
+                }
             }
         } finally {
             A11yTestSupport.shell("settings put system font_scale 1.0")

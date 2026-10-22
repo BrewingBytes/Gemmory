@@ -68,6 +68,7 @@ class StreakTextTest {
     fun talkBack() {
         assertEquals("6 days in a row, not done today, opens your streak", StreakText.chip(6, doneToday = false))
         assertEquals("1 day in a row, done today, opens your streak", StreakText.chip(1, doneToday = true))
+        assertEquals("0 days in a row, your 12 days can still be restored, opens your streak", StreakText.chipBroken(12))
         assertEquals("Tuesday 20, finished Lighthouse", StreakText.cell(tuesday, tuesday + 2, "finished Lighthouse"))
         assertEquals("Today, not finished yet", StreakText.cell(tuesday, tuesday, "not finished yet"))
         val monday = day("2026-10-19")

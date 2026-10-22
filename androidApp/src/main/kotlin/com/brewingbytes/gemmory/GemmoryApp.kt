@@ -24,6 +24,7 @@ import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.collections.CollectionPrefs
 import com.brewingbytes.gemmory.collections.Collections
+import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.play.PlayStreak
@@ -36,6 +37,7 @@ import com.brewingbytes.gemmory.policy.DayPlayed
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
 import com.brewingbytes.gemmory.policy.GameEvent
+import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.StreakHistoryCodec
 import com.brewingbytes.gemmory.reminder.ReminderJob
@@ -216,6 +218,13 @@ class GemmoryApp : Application() {
     var streakCelebrations = true
         private set
 
+    /** The gallery's streak nudge shows (#102) while the build flag allows it (O5); a connected test turns it off. */
+    @VisibleForTesting
+    var streakNudge = true
+
+    /** The keep-it-alive nudge is on: the kill-switch flag (O5) and the test switch. */
+    val nudgeOn: Boolean get() = BuildConfig.STREAK_CELEBRATION && streakNudge
+
     /**
      * Connected tests only (#33): re-reads the streak from its preferences, which a test seeded. [celebrations] false
      * leaves the new streak day uncelebrated (#101), for tests of what follows a finish.
@@ -364,6 +373,7 @@ class GemmoryApp : Application() {
             zone = { TimeZone.currentSystemDefault() },
             check = { remote.checkForReminder() },
             canvases = { store.reminderCanvases() },
+            quick = ::quickOpenable,
             todaysDrops = { remote.todaysDrops().toList() },
             pickToday = { started -> todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew) },
             streak = { streak.state() },
@@ -402,19 +412,46 @@ class GemmoryApp : Application() {
     suspend fun reminderTarget(reason: ReminderReason, pictureId: String?, canvasKey: String?, day: Long): CanvasRef? {
         if (day != dayClock.today()) return null
         return when (reason) {
-            ReminderReason.DROP, ReminderReason.TODAY -> {
-                val ref = pictureId?.let(::openableRef) ?: return null
-                val vip = monetization.entitlements.value.vip
-                val started = store.isStarted(ref)
-                val catalogLocked = BundledPictures.byId(ref.id)?.locked ?: remote.listed().firstOrNull { it.id == ref.id }?.locked ?: true
-                val free = todays.isFreeToday(ref) || todays.isToday(ref, vip)
-                ref.takeIf { free || !isLocked(catalogLocked, ref.id, monetization.unlocks.unlocked.value, monetization.entitlements.value, started) }
-            }
-            ReminderReason.STREAK, ReminderReason.ALMOST_FINISHED -> {
-                val ref = canvasKey?.let(CanvasStore::refOfReminderKey) ?: return null
-                ref.takeIf { store.repository.dirOf(it).isDirectory && !store.isFinished(it) }
-            }
+            ReminderReason.DROP, ReminderReason.TODAY -> pictureTarget(pictureId)
+            // The streak's target is the nudge's (#102): a canvas, or else Today's or a Quick picture.
+            ReminderReason.STREAK -> if (canvasKey != null) canvasTarget(canvasKey) else pictureTarget(pictureId)
+            ReminderReason.ALMOST_FINISHED -> canvasTarget(canvasKey)
         }
+    }
+
+    /** A picture a reminder names: open while it's still today's and free, or open anyway. */
+    private suspend fun pictureTarget(pictureId: String?): CanvasRef? {
+        val ref = pictureId?.let(::openableRef) ?: return null
+        val vip = monetization.entitlements.value.vip
+        val started = store.isStarted(ref)
+        val catalogLocked = BundledPictures.byId(ref.id)?.locked ?: remote.listed().firstOrNull { it.id == ref.id }?.locked ?: true
+        val free = todays.isFreeToday(ref) || todays.isToday(ref, vip)
+        return ref.takeIf { free || !isLocked(catalogLocked, ref.id, monetization.unlocks.unlocked.value, monetization.entitlements.value, started) }
+    }
+
+    /** A canvas a reminder names: while it exists unfinished. */
+    private suspend fun canvasTarget(canvasKey: String?): CanvasRef? {
+        val ref = canvasKey?.let(CanvasStore::refOfReminderKey) ?: return null
+        return ref.takeIf { store.repository.dirOf(it).isDirectory && !store.isFinished(it) }
+    }
+
+    /**
+     * The Quick pictures a tap opens now without a video (free, unlocked, started, today's free picture or drop, all for
+     * VIP), unfinished, in catalog order (#102): the streak nudge's and the streak reminder's fallback. [started]: the
+     * canvases on the phone ([CanvasStore.reminderCanvases]). Reads the catalog, so off the main thread.
+     */
+    fun quickOpenable(started: List<ReminderCanvas>): List<String> {
+        val canvases = started.filter { it.pictureId != null }.associateBy { it.pictureId }
+        val unlocked = monetization.unlocks.unlocked.value
+        val entitlements = monetization.entitlements.value
+        val free = todays.freeToday()
+        val bundled = BundledPictures.ALL.filter { BundledPictures.canvasSizeOf(it.id) == CanvasSize.QUICK }.map { it.id to it.locked }
+        // A collection's keepsake (T37) isn't in the gallery until it's earned.
+        val listed = remote.listed().filter { it.size == CanvasSize.QUICK && it.rewardOf == null }.map { it.id to it.locked }
+        return (bundled + listed).filter { (id, locked) ->
+            val canvas = canvases[id]
+            canvas?.finished != true && (id in free || !isLocked(locked, id, unlocked, entitlements, canvas != null))
+        }.map { it.first }
     }
 
     private fun newStore() = CanvasStore(

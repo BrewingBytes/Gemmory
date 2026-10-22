@@ -144,6 +144,9 @@ object StreakText {
     fun chip(shown: Int, doneToday: Boolean): String =
         "${days(shown)} in a row, ${if (doneToday) "done today" else "not done today"}, opens your streak"
 
+    /** TalkBack for the chip's "0 ›" while a repair is offered (#102, G4). */
+    fun chipBroken(length: Int): String = "0 days in a row, your ${days(length)} can still be restored, opens your streak"
+
     /** TalkBack for the week row, one node: "This week: Monday, Tuesday done, Wednesday day off, Thursday today". */
     fun week(cells: List<CalendarCell>): String = "This week: " + cells.filter { it.kind != CellKind.FUTURE }.joinToString(", ") { cell ->
         val name = weekday(cell.day)

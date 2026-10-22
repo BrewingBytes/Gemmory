@@ -25,25 +25,47 @@ class ReminderReasonsTest {
         streak: StreakState = StreakState(),
         foreground: Boolean = false,
         now: Long = scheduled,
-    ) = ReminderInputs(scheduled, today, now, ReminderSchedule.dayOf(now, clock.zone), foreground, drops, pick, started, streak)
+        quick: List<String> = emptyList(),
+    ) = ReminderInputs(scheduled, today, now, ReminderSchedule.dayOf(now, clock.zone), foreground, drops, pick, started, streak, quick = quick)
 
     private fun post(inputs: ReminderInputs) = assertIs<ReminderOutcome.Post>(ReminderReasons.decide(inputs))
 
     private val almost = canvas("venice", placed = 82)
 
+    /** R1: on a night the streak doesn't end, the order is drop, Today's picture, almost finished (T35). */
     @Test
     fun reasonsComeInPriorityOrder() {
-        val all = inputs(drops = listOf("lighthouse"), pick = "huts", started = listOf(almost), streak = breakingStreak)
+        val all = inputs(drops = listOf("lighthouse"), pick = "huts", started = listOf(almost))
         assertEquals(ReminderOutcome.Post(ReminderReason.DROP, pictureId = "lighthouse"), post(all))
         assertEquals(ReminderOutcome.Post(ReminderReason.TODAY, pictureId = "huts"), post(all.copy(todaysDrops = emptyList())))
         assertEquals(
-            ReminderOutcome.Post(ReminderReason.STREAK, canvas = almost, streak = 4),
+            ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, pictureId = "venice", canvas = almost),
             post(all.copy(todaysDrops = emptyList(), todaysPick = null)),
         )
-        assertEquals(
-            ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, pictureId = "venice", canvas = almost),
-            post(all.copy(todaysDrops = emptyList(), todaysPick = null, streak = StreakState())),
-        )
+    }
+
+    /** #102 G5: on a night the streak really ends, it outranks tonight's drop and Today's picture. */
+    @Test
+    fun aStreakThatEndsTonightComesFirst() {
+        val all = inputs(drops = listOf("lighthouse"), pick = "huts", started = listOf(almost), streak = breakingStreak)
+        assertEquals(ReminderOutcome.Post(ReminderReason.STREAK, pictureId = "venice", canvas = almost, streak = 4), post(all))
+        assertEquals(ReminderReason.STREAK, post(all.copy(todaysDrops = emptyList())).reason)
+        // A freeze held covers tonight: no streak reason, and the drop speaks as before.
+        assertEquals(ReminderReason.DROP, post(all.copy(cover = Cover(freezes = 1))).reason)
+    }
+
+    /** #102: the streak's target is the nudge's: Today's picture if Quick, else closest to done, else a Quick picture. */
+    @Test
+    fun theStreakPointsWhereTheNudgeDoes() {
+        val started = listOf(canvas("older", placed = 30, playedHoursAgo = 30), canvas("closest", placed = 82, playedHoursAgo = 200))
+        val onCanvas = post(inputs(streak = breakingStreak, started = started, pick = "old-town", quick = listOf("huts")))
+        assertEquals("closest", onCanvas.canvas?.key)
+        assertEquals("closest", onCanvas.pictureId)
+        val onToday = post(inputs(streak = breakingStreak, started = started, pick = "huts", quick = listOf("lighthouse", "huts")))
+        assertEquals(ReminderOutcome.Post(ReminderReason.STREAK, pictureId = "huts", streak = 4), onToday)
+        val onQuick = post(inputs(streak = breakingStreak, pick = "old-town", quick = listOf("lighthouse", "huts")))
+        assertEquals(ReminderOutcome.Post(ReminderReason.STREAK, pictureId = "lighthouse", streak = 4), onQuick)
+        assertEquals(ReminderOutcome.Post(ReminderReason.STREAK, streak = 4), post(inputs(streak = breakingStreak, pick = "old-town")))
     }
 
     @Test
@@ -94,11 +116,11 @@ class ReminderReasonsTest {
     }
 
     @Test
-    fun theStreakTapGoesToTheMostRecentUnfinishedCanvas() {
-        val older = canvas("older", placed = 10, playedHoursAgo = 30)
+    fun theStreakTapGoesToTheUnfinishedCanvasClosestToDone() {
+        val older = canvas("older", placed = 40, playedHoursAgo = 30)
         val newer = canvas("newer", placed = 10, playedHoursAgo = 5)
         val done = canvas("done", placed = 100, playedHoursAgo = 4)
-        assertEquals(newer, post(inputs(streak = breakingStreak, started = listOf(older, done, newer))).canvas)
+        assertEquals(older, post(inputs(streak = breakingStreak, started = listOf(older, done, newer))).canvas)
         assertNull(post(inputs(streak = breakingStreak, started = listOf(done))).canvas)
     }
 
@@ -165,10 +187,28 @@ class ReminderReasonsTest {
             ReminderText("Today's pick: Beach Huts", "A Quick picture, ready when you are."),
             ReminderCopy.of(today, "Beach Huts", CanvasSize.QUICK, vip = true),
         )
-        val streak = ReminderOutcome.Post(ReminderReason.STREAK, streak = 4)
-        assertEquals(ReminderText("4 days in a row", "Finish any picture today to keep it going."), ReminderCopy.of(streak, null, null, vip = false))
         val venice = ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, pictureId = "venice", canvas = canvas("venice", placed = 829, total = 1000))
         assertEquals(ReminderText("You're 82% through Venice", "Pick up where you left off."), ReminderCopy.of(venice, "Venice", null, vip = false))
+    }
+
+    /** #102 G5: the streak's copy names its target; no clock, no "!", nothing about losing. */
+    @Test
+    fun theStreakCopyNamesItsTarget() {
+        val ends = "Your 6-day streak ends at midnight"
+        val quick = ReminderOutcome.Post(ReminderReason.STREAK, pictureId = "lighthouse", streak = 6)
+        assertEquals(
+            ReminderText(ends, "Finish any picture tonight to keep it. Lighthouse is Quick."),
+            ReminderCopy.of(quick, "Lighthouse", CanvasSize.QUICK, vip = false),
+        )
+        val harbour = ReminderOutcome.Post(ReminderReason.STREAK, pictureId = "harbour", canvas = canvas("harbour", placed = 829, total = 1000), streak = 6)
+        assertEquals(ReminderText(ends, "Finish any picture tonight to keep it. Harbour is 82% done."), ReminderCopy.of(harbour, "Harbour", null, vip = false))
+        assertEquals(
+            "Finish any picture tonight to keep it. Your mystery picture is 82% done.",
+            ReminderCopy.of(harbour, "Lantern", null, vip = false, mystery = true).text,
+        )
+        val photo = ReminderOutcome.Post(ReminderReason.STREAK, canvas = canvas("photo/abc", placed = 82, photo = true), streak = 6)
+        assertEquals("Finish any picture tonight to keep it. Your photo canvas is 82% done.", ReminderCopy.of(photo, null, null, vip = false).text)
+        assertEquals(ReminderText(ends, "Finish any picture tonight to keep it."), ReminderCopy.of(ReminderOutcome.Post(ReminderReason.STREAK, streak = 6), null, null, vip = false))
     }
 
     /** T43: an unfinished mystery is never named; its drop has its own line (design system, notification table). */
