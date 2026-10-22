@@ -83,6 +83,7 @@ import com.brewingbytes.gemmory.streak.StreakCelebration
 import com.brewingbytes.gemmory.streak.StreakDayViewModel
 import com.brewingbytes.gemmory.streak.StreakScreen
 import com.brewingbytes.gemmory.streak.StreakViewModel
+import com.brewingbytes.gemmory.widget.StreakWidget
 import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
@@ -103,6 +104,9 @@ class MainActivity : ComponentActivity() {
     /** An evening reminder was tapped (T35): routed once the screen is up. */
     private var reminderTap by mutableStateOf<ReminderTap?>(null)
 
+    /** The home-screen streak widget was tapped (#103): the streak screen opens over the gallery. */
+    private var widgetTap by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -110,6 +114,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) app.consent.onLaunch(this)
         // A tap that started the activity; after a rotation it was handled already.
         if (savedInstanceState == null) reminderTap = ReminderTap.of(intent)
+        if (savedInstanceState == null) widgetTap = StreakWidget.isTap(intent)
         // The volume keys move the music while it plays (T42), and the ringer otherwise.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -129,6 +134,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         ReminderTap.of(intent)?.let { reminderTap = it }
+        if (StreakWidget.isTap(intent)) widgetTap = true
     }
 
     @Composable
@@ -319,6 +325,14 @@ class MainActivity : ComponentActivity() {
             val ref = app.reminderTarget(tap.reason, tap.pictureId, tap.canvasKey, tap.day)
             if (stack.top is Route.Canvas) play.close()
             if (ref == null) stack.popToGallery() else stack.openTile(ref, CanvasEntry.REMINDER, app.store::isFinished)
+        }
+        // A streak widget tap (#103): the streak screen with the gallery under it, so back goes to the gallery.
+        LaunchedEffect(widgetTap) {
+            if (!widgetTap) return@LaunchedEffect
+            widgetTap = false
+            if (stack.top is Route.Canvas) play.close()
+            stack.popToGallery()
+            stack.openStreak("widget")
         }
         // Ads are preloaded: the extra-canvas or More colors video (#29) starts loading as soon as Preview offers it.
         val previewVideo = top == Route.Preview &&

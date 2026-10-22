@@ -35,7 +35,10 @@ sealed interface Route {
      */
     data class StreakDay(val ref: CanvasRef, val freshExit: Boolean) : Route
 
-    /** "Your streak" (#101), opened from [source] (`chip` or `celebration`, for `streak_screen_opened`). */
+    /**
+     * "Your streak" (#101), opened from [source] (`chip`, `celebration`, `nudge` or `widget`, for
+     * `streak_screen_opened`).
+     */
     data class Streak(val source: String) : Route
 
     companion object {

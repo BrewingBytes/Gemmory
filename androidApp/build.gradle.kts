@@ -179,6 +179,8 @@ dependencies {
     implementation(libs.play.services.games.v2)
     // Play In-App Review (T39): Play's own rating sheet after a finished picture, once features.review is on.
     implementation(libs.play.review)
+    // The home-screen streak widget (#103): Glance over RemoteViews, so the launcher draws it with no app process.
+    implementation(libs.glance.appwidget)
     // Bundled (on-device) model: the face check never sends the photo anywhere (design doc, photo privacy).
     implementation(libs.mlkit.face.detection)
     // Crash + non-fatal reports (always on, D17) and Analytics events under UMP consent (Consent Mode v2, R3-7).
@@ -193,6 +195,7 @@ dependencies {
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.glance.appwidget.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     // Accessibility Test Framework checks (the Accessibility Scanner's engine) in AccessibilityChecksTest (#14).

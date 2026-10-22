@@ -91,6 +91,10 @@ The app icon (launcher foreground and monochrome, and the 512×512 Play Store ic
 
 A release candidate is the `main` commit with the version bump: tag it `v<versionName>` (`git tag v0.3.2 && git push origin v0.3.2`). The tag starts the Test Lab encoder smoke and the frame-timing check (4 of the day's 5 runs); upload the AAB to Play only after both pass.
 
+## Streak widget
+
+The home-screen streak widget (#103) is built with Jetpack Glance (`androidx.glance:glance-appwidget`, in `androidApp/.../widget/`). On the emulator: long-press the home screen → Widgets → Gemmory → Streak. The number is a bitmap in the design-system mono (`numberBitmap`); the line is in the system font. The picker preview is `res/drawable-nodpi/widget_streak_preview.png` on every Android version, a 3x headless-Chrome capture of the tile (Atkinson Hyperlegible Mono number, Roboto line, pulled from the emulator's `/system/fonts`), so redo it when the layout changes. The Glance layout test (`StreakWidgetTest`) is a connected test: Glance's test environment needs Android's `Bundle`.
+
 ## Play Games setup
 
 Achievements (#49, no leaderboards) go through Play Games Services v2. The founder does the Play Console part; the app needs only `androidApp/src/main/res/values/games-ids.xml`. While its `game_services_project_id` is blank, Play Games stays off: no SDK start, no Settings row, and what players earn waits in the ledger (`filesDir/achievements/state`) for a build with the ids.

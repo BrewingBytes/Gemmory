@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen streak widget (#103, G17): one 2x2, not resizable. No periodic update: StreakWidgets refreshes
+     it on every streak change, at local midnight and on a clock or time-zone change. The target cells
+     are Android 12+; older launchers use minWidth/minHeight. The picker preview is one PNG on every version (a layout
+     preview would draw the number in the system font). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UnusedAttribute"
+    android:description="@string/widget_streak_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:previewImage="@drawable/widget_streak_preview"
+    android:resizeMode="none"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

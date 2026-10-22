@@ -134,7 +134,13 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** The nudge was tapped (#102): [target] is `today`, `canvas`, `quick`, `repair` (the broken variant) or `none`. */
         fun streakNudgeTapped(target: String) = AnalyticsEvent("streak_nudge_tapped", mapOf("target" to target))
 
-        /** The streak screen opened (#101), from [source]: `chip`, `celebration`, `celebration_repair` or `nudge` (#102). */
+        /** The first home-screen streak widget was placed (#103). */
+        fun streakWidgetAdded() = AnalyticsEvent("streak_widget_added", emptyMap())
+
+        /**
+         * The streak screen opened (#101), from [source]: `chip`, `celebration`, `celebration_repair`, `nudge` (#102) or
+         * `widget` (#103).
+         */
         fun streakScreenOpened(source: String) = AnalyticsEvent("streak_screen_opened", mapOf(SOURCE to source))
 
         /** The first gem on today's picture (#34). [vip]: it was VIP's "Today's pick", not a free grant. */

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemmory streak C</title>
+<style>
+@font-face { font-family: "Bricolage"; src: url("../../../../androidApp/src/main/res/font/bricolage_grotesque.ttf"); }
+@font-face { font-family: "Figtree"; src: url("../../../../androidApp/src/main/res/font/figtree.ttf"); }
+@font-face { font-family: "AHMono"; src: url("../../../../androidApp/src/main/res/font/atkinson_hyperlegible_mono.ttf"); font-weight: 700; }
+:root {
+  --felt:#4F5A52; --felt-deep:#3E4741; --felt-raised:#5C685F; --felt-deep-dark:#2E3530;
+  --bone:#E9E4D8; --on-bone:#2B322D; --muted:#CDD3C9; --lamp:#F4E3B1; --patina:#7FB3A0;
+  --fault:#E8B09E; --ground:#262c28; --flame:#F5A623; --flame-30:#F08A2C; --flame-100:#E0563B; --ember:#7E8880;
+}
+* { box-sizing: border-box; }
+::selection { background: var(--lamp); color: var(--on-bone); }
+body { margin:0; padding:28px 32px 80px; background:var(--ground); color:var(--bone); font-family:Figtree, sans-serif; }
+h1 { font-family:Bricolage; font-weight:600; font-size:30px; margin:0 0 6px; }
+h2 { font-family:Bricolage; font-weight:600; font-size:22px; margin:48px 0 4px; }
+p.lead, .note { color:var(--muted); max-width:1100px; line-height:1.5; font-size:14px; margin:4px 0 12px; }
+.note b, .lead b { color:var(--bone); }
+.row { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+.col { width:360px; }
+.cap { font-size:13px; color:var(--muted); line-height:1.45; margin-top:8px; }
+.cap b { color:var(--bone); }
+.opt { font-family:Bricolage; font-size:18px; margin:0 0 6px; }
+.chosen { color:var(--patina); font-size:13px; font-family:Figtree; }
+.pend { color:var(--lamp); font-size:13px; font-family:Figtree; }
+code { font-family:AHMono; font-size:12px; }
+a { color:var(--lamp); }
+.decided { max-width:1100px; background:var(--felt-deep); border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.6; color:var(--muted); }
+.decided b { color:var(--bone); }
+
+
+.home { width:360px; height:420px; border-radius:18px; overflow:hidden; position:relative; padding:44px 16px 0; }
+.home.dark { background: linear-gradient(160deg,#2c3a46,#1f2730); }
+.home.light { background: linear-gradient(160deg,#f3e9dc,#d9e4ea); }
+.hgrid { display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:82px; gap:0; }
+.ico { display:flex; flex-direction:column; align-items:center; gap:6px; padding-top:8px; font-size:11px; }
+.home.light .ico { color:#222; }
+.ico i { width:48px; height:48px; border-radius:50%; display:block; }
+.slot { grid-column: span 2; grid-row: span 2; padding:6px; }
+.wid { width:100%; height:100%; border-radius:16px; background:var(--felt); padding:14px; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; color:var(--bone); }
+.wid .top { display:flex; justify-content:space-between; align-items:flex-start; }
+.wid .n { font-family:AHMono; font-weight:700; font-size:44px; line-height:1; }
+.wid .s { font-size:14px; line-height:1.25; color:var(--muted); }
+.wid.fs2 .s { font-size:28px; }
+.solo { width:152px; height:152px; }
+.solo.min { width:110px; height:110px; } .solo.min .wid { padding:10px; } .solo.min .n { font-size:32px; } .solo.min .s { font-size:12px; }
+.solo.min .wid.fs2 .s { font-size:24px; }
+.picker { width:360px; background:#1d2226; border-radius:18px; padding:16px; color:#e8eaed; font-family:system-ui, sans-serif; }
+.picker .app { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:600; padding:4px 0 12px; }
+.picker .app i { width:32px; height:32px; border-radius:50%; background:var(--felt); display:grid; place-items:center; }
+.picker .card { background:#2a3036; border-radius:16px; padding:16px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.picker .nm { font-size:15px; font-weight:600; } .picker .sz { font-size:13px; color:#aab; } .picker .ds { font-size:13px; color:#c8ccd0; text-align:center; line-height:1.4; }
+.tb2 { font-size:13px; color:var(--muted); border-collapse:collapse; } .tb2 td { padding:4px 10px 4px 0; vertical-align:top; } .tb2 td:first-child { color:var(--bone); white-space:nowrap; }
+</style>
+</head>
+<body>
+<h1>Streak C · home-screen widget</h1>
+<p class="lead">Fills the gaps in <code>ui.html</code> v3 section 5 (#103, G17): the widget at launcher size, flame tiers, 200% font, the picker preview and the TalkBack label. Fixed felt ground, no dynamic color, mono number, flat flame (still, no flicker on a home screen). Never a picture or a photo.</p>
+
+<h2>1 · On the home screen (2×2, Pixel launcher size)</h2>
+<div class="row">
+  <div class="col"><div class="opt">Dark wallpaper</div><div class="home dark" id="h1"></div>
+    <div class="cap">Not done today: grey ember flame, "Not yet today". Tap anywhere → the streak screen with the gallery under it.</div></div>
+  <div class="col"><div class="opt">Light wallpaper</div><div class="home light" id="h2"></div>
+    <div class="cap">Done today: the flame lit in its tier color, "Done today". The felt tile reads the same on any wallpaper.</div></div>
+</div>
+
+<h2>2 · States and tiers</h2>
+<p class="note">Number = days in a row as the chip shows it (freezes and day off counted). 0 and "Start a streak" when never played, broken, or in the repair window (the repair lives on the streak screen, not on the widget).</p>
+<div class="row" id="tiers"></div>
+
+<h2>3 · Smallest cell and 200% font</h2>
+<p class="note">Some launchers give a 2×2 only 110dp: the number drops to 32 and the padding to 10. The number is sized in dp, so it never outgrows the tile; the line follows font scale and wraps to at most two lines.</p>
+<div class="row" id="sizes"></div>
+
+<h2>4 · Widget picker</h2>
+<div class="row">
+  <div class="col"><div class="picker"><div class="app"><i id="pfl"></i>Gemmory</div>
+    <div class="card"><div class="solo" id="pv"></div><div class="nm">Streak</div><div class="sz">2 × 2</div><div class="ds">Your streak and whether today's picture is done</div></div></div>
+    <div class="cap">Preview: a fixed sample (6 days, lit, "Done today"), the same layout as the widget (Android 12+ <code>previewLayout</code>; a PNG of it on Android 10-11). Label "Streak", description as shown.</div></div>
+  <div class="col"><div class="opt">TalkBack</div>
+    <table class="tb2">
+      <tr><td>Not done</td><td>"Gemmory streak, 6 days, not done today, double-tap to open your streak"</td></tr>
+      <tr><td>Done</td><td>"Gemmory streak, 1 day, done today"</td></tr>
+      <tr><td>Start</td><td>"Gemmory streak, start a streak"</td></tr>
+    </table>
+    <div class="cap">One node: the flame and number aren't read on their own. Analytics: <code>streak_widget_added</code> when the first one is placed; <code>streak_screen_opened</code> source <code>widget</code> on a tap.</div></div>
+</div>
+
+<script>
+const C = { ember:'#7E8880' };
+function flameCol(t){ return t>=100?'#E0563B':t>=30?'#F08A2C':'#F5A623'; }
+function flame(size, tier=1, lit=true) {
+  const col = lit?flameCol(tier):C.ember, core = lit?'#FCE3A6':'#A3ACA4';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5-1.5 5-1.5 7.5 0 1.6 1.2 2.6 2.4 2.6 1.8 0 2.6-1.6 2.1-3.6C17.6 10.4 19 13 19 15.3 19 19 15.9 22 12 22s-7-3-7-6.7c0-4.4 4.5-6.2 7-13.3z" fill="${col}"/><path d="M12 13.5c.4 1.4-.8 2.2-.8 3.4 0 .9.7 1.5 1.5 1.5 1.2 0 1.9-1 1.6-2.4.9.7 1.4 1.7 1.4 2.6 0 1.9-1.6 3.4-3.6 3.4s-3.6-1.5-3.6-3.4c0-2.2 2.2-3.2 3.5-5.1z" fill="${core}"/></svg>`;
+}
+const wid=(n,lit,s,cls='',fs=32)=>`<div class="wid ${cls}"><div class="top"><div class="n">${n}</div>${flame(fs,n||1,lit)}</div><div class="s">${s}</div></div>`;
+const solo=(n,lit,s,cls='',w='')=>`<div><div class="solo ${cls}">${wid(n,lit,s,w,cls?24:32)}</div><div class="cap">${n} · ${lit?'lit':'grey'} · "${s}"</div></div>`;
+function home(n,lit,s){
+  const apps=['#E57373','#64B5F6','#81C784','#FFD54F','#BA68C8','#4DB6AC','#FF8A65','#90A4AE'];
+  const names=['Phone','Photos','Maps','Notes','Music','Clock','Mail','Files'];
+  let h='<div class="hgrid">'+`<div class="slot">${wid(n,lit,s)}</div>`;
+  apps.forEach((c,i)=>{ h+=`<div class="ico"><i style="background:${c}"></i>${names[i]}</div>`; });
+  return h+'</div>';
+}
+document.getElementById('h1').innerHTML=home(6,false,'Not yet today');
+document.getElementById('h2').innerHTML=home(6,true,'Done today');
+document.getElementById('tiers').innerHTML=[solo(0,false,'Start a streak'),solo(1,true,'Done today'),solo(6,false,'Not yet today'),solo(29,true,'Done today'),solo(30,true,'Done today'),solo(100,true,'Done today'),solo(365,false,'Not yet today')].join('');
+document.getElementById('sizes').innerHTML=[solo(6,false,'Not yet today','min'),solo(365,true,'Done today','min'),solo(6,false,'Not yet today','','fs2'),solo(0,false,'Start a streak','','fs2'),solo(365,true,'Done today','min','fs2')].join('');
+document.getElementById('pv').innerHTML=wid(6,true,'Done today');
+document.getElementById('pfl').innerHTML=flame(20,6,true);
+</script>
+</body>
+</html>
