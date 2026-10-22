@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -251,8 +252,10 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
     var spinning by remember { mutableStateOf(false) }
     var won by remember { mutableStateOf<Spin?>(null) }
     var left by remember { mutableIntStateOf(spinsWaiting) }
-    // Read when a spin starts and ends, so a freeze won mid-turn doesn't relabel the slice it's landing on.
-    val full = remember(spinning) { freezesFull }
+    val label = remember { FreezeLabel(freezesFull) }
+    val latestFull by rememberUpdatedState(freezesFull)
+    LaunchedEffect(freezesFull) { label.held(freezesFull) }
+    val full = label.full
 
     LaunchedEffect(Unit) {
         var last = segmentAt(rotation.value)
@@ -312,11 +315,13 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
                 "Spin",
                 {
                     if (spinning) return@PrimaryButton
+                    label.spinStarted(latestFull)
                     spinning = true
                     scope.launch {
                         val spin = onSpin()
                         if (spin == null) {
                             spinning = false
+                            label.spinEnded(latestFull)
                             left = 0
                             return@launch
                         }
@@ -332,6 +337,7 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
                             withFullMotion { rotation.animateTo(target, tween(SPIN_MS, easing = SPIN_EASING)) }
                         }
                         spinning = false
+                        label.spinEnded(latestFull)
                         feedback.milestone(view)
                     }
                 },
@@ -341,6 +347,34 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
         } else {
             QuietButton("Done", onDismiss, Modifier.fillMaxWidth().testTag("wheel-done"))
         }
+    }
+}
+
+/**
+ * Whether the freeze slice reads "5 fills" (#102, E7). Taken when a spin is tapped and again when it lands, never in
+ * between: the prize is added before the wheel turns, so a freeze won at 1 held would otherwise relabel the slice the
+ * wheel is landing on (design system: "its label changes only between spins").
+ */
+internal class FreezeLabel(full: Boolean) {
+    var full by mutableStateOf(full)
+        private set
+    private var spinning = false
+
+    /** The Spin tap, with the freezes held as of now. */
+    fun spinStarted(nowFull: Boolean) {
+        full = nowFull
+        spinning = true
+    }
+
+    /** The wheel landed (or there was no spin). */
+    fun spinEnded(nowFull: Boolean) {
+        spinning = false
+        full = nowFull
+    }
+
+    /** The freezes held changed: shown at once between spins, ignored during one. */
+    fun held(nowFull: Boolean) {
+        if (!spinning) full = nowFull
     }
 }
 
