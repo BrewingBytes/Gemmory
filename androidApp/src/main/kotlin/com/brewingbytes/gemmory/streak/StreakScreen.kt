@@ -119,8 +119,11 @@ data class StreakUi(
 /** A repair offer (#102): [broken] can be repaired [until] that day; for VIP, its weekly repair [vipReady] or last used. */
 data class RepairOffer(val broken: BrokenStreak, val until: Long, val vip: Boolean, val vipReady: Boolean, val lastVipRepairDay: Long)
 
-/** A repair just made: the streak is back at [length], with the missed [days] repaired. */
-data class Restored(val length: Int, val days: List<Long>)
+/**
+ * A repair just made: the streak is back at [length], with the missed [days] repaired. [rollUp]: the number's roll-up
+ * and its announcement are still to come; they run once, never again after a rotation.
+ */
+data class Restored(val length: Int, val days: List<Long>, val rollUp: Boolean = true)
 
 /** Reads the streak screen's state and its day thumbnails (#101); one month at a time, thumbnails off the main thread. */
 class StreakViewModel(application: Application) : AndroidViewModel(application) {
@@ -132,7 +135,8 @@ class StreakViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Opened from [source]: re-read as of now, log it ([log]: not again after a rotation), and fetch the titles. */
     fun opened(source: String, log: Boolean) {
-        _ui.value = read(_ui.value.month.takeIf { !log }).copy(restored = _ui.value.restored.takeIf { !log })
+        // A rotation keeps "Streak back" but never replays its roll-up (the celebration's rule: it replays nothing).
+        _ui.value = read(_ui.value.month.takeIf { !log }).copy(restored = _ui.value.restored.takeIf { !log }?.copy(rollUp = false))
         if (log) app.analytics.log(AnalyticsEvent.streakScreenOpened(source))
         if (log) _ui.value.repair?.let { app.analytics.log(AnalyticsEvent.streakRepairOffered(it.broken.length)) }
         viewModelScope.launch {
@@ -146,6 +150,9 @@ class StreakViewModel(application: Application) : AndroidViewModel(application) 
     fun restored(length: Int, days: List<Long>) {
         _ui.value = read(_ui.value.month).copy(restored = Restored(length, days))
     }
+
+    /** The restored number has rolled up (or showed at once): not again. */
+    fun rolledUp() = _ui.update { it.copy(restored = it.restored?.copy(rollUp = false)) }
 
     /** VIP's weekly repair (#102): "Bring it back", no video. */
     fun vipRepair() {
@@ -228,7 +235,7 @@ fun StreakScreen(
                 // The panel stays while its "restored" moment shows, then goes with the offer.
                 val offer = ui.repair
                 if (offer != null && restored == null) RepairPanel(offer, video, repair)
-                Hero(shown, ui.best, s.doneToday, rollUp = restored != null)
+                Hero(shown, ui.best, s.doneToday, rollUp = restored?.rollUp == true, onRolledUp = vm::rolledUp)
                 if (restored != null) {
                     Text(
                         StreakText.restored(restored.length),
@@ -237,7 +244,8 @@ fun StreakScreen(
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                             .testTag(STREAK_RESTORED_TAG)
-                            .semantics { liveRegion = LiveRegionMode.Polite },
+                            // Announced with the roll-up only, so a rotation doesn't read it again.
+                            .semantics { if (restored.rollUp) liveRegion = LiveRegionMode.Polite },
                     )
                 }
                 Section {
@@ -333,15 +341,18 @@ private fun Muted(text: String, modifier: Modifier = Modifier) {
     Text(text, style = GemType.label, color = GemColors.TextMuted, modifier = modifier.padding(top = 8.dp))
 }
 
-/** [rollUp]: a repair just brought the streak back, so the number rolls 0 → [shown] over 600 ms (#102; none under reduced motion). */
+/**
+ * [rollUp]: a repair just brought the streak back, so the number rolls 0 → [shown] over 600 ms once (#102; shown at
+ * once under reduced motion), then [onRolledUp]. It starts at 0, so the first frame never shows the final number.
+ */
 @Composable
-private fun Hero(shown: Int, best: Int, lit: Boolean, rollUp: Boolean = false) {
+private fun Hero(shown: Int, best: Int, lit: Boolean, rollUp: Boolean = false, onRolledUp: () -> Unit = {}) {
     val reduced = rememberReducedMotion()
-    val roll = remember { Animatable(1f) }
+    val roll = remember { Animatable(if (rollUp && !reduced) 0f else 1f) }
     LaunchedEffect(rollUp) {
-        if (!rollUp || reduced) return@LaunchedEffect
-        roll.snapTo(0f)
-        roll.animateTo(1f, tween(ROLL_UP_MS, easing = FastOutSlowInEasing))
+        if (!rollUp) return@LaunchedEffect
+        if (reduced) roll.snapTo(1f) else roll.animateTo(1f, tween(ROLL_UP_MS, easing = FastOutSlowInEasing))
+        onRolledUp()
     }
     val number = (shown * roll.value).roundToInt()
     val big = LocalDensity.current.fontScale > 1.5f

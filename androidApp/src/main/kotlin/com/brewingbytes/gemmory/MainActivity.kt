@@ -497,7 +497,7 @@ class MainActivity : ComponentActivity() {
                 val todayTile = galleryState.today?.tile?.takeIf { !it.done }
                 val offered = streakScreen.ui.collectAsStateWithLifecycle().value.repair != null
                 // The repair's video (#102) loads ahead while an offer stands, as Preview's does; leaving the screen
-                // drops the panel's video state (never while it's showing).
+                // drops the panel's video state (never while it's showing). A rotation keeps it, as the sheet does.
                 LaunchedEffect(offered) {
                     if (offered && !entitlements.vip) {
                         app.ads.start()
@@ -505,7 +505,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 DisposableEffect(Unit) {
-                    onDispose { if (rewarded.ui?.target == RewardTarget.StreakRepair) rewarded.dismiss() }
+                    onDispose {
+                        if (!this@MainActivity.isChangingConfigurations && rewarded.ui?.target == RewardTarget.StreakRepair) rewarded.dismiss()
+                    }
                 }
                 StreakScreen(
                     streakScreen,

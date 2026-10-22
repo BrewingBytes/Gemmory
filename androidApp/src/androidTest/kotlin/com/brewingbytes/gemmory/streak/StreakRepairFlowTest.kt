@@ -74,12 +74,14 @@ class StreakRepairFlowTest {
         var online = true
         var earn = true
         var loads = 0
+        var delayMs = 0L
         override val sdkReady = true
         override fun online() = online
         override suspend fun ensureConsent(activity: Activity) = true
         override suspend fun start() = Unit
         override fun preloadRewarded() = Unit
         override suspend fun loadRewarded(): RewardedLoad {
+            kotlinx.coroutines.delay(delayMs)
             loads++
             return load
         }
@@ -212,6 +214,31 @@ class StreakRepairFlowTest {
         tapPrimary()
         // Today's finish adds on: 6 + 1.
         waitRestored(7)
+    }
+
+    /**
+     * A rotation while the video loads keeps the tap (the sheet keeps its state too): the video shows and the streak
+     * comes back. After the restore, a rotation keeps "Streak back" and the number without rolling it up again.
+     */
+    @Test
+    fun aRotationKeepsTheVideoAndDoesntReplayTheRollUp() {
+        ads.delayMs = 3_000
+        seed(restarted = true)
+        launch()
+        openStreakScreen()
+        tapPrimary()
+        waitFor("loading") { shows("Loading video") }
+        scenario.recreate()
+        waitRestored(7)
+        val loadsAfter = ads.loads
+        assertEquals(1, loadsAfter, "the load went on through the rotation, no second one")
+        var vm: StreakViewModel? = null
+        scenario.onActivity { vm = ViewModelProvider(it)[StreakViewModel::class.java] }
+        waitFor("rolled up") { vm!!.ui.value.restored?.rollUp == false }
+        scenario.recreate()
+        waitFor("the streak screen again") { exists(STREAK_RESTORED_TAG) }
+        assertEquals(false, vm!!.ui.value.restored?.rollUp, "a rotation doesn't roll it up again")
+        assertTrue(shows("7"))
     }
 
     @Test
