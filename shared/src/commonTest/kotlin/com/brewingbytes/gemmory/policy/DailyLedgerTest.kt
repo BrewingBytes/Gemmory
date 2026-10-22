@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.policy
 
 import com.brewingbytes.gemmory.save.Decoded
+import com.brewingbytes.gemmory.save.Envelope
 import com.brewingbytes.gemmory.save.Refusal
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
@@ -287,6 +288,42 @@ class DailyLedgerTest {
         val old = LedgerCodec.encode(LedgerState(day = 1, graceUsed = setOf(RewardType.PICTURE, RewardType.FILLS)))
         assertEquals(setOf(RewardType.PICTURE, RewardType.FILLS), assertIs<Decoded.Ok<LedgerState>>(LedgerCodec.decode(old)).value.graceUsed)
     }
+
+    /** #102: the streak repair grace is its own, once a day, and its bit (16) round-trips in v2. */
+    @Test
+    fun theStreakRepairGraceIsItsOwnAndRoundTrips() {
+        val l = ledger()
+        assertTrue(l.useGrace(RewardType.STREAK_REPAIR))
+        assertFalse(l.useGrace(RewardType.STREAK_REPAIR), "once a day")
+        assertTrue(l.graceAvailable(RewardType.PICTURE) && l.graceAvailable(RewardType.FILLS), "the others are separate")
+        assertEquals(Allowance.Free, l.allowance(free), "it grants no canvas")
+        assertEquals(setOf(RewardType.STREAK_REPAIR), assertIs<Decoded.Ok<LedgerState>>(LedgerCodec.decode(store.bytes!!)).value.graceUsed)
+        clock.set("2026-10-15T00:00")
+        assertTrue(l.graceAvailable(RewardType.STREAK_REPAIR), "midnight")
+    }
+
+    /** R1 (#102): a v1 file (before the streak repair) reads exactly as before; v1 can't carry bit 16; v3 is refused. */
+    @Test
+    fun aV1FileStillDecodes() {
+        val state = LedgerState(
+            day = 20_740,
+            freeUsed = true,
+            extrasEarned = 2,
+            bonusLeft = 1,
+            graceUsed = setOf(RewardType.PICTURE, RewardType.COLORS),
+            consumed = listOf(Consumption("photo-1", Spent.FREE, 20_740)),
+        )
+        val v2 = LedgerCodec.encode(state)
+        assertEquals(2, v2[5].toInt(), "written as v2")
+        assertEquals(state, assertIs<Decoded.Ok<LedgerState>>(LedgerCodec.decode(withVersion(v2, 1))).value)
+        val repair = LedgerCodec.encode(state.copy(graceUsed = setOf(RewardType.STREAK_REPAIR)))
+        assertEquals(Decoded.Refused(Refusal.Malformed), LedgerCodec.decode(withVersion(repair, 1)), "no repair bit in v1")
+        assertEquals(Decoded.Refused(Refusal.NewerVersion(3)), LedgerCodec.decode(withVersion(v2, 3)))
+    }
+
+    /** [bytes] rewritten with envelope [version] and a fresh CRC. */
+    private fun withVersion(bytes: ByteArray, version: Int): ByteArray =
+        Envelope.wrap(LedgerCodec.MAGIC, version, bytes.copyOfRange(6, bytes.size - 4))
 
     @Test
     fun aBonusFromBeforeTheUpdateIsStillUsedToday() {

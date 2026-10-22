@@ -554,7 +554,7 @@ A finished picture reopened from the gallery shows the **completion still**:
   - **Disk full:** "Not enough space on this phone to make the video."
   - **Cancel, or the share sheet is dismissed:** back to completion with no message.
 
-**Rewarded states** (locked picture, extra photo canvas, fills or More colors):
+**Rewarded states** (locked picture, extra photo canvas, fills or More colors; the streak repair draws the same states inline, see Repair panel below):
 
 | State | Copy | Actions |
 |---|---|---|
@@ -565,6 +565,22 @@ A finished picture reopened from the gallery shows the **completion still**:
 | Offline | "You're offline, connect to watch a video" (in `fault`) | quiet "Try again"; text "Get VIP: no videos needed". No grace. |
 | Reward granted (Phase 5 D11) | locked picture: the sheet shows "Unlocked" for 600ms, then the canvas opens. Extra canvas: back to Preview with "Uses a kept photo canvas (1 left)." (and More unlocked for this photo, #29). More colors (#29): "More colors unlocked" for 600ms, then back to Preview with Start | none |
 | Video closed early (Phase 5 D11) | back to the sheet; muted line "Watch to the end to unlock." No grace, no penalty | the primary button is enabled again |
+
+**Repair panel** (#102, Streak B PR 2; mockup `streak-b.html` section 3): the rewarded states drawn inline as the first `felt-deep` section of Your streak while a broken streak of 2+ days can come back (within 2 days of the day it ended). Never the sheet, never on the canvas or the completion screen. Title "Bring back your 12 days" (`display`). Under every state the muted line "You can do this until Thursday." (the day it ended + 2).
+
+| State | Copy | Actions |
+|---|---|---|
+| Ready | "Your streak ended on Tuesday. Watch a short video to restore it." | primary "Watch a video": one tap loads the video and shows it as soon as it's there (the screen preloads while an offer stands) |
+| VIP, weekly repair ready | "Your streak ended on Tuesday. Your weekly VIP repair can bring it back." | primary "Bring it back", no video |
+| VIP, weekly repair used | the Ready panel plus muted "VIP repair used Monday · ready again next Monday" | as Ready |
+| Loading (≤ 5s) | the Ready line | primary disabled "Loading video…", 2dp indeterminate line |
+| Online no-fill, grace allowed | "No video right now. This one's on us today." | primary "Bring it back" (tapped, like every grace) |
+| Online no-fill, grace used today or a grace repair in the last 30 days | "No video right now. Try again in a bit." | quiet "Try again" |
+| Offline | "You're offline. Connect to watch a video." (`fault` on `felt-deep`) | quiet "Try again". No grace |
+| Video closed early | the Ready line plus muted "Watch to the end to bring it back." | primary enabled again |
+| Restored | the panel goes; the hero number rolls 0 → n over 600ms (shown at once under reduced motion); "Streak back: 12 days" under the hero, announced politely; the status section adds "Monday and Tuesday repaired"; the missed days show the repaired stitch | none |
+
+Video repairs have no limit; VIP gets one free repair every 7 days; a grace repair at most once in 30 days (founder, 2026-10-22). The celebration on day 1 of a new streak while the old one can come back says "Your 12 days can still be restored" in place of "See your streak" and opens Your streak.
 
 **Paywall.**
 - "Gemmory VIP" title, then five perk lines with patina square bullets: Every gallery picture unlocked (T38/C3: collection and event keepsakes are earned by playing, for VIP too), Unlimited photo canvases, No ads ever, No watermark on your videos, Brush and fill tools (#20).
@@ -751,4 +767,5 @@ A finished picture reopened from the gallery shows the **completion still**:
 | 2026-10-21 | Ambient music built (T42, #83): six CC0 tracks instead of 2-4 (Heavenly Loop × 3, Contemplation, Vaporware, Lifewave 2k, Synthwave 421k, The Budding of Consciousness), random order with no repeat, 1s fade-in; volume slider 10%-100%; music plays on every screen once the first canvas has opened, not only the gallery and canvas; the chip's "Music off" line is a 4s polite toast where the chip was | Founder asked the agent to find the loops, then picked "all" from a listening page of six CC0 OpenGameArt candidates (2026-10-21) and "random rotation". About 8 MB of audio in the AAB. Gates and rotation live in pure `Music` so every rule is unit-tested |
 | 2026-10-21 | In-app review built (T39, #80): Play's sheet takes the return's one interruption after the reminder ask and before the interstitial, as specified; while Play's flow runs the one-time "Music is playing" chip waits, as it does for the ask; nothing of ours is drawn around Play's sheet. Switched on by `features.review` in the signed catalog at production | The spec named the order (D22) and the reward-return rule (D7) but not the music chip, which T42 added later; waiting keeps two things from landing on one return. The switch is the CEO C1 / eng gate: one AAB serves both tracks |
 | 2026-10-21 | Streak (#101, Streak A): the Duolingo-style streak replaces the calm #33 chip. A literal flat flame in three new UI colors (`flame` `#F5A623`, `flame-30` `#F08A2C`, `flame-100` `#E0563B`, grey `ember` `#7E8880` before today's finish) and one new type style, `streak-hero` (mono 700, 88/56sp, at most 64sp above 1.5x font). A celebration on every new streak day before the gallery, Your streak with a month calendar, and the chip as a button from day 1. The week row and calendar follow the locale's first day of the week. Until the share card (#104), a milestone's text button is "See your streak" | Founder D1 "full Duolingo" and G1 (flame over the recommended streak gem), the CEO, eng and design review ledgers in `docs/designs/streak-screen.md`. The flame is the one saturated color outside a picture, kept to the streak's own surfaces. G12 names "Monday-Sunday" as "the locale's calendar week", so a US phone starts on Sunday. The celebration is part of the exit and the ad still follows it (O4) |
+| 2026-10-22 | Streak repair (#102, Streak B PR 2): the repair panel is the rewarded states drawn inline on Your streak (one tap loads and shows the video), with "Bring it back" for the grace and VIP's weekly repair; the restored number rolls 0 → n over 600ms. Video repairs unlimited, VIP one free repair a week, a grace repair once in 30 days | Founder picks during #102 from the Streak B mockup section 3 (approved 2026-10-22), over E8/O1's "once in 30 days" for every repair: "we want the ads revenue" |
 | 2026-10-22 | Streak freezes (#102, Streak B PR 1): a 4th inventory item, held up to 2, from a 5th gift-wheel slice (odds 45/20/15/10/10, E7). The slice is `felt` with a `bone` cross (the freeze mark from the calendar); at 2 held it reads and pays 5 fills. A freeze covers a missed day after the day off and is spent only after the day is saved; VIP never spends held freezes. Your streak lists them for players without VIP; the celebration says how many are left | Founder picks during #102 from the Streak B mockup (`docs/designs/mockups/streak-screen/streak-b.html`, approved 2026-10-22): `felt` + cross over `patina` + cross (two patina slices side by side) and a plain `felt-deep-dark` slice (weak against the seams). No new color |

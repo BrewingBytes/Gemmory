@@ -84,8 +84,11 @@ class DailyStreak(private val clock: DayClock, private val store: StateStore<Str
         /** A repair is offered this many days after the streak ended (#102, O1). */
         const val REPAIR_WINDOW = 2
 
-        /** Days between two repairs. */
-        const val REPAIR_EVERY = 30
+        /** Days between two free VIP repairs (#102, founder 2026-10-22); a VIP repairs with a video in between. */
+        const val VIP_REPAIR_EVERY = 7
+
+        /** Days between two grace repairs (online no-fill, #102, founder 2026-10-22). Video repairs have no limit. */
+        const val GRACE_REPAIR_EVERY = 30
 
         /** [state] after a gem placed on [today], with only the day off to cover a missed day. */
         fun played(state: StreakState, today: Long): StreakState = played(state, today, Cover.NONE)?.state ?: state
@@ -141,13 +144,23 @@ class DailyStreak(private val clock: DayClock, private val store: StateStore<Str
 
         /**
          * A repair is offered (#102, O1) for a broken streak of at least [SHOWN_FROM] days, within [REPAIR_WINDOW] days
-         * of the day it ended, and once in [REPAIR_EVERY] days ([lastRepairDay]).
+         * of the day it ended. A video repair may be done any number of times (founder 2026-10-22: ad revenue).
          */
-        fun repairOffer(state: StreakState, today: Long, cover: Cover, lastRepairDay: Long): BrokenStreak? {
+        fun repairOffer(state: StreakState, today: Long, cover: Cover): BrokenStreak? {
             val broken = broken(state, today, cover) ?: return null
-            val recent = lastRepairDay != StreakState.NEVER && today - lastRepairDay < REPAIR_EVERY
-            return broken.takeIf { it.length >= SHOWN_FROM && today - it.endedOn <= REPAIR_WINDOW && !recent }
+            return broken.takeIf { it.length >= SHOWN_FROM && today - it.endedOn <= REPAIR_WINDOW }
         }
+
+        /** The last day [broken] can still be repaired ("You can do this until Thursday."). */
+        fun repairUntil(broken: BrokenStreak): Long = broken.endedOn + REPAIR_WINDOW
+
+        /** VIP's free repair is ready: none in the [VIP_REPAIR_EVERY] days before [today]. */
+        fun vipRepairReady(lastVipRepairDay: Long, today: Long): Boolean =
+            lastVipRepairDay == StreakState.NEVER || today - lastVipRepairDay >= VIP_REPAIR_EVERY
+
+        /** A grace repair may be offered on an online no-fill: none in the [GRACE_REPAIR_EVERY] days before [today]. */
+        fun graceRepairAllowed(lastGraceRepairDay: Long, today: Long): Boolean =
+            lastGraceRepairDay == StreakState.NEVER || today - lastGraceRepairDay >= GRACE_REPAIR_EVERY
 
         /**
          * [state] repaired on [today] (O1): the ended streak is back, and every missed day since counts as repaired. A

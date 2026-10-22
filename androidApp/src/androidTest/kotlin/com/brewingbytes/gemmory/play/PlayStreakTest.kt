@@ -22,6 +22,7 @@ import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.gallery.STREAK_TAG
 import com.brewingbytes.gemmory.streak.STREAK_SCREEN_TAG
+import com.brewingbytes.gemmory.policy.BrokenStreak
 import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DayKind
@@ -108,7 +109,7 @@ class PlayStreakTest {
         val dying = PlayStreak(context, app.dayClock, app.analytics, history, scope, resolve = { block ->
             block(false, 1)
             throw IllegalStateException("killed before the spend")
-        })
+        }, resolveRepair = { null })
         assertTrue(runCatching { dying.played("PHOTO/streak").await() }.isFailure)
         assertEquals(5, prefs.getInt("length", 0), "the day is committed")
         assertEquals(today, prefs.getLong("lastDay", 0))
@@ -121,6 +122,31 @@ class PlayStreakTest {
         assertEquals(1, app.monetization.freezes())
         scope.cancel()
         inventory.delete()
+    }
+
+    /**
+     * #102: a repair is committed with its stamp (grace or VIP) and logs the missed days as repaired; a restart reads it
+     * back, and VIP's weekly repair is refused without VIP.
+     */
+    @Test
+    fun aRepairIsCommittedWithItsStampAndLogged() = runBlocking<Unit> {
+        val today = LocalDate.now().toEpochDay()
+        // 6 days ending 3 days ago; the day off was used last week, so the day after it ended the streak.
+        prefs.edit().clear().putInt("length", 6).putLong("lastDay", today - 3).putLong("restDay", today - 6).commit()
+        File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
+        app.resetStreakForTest(celebrations = false)
+        assertEquals(BrokenStreak(6, today - 2), app.streak.repairOffer(Cover.NONE))
+        assertNull(app.streak.repair(RepairHow.VIP), "no VIP: no free repair")
+        assertTrue(app.streak.graceRepairAllowed())
+        val result = assertNotNull(app.streak.repair(RepairHow.GRACE))
+        assertEquals(6, result.length)
+        assertEquals(today - 1, prefs.getLong("lastDay", 0), "stands through yesterday")
+        assertEquals(today, prefs.getLong("lastGraceRepairDay", 0))
+        assertEquals(listOf(HistoryDay(today - 2, DayKind.REPAIRED), HistoryDay(today - 1, DayKind.REPAIRED)), app.streak.history().filter { it.kind == DayKind.REPAIRED })
+        app.resetStreakForTest(celebrations = false)
+        assertEquals(6, app.streak.current())
+        assertFalse(app.streak.graceRepairAllowed(), "a grace repair today: none for 30 days")
+        assertNull(app.streak.repairOffer(Cover.NONE), "nothing left to repair")
     }
 
     @After

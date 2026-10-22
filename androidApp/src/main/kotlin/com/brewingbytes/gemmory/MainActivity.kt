@@ -13,6 +13,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
@@ -76,6 +77,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.gallery.locked
 import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.streak.RepairActions
+import com.brewingbytes.gemmory.streak.STREAK_REPAIR_TAG
 import com.brewingbytes.gemmory.streak.StreakCelebration
 import com.brewingbytes.gemmory.streak.StreakDayViewModel
 import com.brewingbytes.gemmory.streak.StreakScreen
@@ -336,6 +339,7 @@ class MainActivity : ComponentActivity() {
                     photoFlow.start()
                 }
                 RewardedEvent.MoreColorsUnlocked -> photoFlow.onMoreColorsUnlocked()
+                is RewardedEvent.StreakRestored -> streakScreen.restored(event.length, event.days)
             }
             rewarded.onEventHandled()
         }
@@ -474,9 +478,9 @@ class MainActivity : ComponentActivity() {
                             streakDay.done()
                             stack.popToGallery()
                         },
-                        onSeeStreak = {
+                        onSeeStreak = { repair ->
                             streakDay.done()
-                            stack.openStreak("celebration")
+                            stack.openStreak(if (repair) "celebration_repair" else "celebration")
                         },
                     )
                 }
@@ -491,6 +495,18 @@ class MainActivity : ComponentActivity() {
                 val galleryState by gallery.state.collectAsStateWithLifecycle()
                 // Today's picture (the screen's quiet button) opens like the Today card, while it's there to finish.
                 val todayTile = galleryState.today?.tile?.takeIf { !it.done }
+                val offered = streakScreen.ui.collectAsStateWithLifecycle().value.repair != null
+                // The repair's video (#102) loads ahead while an offer stands, as Preview's does; leaving the screen
+                // drops the panel's video state (never while it's showing).
+                LaunchedEffect(offered) {
+                    if (offered && !entitlements.vip) {
+                        app.ads.start()
+                        app.ads.preloadRewarded()
+                    }
+                }
+                DisposableEffect(Unit) {
+                    onDispose { if (rewarded.ui?.target == RewardTarget.StreakRepair) rewarded.dismiss() }
+                }
                 StreakScreen(
                     streakScreen,
                     onBack = { stack.pop() },
@@ -503,6 +519,12 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
+                    video = rewarded.ui?.takeIf { it.target == RewardTarget.StreakRepair },
+                    repair = RepairActions(
+                        onWatch = { rewarded.repairStreak(this@MainActivity) },
+                        onGrace = rewarded::useGrace,
+                        onVipRepair = streakScreen::vipRepair,
+                    ),
                 )
             }
         }
@@ -534,7 +556,8 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        rewarded.ui?.let { ui ->
+        // The streak repair's video is drawn inline on the streak screen (#102), never as the sheet.
+        rewarded.ui?.takeIf { it.target != RewardTarget.StreakRepair }?.let { ui ->
             RewardedSheet(
                 ui = ui,
                 onWatch = { rewarded.watch(this@MainActivity) },
@@ -548,6 +571,7 @@ class MainActivity : ComponentActivity() {
                             is RewardTarget.Picture -> tileTag(app.pictureRef(target.id))
                             RewardTarget.PhotoCanvas, RewardTarget.Colors -> "preview-primary"
                             RewardTarget.Fills -> INVENTORY_TAG
+                            RewardTarget.StreakRepair -> STREAK_REPAIR_TAG
                         },
                     )
                 },
@@ -557,6 +581,7 @@ class MainActivity : ComponentActivity() {
                     is RewardTarget.Picture -> tileTag(app.pictureRef(target.id))
                     RewardTarget.PhotoCanvas, RewardTarget.Colors -> "preview-primary"
                     RewardTarget.Fills -> INVENTORY_TAG
+                    RewardTarget.StreakRepair -> STREAK_REPAIR_TAG
                 },
                 // Unlock tokens (#38) on a locked picture's sheet.
                 tokens = inventory.tokens,

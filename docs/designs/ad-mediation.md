@@ -87,6 +87,10 @@ One issue (T34) covering, in order:
    - Unity can be switched off with no release: disable it as a bidding source on both AdMob units, and AdMob demand alone keeps serving.
    - Trigger: a Crashlytics crash or ANR cluster with Unity SDK frames, or a Play vitals crash/ANR regression after the release. The SDK removal then ships in the next version.
 
+## Streak repair placement (#102, 2026-10-22)
+- The streak repair (Streak B PR 2) is a new rewarded placement on the same rewarded unit, `reward_type = streak_repair`. It shows only on Your streak (the gallery side), drawn inline as the repair panel, while a broken streak can come back (within 2 days). Never on the canvas, never on or before the completion screen, never as an interstitial.
+- It is opt-in like every rewarded video: the player taps "Watch a video"; the screen only preloads. Video repairs have no limit (founder: ad revenue); the online no-fill grace (`RewardedRules`) applies once a day per type and, for the repair, at most once in 30 days. VIP gets one free repair a week, then watches like anyone.
+
 ## Open Questions
 - Does Unity's Data safety disclosure add data types Gemmory hasn't declared yet? Read it during the issue.
 - Are closed testers in the EEA (UMP message shown)? This affects how much of the test traffic is personalized.

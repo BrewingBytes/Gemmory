@@ -112,6 +112,34 @@ object StreakText {
         return "$name used ${weekday(lastUsed)}" to "Ready again next ${weekday(lastUsed + 7)}"
     }
 
+    /** The repair panel's title (#102): "Bring back your 12 days". */
+    fun repairTitle(length: Int): String = "Bring back your ${days(length)}"
+
+    /** The repair panel's line: by video, or by VIP's weekly repair while it's [vipReady]. */
+    fun repairBody(endedOn: Long, vipReady: Boolean): String =
+        "Your streak ended on ${weekday(endedOn)}. " +
+            if (vipReady) "Your weekly VIP repair can bring it back." else "Watch a short video to restore it."
+
+    /** "You can do this until Thursday." */
+    fun repairUntil(day: Long): String = "You can do this until ${weekday(day)}."
+
+    /** VIP's weekly repair was used on [lastUsed]: "VIP repair used Monday · ready again next Monday". */
+    fun vipRepairUsed(lastUsed: Long): String = "VIP repair used ${weekday(lastUsed)} · ready again next ${weekday(lastUsed + 7)}"
+
+    /** "Streak back: 12 days" (announced politely). */
+    fun restored(length: Int): String = "Streak back: ${days(length)}"
+
+    /** The days a repair brought back: "Tuesday repaired", "Monday and Tuesday repaired", "3 days repaired". */
+    fun repaired(days: List<Long>): String? = when (days.size) {
+        0 -> null
+        1 -> "${weekday(days.single())} repaired"
+        2 -> "${weekday(days[0])} and ${weekday(days[1])} repaired"
+        else -> "${days.size} days repaired"
+    }
+
+    /** The celebration's text button on day 1 while the old streak can come back (#102): "Your 12 days can still be restored". */
+    fun stillRestorable(length: Int): String = "Your ${days(length)} can still be restored"
+
     /** TalkBack for the chip (design system, #101 accessibility). */
     fun chip(shown: Int, doneToday: Boolean): String =
         "${days(shown)} in a row, ${if (doneToday) "done today" else "not done today"}, opens your streak"

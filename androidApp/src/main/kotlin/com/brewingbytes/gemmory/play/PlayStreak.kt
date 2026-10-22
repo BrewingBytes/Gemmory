@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.policy.Cover
+import com.brewingbytes.gemmory.policy.BrokenStreak
 import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.DayClock
@@ -36,6 +37,9 @@ data class PendingCelebration(
     val canvas: String,
 )
 
+/** How a broken streak is brought back (#102): a rewarded video, the online no-fill grace, or VIP's weekly repair. */
+enum class RepairHow { VIDEO, GRACE, VIP }
+
 /**
  * The daily play streak (#33, #101) on this phone. Kept in the "streak" preferences, which may be backed up: it's no
  * photo data, and a restore can't add days. Each new streak day is resolved on the monetization policy thread with VIP
@@ -51,6 +55,8 @@ class PlayStreak(
     private val scope: CoroutineScope,
     /** Runs [block] on the policy thread with VIP and the streak freezes held (`Monetization.streakDay`). */
     private val resolve: suspend (block: (vip: Boolean, freezes: Int) -> DayResult?) -> DayResult?,
+    /** Runs [block] on the policy thread with what covers a missed day now, spending nothing (`Monetization.repairStreak`). */
+    private val resolveRepair: suspend (block: (cover: Cover) -> DayResult?) -> DayResult?,
     /** A new streak day of this length (#49 achievements). */
     private val onDay: (length: Int) -> Unit = {},
 ) {
@@ -58,6 +64,8 @@ class PlayStreak(
     private var state: StreakState = load(prefs)
     private var pending: PendingCelebration? = loadPending(prefs)
     private var log: StreakHistoryState? = null
+    private var lastVipRepair: Long = prefs.getLong(LAST_VIP_REPAIR, StreakState.NEVER)
+    private var lastGraceRepair: Long = prefs.getLong(LAST_GRACE_REPAIR, StreakState.NEVER)
 
     private val _changes = MutableStateFlow(0)
 
@@ -101,6 +109,55 @@ class PlayStreak(
         saveLog(StreakHistory.record(logLocked(), days))
         return result
     }
+
+    /**
+     * Brings the broken streak back (#102, O1) [how] it was paid for, and logs `streak_repair_completed`. A watched video
+     * always pays while the streak is broken, even if its window closed during the video; VIP's free repair needs VIP
+     * and a ready week. Null when there's nothing to repair.
+     */
+    suspend fun repair(how: RepairHow): DayResult? {
+        val result = resolveRepair { cover -> repairLocked(cover, how) } ?: return null
+        analytics.log(AnalyticsEvent.streakRepairCompleted(vip = how == RepairHow.VIP))
+        _changes.update { it + 1 }
+        return result
+    }
+
+    @Synchronized
+    private fun repairLocked(cover: Cover, how: RepairHow): DayResult? {
+        val today = clock.today()
+        if (how == RepairHow.VIP && !(cover.vip && DailyStreak.vipRepairReady(lastVipRepair, today))) return null
+        val result = DailyStreak.repair(state, today, cover) ?: return null
+        prefs.edit(commit = true) {
+            putState(result.state)
+            when (how) {
+                RepairHow.VIP -> putLong(LAST_VIP_REPAIR, today)
+                RepairHow.GRACE -> putLong(LAST_GRACE_REPAIR, today)
+                RepairHow.VIDEO -> Unit
+            }
+        }
+        state = result.state
+        when (how) {
+            RepairHow.VIP -> lastVipRepair = today
+            RepairHow.GRACE -> lastGraceRepair = today
+            RepairHow.VIDEO -> Unit
+        }
+        saveLog(StreakHistory.record(logLocked(), result.covered.map { HistoryDay(it.day, it.kind) }))
+        return result
+    }
+
+    /** The streak that can be repaired today with [cover] (#102), if any. */
+    fun repairOffer(cover: Cover): BrokenStreak? = DailyStreak.repairOffer(state(), clock.today(), cover)
+
+    /** The day VIP's free repair was last used (#102), or [StreakState.NEVER]. */
+    @Synchronized
+    fun lastVipRepairDay(): Long = lastVipRepair
+
+    /** VIP's free repair is ready this week (#102). */
+    fun vipRepairReady(): Boolean = DailyStreak.vipRepairReady(lastVipRepairDay(), clock.today())
+
+    /** A grace repair may be offered on an online no-fill: none in the last 30 days (#102). */
+    @Synchronized
+    fun graceRepairAllowed(): Boolean = DailyStreak.graceRepairAllowed(lastGraceRepair, clock.today())
 
     /** The stored state, for the evening reminder (T35) and the streak view. */
     @Synchronized
@@ -176,6 +233,8 @@ class PlayStreak(
         const val VIP_FREEZE_DAY = "vipFreezeDay"
         const val BROKEN_LENGTH = "brokenLength"
         const val BROKEN_LAST_DAY = "brokenLastDay"
+        const val LAST_VIP_REPAIR = "lastVipRepairDay"
+        const val LAST_GRACE_REPAIR = "lastGraceRepairDay"
         const val P_DAY = "pendingDay"
         const val P_LENGTH = "pendingLength"
         const val P_COVERED = "pendingCovered"
