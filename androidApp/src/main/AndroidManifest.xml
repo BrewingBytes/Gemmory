@@ -100,8 +100,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- The home-screen streak widget (#103). Its refresh receiver (the midnight alarm, clock and time-zone changes,
-             reboot, app update) starts disabled and is enabled only while a widget is placed, like the reminder's. -->
+        <!-- The home-screen streak widget (#103). Its two refresh receivers start disabled and are enabled only while a
+             widget is placed, like the reminder's: the midnight alarm's (explicit and immutable, not exported) and the
+             one for clock and time-zone changes, reboot and app update. -->
         <receiver
             android:name=".widget.StreakWidgetReceiver"
             android:exported="true"
@@ -113,6 +114,10 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/streak_widget_info" />
         </receiver>
+        <receiver
+            android:name=".widget.StreakWidgetMidnightReceiver"
+            android:enabled="false"
+            android:exported="false" />
         <receiver
             android:name=".widget.StreakWidgetRefreshReceiver"
             android:enabled="false"

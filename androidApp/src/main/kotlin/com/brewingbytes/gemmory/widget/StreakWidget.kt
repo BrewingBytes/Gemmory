@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.createBitmap
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
@@ -107,7 +108,7 @@ fun StreakWidgetContent(
             .appWidgetBackground()
             .background(ImageProvider(R.drawable.widget_felt))
             .cornerRadius(R.dimen.widget_radius)
-            .padding(if (compact) 10.dp else 14.dp)
+            .padding(padding(compact))
             .semantics { contentDescription = state.description }
             .clickable(onTap),
     ) {
@@ -116,12 +117,16 @@ fun StreakWidgetContent(
             Image(
                 ImageProvider(flameDrawable(state.flame)),
                 contentDescription = null,
-                modifier = GlanceModifier.size(if (compact) 24.dp else 32.dp),
+                modifier = GlanceModifier.size(flameSize(compact)),
             )
         }
         Box(GlanceModifier.fillMaxWidth()) { text(WidgetText.LINE, state.line, compact) }
     }
 }
+
+private fun padding(compact: Boolean) = if (compact) 10.dp else 14.dp
+
+private fun flameSize(compact: Boolean) = if (compact) 24.dp else 32.dp
 
 fun flameDrawable(flame: WidgetFlame): Int = when (flame) {
     WidgetFlame.EMBER -> R.drawable.widget_flame_ember
@@ -132,16 +137,16 @@ fun flameDrawable(flame: WidgetFlame): Int = when (flame) {
 
 /**
  * One of the widget's texts. The number is a bitmap in the design-system mono (a launcher draws a widget's TextViews in
- * the system font, whatever font their layout names), sized in dp so it never outgrows the tile; TalkBack reads the
- * widget's description instead. The line is Glance's Text in the system font, so it follows font scale.
+ * the system font, whatever font their layout names), sized in dp and shrunk to the room beside the flame, so a long
+ * streak never outgrows the tile; TalkBack reads the widget's description instead. The line is Glance's Text in the system font, so it follows font scale.
  */
 @Composable
 private fun WidgetTextView(kind: WidgetText, value: String, compact: Boolean) {
     when (kind) {
         WidgetText.NUMBER -> {
             val context = LocalContext.current
-            val sizeDp = if (compact) 32f else 44f
-            val bitmap = numberBitmap(context, value, sizeDp)
+            val room = LocalSize.current.width - padding(compact) * 2 - flameSize(compact) - NUMBER_GAP
+            val bitmap = numberBitmap(context, value, sizeDp = if (compact) 32f else 44f, maxWidthDp = room.value)
             val density = context.resources.displayMetrics.density
             Image(
                 ImageProvider(bitmap),
@@ -157,17 +162,29 @@ private fun WidgetTextView(kind: WidgetText, value: String, compact: Boolean) {
     }
 }
 
-/** [text] in Atkinson Hyperlegible Mono 700 with tabular figures, `bone`, [sizeDp] tall, tightly cropped. */
-fun numberBitmap(context: Context, text: String, sizeDp: Float): Bitmap {
+/** The least room between the number and the flame. */
+private val NUMBER_GAP = 4.dp
+
+/**
+ * [text] in Atkinson Hyperlegible Mono 700 with tabular figures, `bone`, at [sizeDp], or smaller when it would be wider
+ * than [maxWidthDp]; tightly cropped.
+ */
+fun numberBitmap(context: Context, text: String, sizeDp: Float, maxWidthDp: Float = Float.MAX_VALUE): Bitmap {
+    val density = context.resources.displayMetrics.density
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono)
         fontVariationSettings = "'wght' 700"
         fontFeatureSettings = "tnum"
-        textSize = sizeDp * context.resources.displayMetrics.density
+        textSize = sizeDp * density
         color = GemColors.Bone.toArgb()
     }
     val bounds = Rect().also { paint.getTextBounds(text, 0, text.length, it) }
-    val bitmap = Bitmap.createBitmap(bounds.width().coerceAtLeast(1), bounds.height().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+    val maxWidth = maxWidthDp * density
+    if (bounds.width() > maxWidth && maxWidth > 0) {
+        paint.textSize *= maxWidth / bounds.width()
+        paint.getTextBounds(text, 0, text.length, bounds)
+    }
+    val bitmap = createBitmap(bounds.width().coerceAtLeast(1), bounds.height().coerceAtLeast(1))
     Canvas(bitmap).drawText(text, -bounds.left.toFloat(), -bounds.top.toFloat(), paint)
     return bitmap
 }

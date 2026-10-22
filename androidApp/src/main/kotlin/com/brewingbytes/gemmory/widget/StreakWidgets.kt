@@ -26,9 +26,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Keeps the streak widget current (#103). It follows the StreakView (O8), so a finish, a repair, a freeze or a VIP
- * change reaches it on the same signals as the chip; at local midnight an inexact alarm re-reads the day, and a clock
- * or time-zone change, a reboot or an app update does too. The alarm and the clock receiver are on only while a widget
- * is placed.
+ * change reaches it on the same signals as the chip; just after local midnight an inexact alarm re-reads the day, and a
+ * clock or time-zone change, a reboot or an app update does too. The alarm and both receivers are on only while a
+ * widget is placed.
  */
 class StreakWidgets(
     private val context: Context,
@@ -90,7 +90,10 @@ class StreakWidgets(
     private fun placed(): Boolean =
         AppWidgetManager.getInstance(context)?.getAppWidgetIds(ComponentName(context, StreakWidgetReceiver::class.java))?.isNotEmpty() == true
 
-    /** Just after the next local midnight, within a minute; no exact-alarm permission, and it doesn't wake the phone. */
+    /**
+     * Just after the next local midnight. Inexact, so no exact-alarm permission: Android stretches the window to at least
+     * 10 minutes for apps targeting 12+, and Doze can hold it until the phone wakes. It doesn't wake the phone.
+     */
     private fun arm() {
         val at = System.currentTimeMillis() + untilMidnight() + MIDNIGHT_SLACK_MS
         alarms()?.setWindow(AlarmManager.RTC, at, WINDOW_MS, midnightIntent())
@@ -101,15 +104,17 @@ class StreakWidgets(
     private fun midnightIntent(): PendingIntent = PendingIntent.getBroadcast(
         context,
         REQUEST,
-        Intent(context, StreakWidgetRefreshReceiver::class.java).setAction(StreakWidgetRefreshReceiver.ACTION_MIDNIGHT),
+        Intent(context, StreakWidgetMidnightReceiver::class.java).setAction(StreakWidgetMidnightReceiver.ACTION_MIDNIGHT),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
     private fun setReceiverEnabled(on: Boolean) {
-        val name = ComponentName(context, StreakWidgetRefreshReceiver::class.java)
         val state = if (on) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-        if (context.packageManager.getComponentEnabledSetting(name) != state) {
-            context.packageManager.setComponentEnabledSetting(name, state, PackageManager.DONT_KILL_APP)
+        for (receiver in listOf(StreakWidgetMidnightReceiver::class.java, StreakWidgetRefreshReceiver::class.java)) {
+            val name = ComponentName(context, receiver)
+            if (context.packageManager.getComponentEnabledSetting(name) != state) {
+                context.packageManager.setComponentEnabledSetting(name, state, PackageManager.DONT_KILL_APP)
+            }
         }
     }
 
@@ -119,41 +124,49 @@ class StreakWidgets(
         /** So the new day is certainly "today" when it fires. */
         const val MIDNIGHT_SLACK_MS = 5_000L
 
-        /** "Within a minute of midnight" (#103). */
-        const val WINDOW_MS = 60_000L
+        /** The least window Android gives an inexact alarm from Android 12 (a shorter one is stretched to it). */
+        const val WINDOW_MS = 10 * 60_000L
     }
 }
 
-/**
- * Brings a placed widget to the new day (#103): the midnight alarm, a clock or time-zone change, a reboot (which clears
- * the alarm) or an app update. Enabled only while a widget is placed.
- */
-class StreakWidgetRefreshReceiver : BroadcastReceiver() {
+/** The midnight alarm (#103): the app's own explicit, immutable intent, so this receiver isn't exported. */
+class StreakWidgetMidnightReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            ACTION_MIDNIGHT,
-            Intent.ACTION_BOOT_COMPLETED,
-            Intent.ACTION_MY_PACKAGE_REPLACED,
-            Intent.ACTION_TIME_CHANGED,
-            Intent.ACTION_TIMEZONE_CHANGED,
-            -> Unit
-            else -> return
-        }
-        val app = context.applicationContext as GemmoryApp
-        val pending = goAsync()
-        app.appScope.launch {
-            try {
-                withTimeoutOrNull(RUN_BUDGET_MS) { app.streakWidgets.refresh(app.streakView) }
-            } finally {
-                pending.finish()
-            }
-        }
+        if (intent.action == ACTION_MIDNIGHT) refreshAsync(context)
     }
 
     companion object {
         const val ACTION_MIDNIGHT = "com.brewingbytes.gemmory.action.STREAK_WIDGET_MIDNIGHT"
+    }
+}
 
-        /** Under the 10 s a `goAsync` receiver may hold before Android calls it an ANR. */
-        const val RUN_BUDGET_MS = 9_500L
+/**
+ * Brings a placed widget to the new day after a clock or time-zone change, a reboot (which clears the alarm) or an app
+ * update (#103). Exported for those system broadcasts only. Enabled only while a widget is placed.
+ */
+class StreakWidgetRefreshReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            -> refreshAsync(context)
+        }
+    }
+}
+
+/** Under the 10 s a `goAsync` receiver may hold before Android calls it an ANR. */
+private const val RUN_BUDGET_MS = 9_500L
+
+private fun BroadcastReceiver.refreshAsync(context: Context) {
+    val app = context.applicationContext as GemmoryApp
+    val pending = goAsync()
+    app.appScope.launch {
+        try {
+            withTimeoutOrNull(RUN_BUDGET_MS) { app.streakWidgets.refresh(app.streakView) }
+        } finally {
+            pending.finish()
+        }
     }
 }

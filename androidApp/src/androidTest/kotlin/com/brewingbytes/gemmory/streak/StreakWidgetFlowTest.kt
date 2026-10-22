@@ -28,7 +28,7 @@ import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.widget.StreakWidget
-import com.brewingbytes.gemmory.widget.StreakWidgetRefreshReceiver
+import com.brewingbytes.gemmory.widget.StreakWidgetMidnightReceiver
 import com.brewingbytes.gemmory.widget.StreakWidgetState
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -59,7 +59,7 @@ class StreakWidgetFlowTest {
     private var scenario: ActivityScenario<MainActivity>? = null
     private val today = LocalDate.now().toEpochDay()
     private val photo = CanvasRef(CanvasKind.PHOTO, "widget")
-    private val refresher = ComponentName(context, StreakWidgetRefreshReceiver::class.java)
+    private val refresher = ComponentName(context, StreakWidgetMidnightReceiver::class.java)
 
     @Before
     fun setUp() {
@@ -118,7 +118,7 @@ class StreakWidgetFlowTest {
         context.packageManager.setComponentEnabledSetting(refresher, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
         val tomorrow = System.currentTimeMillis() + DAY_MS
         app.testNowMillis = { tomorrow }
-        context.sendBroadcast(Intent(context, StreakWidgetRefreshReceiver::class.java).setAction(StreakWidgetRefreshReceiver.ACTION_MIDNIGHT))
+        context.sendBroadcast(Intent(context, StreakWidgetMidnightReceiver::class.java).setAction(StreakWidgetMidnightReceiver.ACTION_MIDNIGHT))
         waitPushed(StreakWidgetState(6, lit = false))
         assertEquals("Not yet today", app.streakWidgets.state.value.line)
     }
