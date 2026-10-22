@@ -122,7 +122,13 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** A new streak day spent [count] streak freezes on the missed days before it (#102, E5). */
         fun streakFreezeUsed(count: Int) = AnalyticsEvent("streak_freeze_used", mapOf("count" to count.toLong()))
 
-        /** The streak screen opened (#101), from [source]: `chip` or `celebration`. */
+        /** The streak screen showed a repair for a broken streak of [length] days (#102), once per opening. */
+        fun streakRepairOffered(length: Int) = AnalyticsEvent("streak_repair_offered", mapOf("length" to length.toLong()))
+
+        /** A broken streak was brought back (#102); [vip]: VIP's weekly free repair, else a video or the grace. */
+        fun streakRepairCompleted(vip: Boolean) = AnalyticsEvent("streak_repair_completed", mapOf("vip" to if (vip) 1L else 0L))
+
+        /** The streak screen opened (#101), from [source]: `chip`, `celebration` or `celebration_repair` (#102). */
         fun streakScreenOpened(source: String) = AnalyticsEvent("streak_screen_opened", mapOf(SOURCE to source))
 
         /** The first gem on today's picture (#34). [vip]: it was VIP's "Today's pick", not a free grant. */

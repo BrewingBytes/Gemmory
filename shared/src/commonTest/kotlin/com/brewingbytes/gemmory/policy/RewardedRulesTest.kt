@@ -26,6 +26,21 @@ class RewardedRulesTest {
         for (r in rows) assertEquals(r.expected, RewardedRules.unavailable(r.failure, r.online, r.sdkReady, r.grace), r.toString())
     }
 
+    /**
+     * #102: a streak repair follows the same rows; its grace also needs no grace repair in the last 30 days, which the
+     * caller folds into [graceAvailable] with the ledger's grace for the day.
+     */
+    @Test
+    fun streakRepairRows() {
+        val ledgerGrace = true
+        for ((lastGrace, expected) in listOf(StreakState.NEVER to Unavailable.GRACE_OFFER, 100L - 29 to Unavailable.NO_VIDEO, 100L - 30 to Unavailable.GRACE_OFFER)) {
+            val grace = ledgerGrace && DailyStreak.graceRepairAllowed(lastGrace, 100)
+            assertEquals(expected, RewardedRules.unavailable(LoadFailure.NO_FILL, online = true, sdkReady = true, graceAvailable = grace), "$lastGrace")
+        }
+        assertEquals(Unavailable.OFFLINE, RewardedRules.unavailable(LoadFailure.NO_FILL, online = false, sdkReady = true, graceAvailable = true))
+        assertEquals(Unavailable.NO_VIDEO, RewardedRules.unavailable(LoadFailure.NO_FILL, online = true, sdkReady = true, graceAvailable = false), "today's grace used")
+    }
+
     @Test
     fun consentModeFromTcf() {
         assertEquals(ConsentModeV2.GRANTED, ConsentModeV2.fromTcf(gdprApplies = false, purposeConsents = null), "outside GDPR")

@@ -3,6 +3,9 @@ package com.brewingbytes.gemmory.streak
 import android.app.Application
 import android.graphics.BitmapFactory
 import android.util.LruCache
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -28,15 +31,19 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
@@ -45,24 +52,32 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.ads.RewardPhase
+import com.brewingbytes.gemmory.ads.RewardedUi
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
+import com.brewingbytes.gemmory.play.RepairHow
+import com.brewingbytes.gemmory.policy.BrokenStreak
 import com.brewingbytes.gemmory.policy.CalendarCell
 import com.brewingbytes.gemmory.policy.CellKind
+import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.HistoryDay
 import com.brewingbytes.gemmory.policy.StreakCalendar
+import com.brewingbytes.gemmory.policy.Unavailable
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.ui.AppTopBar
 import com.brewingbytes.gemmory.ui.GemColors
@@ -70,8 +85,10 @@ import com.brewingbytes.gemmory.ui.GemIcons
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
+import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
+import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -82,6 +99,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** The streak screen's state (#101): the streak as it stands, the best, the log and the month showing. */
 data class StreakUi(
@@ -92,7 +110,20 @@ data class StreakUi(
     val firstMonth: LongRange,
     /** Canvas key to title, for TalkBack on finished days. */
     val titles: Map<String, String> = emptyMap(),
+    /** The broken streak that can still be brought back (#102), with VIP's weekly repair. */
+    val repair: RepairOffer? = null,
+    /** Brought back just now (#102): the number rolls up and "Streak back" shows until the screen closes. */
+    val restored: Restored? = null,
 )
+
+/** A repair offer (#102): [broken] can be repaired [until] that day; for VIP, its weekly repair [vipReady] or last used. */
+data class RepairOffer(val broken: BrokenStreak, val until: Long, val vip: Boolean, val vipReady: Boolean, val lastVipRepairDay: Long)
+
+/**
+ * A repair just made: the streak is back at [length], with the missed [days] repaired. [rollUp]: the number's roll-up
+ * and its announcement are still to come; they run once, never again after a rotation.
+ */
+data class Restored(val length: Int, val days: List<Long>, val rollUp: Boolean = true)
 
 /** Reads the streak screen's state and its day thumbnails (#101); one month at a time, thumbnails off the main thread. */
 class StreakViewModel(application: Application) : AndroidViewModel(application) {
@@ -104,12 +135,30 @@ class StreakViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Opened from [source]: re-read as of now, log it ([log]: not again after a rotation), and fetch the titles. */
     fun opened(source: String, log: Boolean) {
-        _ui.value = read(_ui.value.month.takeIf { !log })
+        // A rotation keeps "Streak back" but never replays its roll-up (the celebration's rule: it replays nothing).
+        _ui.value = read(_ui.value.month.takeIf { !log }).copy(restored = _ui.value.restored.takeIf { !log }?.copy(rollUp = false))
         if (log) app.analytics.log(AnalyticsEvent.streakScreenOpened(source))
+        if (log) _ui.value.repair?.let { app.analytics.log(AnalyticsEvent.streakRepairOffered(it.broken.length)) }
         viewModelScope.launch {
             val (pictures, photos) = app.store.summaries()
             val titles = (pictures + photos).filterIsInstance<CanvasSummary.Playable>().associate { CanvasStore.reminderKey(it.ref) to it.title }
             _ui.update { it.copy(titles = titles) }
+        }
+    }
+
+    /** A repair was made (#102): re-read, and roll the number up to [length]. */
+    fun restored(length: Int, days: List<Long>) {
+        _ui.value = read(_ui.value.month).copy(restored = Restored(length, days))
+    }
+
+    /** The restored number has rolled up (or showed at once): not again. */
+    fun rolledUp() = _ui.update { it.copy(restored = it.restored?.copy(rollUp = false)) }
+
+    /** VIP's weekly repair (#102): "Bring it back", no video. */
+    fun vipRepair() {
+        viewModelScope.launch {
+            val result = app.streak.repair(RepairHow.VIP) ?: return@launch
+            restored(result.length, result.covered.map { it.day })
         }
     }
 
@@ -134,7 +183,11 @@ class StreakViewModel(application: Application) : AndroidViewModel(application) 
         val snapshot = app.streakView.refresh()
         val history = app.streak.history()
         val best = maxOf(app.achievements.state.bestStreak, snapshot.shown)
-        return StreakUi(snapshot, best, history, month ?: StreakCalendar.monthOf(snapshot.today), StreakCalendar.firstMonth(history, snapshot.today))
+        val repair = app.streak.repairOffer(snapshot.cover)?.let { broken ->
+            val vip = snapshot.cover.vip
+            RepairOffer(broken, DailyStreak.repairUntil(broken), vip, vip && app.streak.vipRepairReady(), app.streak.lastVipRepairDay())
+        }
+        return StreakUi(snapshot, best, history, month ?: StreakCalendar.monthOf(snapshot.today), StreakCalendar.firstMonth(history, snapshot.today), repair = repair)
     }
 
     private companion object {
@@ -145,18 +198,32 @@ class StreakViewModel(application: Application) : AndroidViewModel(application) 
 const val STREAK_SCREEN_TAG = "streak-screen"
 const val STREAK_TODAYS_PICTURE_TAG = "streak-todays-picture"
 const val STREAK_FREEZES_TAG = "streak-freezes"
+const val STREAK_REPAIR_TAG = "streak-repair"
+const val STREAK_REPAIR_PRIMARY_TAG = "streak-repair-primary"
+const val STREAK_REPAIR_LINE_TAG = "streak-repair-line"
+const val STREAK_RESTORED_TAG = "streak-restored"
+
+/** What the repair panel does (#102): the video (one tap, and Try again), the grace, and VIP's free repair. */
+class RepairActions(val onWatch: () -> Unit, val onGrace: () -> Unit, val onVipRepair: () -> Unit)
 
 /**
- * "Your streak" (#101, the streak screen copy and spec tables): the flame and the number with the best, today's
- * status, the covers (day off; VIP freeze for VIP, else the streak freezes held, #102), the next gift (not VIP), then
- * the month calendar. [onToday]
- * opens Today's picture, null when there is none to finish.
+ * "Your streak" (#101, the streak screen copy and spec tables): while a broken streak can come back, the repair panel
+ * first (#102), then the flame and the number with the best, today's status, the covers (day off; VIP freeze for VIP,
+ * else the streak freezes held, #102), the next gift (not VIP), then the month calendar. [onToday] opens Today's
+ * picture, null when there is none to finish. [video] is the rewarded state while the repair's video is under way.
  */
 @Composable
-fun StreakScreen(vm: StreakViewModel, onBack: () -> Unit, onToday: (() -> Unit)?) {
+fun StreakScreen(
+    vm: StreakViewModel,
+    onBack: () -> Unit,
+    onToday: (() -> Unit)?,
+    video: RewardedUi? = null,
+    repair: RepairActions = RepairActions({}, {}, {}),
+) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val s = ui.snapshot
-    val shown = s.shown
+    val restored = ui.restored
+    val shown = if (restored != null) maxOf(s.shown, restored.length) else s.shown
     val vip = s.cover.vip
     Column(Modifier.fillMaxSize().feltGround(LocalFelt.current.ground).windowInsetsPadding(WindowInsets.safeDrawing).testTag(STREAK_SCREEN_TAG)) {
         AppTopBar("Your streak", onBack)
@@ -165,7 +232,22 @@ fun StreakScreen(vm: StreakViewModel, onBack: () -> Unit, onToday: (() -> Unit)?
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth()) {
-                Hero(shown, ui.best, s.doneToday)
+                // The panel stays while its "restored" moment shows, then goes with the offer.
+                val offer = ui.repair
+                if (offer != null && restored == null) RepairPanel(offer, video, repair)
+                Hero(shown, ui.best, s.doneToday, rollUp = restored?.rollUp == true, onRolledUp = vm::rolledUp)
+                if (restored != null) {
+                    Text(
+                        StreakText.restored(restored.length),
+                        style = GemType.body,
+                        color = GemColors.Bone,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .testTag(STREAK_RESTORED_TAG)
+                            // Announced with the roll-up only, so a rotation doesn't read it again.
+                            .semantics { if (restored.rollUp) liveRegion = LiveRegionMode.Polite },
+                    )
+                }
                 Section {
                     val status = StreakText.todayStatus(shown, s.doneToday)
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {}) {
@@ -174,6 +256,7 @@ fun StreakScreen(vm: StreakViewModel, onBack: () -> Unit, onToday: (() -> Unit)?
                             Spacer(Modifier.width(8.dp))
                         }
                         Column {
+                            restored?.let { r -> StreakText.repaired(r.days)?.let { Text(it, style = GemType.body, color = GemColors.Bone) } }
                             Text(status, style = GemType.body, color = GemColors.Bone)
                             StreakText.awaiting(s.awaiting, s.today)?.let { Text(it, style = GemType.label, color = GemColors.TextMuted) }
                         }
@@ -203,15 +286,82 @@ fun StreakScreen(vm: StreakViewModel, onBack: () -> Unit, onToday: (() -> Unit)?
     }
 }
 
+/**
+ * The repair panel (#102, mockup streak-b section 3): the rewarded sheet's states drawn inline, with the repair's copy.
+ * VIP's weekly repair needs no video; once used, VIP sees the video panel with when it's ready again.
+ */
 @Composable
-private fun Hero(shown: Int, best: Int, lit: Boolean) {
+private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairActions) {
+    val phase = video?.phase
+    val vipFree = offer.vipReady && video == null
+    Column(Modifier.testTag(STREAK_REPAIR_TAG)) {
+        Section {
+            Text(StreakText.repairTitle(offer.broken.length), style = GemType.display, color = GemColors.Bone, modifier = Modifier.semantics { heading() })
+            Spacer(Modifier.height(4.dp))
+            val (line, fault) = when ((phase as? RewardPhase.NotAvailable)?.kind) {
+                Unavailable.OFFLINE -> "You're offline. Connect to watch a video." to true
+                Unavailable.NO_VIDEO -> "No video right now. Try again in a bit." to false
+                Unavailable.GRACE_OFFER -> "No video right now. This one's on us today." to false
+                null -> StreakText.repairBody(offer.broken.endedOn, vipFree) to false
+            }
+            Text(
+                line,
+                style = GemType.body,
+                // `fault` is offline wording only, valid on felt-deep (design system, valid grounds).
+                color = if (fault) GemColors.Fault else GemColors.Bone,
+                modifier = Modifier.testTag(STREAK_REPAIR_LINE_TAG),
+            )
+            Spacer(Modifier.height(12.dp))
+            val primary = Modifier.fillMaxWidth().testTag(STREAK_REPAIR_PRIMARY_TAG)
+            when {
+                vipFree -> PrimaryButton("Bring it back", actions.onVipRepair, primary)
+                phase == RewardPhase.Loading -> {
+                    PrimaryButton("Loading video…", {}, primary, enabled = false)
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(2.dp).clearAndSetSemantics {},
+                        color = GemColors.Bone,
+                        trackColor = Color.Transparent,
+                    )
+                }
+                phase is RewardPhase.NotAvailable && phase.kind == Unavailable.GRACE_OFFER -> PrimaryButton("Bring it back", actions.onGrace, primary)
+                phase is RewardPhase.NotAvailable -> QuietButton("Try again", actions.onWatch, primary)
+                else -> PrimaryButton("Watch a video", actions.onWatch, primary, held = phase == RewardPhase.Showing || phase == RewardPhase.Unlocked)
+            }
+            if (video?.closedEarly == true && (phase == RewardPhase.Loading || phase == RewardPhase.Ready)) {
+                Muted("Watch to the end to bring it back.", Modifier.testTag("streak-repair-closed-early"))
+            }
+            if (offer.vip && !offer.vipReady) Muted(StreakText.vipRepairUsed(offer.lastVipRepairDay))
+            Muted(StreakText.repairUntil(offer.until))
+        }
+    }
+}
+
+@Composable
+private fun Muted(text: String, modifier: Modifier = Modifier) {
+    Text(text, style = GemType.label, color = GemColors.TextMuted, modifier = modifier.padding(top = 8.dp))
+}
+
+/**
+ * [rollUp]: a repair just brought the streak back, so the number rolls 0 → [shown] over 600 ms once (#102; shown at
+ * once under reduced motion), then [onRolledUp]. It starts at 0, so the first frame never shows the final number.
+ */
+@Composable
+private fun Hero(shown: Int, best: Int, lit: Boolean, rollUp: Boolean = false, onRolledUp: () -> Unit = {}) {
+    val reduced = rememberReducedMotion()
+    val roll = remember { Animatable(if (rollUp && !reduced) 0f else 1f) }
+    LaunchedEffect(rollUp) {
+        if (!rollUp) return@LaunchedEffect
+        if (reduced) roll.snapTo(1f) else roll.animateTo(1f, tween(ROLL_UP_MS, easing = FastOutSlowInEasing))
+        onRolledUp()
+    }
+    val number = (shown * roll.value).roundToInt()
     val big = LocalDensity.current.fontScale > 1.5f
     val text = buildString {
         append("${StreakText.days(shown)} in a row")
         if (best > 0) append(". Best: ${StreakText.days(best)}")
     }
-    val number: @Composable () -> Unit = {
-        Text("$shown", style = GemType.streakHero.copy(fontSize = 56.sp, lineHeight = 60.sp), color = GemColors.Bone)
+    val digits: @Composable () -> Unit = {
+        Text("$number", style = GemType.streakHero.copy(fontSize = 56.sp, lineHeight = 60.sp), color = GemColors.Bone)
     }
     val words: @Composable () -> Unit = {
         Column {
@@ -234,12 +384,15 @@ private fun Hero(shown: Int, best: Int, lit: Boolean) {
     ) {
         Flame(lit = lit && shown > 0, length = shown, size = 72.dp)
         if (big) {
-            Column { number(); words() }
+            Column { digits(); words() }
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) { number(); words() }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) { digits(); words() }
         }
     }
 }
+
+/** The restored number's roll-up (#102, mockup section 3). */
+private const val ROLL_UP_MS = 600
 
 private fun buildBest(best: Int) = buildAnnotatedString {
     append("Best: ")

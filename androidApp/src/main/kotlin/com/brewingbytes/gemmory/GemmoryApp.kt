@@ -439,6 +439,7 @@ class GemmoryApp : Application() {
         history = FileStateStore(File(filesDir, StorageLayout.STREAK_HISTORY), StreakHistoryCodec::encode, StreakHistoryCodec::decode, reporter),
         scope = appScope,
         resolve = { monetization.streakDay(it) },
+        resolveRepair = { monetization.repairStreak(it) },
     ) { achievements.record(GameEvent.StreakDay(it)) }
 
     private fun newStreakView() = StreakView(streak, dayClock, billing.entitlements, monetization.inventory, appScope)

@@ -262,6 +262,9 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("streak_day", mapOf("length" to 3L)), AnalyticsEvent.streakDay(3))
         assertEquals(AnalyticsEvent("streak_freeze_earned", mapOf("paid" to "fills")), AnalyticsEvent.streakFreezeEarned("fills"))
         assertEquals(AnalyticsEvent("streak_freeze_used", mapOf("count" to 2L)), AnalyticsEvent.streakFreezeUsed(2))
+        assertEquals(AnalyticsEvent("streak_repair_offered", mapOf("length" to 12L)), AnalyticsEvent.streakRepairOffered(12))
+        assertEquals(AnalyticsEvent("streak_repair_completed", mapOf("vip" to 1L)), AnalyticsEvent.streakRepairCompleted(vip = true))
+        assertEquals(AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "streak_repair")), AnalyticsEvent.rewardedOffered(RewardType.STREAK_REPAIR))
         assertEquals(
             AnalyticsEvent("streak_celebration_shown", mapOf("length" to 7L, "milestone" to 7L, "saved_by" to "day_off")),
             AnalyticsEvent.streakCelebrationShown(7, 7, "day_off"),

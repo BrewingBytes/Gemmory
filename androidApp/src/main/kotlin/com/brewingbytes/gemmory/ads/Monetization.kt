@@ -9,6 +9,7 @@ import com.brewingbytes.gemmory.policy.AdPolicy
 import com.brewingbytes.gemmory.policy.AdPolicyCodec
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.ConsumeResult
+import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.DailyLedger
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.DayKind
@@ -230,6 +231,15 @@ class Monetization(
             }
             items.onStreakDay(result.length)
         }
+    }
+
+    /**
+     * A streak repair (#102): [repair] runs on the policy thread with what covers a missed day now (VIP; else the
+     * streak freezes held), so it reads the same cover as the streak screen offered. It spends nothing.
+     */
+    suspend fun repairStreak(repair: (Cover) -> DayResult?): DayResult? = onPolicy {
+        val vip = entitlements.value.vip
+        repair(Cover(vip, if (vip) 0 else items.count(Item.STREAK_FREEZE)))
     }
 
     suspend fun interstitialBlock(ctx: InterstitialContext): AdBlock? = onPolicy { ads.blockFor(ctx) }

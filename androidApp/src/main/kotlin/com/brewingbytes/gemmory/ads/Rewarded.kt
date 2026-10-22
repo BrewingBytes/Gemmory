@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.play.RepairHow
 import com.brewingbytes.gemmory.policy.EarnSource
 import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.policy.Item
@@ -42,8 +43,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * What a rewarded video unlocks: a locked bundled picture, one more photo canvas (kept, #38), 5 fills (#38), or More
- * colors on the photo in the flow (#29).
+ * What a rewarded video unlocks: a locked bundled picture, one more photo canvas (kept, #38), 5 fills (#38), More
+ * colors on the photo in the flow (#29), or a broken streak brought back (#102).
  */
 sealed interface RewardTarget {
     val type: RewardType
@@ -65,6 +66,11 @@ sealed interface RewardTarget {
     data object Colors : RewardTarget {
         override val type get() = RewardType.COLORS
     }
+
+    /** From the streak screen's repair panel (#102), drawn inline there, never as the sheet. */
+    data object StreakRepair : RewardTarget {
+        override val type get() = RewardType.STREAK_REPAIR
+    }
 }
 
 /** The rows of the Rewarded states table (design system). */
@@ -82,7 +88,7 @@ sealed interface RewardPhase {
 
     /**
      * Locked picture: "Unlocked" for 600 ms, then the canvas opens (design D11). Fills: "5 fills added" (#38). Colors:
-     * "More colors unlocked" (#29).
+     * "More colors unlocked" (#29). Streak repair: the streak is back, then the panel goes (#102).
      */
     data object Unlocked : RewardPhase
 }
@@ -99,6 +105,9 @@ sealed interface RewardedEvent {
 
     /** More colors for the photo on Preview (#29): from the colors video, or a canvas video (one video gets both). */
     data object MoreColorsUnlocked : RewardedEvent
+
+    /** The broken streak is back at [length] days, with the missed [days] repaired (#102): the streak screen rolls it up. */
+    data class StreakRestored(val length: Int, val days: List<Long>) : RewardedEvent
 }
 
 /**
@@ -118,6 +127,9 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
 
     private var job: Job? = null
 
+    /** The streak repair panel's one tap (#102): the video shows as soon as it's loaded. */
+    private var watchWhenReady = false
+
     fun open(target: RewardTarget, activity: Activity) {
         if (ui != null) return
         ui = RewardedUi(target, RewardPhase.Loading)
@@ -125,11 +137,28 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
         load(activity)
     }
 
+    /**
+     * "Watch a video" on the streak screen's repair panel (#102): one tap loads the video and shows it once it's
+     * there; Try again does the same. The panel is the sheet's states drawn inline.
+     */
+    fun repairStreak(activity: Activity) {
+        val current = ui
+        if (current != null && current.target != RewardTarget.StreakRepair) return
+        watchWhenReady = true
+        when (current?.phase) {
+            null -> open(RewardTarget.StreakRepair, activity)
+            RewardPhase.Ready -> watch(activity)
+            is RewardPhase.NotAvailable -> load(activity)
+            RewardPhase.Loading, RewardPhase.Showing, RewardPhase.Unlocked -> Unit
+        }
+    }
+
     /** Swipe, back or the scrim. Ignored while the video is up or "Unlocked" is showing. */
     fun dismiss() {
         val phase = ui?.phase
         if (phase == RewardPhase.Showing || phase == RewardPhase.Unlocked) return
         job?.cancel()
+        watchWhenReady = false
         ui = null
     }
 
@@ -158,17 +187,24 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                             failure = result.failure,
                             online = online,
                             sdkReady = gateway.sdkReady,
-                            graceAvailable = monetization.graceAvailable(current.target.type),
+                            graceAvailable = graceAvailable(current.target),
                         ),
                     )
                 }
             }
             ui = ui?.copy(phase = phase)
+            if (phase == RewardPhase.Ready && watchWhenReady) watch(activity)
         }
     }
 
+    /** Today's grace for [target]; a streak repair's also needs no grace repair in the last 30 days (#102). */
+    private suspend fun graceAvailable(target: RewardTarget): Boolean =
+        monetization.graceAvailable(target.type) && (target != RewardTarget.StreakRepair || app.streak.graceRepairAllowed())
+
     fun watch(activity: Activity) {
         val current = ui?.takeIf { it.phase == RewardPhase.Ready } ?: return
+        // The repair panel's tap is used up here: a video closed early, or one that never showed, waits for a new tap.
+        watchWhenReady = false
         var earned = false
         val shown = gateway.showRewarded(
             activity,
@@ -206,6 +242,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                 }
                 RewardTarget.Fills -> fillsAdded(EarnSource.VIDEO)
                 RewardTarget.Colors -> colorsUnlocked()
+                RewardTarget.StreakRepair -> streakRestored(RepairHow.VIDEO)
             }
         }
     }
@@ -229,6 +266,23 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
         ui = ui?.copy(phase = RewardPhase.Unlocked)
         delay(UNLOCKED_MS)
         ui = null
+    }
+
+    /**
+     * The broken streak comes back (#102): the panel shows it restored for 600 ms, then goes, and the streak screen rolls
+     * the number up. Nothing left to repair (a restore elsewhere): the panel just goes.
+     */
+    private suspend fun streakRestored(how: RepairHow) {
+        watchWhenReady = false
+        val result = app.streak.repair(how)
+        if (result == null) {
+            ui = null
+            return
+        }
+        ui = ui?.copy(phase = RewardPhase.Unlocked)
+        delay(UNLOCKED_MS)
+        ui = null
+        event = RewardedEvent.StreakRestored(result.length, result.covered.map { it.day })
     }
 
     /** "More colors unlocked" for 600 ms, then back to Preview with More allowed (#29). */
@@ -258,6 +312,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                 }
                 RewardTarget.Fills -> fillsAdded(EarnSource.GRACE)
                 RewardTarget.Colors -> colorsUnlocked()
+                RewardTarget.StreakRepair -> streakRestored(RepairHow.GRACE)
             }
         }
     }

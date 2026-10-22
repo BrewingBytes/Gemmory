@@ -411,6 +411,7 @@ Buttons: primary "Continue"; text "See your streak" (ordinary) or "Share" (miles
 - Repair grace: the line, then a primary "Bring it back" the player taps, like every other grace.
 - **Repair limits (over E8/O1's "once in 30 days"): "video can be done more than once a month, we want the ads revenue".** A video repair has no limit; the 2-day window and the 2-day minimum length stay. VIP gets one free repair every 7 days, then repairs with a video like anyone. A grace repair (online no-fill) at most once in 30 days. Copy: "You can do this until Thursday."; VIP ready: "Your streak ended on Tuesday. Your weekly VIP repair can bring it back." / "Bring it back"; VIP used: the video panel plus "VIP repair used Monday · ready again next Monday".
 - Freeze row in the Inventory sheet shows at 0 too.
+- Built in PR 2 (deviations from the spec text): the repair panel is the rewarded states drawn inline (not the sheet); its "Watch a video" is one tap that loads and shows the video (the screen preloads while an offer stands); the "once a month" in the spec's repair copy is gone with the limit. The repair's last VIP and grace days are prefs in the "streak" store, not `StreakState` fields, and `repairOffer` no longer takes a last repair day.
 - Delivered as 3 stacked PRs: freezes, repair, nudge + reminder (closes #102).
 
 ### Design review: NOT in scope

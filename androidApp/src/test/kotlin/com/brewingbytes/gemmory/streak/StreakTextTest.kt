@@ -79,4 +79,19 @@ class StreakTextTest {
         )
         assertEquals("This week: Monday done, Tuesday day off, Wednesday today, done", StreakText.week(week))
     }
+
+    /** #102: the repair panel's copy (streak-screen.md, Streak B decisions). */
+    @Test
+    fun repairCopy() {
+        assertEquals("Bring back your 12 days", StreakText.repairTitle(12))
+        assertEquals("Your streak ended on Tuesday. Watch a short video to restore it.", StreakText.repairBody(tuesday, vipReady = false))
+        assertEquals("Your streak ended on Tuesday. Your weekly VIP repair can bring it back.", StreakText.repairBody(tuesday, vipReady = true))
+        assertEquals("You can do this until Thursday.", StreakText.repairUntil(tuesday + 2))
+        assertEquals("VIP repair used Monday · ready again next Monday", StreakText.vipRepairUsed(tuesday - 1))
+        assertEquals("Streak back: 12 days", StreakText.restored(12))
+        assertEquals("Monday and Tuesday repaired", StreakText.repaired(listOf(tuesday - 1, tuesday)))
+        assertEquals("Tuesday repaired", StreakText.repaired(listOf(tuesday)))
+        assertNull(StreakText.repaired(emptyList()))
+        assertEquals("Your 12 days can still be restored", StreakText.stillRestorable(12))
+    }
 }

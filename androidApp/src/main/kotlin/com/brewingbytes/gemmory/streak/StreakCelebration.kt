@@ -56,6 +56,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.play.PendingCelebration
+import com.brewingbytes.gemmory.policy.BrokenStreak
 import com.brewingbytes.gemmory.policy.CalendarCell
 import com.brewingbytes.gemmory.policy.StreakCalendar
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
@@ -69,8 +70,17 @@ import kotlinx.coroutines.delay
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-/** What the celebration shows, read once when it opens, so a rotation shows the same and replays nothing. */
-class StreakDayData(val celebration: PendingCelebration, val week: List<CalendarCell>, val vip: Boolean, val text: CelebrationText)
+/**
+ * What the celebration shows, read once when it opens, so a rotation shows the same and replays nothing. [repairable]:
+ * the streak that ended can still be brought back (#102), so the text button says so.
+ */
+class StreakDayData(
+    val celebration: PendingCelebration,
+    val week: List<CalendarCell>,
+    val vip: Boolean,
+    val text: CelebrationText,
+    val repairable: BrokenStreak? = null,
+)
 
 /**
  * The celebration's state (#101, E2): today's pending celebration, taken from the streak once (so it shows once), and
@@ -90,7 +100,10 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
         val start = StreakCalendar.weekStart(snapshot.today, firstDayOfWeek())
         val week = StreakCalendar.cells(start..start + 6, app.streak.history(), snapshot.state, snapshot.cover, snapshot.today)
         val vip = snapshot.cover.vip
-        return StreakDayData(celebration, week, vip, StreakText.celebration(celebration.length, celebration.covered, vip, snapshot.cover.freezes)).also { data = it }
+        val text = StreakText.celebration(celebration.length, celebration.covered, vip, snapshot.cover.freezes)
+        // A new streak's first day while the old one can still come back (#102, "Restart with repair open").
+        val repairable = app.streak.repairOffer(snapshot.cover)?.takeIf { celebration.length == 1 }
+        return StreakDayData(celebration, week, vip, text, repairable).also { data = it }
     }
 
     /** Logs `streak_celebration_shown` once per celebration; true the first time, when the sound plays. */
@@ -123,7 +136,7 @@ const val CELEBRATION_SEE_TAG = "streak-celebration-see"
  * motion: all at once; sound and haptic stay unless Milestones are off (G15).
  */
 @Composable
-fun StreakCelebration(data: StreakDayData, vm: StreakDayViewModel, onContinue: () -> Unit, onSeeStreak: () -> Unit) {
+fun StreakCelebration(data: StreakDayData, vm: StreakDayViewModel, onContinue: () -> Unit, onSeeStreak: (repair: Boolean) -> Unit) {
     val c = data.celebration
     val milestone = StreakText.isMilestone(c.length)
     val reduced = rememberReducedMotion()
@@ -199,8 +212,14 @@ fun StreakCelebration(data: StreakDayData, vm: StreakDayViewModel, onContinue: (
                 Spacer(Modifier.height(16.dp))
             }
             PrimaryButton("Continue", onContinue, Modifier.padding(top = 8.dp).widthIn(max = 480.dp).fillMaxWidth().testTag(CELEBRATION_CONTINUE_TAG))
-            // Share on milestones arrives with the share card (#104, G10); until then, the streak screen.
-            GemTextButton("See your streak", onSeeStreak, Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SEE_TAG))
+            // Share on milestones arrives with the share card (#104, G10); until then, the streak screen. With a repair
+            // open (#102), it says the old streak can still come back.
+            val repairable = data.repairable
+            GemTextButton(
+                repairable?.let { StreakText.stillRestorable(it.length) } ?: "See your streak",
+                { onSeeStreak(repairable != null) },
+                Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SEE_TAG),
+            )
         }
         // One polite announcement (accessibility table); the roll-up isn't read digit by digit.
         Box(Modifier.size(1.dp).semantics { contentDescription = data.text.announcement; liveRegion = LiveRegionMode.Polite })

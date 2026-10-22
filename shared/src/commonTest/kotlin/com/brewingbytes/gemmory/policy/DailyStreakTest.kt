@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.policy
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -176,14 +177,32 @@ class DailyStreakTest {
     fun aRepairIsOfferedForTwoDaysAfterTheStreakEnded() {
         val used = alive.copy(restDay = d - 1)
         // Missed d+1 with no cover: the streak ended on d+1.
-        assertEquals(BrokenStreak(6, d + 1), DailyStreak.repairOffer(used, d + 2, Cover.NONE, StreakState.NEVER))
-        assertEquals(BrokenStreak(6, d + 1), DailyStreak.repairOffer(used, d + 3, Cover.NONE, StreakState.NEVER))
-        assertNull(DailyStreak.repairOffer(used, d + 4, Cover.NONE, StreakState.NEVER), "back after 3 days: too late")
-        assertNull(DailyStreak.repairOffer(used, d + 60, Cover.NONE, StreakState.NEVER), "back after 60 days")
-        assertNull(DailyStreak.repairOffer(used, d + 2, Cover.NONE, lastRepairDay = d - 10), "a repair 12 days ago")
-        assertEquals(BrokenStreak(6, d + 1), DailyStreak.repairOffer(used, d + 2, Cover.NONE, lastRepairDay = d - 28))
-        assertNull(DailyStreak.repairOffer(used.copy(length = 1), d + 2, Cover.NONE, StreakState.NEVER), "a 1-day streak isn't")
-        assertNull(DailyStreak.repairOffer(alive, d + 1, Cover.NONE, StreakState.NEVER), "alive: nothing to repair")
+        assertEquals(BrokenStreak(6, d + 1), DailyStreak.repairOffer(used, d + 2, Cover.NONE))
+        assertEquals(BrokenStreak(6, d + 1), DailyStreak.repairOffer(used, d + 3, Cover.NONE))
+        assertNull(DailyStreak.repairOffer(used, d + 4, Cover.NONE), "back after 3 days: too late")
+        assertNull(DailyStreak.repairOffer(used, d + 60, Cover.NONE), "back after 60 days")
+        assertNull(DailyStreak.repairOffer(used.copy(length = 1), d + 2, Cover.NONE), "a 1-day streak isn't")
+        assertNull(DailyStreak.repairOffer(alive, d + 1, Cover.NONE), "alive: nothing to repair")
+    }
+
+    @Test
+    fun videoRepairsHaveNoLimitAndTheOfferEndsWithItsWindow() {
+        val used = alive.copy(restDay = d - 1)
+        val repaired = DailyStreak.repair(used, d + 2, Cover.NONE)!!.state
+        // Broken again a few days later: offered again, though a repair was made 4 days ago (founder 2026-10-22).
+        val again = repaired.copy(restDay = d + 1)
+        assertEquals(BrokenStreak(6, d + 2), DailyStreak.repairOffer(again, d + 3, Cover.NONE))
+        assertEquals(d + 3, DailyStreak.repairUntil(BrokenStreak(6, d + 1)), "until 2 days after it ended")
+    }
+
+    @Test
+    fun vipRepairIsWeeklyAndGraceRepairMonthly() {
+        assertTrue(DailyStreak.vipRepairReady(StreakState.NEVER, d))
+        assertFalse(DailyStreak.vipRepairReady(d - 6, d), "used 6 days ago")
+        assertTrue(DailyStreak.vipRepairReady(d - 7, d), "ready again a week later")
+        assertTrue(DailyStreak.graceRepairAllowed(StreakState.NEVER, d))
+        assertFalse(DailyStreak.graceRepairAllowed(d - 29, d), "a grace repair 29 days ago")
+        assertTrue(DailyStreak.graceRepairAllowed(d - 30, d))
     }
 
     @Test
@@ -205,7 +224,7 @@ class DailyStreakTest {
     @Test
     fun aRepairAfterFinishingTodayKeepsToday() {
         val restarted = DailyStreak.played(alive.copy(restDay = d - 1), d + 3, Cover.NONE)!!.state
-        assertEquals(BrokenStreak(6, d + 1), DailyStreak.repairOffer(restarted, d + 3, Cover.NONE, StreakState.NEVER))
+        assertEquals(BrokenStreak(6, d + 1), DailyStreak.repairOffer(restarted, d + 3, Cover.NONE))
         val r = DailyStreak.repair(restarted, d + 3, Cover.NONE)!!
         assertEquals(7, r.length)
         assertEquals(d + 3, r.state.lastDay)
