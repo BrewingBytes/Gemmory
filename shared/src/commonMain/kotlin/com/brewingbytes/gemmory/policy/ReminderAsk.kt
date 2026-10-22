@@ -69,7 +69,7 @@ object ReminderCopy {
                 post.pictureId != null -> NudgeTarget.Quick(post.pictureId)
                 else -> null
             }
-            val hint = StreakNudge.hint(target, title, mystery, inGallery = false)?.let { " $it." }.orEmpty()
+            val hint = StreakNudge.hint(target, title, mystery)?.let { " $it." }.orEmpty()
             ReminderText("Your ${post.streak}-day streak ends at midnight", "Finish any picture tonight to keep it.$hint")
         }
         ReminderReason.ALMOST_FINISHED -> {

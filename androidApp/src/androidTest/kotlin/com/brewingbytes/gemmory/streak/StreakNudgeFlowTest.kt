@@ -15,6 +15,7 @@ import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.app.A11yTestSupport
+import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.gallery.STREAK_NUDGE_TAG
 import com.brewingbytes.gemmory.gallery.STREAK_TAG
 import com.brewingbytes.gemmory.gallery.tileTag
@@ -22,6 +23,7 @@ import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
+import com.brewingbytes.gemmory.policy.Products
 import com.brewingbytes.gemmory.policy.ReminderAskState
 import com.brewingbytes.gemmory.reminder.ReminderPrefs
 import com.brewingbytes.gemmory.review.ReviewPrefs
@@ -58,6 +60,7 @@ class StreakNudgeFlowTest {
     private lateinit var scenario: ActivityScenario<MainActivity>
     private val today = LocalDate.now().toEpochDay()
     private val photo = CanvasRef(CanvasKind.PHOTO, "nudge")
+    private val billing = BillingBackends.fake
 
     @Before
     fun setUp() {
@@ -177,6 +180,29 @@ class StreakNudgeFlowTest {
         )
         compose.onNodeWithTag(STREAK_NUDGE_TAG).performClick()
         waitFor("the repair panel") { exists(STREAK_REPAIR_TAG) }
+    }
+
+    /**
+     * The nudge's target is read at the gallery's load only while it can show: a streak that comes back with the
+     * gallery open (here VIP's freeze, confirmed after the load) brings the line in without leaving the gallery.
+     */
+    @Test
+    fun aStreakThatComesBackWithTheGalleryOpenShowsTheLine() {
+        // 6 days through 2 days ago, the day off used this week: yesterday breaks it without VIP.
+        streakPrefs.edit().clear().putInt("length", 6).putLong("lastDay", today - 2).putLong("restDay", today - 4).commit()
+        app.resetStreakForTest(celebrations = false)
+        launch()
+        waitNudge()
+        assertTrue(nudgeReads("Your 6 days can still be restored"))
+        try {
+            billing.own(Products.VIP_YEARLY)
+            runBlocking { app.billing.refresh() }
+            waitFor("the line", 30_000) { nudgeReads("Finish a picture today to keep your 6 days") }
+            assertTrue(nudgeReads("Yesterday is covered when you finish"))
+        } finally {
+            billing.reset()
+            runBlocking { app.billing.refresh() }
+        }
     }
 
     @Test

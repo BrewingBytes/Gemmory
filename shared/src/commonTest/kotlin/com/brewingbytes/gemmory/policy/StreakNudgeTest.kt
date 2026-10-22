@@ -65,8 +65,10 @@ class StreakNudgeTest {
     @Test
     fun copyStatesTrueFactsOnly() {
         assertEquals("Finish a picture today to keep your 6 days", StreakNudge.line(6))
-        assertEquals("Today's picture is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse"))
-        assertEquals("Lighthouse is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse", inGallery = false))
+        assertEquals("Today's picture is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse", todayLabel = "Today's picture"))
+        assertEquals("Today's pick is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse", todayLabel = "Today's pick"))
+        // In the reminder, or when the Today card shows a drop instead: named.
+        assertEquals("Lighthouse is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse"))
         assertEquals("Beach Huts is Quick", StreakNudge.hint(NudgeTarget.Quick("huts"), "Beach Huts"))
         assertEquals("Harbour is 82% done", StreakNudge.hint(NudgeTarget.Canvas(canvas("harbour", placed = 829, total = 1000)), "Harbour"))
         assertEquals("Your photo canvas is 82% done", StreakNudge.hint(NudgeTarget.Canvas(canvas("photo/x", placed = 82, photo = true)), "Grandma"))

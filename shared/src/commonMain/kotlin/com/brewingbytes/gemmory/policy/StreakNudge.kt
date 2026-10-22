@@ -54,13 +54,14 @@ object StreakNudge {
     const val BROKEN_HINT = "See your streak"
 
     /**
-     * The target as a fact: "Today's picture is Quick" (in the gallery, next to its card; the reminder names it),
+     * The target as a fact: "Today's picture is Quick" ([todayLabel], when the Today card next to it shows that
+     * picture under that label: "Today's picture" or VIP's "Today's pick"; else, and in the reminder, it's named),
      * "Harbour is 82% done", "Your photo canvas is 82% done", "Your mystery picture is 82% done", "Beach Huts is
      * Quick". [title] is the picture's; [mystery] an unfinished mystery picture (T43), never named. Null without one.
      */
-    fun hint(target: NudgeTarget?, title: String?, mystery: Boolean = false, inGallery: Boolean = true): String? = when (target) {
+    fun hint(target: NudgeTarget?, title: String?, mystery: Boolean = false, todayLabel: String? = null): String? = when (target) {
         null -> null
-        is NudgeTarget.Today -> if (inGallery) "Today's picture is Quick" else "${name(title, mystery)} is Quick"
+        is NudgeTarget.Today -> "${todayLabel ?: name(title, mystery)} is Quick"
         is NudgeTarget.Quick -> "${name(title, mystery)} is Quick"
         is NudgeTarget.Canvas -> {
             val what = when {

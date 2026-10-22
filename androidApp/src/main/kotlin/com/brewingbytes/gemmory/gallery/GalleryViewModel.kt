@@ -39,6 +39,7 @@ import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.ui.GemRenderer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -129,8 +130,11 @@ data class Nudge(
     val param: String get() = if (broken != null) "repair" else target?.param ?: "none"
 }
 
-/** Where the nudge points this visit (#102): read once per [GalleryViewModel.refresh], while the nudge can show. */
-private data class NudgeAt(val target: NudgeTarget?, val tile: Tile?)
+/**
+ * Where the nudge points this visit (#102), read while the nudge can show; [todayLabel]: the Today card's label when it
+ * shows the target ("Today's picture is Quick").
+ */
+private data class NudgeAt(val target: NudgeTarget?, val tile: Tile?, val todayLabel: String? = null)
 
 /**
  * One collection row (T37, design system "Collection and event rows"): [members] are the strip's tiles in the
@@ -215,9 +219,15 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     /** Lazy thumbnails of unstarted remote pictures (T36, eng D12), the ones scrolled past most recently. */
     private val lazyThumbs = LruCache<CanvasRef, ImageBitmap>(LAZY_THUMBS)
 
-    /** This visit's nudge target (#102), kept so a streak change re-derives the nudge without reading the canvases again. */
+    /**
+     * This visit's nudge target (#102), kept so a streak change re-derives the nudge without reading the canvases again.
+     * Null: not read yet (the nudge couldn't show at the last refresh); a [NudgeAt] with no target: nothing to point at.
+     */
     @Volatile
     private var pointing: NudgeAt? = null
+
+    /** Reads [pointing] when a streak change lets the nudge show with the gallery open (a freeze won, VIP confirmed). */
+    private var pointingJob: Job? = null
 
     init {
         // A background check that brought something new (T36): reload now, not on the next visit.
@@ -227,6 +237,14 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         viewModelScope.launch {
             app.streakView.snapshot.collect { s ->
                 _state.update { it.copy(streak = s.shown, streakDone = s.doneToday, repairable = s.repairOffer?.length, nudge = nudgeOf(s, pointing)) }
+                if (pointing == null && _state.value.loaded && pointingJob?.isActive != true && app.nudgeOn && StreakNudge.show(s.state, s.today, s.cover)) {
+                    pointingJob = viewModelScope.launch {
+                        val loaded = _state.value
+                        val at = nudgeAt(s, loaded.today, loaded.pictures, loaded.photos)
+                        pointing = at
+                        _state.update { it.copy(nudge = nudgeOf(app.streakView.snapshot.value, at)) }
+                    }
+                }
             }
         }
     }
@@ -240,28 +258,34 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             days = snapshot.shown,
             target = at.target,
             tile = at.tile,
-            hint = StreakNudge.hint(at.target, at.tile?.title, at.tile?.mystery == true),
+            hint = StreakNudge.hint(at.target, at.tile?.title, at.tile?.mystery == true, at.todayLabel),
             awaiting = StreakNudge.awaiting(snapshot.awaiting, snapshot.today, StreakText::weekday),
         )
     }
 
     /**
      * Where the nudge points (#102): Today's picture if it's Quick, else the canvas closest to done, else a Quick
-     * picture, from the same canvases and Quick list as the evening reminder, so both name the same one. Read only
-     * while the nudge can show; a target without an openable tile here points nowhere (the tap opens the streak screen).
+     * picture, from the same canvases, Quick list and stored pick (never the drop on the card) as the evening reminder,
+     * so both name the same one. Read only while the nudge can show; a target without an openable tile here points
+     * nowhere (the tap opens the streak screen).
      */
     private suspend fun nudgeAt(snapshot: StreakSnapshot, today: TodayCard?, pictures: List<Tile>, photos: List<Tile>): NudgeAt? {
         if (!app.nudgeOn || !StreakNudge.show(snapshot.state, snapshot.today, snapshot.cover)) return null
         val started = store.reminderCanvases()
-        val quick = withContext(Dispatchers.IO) { app.quickOpenable(started) }
-        val todaysPick = today?.tile?.takeIf { !it.done }?.ref?.id
+        val vip = app.monetization.entitlements.value.vip
+        val (quick, todaysPick) = withContext(Dispatchers.IO) {
+            val remote = app.remote
+            app.quickOpenable(started) to app.todays.pick(started.mapNotNullTo(HashSet()) { it.pictureId }, vip, remote.listed(), remote.drops(), remote::isNew)
+        }
         val target = StreakNudge.target(todaysPick, quick, started) ?: return NudgeAt(null, null)
         val tile = when (target) {
-            is NudgeTarget.Today -> today?.tile
+            is NudgeTarget.Today -> pictures.firstOrNull { it.ref.id == target.pictureId }
             is NudgeTarget.Canvas -> (pictures + photos).firstOrNull { CanvasStore.reminderKey(it.ref) == target.canvas.key }
             is NudgeTarget.Quick -> pictures.firstOrNull { it.ref.id == target.pictureId }
         }?.takeIf { !it.damaged } ?: return NudgeAt(null, null)
-        return NudgeAt(target, tile)
+        // "Today's picture is Quick" only beside a card showing it; a drop on the card leaves the pick named.
+        val label = (if (vip) "Today's pick" else "Today's picture").takeIf { target is NudgeTarget.Today && today?.tile?.ref == tile.ref }
+        return NudgeAt(target, tile, label)
     }
 
     /** The nudge showed (#102): `streak_nudge_shown` once a day. */
