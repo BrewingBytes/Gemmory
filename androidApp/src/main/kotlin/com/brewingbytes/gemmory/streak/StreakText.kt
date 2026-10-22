@@ -28,16 +28,19 @@ object StreakText {
     /** The weekday [day] (local epoch day) falls on: "Tuesday". */
     fun weekday(day: Long): String = LocalDate.ofEpochDay(day).dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
 
+    /** A milestone's title, on the celebration and the share card (#104): "A week of gems"; null on other days. */
+    fun milestone(length: Int): String? = when (length) {
+        7 -> "A week of gems"
+        30 -> "A month of gems"
+        50 -> "50 days of gems"
+        100 -> "100 days of gems"
+        365 -> "A year of gems"
+        else -> null
+    }
+
     /** [freezesLeft]: streak freezes still held after this day spent its own (#102), for the freeze line. */
     fun celebration(length: Int, covered: List<CoveredDay>, vip: Boolean, freezesLeft: Int = 0): CelebrationText {
-        val milestone = when (length) {
-            7 -> "A week of gems"
-            30 -> "A month of gems"
-            50 -> "50 days of gems"
-            100 -> "100 days of gems"
-            365 -> "A year of gems"
-            else -> null
-        }
+        val milestone = milestone(length)
         val title = milestone ?: if (length == 1) "You started a streak" else "${days(length)} in a row"
         val line = when {
             milestone != null -> "${days(length)} in a row."

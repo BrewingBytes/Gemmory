@@ -133,16 +133,20 @@ fun GemmoryTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** ~9% grain over the felt ground, tiled from one small noise bitmap. */
-private val grainBrush: ShaderBrush by lazy {
+/** The felt's ~9% grain: one small seeded noise bitmap, tiled (also on the streak share card, #104). */
+fun grainBitmap(): Bitmap {
     val size = 96
     val random = Random(0x6E6D)
     val pixels = IntArray(size * size) {
         val v = random.nextInt(256)
         (23 shl 24) or (v shl 16) or (v shl 8) or v
     }
-    val bitmap = Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
-    ShaderBrush(ImageShader(bitmap.asImageBitmap(), TileMode.Repeated, TileMode.Repeated))
+    return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
+}
+
+/** ~9% grain over the felt ground. */
+private val grainBrush: ShaderBrush by lazy {
+    ShaderBrush(ImageShader(grainBitmap().asImageBitmap(), TileMode.Repeated, TileMode.Repeated))
 }
 
 fun Modifier.feltGround(color: Color): Modifier = background(color).drawBehind { drawRect(grainBrush) }

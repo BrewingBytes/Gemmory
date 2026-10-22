@@ -38,6 +38,25 @@ object ShareIntents {
         )
         return Intent.createChooser(send, null, callback.intentSender).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+
+    /** The milestone share card (#104): the PNG and the streak card's tracked link; an app picked is `streak_share_completed`. */
+    fun streakChooser(context: Context, file: File, milestone: Int): Intent {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("image/png")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .putExtra(Intent.EXTRA_TEXT, ShareLink.streakText())
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        send.clipData = ClipData.newRawUri(null, uri)
+        val picked = Intent(context, StreakShareCompletedReceiver::class.java).putExtra(StreakShareCompletedReceiver.MILESTONE, milestone)
+        val callback = PendingIntent.getBroadcast(
+            context,
+            0,
+            picked,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        )
+        return Intent.createChooser(send, null, callback.intentSender).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
 }
 
 /** Logs share_completed (and counts the share for achievements, #49) with the canvas's source, size and share kind (#36); which app was picked isn't recorded. */
@@ -50,5 +69,20 @@ class ShareCompletedReceiver : BroadcastReceiver() {
         app.analytics.log(AnalyticsEvent.shareCompleted(source, size, kind))
         // Show and Tell / Work in Progress (#49): counted now, sent once the Gallery shows.
         app.achievements.record(GameEvent.Shared(progress = kind == AnalyticsEvent.kind(progress = true)))
+    }
+}
+
+/**
+ * Logs `streak_share_completed` with the card's milestone (#104). Not `share_completed`, and no Show and Tell: those
+ * count shared pictures.
+ */
+class StreakShareCompletedReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val milestone = intent.getIntExtra(MILESTONE, 0).takeIf { it > 0 } ?: return
+        (context.applicationContext as GemmoryApp).analytics.log(AnalyticsEvent.streakShareCompleted(milestone))
+    }
+
+    companion object {
+        const val MILESTONE = "milestone"
     }
 }

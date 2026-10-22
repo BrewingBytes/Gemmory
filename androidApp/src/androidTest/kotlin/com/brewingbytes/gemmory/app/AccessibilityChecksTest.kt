@@ -33,7 +33,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
-import com.brewingbytes.gemmory.streak.CELEBRATION_SEE_TAG
+import com.brewingbytes.gemmory.streak.CELEBRATION_CONTINUE_TAG
 import com.brewingbytes.gemmory.streak.CELEBRATION_TAG
 import com.brewingbytes.gemmory.streak.STREAK_SCREEN_TAG
 import com.brewingbytes.gemmory.achievements.ACHIEVEMENTS_TAG
@@ -45,6 +45,7 @@ import com.brewingbytes.gemmory.ads.RewardedSheet
 import com.brewingbytes.gemmory.ads.RewardedUi
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.gallery.STREAK_NUDGE_TAG
+import com.brewingbytes.gemmory.gallery.STREAK_TAG
 import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
@@ -244,7 +245,10 @@ class AccessibilityChecksTest {
                 waitForTag(CELEBRATION_TAG)
                 compose.mainClock.advanceTimeBy(4_000)
                 scan()
-                compose.onNodeWithTag(CELEBRATION_SEE_TAG).performClick()
+                // A milestone's text button is Share (#104): the streak screen is reached from the gallery's chip.
+                compose.onNodeWithTag(CELEBRATION_CONTINUE_TAG).performClick()
+                waitForTag(STREAK_TAG)
+                compose.onNodeWithTag(STREAK_TAG).performClick()
                 waitForTag(STREAK_SCREEN_TAG)
                 scan()
                 scenario.close()

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemmory streak D</title>
+<style>
+@font-face { font-family: "Bricolage"; src: url("../../../../androidApp/src/main/res/font/bricolage_grotesque.ttf"); }
+@font-face { font-family: "Figtree"; src: url("../../../../androidApp/src/main/res/font/figtree.ttf"); }
+@font-face { font-family: "AHMono"; src: url("../../../../androidApp/src/main/res/font/atkinson_hyperlegible_mono.ttf"); font-weight: 700; }
+:root {
+  --felt:#4F5A52; --felt-deep:#3E4741; --felt-raised:#5C685F; --felt-deep-dark:#2E3530;
+  --bone:#E9E4D8; --on-bone:#2B322D; --muted:#CDD3C9; --lamp:#F4E3B1; --patina:#7FB3A0;
+  --fault:#E8B09E; --ground:#262c28; --frame-text:#F2EEE4;
+}
+* { box-sizing: border-box; }
+::selection { background: var(--lamp); color: var(--on-bone); }
+body { margin:0; padding:28px 32px 80px; background:var(--ground); color:var(--bone); font-family:Figtree, sans-serif; }
+h1 { font-family:Bricolage; font-weight:600; font-size:30px; margin:0 0 6px; }
+h2 { font-family:Bricolage; font-weight:600; font-size:22px; margin:48px 0 4px; }
+p.lead, .note { color:var(--muted); max-width:1100px; line-height:1.5; font-size:14px; margin:4px 0 12px; }
+.note b, .lead b { color:var(--bone); }
+.row { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+.col { width:290px; } .col.wide { width:360px; }
+.cap { font-size:13px; color:var(--muted); line-height:1.45; margin-top:8px; }
+.cap b { color:var(--bone); }
+.opt { font-family:Bricolage; font-size:18px; margin:0 0 6px; }
+.chosen { color:var(--patina); font-size:13px; font-family:Figtree; }
+code { font-family:AHMono; font-size:12px; }
+.decided { max-width:1100px; background:var(--felt-deep); border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.6; color:var(--muted); }
+.decided b { color:var(--bone); }
+
+/* The card at 1/4 scale: 270×480 here is the 1080×1920 PNG. */
+.card916 { width:270px; height:480px; border-radius:12px; background:var(--felt-deep); display:flex; flex-direction:column; align-items:center; padding:56px 20px 24px; position:relative; overflow:hidden; }
+.card916::before { content:""; position:absolute; inset:0; background-image:var(--grain); opacity:1; pointer-events:none; }
+.card916 > * { position:relative; }
+.card916 .n { font-family:AHMono; font-weight:700; font-size:96px; line-height:1; margin-top:12px; font-variant-numeric:tabular-nums; }
+.card916 .t { font-family:Bricolage; font-weight:600; font-size:26px; margin-top:4px; }
+.card916 .brand { margin-top:auto; font-family:Bricolage; font-weight:600; font-size:16px; color:var(--frame-text); }
+.week { width:100%; display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:6px; margin-top:22px; }
+.week .d { text-align:center; font-size:12px; color:var(--muted); }
+.week .c { aspect-ratio:1; border-radius:2px; display:grid; place-items:center; background:var(--felt); overflow:hidden; }
+.week .c.e { background:none; box-shadow:inset 0 0 0 1px rgba(233,228,216,.25); }
+.week .c.ms { box-shadow:0 0 0 2px var(--lamp); }
+.week .c canvas { width:100%; height:100%; image-rendering:pixelated; display:block; }
+
+.phone { width:360px; height:700px; border-radius:18px; overflow:hidden; position:relative; }
+.cele { background:var(--felt-deep-dark); height:100%; display:flex; flex-direction:column; padding:48px 24px 24px; position:relative; }
+.cele .anchor { align-self:center; margin:12px 0 0; height:112px; display:grid; place-items:end center; }
+.cele .num { font-family:AHMono; font-weight:700; font-size:88px; line-height:1; text-align:center; }
+.cele .what { font-family:Bricolage; font-weight:600; font-size:22px; text-align:center; margin:6px 0 4px; }
+.cele .sub { font-size:16px; text-align:center; color:var(--muted); line-height:1.5; margin:0 8px; }
+.cele .week .c { background:var(--felt-deep); } .cele .week .c.today { box-shadow:0 0 0 2px var(--lamp); }
+.cele .spacer { flex:1; }
+.pb { display:flex; align-items:center; justify-content:center; min-height:48px; padding:0 18px; background:var(--bone); color:var(--on-bone); border-radius:6px; font-weight:600; font-size:16px; }
+.tb { min-height:48px; display:flex; align-items:center; justify-content:center; text-decoration:underline; text-underline-offset:3px; font-size:16px; }
+.tb.hl { outline:2px dashed var(--lamp); outline-offset:-2px; border-radius:6px; }
+.dim { position:absolute; inset:0; background:rgba(0,0,0,.55); }
+.sheet { position:absolute; left:0; right:0; bottom:0; background:#2a2f33; border-radius:24px 24px 0 0; padding:14px 18px 20px; color:#e8eaed; font-family:system-ui, sans-serif; }
+.sheet .h { width:32px; height:4px; border-radius:2px; background:#666; margin:0 auto 12px; }
+.sheet .pv { display:flex; gap:12px; align-items:center; background:#353b40; border-radius:14px; padding:10px; }
+.sheet .pv .thumb { width:44px; height:78px; border-radius:6px; overflow:hidden; flex:none; }
+.sheet .pv .thumb .card916 { transform:scale(.163); transform-origin:0 0; }
+.sheet .pv .tx { font-size:13px; line-height:1.35; color:#c9cdd1; word-break:break-all; }
+.sheet .apps { display:grid; grid-template-columns:repeat(4,1fr); gap:14px 8px; margin-top:16px; font-size:12px; text-align:center; }
+.sheet .apps i { width:48px; height:48px; border-radius:50%; display:block; margin:0 auto 6px; }
+.tb2 { font-size:13px; color:var(--muted); border-collapse:collapse; } .tb2 td { padding:4px 10px 4px 0; vertical-align:top; } .tb2 td:first-child { color:var(--bone); white-space:nowrap; }
+</style>
+</head>
+<body>
+<h1>Streak D · milestone share card</h1>
+<p class="lead">Fills the gaps in <code>ui.html</code> v3 section 5 (#104, G10, G14). The card is a <b>1080×1920 PNG</b>, drawn here at 1/4 scale (270×480), so every size is ×4 in the PNG: flame 440px, number Atkinson Mono 700 at 384px, line Bricolage 600 at 104px, "Gemmory" 64px. It sits on <code>felt-deep</code> with the app's 9% grain. Each day of the milestone week, Monday to Sunday (the locale's week, as on the celebration), shows <b>the bundled or remote picture finished that day</b>. A day with only a photo canvas finished, or a day kept by the day off, a freeze or a repair, shows the <b>lit flame</b>. <b>A photo canvas, its pixels or its colors never appear.</b> Days after the milestone are empty outlines. The only way in is the milestone celebration's "Share" (founder, 2026-10-22).</p>
+
+<h2>1 · Milestone cards</h2>
+<p class="note">The pictures here are stand-in pixel art. In the app each one is the picture's saved finished thumbnail, which only exists for bundled and remote pictures; a photo canvas's thumbnail is never read. The flame and the number take the tier color: amber under 30, orange from 30, red-orange from 100.</p>
+<div class="row" id="cards"></div>
+
+<h2>2 · Open point: mark the milestone day?</h2>
+<p class="note">On the celebration, today has the <code>lamp</code> outline ("this one"). The v3 card has no outline. <span class="chosen">Founder, 2026-10-22: A, no outline.</span></p>
+<div class="row" id="outline"></div>
+
+<h2>3 · How it's shared</h2>
+<div class="row">
+  <div class="col wide"><div class="opt">Milestone celebration</div><div class="phone" id="p1"></div>
+    <div class="cap">From #101: Continue is the primary button, and "Share" is the text button on 7, 30, 50, 100 and 365 (G10). Other days keep "See your streak", or the repair line. The card is made on the phone when Share is tapped (well under a second). A second tap in that time does nothing.</div></div>
+  <div class="col wide"><div class="opt">Android share sheet</div><div class="phone" id="p2"></div>
+    <div class="cap">The system sheet with the PNG and the share text "Made with Gemmory: &lt;Play link&gt;" (the link is tagged <code>utm_medium=streak</code>, <code>utm_campaign=streak_card</code>). Back, or a share, returns to the celebration; Continue then goes on as before (G6). Picking an app logs <code>streak_share_completed</code> with the milestone. The time-lapse's <code>share_completed</code> and Show and Tell are not counted.</div></div>
+  <div class="col wide"><div class="opt">TalkBack and copy</div>
+    <table class="tb2">
+      <tr><td>Button</td><td>"Share, button": the system sheet takes over from there</td></tr>
+      <tr><td>Lines</td><td>7 "A week of gems" · 30 "A month of gems" · 50 "50 days of gems" · 100 "100 days of gems" · 365 "A year of gems" (the celebration's milestone titles)</td></tr>
+      <tr><td>PNG text</td><td>The number, the line, the weekday letters (the locale's short day letters, as the week row) and "Gemmory". No dates, so a week that runs across two months reads the same</td></tr>
+      <tr><td>File</td><td><code>cacheDir/timelapse/streak-&lt;n&gt;.png</code>, inside the share path the time-lapse already uses. Never backed up</td></tr>
+    </table></div>
+</div>
+
+<div class="decided" style="margin-top:36px"><b>Built from:</b> G14 (bundled thumbnails, a lit flame for photo-only and kept days, never a photo canvas), G10 (Continue primary, Share as text), G8 (the streak-hero mono, here at the v3 card's proportion), G12 (Monday-Sunday). <b>Not in scope:</b> Share from the streak screen (founder, 2026-10-22), a card on non-milestone days, VIP watermark changes (the card carries only "Gemmory").</div>
+
+<script>
+const C = { felt:'#4F5A52', deep:'#3E4741', ember:'#7E8880' };
+// The app's grain: 96px of seeded noise at alpha 23 (~9%), tiled.
+(function(){ const s=96, cv=document.createElement('canvas'); cv.width=cv.height=s; const g=cv.getContext('2d'); const img=g.createImageData(s,s); let x=0x6E6D;
+  for(let i=0;i<s*s;i++){ x=(x*1103515245+12345)&0x7fffffff; const v=x>>23&255; img.data.set([v,v,v,23],i*4); } g.putImageData(img,0,0);
+  document.documentElement.style.setProperty('--grain',`url(${cv.toDataURL()})`); })();
+function flameCol(t){ return t>=100?'#E0563B':t>=30?'#F08A2C':'#F5A623'; }
+function flame(size, tier=1) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5-1.5 5-1.5 7.5 0 1.6 1.2 2.6 2.4 2.6 1.8 0 2.6-1.6 2.1-3.6C17.6 10.4 19 13 19 15.3 19 19 15.9 22 12 22s-7-3-7-6.7c0-4.4 4.5-6.2 7-13.3z" fill="${flameCol(tier)}"/><path d="M12 13.5c.4 1.4-.8 2.2-.8 3.4 0 .9.7 1.5 1.5 1.5 1.2 0 1.9-1 1.6-2.4.9.7 1.4 1.7 1.4 2.6 0 1.9-1.6 3.4-3.6 3.4s-3.6-1.5-3.6-3.4c0-2.2 2.2-3.2 3.5-5.1z" fill="#FCE3A6"/></svg>`;
+}
+function rnd(seed){ let x=seed*9301+49297; return ()=>{ x=(x*9301+49297)%233280; return x/233280; }; }
+const PALS = [['#2f4f6f','#6f9fbf','#e8d8a8','#c86f3f','#1f2f3f'],['#5f7f3f','#9fbf5f','#3f5f2f','#e8e0b0','#8f6f3f'],['#8f3f4f','#df8f8f','#f0d0c0','#5f2f3f','#2f1f2f'],['#3f6f6f','#7fbfaf','#d0e8d8','#1f3f3f','#e0b060'],['#6f4f8f','#a08fc0','#e8d8f0','#3f2f4f','#d0a060']];
+function pic(seed,cells=8){ const cv=document.createElement('canvas'); cv.width=cv.height=cells; const g=cv.getContext('2d'); const r=rnd(seed); const pal=PALS[seed%PALS.length];
+  for(let y=0;y<cells;y++)for(let x=0;x<cells;x++){ const band=Math.floor((y/cells)*3+r()*1.2); g.fillStyle=pal[Math.min(pal.length-1,band+(r()<.2?1:0))]; g.fillRect(x,y,1,1);} return cv; }
+const LETTERS=['M','T','W','T','F','S','S'];
+// p = picture, f = lit flame (photo-only or kept), e = after the milestone
+function card(n, line, days, opts={}){
+  const msIdx = days.indexOf('e')===-1 ? 6 : days.indexOf('e')-1;
+  const cells = days.map((m,i)=>`<div class="c${m==='e'?' e':''}${opts.outline&&i===msIdx?' ms':''}" data-k="${m}" data-s="${n*7+i*5+2}">${m==='f'?flame(22,n):''}</div>`).join('');
+  return `<div class="card916">${flame(110,n)}<div class="n">${n}</div><div class="t">${line}</div><div class="week">${LETTERS.map(d=>`<div class="d">${d}</div>`).join('')}${cells}</div><div class="brand">Gemmory</div></div>`;
+}
+function fill(root){ root.querySelectorAll('[data-k="p"]').forEach(el=>el.appendChild(pic(+el.dataset.s))); }
+const states = [
+  [7,'A week of gems',['p','f','p','p','e','e','e'],'<b>7 on a Thursday.</b> Tuesday\'s only finish was a photo canvas, so it shows the flame. Friday to Sunday come after the milestone: empty outlines.'],
+  [7,'A week of gems',['f','p','f','p','f','p','e'],'<b>7 kept by covers.</b> Monday the day off, Wednesday a streak freeze, Friday a repair: on the card each is the lit flame (G14), not the calendar\'s marks.'],
+  [30,'A month of gems',['p','p','f','e','e','e','e'],'<b>30, orange.</b> A milestone on Wednesday 1 November: Monday and Tuesday are 30-31 October. The row has weekday letters only, so the month change doesn\'t show.'],
+  [50,'50 days of gems',['p','p','p','p','p','e','e'],'<b>50.</b> Still orange (30+).'],
+  [100,'100 days of gems',['p','p','p','f','p','p','p'],'<b>100, red-orange, on a Sunday.</b> The whole week is filled. Thursday\'s picture canvas was deleted, so its thumbnail is gone and the day shows the flame.'],
+  [365,'A year of gems',['f','p','p','p','f','p','e'],'<b>365.</b> Three mono digits fit well inside the card (about 690 of 920px).'],
+];
+const cards=document.getElementById('cards');
+cards.innerHTML = states.map(([n,l,d,c])=>`<div class="col">${card(n,l,d)}<div class="cap">${c}</div></div>`).join('');
+fill(cards);
+const ol=document.getElementById('outline');
+ol.innerHTML = `<div class="col"><div class="opt">A · no outline (v3)</div>${card(7,'A week of gems',['p','f','p','p','e','e','e'])}<div class="cap">Recommended: the empty outlines after it already show where the streak stands, and the card stays calm.</div></div>
+  <div class="col"><div class="opt">B · lamp outline on the day</div>${card(7,'A week of gems',['p','f','p','p','e','e','e'],{outline:true})}<div class="cap">The celebration's "this one" outline, carried onto the card.</div></div>`;
+fill(ol);
+
+const cele = (overlay='') => `<div class="cele">
+  <div class="anchor">${flame(112,7)}</div><div class="num">7</div>
+  <div class="what">A week of gems</div><div class="sub">7 days in a row.</div>
+  <div class="week">${LETTERS.map(d=>`<div class="d">${d}</div>`).join('')}${['g','g','g','g','x','x','x'].map((m,i)=>`<div class="c${i===3?' today':''}">${m==='g'?flame(22,7):''}</div>`).join('')}</div>
+  <div class="spacer"></div><div class="pb">Continue</div><div class="tb ${overlay?'':'hl'}">Share</div></div>${overlay}`;
+document.getElementById('p1').innerHTML = cele();
+document.getElementById('p2').innerHTML = cele(`<div class="dim"></div><div class="sheet"><div class="h"></div>
+  <div class="pv"><div class="thumb">${card(7,'A week of gems',['p','f','p','p','e','e','e'])}</div><div class="tx">Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&amp;referrer=…</div></div>
+  <div class="apps">${['#25D366','#E1306C','#1877F2','#4285F4','#0088cc','#FFFC00','#7B61FF','#90A4AE'].map((c,i)=>`<div><i style="background:${c}"></i>${['WhatsApp','Instagram','Messenger','Messages','Telegram','Snapchat','Discord','More'][i]}</div>`).join('')}</div></div>`);
+fill(document.getElementById('p2'));
+</script>
+</body>
+</html>

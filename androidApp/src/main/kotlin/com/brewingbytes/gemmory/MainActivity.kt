@@ -77,6 +77,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.gallery.locked
 import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.share.ShareIntents
 import com.brewingbytes.gemmory.streak.RepairActions
 import com.brewingbytes.gemmory.streak.STREAK_REPAIR_TAG
 import com.brewingbytes.gemmory.streak.StreakCelebration
@@ -297,6 +298,9 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(top) {
             val left = previous
             previous = top
+            // Left the celebration some other way than its buttons (a widget or reminder tap): it's over, and a share
+            // card still being made is dropped (#104).
+            if (left is Route.StreakDay && top !is Route.StreakDay) streakDay.done()
             if (top is Route.Completion && completion.fresh.isFresh(top)) app.interstitials.onFreshCompletion()
             // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
             val leftFresh = left is Route.Completion && left != top && completion.fresh.left(left)
@@ -496,6 +500,8 @@ class MainActivity : ComponentActivity() {
                             streakDay.done()
                             stack.openStreak(if (repair) "celebration_repair" else "celebration")
                         },
+                        // The share sheet opens over the celebration; back from it lands here again (#104).
+                        onShare = { card, milestone -> startActivity(ShareIntents.streakChooser(this, card, milestone)) },
                     )
                 }
             }

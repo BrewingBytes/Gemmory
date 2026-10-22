@@ -134,5 +134,9 @@
         <receiver
             android:name=".share.ShareCompletedReceiver"
             android:exported="false" />
+        <!-- The same for the milestone streak card (#104): streak_share_completed. -->
+        <receiver
+            android:name=".share.StreakShareCompletedReceiver"
+            android:exported="false" />
     </application>
 </manifest>
