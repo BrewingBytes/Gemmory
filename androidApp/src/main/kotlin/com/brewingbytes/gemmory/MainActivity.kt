@@ -382,7 +382,7 @@ class MainActivity : ComponentActivity() {
                     onOpen = { tile, entry -> scope.launch { stack.openTile(tile.ref, entry, app.store::isFinished) } },
                     onLocked = { tile -> rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity) },
                     onSettings = { stack.push(Route.Settings) },
-                    onStreak = { stack.openStreak("chip") },
+                    onStreak = { source -> stack.openStreak(source) },
                     showVip = firstSessionOver,
                     onVip = { openVip(VIP_ACTION_TAG) },
                     notice = galleryNotice,

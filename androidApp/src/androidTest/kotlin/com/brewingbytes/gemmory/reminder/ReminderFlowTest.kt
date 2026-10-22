@@ -266,6 +266,14 @@ class ReminderFlowTest {
         waitFor(hasTestTag("play-canvas"))
     }
 
+    /** #102: a streak reminder pointing at a Quick picture (no canvas yet) opens that picture's canvas. */
+    @Test
+    fun aStreakTapOnAQuickPictureOpensItsCanvas() {
+        val quick = runBlocking { app.quickOpenable(app.store.reminderCanvases()) }.first()
+        scenario = ActivityScenario.launch(tap(ReminderReason.STREAK, picture = quick))
+        waitFor(hasTestTag("play-canvas"))
+    }
+
     /** eng D11: the evening run doesn't count as a cold start, so it can't end a new player's first session. */
     @Test
     fun anEveningRunLeavesTheFirstSessionAlone() {

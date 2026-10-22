@@ -94,7 +94,9 @@ import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.policy.InventoryState
+import com.brewingbytes.gemmory.policy.NudgeTarget
 import com.brewingbytes.gemmory.policy.Spin
+import com.brewingbytes.gemmory.policy.StreakNudge
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -174,6 +176,9 @@ const val VIP_ACTION_TAG = "gallery-vip"
 const val STREAK_TAG = "gallery-streak"
 const val TODAY_TAG = "gallery-today"
 
+/** The streak nudge (#102), in the Today card or on its own card. */
+const val STREAK_NUDGE_TAG = "gallery-streak-nudge"
+
 /** The Tomorrow line (T36), in the Today card or on its own. */
 const val TOMORROW_TAG = "gallery-tomorrow"
 
@@ -236,8 +241,8 @@ fun GalleryScreen(
     musicChip: Boolean = false,
     onMusicChipGone: () -> Unit = {},
     onMusicOff: () -> Unit = {},
-    /** The streak chip (#101) opens the streak screen. */
-    onStreak: () -> Unit = {},
+    /** The streak chip (#101) and the nudge's broken variant (#102) open the streak screen, from `chip` or `nudge`. */
+    onStreak: (source: String) -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
@@ -292,7 +297,7 @@ fun GalleryScreen(
                 if (showVip) GemTextButton("VIP", onVip, Modifier.testTag(VIP_ACTION_TAG))
                 IconAction(GemIcons.Settings, "Settings", onSettings)
             }
-            Tabs(tab, onTab = vm::selectTab, streak = state.streak, streakDone = state.streakDone, ignite = vm.streakIgnite, onIgnited = vm::streakIgnited, onStreak = onStreak)
+            Tabs(tab, onTab = vm::selectTab, streak = state.streak, streakDone = state.streakDone, repairable = state.repairable, ignite = vm.streakIgnite, onIgnited = vm::streakIgnited) { onStreak("chip") }
             if (notice != null) {
                 // Billing's one-time line (design D6, D7), read out when it appears.
                 Text(
@@ -338,10 +343,21 @@ fun GalleryScreen(
                 }
                 val today = state.today
                 val tomorrow = state.tomorrow
+                // The keep-it-alive nudge (#102): its canvas, or the streak screen for the broken variant or no target.
+                val nudge = state.nudge?.takeIf { tab == 0 }
+                val nudgeTapped: () -> Unit = {
+                    nudge?.let { n ->
+                        if (musicChip) onMusicChipGone()
+                        vm.nudgeTapped(n)
+                        val tile = n.tile
+                        if (n.broken == null && tile != null) open(tile, CanvasEntry.STREAK_NUDGE) else onStreak("nudge")
+                    }
+                }
+                if (nudge != null) LaunchedEffect(nudge.broken != null) { vm.nudgeShown(nudge) }
                 val header: (@Composable () -> Unit)? = when {
                     tab != 0 -> null
-                    today != null -> { { TodayCardView(today, tomorrow, tomorrowTapped) { open(today.tile, CanvasEntry.TODAY_CARD) } } }
-                    tomorrow != null -> { { TomorrowCard(tomorrow, tomorrowTapped) } }
+                    today != null -> { { TodayCardView(today, nudge, nudgeTapped, tomorrow, tomorrowTapped) { open(today.tile, CanvasEntry.TODAY_CARD) } } }
+                    nudge != null || tomorrow != null -> { { NudgeCard(nudge, nudgeTapped, tomorrow, tomorrowTapped) } }
                     else -> null
                 }
                 // Collection and event rows (T37/T38): two at most, one above 1.5× font (D4), then the All collections link (D3).
@@ -599,7 +615,16 @@ private fun NoteAndButton(note: (@Composable () -> Unit)?, button: @Composable (
  * from the first day, and wraps under the tabs when they leave no room (200% font).
  */
 @Composable
-private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int, streakDone: Boolean, ignite: Boolean, onIgnited: () -> Unit, onStreak: () -> Unit) {
+private fun Tabs(
+    selected: Int,
+    onTab: (Int) -> Unit,
+    streak: Int,
+    streakDone: Boolean,
+    repairable: Int?,
+    ignite: Boolean,
+    onIgnited: () -> Unit,
+    onStreak: () -> Unit,
+) {
     FlowRow(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -625,10 +650,11 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int, streakDone: B
                 Text(label, style = GemType.button, color = GemColors.Bone)
             }
         }
-        // From day 1 now that it opens the streak screen (#101, G18); hidden while there's no streak.
-        if (streak > 0) {
+        // From day 1 now that it opens the streak screen (#101, G18); hidden while there's no streak, except for a grey
+        // "0 ›" while a broken one can be repaired (#102, G4).
+        if (streak > 0 || repairable != null) {
             Spacer(Modifier.weight(1f))
-            StreakChip(streak, streakDone, ignite, onIgnited, onStreak)
+            StreakChip(streak, streakDone, repairable.takeIf { streak == 0 }, ignite, onIgnited, onStreak)
         }
     }
 }
@@ -637,10 +663,11 @@ private fun Tabs(selected: Int, onTab: (Int) -> Unit, streak: Int, streakDone: B
  * Today's picture (#34): a felt-deep card above the Pictures grid with the finished picture (its real progress once
  * started), "Today's picture" ("Today's pick" for VIP), the title, the size and "free today", and a quiet Start
  * (Continue once started; none when done). The whole card opens it; TalkBack reads it as one node. Today's drop (T36)
- * swaps the label line for the "New today" chip; [tomorrow]'s frost adds the Tomorrow line at the bottom, its own node.
+ * swaps the label line for the "New today" chip. The streak [nudge] (#102) and [tomorrow]'s Tomorrow line follow at the
+ * bottom, each under a hairline, each its own node.
  */
 @Composable
-private fun TodayCardView(card: TodayCard, tomorrow: ImageBitmap?, onTomorrow: () -> Unit, onOpen: () -> Unit) {
+private fun TodayCardView(card: TodayCard, nudge: Nudge?, onNudge: () -> Unit, tomorrow: ImageBitmap?, onTomorrow: () -> Unit, onOpen: () -> Unit) {
     val tile = card.tile
     val action = when {
         tile.done -> "Open"
@@ -694,9 +721,85 @@ private fun TodayCardView(card: TodayCard, tomorrow: ImageBitmap?, onTomorrow: (
                 }
             }
         }
+        if (nudge != null) {
+            Hairline()
+            NudgeLine(nudge, onNudge)
+        }
         if (tomorrow != null) {
-            // A 1dp hairline at 12% bone over the Tomorrow line (T36).
-            Box(Modifier.fillMaxWidth().height(1.dp).background(GemColors.Bone.copy(alpha = 0.12f)))
+            Hairline()
+            TomorrowLine(tomorrow, onTomorrow)
+        }
+    }
+}
+
+/** A 1dp hairline at 12% bone between the Today card's lines (T36, #102). */
+@Composable
+private fun Hairline() {
+    Box(Modifier.fillMaxWidth().height(1.dp).background(GemColors.Bone.copy(alpha = 0.12f)))
+}
+
+/**
+ * The keep-it-alive nudge (#102, G2-G4): the grey flame, "Finish a picture today to keep your 6 days" in `bone`, its
+ * hint ("Harbour is 82% done") and the awaiting-cover line in `text-muted` (valid on felt-deep), and "›". The broken
+ * variant: "Your 12 days can still be restored" / "See your streak". At least 56dp, its text wrapping at large font;
+ * the number in mono. TalkBack: one node, a button.
+ */
+@Composable
+private fun NudgeLine(nudge: Nudge, onTap: () -> Unit) {
+    val line = nudge.broken?.let(StreakText::stillRestorable) ?: StreakNudge.line(nudge.days)
+    val description = listOfNotNull(line, nudge.hint, nudge.awaiting).joinToString(". ")
+    val figure = (nudge.broken ?: nudge.days).toString()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .testTag(STREAK_NUDGE_TAG)
+            .clickable(onClick = onTap)
+            .clearAndSetSemantics {
+                contentDescription = description
+                role = Role.Button
+                onClick { onTap(); true }
+            }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Flame(lit = false, length = nudge.broken ?: nudge.days, size = 20.dp, still = true)
+        Column(Modifier.weight(1f)) {
+            Text(withFigure(line, figure, 15), style = GemType.body, color = GemColors.Bone, modifier = Modifier.widthIn(max = 480.dp))
+            val percent = (nudge.target as? NudgeTarget.Canvas)?.canvas?.percent?.let { "$it%" }
+            nudge.hint?.let { Text(withFigure(it, percent, 13), style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.widthIn(max = 480.dp)) }
+            nudge.awaiting?.let { Text(it, style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.widthIn(max = 480.dp)) }
+        }
+        Text("›", style = GemType.button, color = GemColors.Bone)
+    }
+}
+
+/** [text] with its [figure] (a count, a percent) in mono at [size]sp, like every figure. */
+private fun withFigure(text: String, figure: String?, size: Int) = buildAnnotatedString {
+    val at = figure?.let(text::indexOf) ?: -1
+    if (figure == null || at < 0) {
+        append(text)
+    } else {
+        append(text.substring(0, at))
+        withStyle(GemType.mono.copy(fontSize = size.sp).toSpanStyle()) { append(figure) }
+        append(text.substring(at + figure.length))
+    }
+}
+
+/** The nudge on its own `felt-deep` card when there's no Today card (#102), the Tomorrow line under it (T36). */
+@Composable
+private fun NudgeCard(nudge: Nudge?, onNudge: () -> Unit, tomorrow: ImageBitmap?, onTomorrow: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(LocalFelt.current.deep),
+    ) {
+        if (nudge != null) NudgeLine(nudge, onNudge)
+        if (tomorrow != null) {
+            if (nudge != null) Hairline()
             TomorrowLine(tomorrow, onTomorrow)
         }
     }
@@ -761,20 +864,6 @@ internal fun BoxScope.FrostCover() {
     Box(Modifier.matchParentSize().background(LocalFelt.current.deep.copy(alpha = Frost.OVERLAY_ALPHA)))
 }
 
-/** The Tomorrow line on its own `felt-deep` card, when there's no Today card (T36). */
-@Composable
-private fun TomorrowCard(frost: ImageBitmap, onTap: () -> Unit) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(bottom = 6.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(LocalFelt.current.deep),
-    ) {
-        TomorrowLine(frost, onTap)
-    }
-}
-
 /** "Medium · free today" / "Medium · 12% done" / "Medium · done" / "Medium"; the percent in mono, like every figure. */
 private fun todayLine(card: TodayCard) = buildAnnotatedString {
     append(card.size)
@@ -795,11 +884,11 @@ private val TODAY_THUMB = 72.dp
 /**
  * The streak chip (#101, G18): a 48dp button with the flame, grey until today's picture is finished and lit after
  * ([ignite]: it lights up once, after a celebration skipped on a cold start, G9), and the count in mono; it opens the
- * streak screen. One TalkBack node.
+ * streak screen. One TalkBack node. While a [broken] streak can be repaired (#102, G4) it reads a grey "0 ›".
  */
 @Composable
-private fun StreakChip(days: Int, done: Boolean, ignite: Boolean, onIgnited: () -> Unit, onClick: () -> Unit) {
-    val description = StreakText.chip(days, done)
+private fun StreakChip(days: Int, done: Boolean, broken: Int?, ignite: Boolean, onIgnited: () -> Unit, onClick: () -> Unit) {
+    val description = broken?.let(StreakText::chipBroken) ?: StreakText.chip(days, done)
     Row(
         Modifier
             .heightIn(min = 48.dp)

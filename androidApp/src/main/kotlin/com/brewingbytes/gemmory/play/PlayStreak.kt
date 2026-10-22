@@ -166,6 +166,14 @@ class PlayStreak(
     /** Days in a row as of today with [cover]; 0 once broken. */
     fun current(cover: Cover = Cover.NONE): Int = DailyStreak.shown(state(), clock.today(), cover)
 
+    /** The gallery's nudge showed (#102): true the first time on [day], so `streak_nudge_shown` is logged once a day. */
+    @Synchronized
+    fun nudgeShown(day: Long): Boolean {
+        if (prefs.getLong(NUDGE_SHOWN_DAY, StreakState.NEVER) == day) return false
+        prefs.edit { putLong(NUDGE_SHOWN_DAY, day) }
+        return true
+    }
+
     /** Today's celebration not shown yet (E2), if any. */
     @Synchronized
     fun pendingCelebration(): PendingCelebration? = pending?.takeIf { it.day == clock.today() }
@@ -235,6 +243,7 @@ class PlayStreak(
         const val BROKEN_LAST_DAY = "brokenLastDay"
         const val LAST_VIP_REPAIR = "lastVipRepairDay"
         const val LAST_GRACE_REPAIR = "lastGraceRepairDay"
+        const val NUDGE_SHOWN_DAY = "nudgeShownDay"
         const val P_DAY = "pendingDay"
         const val P_LENGTH = "pendingLength"
         const val P_COVERED = "pendingCovered"

@@ -128,7 +128,13 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** A broken streak was brought back (#102); [vip]: VIP's weekly free repair, else a video or the grace. */
         fun streakRepairCompleted(vip: Boolean) = AnalyticsEvent("streak_repair_completed", mapOf("vip" to if (vip) 1L else 0L))
 
-        /** The streak screen opened (#101), from [source]: `chip`, `celebration` or `celebration_repair` (#102). */
+        /** The gallery's keep-it-alive nudge showed (#102), once a day; [broken]: the repair variant. */
+        fun streakNudgeShown(broken: Boolean) = AnalyticsEvent("streak_nudge_shown", mapOf("broken" to if (broken) 1L else 0L))
+
+        /** The nudge was tapped (#102): [target] is `today`, `canvas`, `quick`, `repair` (the broken variant) or `none`. */
+        fun streakNudgeTapped(target: String) = AnalyticsEvent("streak_nudge_tapped", mapOf("target" to target))
+
+        /** The streak screen opened (#101), from [source]: `chip`, `celebration`, `celebration_repair` or `nudge` (#102). */
         fun streakScreenOpened(source: String) = AnalyticsEvent("streak_screen_opened", mapOf(SOURCE to source))
 
         /** The first gem on today's picture (#34). [vip]: it was VIP's "Today's pick", not a free grant. */
@@ -222,7 +228,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 /**
  * Where a canvas was opened from (T36): the `entry` of `canvas_started`, `canvas_finished` and `day_played`. The
  * gallery's grid (and My Photos, and Preview's Start) is [GALLERY], the Today's picture card [TODAY_CARD]; the rest
- * come with the reminder (T35), collections (T37) and the weekly event (T38).
+ * come with the reminder (T35), collections (T37), the weekly event (T38) and the streak nudge (#102).
  */
 enum class CanvasEntry(val param: String) {
     GALLERY("gallery"),
@@ -230,6 +236,7 @@ enum class CanvasEntry(val param: String) {
     REMINDER("reminder"),
     COLLECTION("collection"),
     EVENT("event"),
+    STREAK_NUDGE("streak_nudge"),
 }
 
 /** Why no rewarded video was there (design doc: no_fill | offline | timeout), plus `error` for anything else. */

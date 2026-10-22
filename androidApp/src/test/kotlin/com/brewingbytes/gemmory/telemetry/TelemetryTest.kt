@@ -162,7 +162,7 @@ class TelemetryTest {
         )
         assertEquals(AnalyticsEvent("day_played", mapOf("entry" to "today_card")), AnalyticsEvent.dayPlayed(CanvasEntry.TODAY_CARD))
         assertEquals(AnalyticsEvent("teaser_tapped"), AnalyticsEvent.teaserTapped)
-        assertEquals(listOf("gallery", "today_card", "reminder", "collection", "event"), CanvasEntry.entries.map { it.param })
+        assertEquals(listOf("gallery", "today_card", "reminder", "collection", "event", "streak_nudge"), CanvasEntry.entries.map { it.param })
         val params = listOf(AnalyticsEvent.dayPlayed(CanvasEntry.REMINDER), AnalyticsEvent.canvasStarted(drop, 90, 90, daysSinceAvailable = 1))
             .flatMap { it.params.values }
         assertTrue(params.none { it == "lighthouse" }, "no picture id in any param")
@@ -264,6 +264,8 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("streak_freeze_used", mapOf("count" to 2L)), AnalyticsEvent.streakFreezeUsed(2))
         assertEquals(AnalyticsEvent("streak_repair_offered", mapOf("length" to 12L)), AnalyticsEvent.streakRepairOffered(12))
         assertEquals(AnalyticsEvent("streak_repair_completed", mapOf("vip" to 1L)), AnalyticsEvent.streakRepairCompleted(vip = true))
+        assertEquals(AnalyticsEvent("streak_nudge_shown", mapOf("broken" to 0L)), AnalyticsEvent.streakNudgeShown(broken = false))
+        assertEquals(AnalyticsEvent("streak_nudge_tapped", mapOf("target" to "canvas")), AnalyticsEvent.streakNudgeTapped("canvas"))
         assertEquals(AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "streak_repair")), AnalyticsEvent.rewardedOffered(RewardType.STREAK_REPAIR))
         assertEquals(
             AnalyticsEvent("streak_celebration_shown", mapOf("length" to 7L, "milestone" to 7L, "saved_by" to "day_off")),

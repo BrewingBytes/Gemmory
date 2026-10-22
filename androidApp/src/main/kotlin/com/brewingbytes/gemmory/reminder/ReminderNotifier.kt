@@ -50,12 +50,15 @@ class ReminderNotifier(context: Context) : ReminderChannel {
         return channel.importance != NotificationManager.IMPORTANCE_NONE
     }
 
-    /** [picture]: the drop, Today's picture or the almost-finished picture; null for a streak or a photo canvas. */
+    /**
+     * [picture]: the drop, Today's picture, the almost-finished picture or the streak's target (#102); null for a photo
+     * canvas. A streak shows the app icon, never the picture (G5).
+     */
     fun post(post: ReminderOutcome.Post, picture: ReminderPicture?, vip: Boolean, day: Long): Boolean {
         if (!allowed()) return false
         ensureChannel()
         val text = ReminderCopy.of(post, picture?.title, picture?.size, vip, picture?.mystery == true)
-        val icon = picture?.pattern?.invoke()?.let { if (picture.mystery) frost(it) else flat(it) } ?: appIcon()
+        val icon = picture?.takeIf { post.reason != ReminderReason.STREAK }?.pattern?.invoke()?.let { if (picture.mystery) frost(it) else flat(it) } ?: appIcon()
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification_gem)
             .setColor(PATINA)
