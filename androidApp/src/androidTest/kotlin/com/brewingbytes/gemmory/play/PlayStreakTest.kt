@@ -93,7 +93,7 @@ class PlayStreakTest {
      * counts the day again nor spends the freeze for it.
      */
     @Test
-    fun aCrashBetweenTheSaveAndTheSpendKeepsTheDayAndTheFreeze() = runBlocking {
+    fun aCrashBetweenTheSaveAndTheSpendKeepsTheDayAndTheFreeze() = runBlocking<Unit> {
         val today = LocalDate.now().toEpochDay()
         // Yesterday was missed and the day off was used 3 days ago: only a streak freeze covers it.
         prefs.edit().clear().putInt("length", 4).putLong("lastDay", today - 2).putLong("restDay", today - 5).commit()
