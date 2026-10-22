@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Gemmory</string>
+    <!-- The streak widget (#103): its name and description in the widget picker. -->
+    <string name="widget_streak_label">Streak</string>
+    <string name="widget_streak_description">Your streak and whether today\'s picture is done</string>
 </resources>

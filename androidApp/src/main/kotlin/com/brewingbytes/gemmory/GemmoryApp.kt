@@ -65,6 +65,7 @@ import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.streak.StreakView
+import com.brewingbytes.gemmory.widget.StreakWidgets
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.ConsentFirst
 import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
@@ -108,6 +109,10 @@ class GemmoryApp : Application() {
 
     /** The streak with what covers a missed day (#101, O8): every streak reader goes through it. */
     lateinit var streakView: StreakView
+        private set
+
+    /** The home-screen streak widget's state and refresh (#103): it follows [streakView]. */
+    lateinit var streakWidgets: StreakWidgets
         private set
 
     /** Play Games achievements (#49): counted on the phone, sent while the Gallery or Settings shows. */
@@ -479,7 +484,8 @@ class GemmoryApp : Application() {
         resolveRepair = { monetization.repairStreak(it) },
     ) { achievements.record(GameEvent.StreakDay(it)) }
 
-    private fun newStreakView() = StreakView(streak, dayClock, billing.entitlements, monetization.inventory, appScope)
+    private fun newStreakView() =
+        StreakView(streak, dayClock, billing.entitlements, monetization.inventory, appScope).also(streakWidgets::follow)
 
     private fun newAchievements(backend: GamesBackend, ids: (Achievement) -> String = { getString(achievementId(it)) }) = Achievements(
         store = FileStateStore(File(filesDir, StorageLayout.ACHIEVEMENTS), AchievementCodec::encode, AchievementCodec::decode, reporter),
@@ -594,6 +600,7 @@ class GemmoryApp : Application() {
             analytics = analytics,
         )
         monetization = newMonetization()
+        streakWidgets = StreakWidgets(this, appScope, analytics, dayClock::millisUntilNextDay)
         streak = newStreak()
         streakView = newStreakView()
         todays = newTodays()
@@ -626,6 +633,7 @@ class GemmoryApp : Application() {
                 monetization.onForeground()
                 billing.onForeground()
                 music.setForeground(true)
+                streakWidgets.onForeground()
             }
 
             override fun onStop(owner: LifecycleOwner) {

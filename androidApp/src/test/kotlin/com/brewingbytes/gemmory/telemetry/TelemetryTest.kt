@@ -272,6 +272,8 @@ class TelemetryTest {
             AnalyticsEvent.streakCelebrationShown(7, 7, "day_off"),
         )
         assertEquals(AnalyticsEvent("streak_screen_opened", mapOf("source" to "chip")), AnalyticsEvent.streakScreenOpened("chip"))
+        assertEquals(AnalyticsEvent("streak_screen_opened", mapOf("source" to "widget")), AnalyticsEvent.streakScreenOpened("widget"))
+        assertEquals(AnalyticsEvent("streak_widget_added", emptyMap()), AnalyticsEvent.streakWidgetAdded())
         assertEquals(
             AnalyticsEvent("todays_picture_started", mapOf("size" to "medium", "tier" to "free")),
             AnalyticsEvent.todaysPictureStarted(CanvasRef(CanvasKind.BUNDLED, "cherries"), 104, 78, vip = false),
