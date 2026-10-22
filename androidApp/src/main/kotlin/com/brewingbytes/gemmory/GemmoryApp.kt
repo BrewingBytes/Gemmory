@@ -123,8 +123,9 @@ class GemmoryApp : Application() {
         private set
 
     /**
-     * Play Games, set up only at its turn (T45, [onGalleryVisit]): after the first finish, at a gallery visit that
-     * isn't a fresh-finish return, so its automatic sign-in never lands before the first gem or over a canvas.
+     * Play Games, set up only at its turn (T45): after the first finish, at the app's first foreground or, in the
+     * session of that finish, at a gallery visit that isn't the finish's return, so its automatic sign-in never lands
+     * before the first gem.
      */
     private val playGames: GamesBackend by lazy {
         if (BuildConfig.PLAY_GAMES) PlayGamesBackend(this, getString(R.string.game_services_project_id), reporter) else GamesBackend.Off
@@ -149,14 +150,19 @@ class GemmoryApp : Application() {
         }
 
     /**
-     * The gallery shows on a visit that isn't a fresh-finish return, with nothing pushed over it (T45): Play Games
-     * starts here once its turn has come, and a gallery that's showing sends what waited in the ledger.
+     * The gallery shows on a visit that isn't a fresh-finish return, with nothing pushed over it (T45): in the session
+     * of the player's first finish, Play Games starts here, and a gallery that's showing sends what waited in the
+     * ledger. Later sessions start it at the app's first foreground ([onFirstForeground]).
      */
     fun onGalleryVisit(finishReturn: Boolean) {
-        if (playGamesStarted) return
-        // The ledger too, so an upgrader's first visit doesn't wait for the flag to be written.
-        val ready = settings.playGamesReady || achievements.state.let { PlayGamesTurn.ready(it.finishes, it.unlocked) }
-        if (!PlayGamesTurn.startNow(ready, onGallery = true, finishReturn = finishReturn)) return
+        if (!playGamesStarted && PlayGamesTurn.startNow(playGamesReady(), onGallery = true, finishReturn = finishReturn)) startPlayGames()
+    }
+
+    /** Play Games' turn has come (T45). The ledger too, so an upgrader doesn't wait for the flag to be written. */
+    private fun playGamesReady(): Boolean =
+        settings.playGamesReady || achievements.state.let { PlayGamesTurn.ready(it.finishes, it.unlocked) }
+
+    private fun startPlayGames() {
         playGamesStarted = true
         if (playGames.available) achievements.resend()
     }
@@ -697,10 +703,13 @@ class GemmoryApp : Application() {
     /**
      * The process came to the screen for the first time (T35, eng D11). Only now does it count as a cold start for the
      * first session, and only now does the achievements backfill run, so a reminder, reboot or update that starts the
-     * process in the background does none of it. Play Games waits for its turn (T45, [onGalleryVisit]).
+     * process in the background does none of it. Play Games starts here only once its turn has come (T45).
      */
     private fun onFirstForeground() {
         monetization.onProcessStart()
+        // Past the first finish, Play Games starts with the app (T45, founder: as early as allowed); before it, a fresh
+        // install sees nothing of it until a gallery visit after that finish.
+        if (playGamesReady()) startPlayGames()
         val streakNow = streakView.refresh().shown
         watchPlayGamesTurn(after = achievements.backfill { finishedOnPhone() to streakNow })
         appScope.launch { streak.backfill(::firstFinishes) }
