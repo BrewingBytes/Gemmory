@@ -4,7 +4,7 @@ Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decis
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
 Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
-Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end.
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)).
 
 ---
 
@@ -1095,3 +1095,184 @@ Labels: P2, ui
 **Done when:** a milestone celebration's Share produces the card per spec, with no photo-derived content, through the share sheet.
 
 Depends on: #101. Effort: human ~1.5d / CC ~45min.
+
+---
+
+# Round 3: strangers in the door (eng review, 2026-10-22)
+
+Source: `docs/designs/gemmory-round3.md` → Recommended Approach (T45-T51), amended by "CEO Review (Phase 2)" (C1-C11, O1-O8, X1-X4, T52) and "Eng Review (Phase 3)" (E1-E3, fixes, O-E2-O-E12); later sections win. **Wave 1, before production access, in this order:** T45 → T46 → T47 → T50 → T48; T45 and T46 (with the privacy policy and Data safety updates) gate the promotion to production (C9). **Wave 2, the first production update:** T49, T52. **Gated:** T51. One PR per issue. Every issue keeps the AGENTS.md rules: adults only, photos never leave the phone, no ads on the canvas, pure `commonMain`, a wrong-color tap changes nothing, UI follows `docs/design-system.md`, every PR shows its screens.
+
+Shared rules for round 3 (eng): a "fresh install" is decided only by `NewPlayer` (T46); copy in `commonMain` is a sealed message type resolved in `androidApp` (E1, from T48 on); every date and clock is injected in tests.
+
+---
+
+## T45: First run clear: nothing between a fresh install and the first gem
+Labels: P1, game, ui
+
+**Why:** production is the first time a stranger opens Gemmory, and nobody has watched one do it. Today Play Games' automatic sign-in can put Google's "Create a Play Games profile" sheet in front of the starter picture on the very first launch. Plan: T45 in `docs/designs/gemmory-round3.md`; CEO O2, C9; eng E3, O-E9.
+
+**Scope**
+- **Step 0, spike (E3):** on a release-signed closed-track build with a tester account, start Play Games late (at a gallery visit after a first finish) and check where its sign-in or profile sheet appears, including a resume from a notification straight into a canvas. Written up in the PR.
+  - Sheet only ever over the gallery → ship the gate below.
+  - Otherwise → ship the fallback: no automatic sign-in; Settings' "Achievements · Play Games" row signs in on tap; unlocks wait in the ledger until then (accepted by the founder, so the spike can't stall the promotion gate).
+- **Gate:** a backed-up flag `playGamesReady`, set when the first fresh finish is counted, and set at once on upgrade for a player with any finished canvas or an earned achievement in `AchievementLedger` (existing players see no change; an upgrader with neither waits for their first finish, accepted). The existing first-foreground `lazy` Play Games backend (`GemmoryApp.kt:122-125`) is created only when the flag is set and the gallery shows on a visit that isn't a fresh-finish return; never over a canvas. Until then every Play Games call is a no-op, the Settings row is hidden and unlocks wait in the ledger; the backfill runs at the first sign-in. `GalleryReturn.choose` is unchanged.
+- **Init provider:** `PlayGamesInitProvider` is removed from release builds too (`tools:node="remove"` in the main manifest; debug already drops it, #113), so Play Games starts only from `PlayGamesBackend`. Closes the `docs/todos.md` item "Play Games only at the first foreground in release builds".
+- **First-run audit:** list everything that can show between install and the first gem (UMP consent in the EEA, the music chip, streak chip, reminder line, collections, review, interstitial, Play Games) and write the order into the design system's navigation map; fix anything that stacks.
+
+**Docs this issue owns:** `docs/design-system.md` (navigation map: first launch, Play Games' turn, the Settings row while Play Games isn't ready), `docs/todos.md` (remove the Play Games item), README (Play Games setup: how it behaves now).
+
+**Tests:** unit (gate: not ready → never created; finish return → no; later gallery visit → yes; upgrade backfill from finishes or achievements); R1 connected first-run test (fresh install → consent → gallery → starter, no Play Games activity before the first gem; `PlayGamesDebugOffTest` stays green); release merged manifest has no `PlayGamesInitProvider`.
+
+**Done when:** a fresh install reaches the starter with nothing but the EEA consent form in front of it, Play Games signs in only where the spike allows (or only from Settings), existing players keep their achievements, and the docs above are updated. Gates the production promotion (C9).
+
+**Design review (Phase 5, DR4):** on a fresh install the Today's picture card and its Tomorrow line stay hidden until the player's first finished picture (like collection rows), so the starter is the first thing a stranger sees; the day's free pick is still made. A player who came from a share link (T50) is in the normal game once they leave the shared picture. If the spike forces the fallback, the Settings row "Achievements" reads "Sign in" as its end text until signed in.
+
+Depends on: none. Effort: human ~1.5d / CC ~1h (+ the spike on a phone).
+
+---
+
+## T46: Launch funnel: first launch to first gem, readable on day 30
+Labels: P1, telemetry
+
+**Why:** the first 30 days of production are the first real data, and nobody has checked the funnel end to end on a fresh install. Plan: T46; CEO O5, O6, O7, C9; eng O-E3, O-E5, O-E7/8, O-E11.
+
+**Scope**
+- **NewPlayer (owned here):** a pure rule in `commonMain` + an Android port. A launch is fresh when none of these exist: a directory under `canvases/`, `achievements/state`, the streak preferences, the `NewPlayer` marker; then the marker is written to backed-up preferences. `ledger/` isn't consulted (it isn't backed up). A restored phone isn't fresh; a 0.8.1 install never opened before the update is; a 0.8.1 tester who opened but never started a canvas counts as fresh (accepted).
+- **Events:** `first_launch` (fresh installs only, after consent like every event) is the denominator; `first_gem` (`ms_since_first_launch`, `source`, `entry`), once, fresh installs only.
+- **Install referrer:** Play Install Referrer library, read once at the first launch of a fresh install, started at process start beside the UMP form (local, needs no consent), off the main thread, ≤ 2 s; parsed by a pure `ReferrerParse` (utm fields, length caps, garbage dropped). The raw referrer is kept on the phone only until T50 uses it. No custom attribution event: share installs are read from Firebase's own `first_open` first-user source.
+- **DebugView check:** on a fresh install of a release-like (`perf`) build, verify `first_launch` → `canvas_started` → `first_gem` → `day_played` → `canvas_finished` → `share_tapped` → `share_completed` with the documented params; written up in the PR. Debug switch `-Pgemmory.fakeReferrer=<utm string>` feeds the same parser.
+- **"Reading the first 30 days" page** (new, `docs/`): every success criterion of rounds 1-3, the event or Play Console report it comes from, the consented-only caveat, a floor of 100 consented players before a rate counts (smaller: a count), and localized markets pooled into one bucket.
+- **Privacy and Data safety (C9 gate):** `docs/privacy-policy.md` names the install referrer (read on the phone) and the new events; `docs/play-compliance.md` Data safety rows; the founder publishes both before the build is promoted.
+
+**Tests:** `NewPlayerTest` (empty → fresh + marker; each file present → not fresh; restored; never-opened upgrade), `ReferrerParseTest` (valid, caps, malformed, unknown keys), Robolectric reader (timeout, SERVICE_UNAVAILABLE, FEATURE_NOT_SUPPORTED, DEVELOPER_ERROR → none, non-fatal only for DEVELOPER_ERROR), `TelemetryTest` rows (`first_launch`, `first_gem` once, consent gate), `BackupRulesTest` (marker backed up).
+
+**Done when:** a fresh install logs `first_launch` and one `first_gem` with its time, a restored or upgraded phone logs neither, the referrer is read and parsed, the DebugView chain is written up, the 30-day page exists, and the privacy policy and Data safety are updated. Gates the production promotion (C9).
+
+Depends on: none. Effort: human ~2d / CC ~1.5h.
+
+---
+
+## T47: Founder clip tool: time-lapses and stills of any picture, for posts
+Labels: P2, timelapse
+
+**Why:** the founder's posting test (10 clips over ~10 days on TikTok, Reels, Shorts) and community before/afters need clips without finishing a picture by hand each day. Plan: T47; CEO X3; eng fixes.
+
+**Scope**
+- A "Clips" screen reached from a row that exists only in debug builds' Settings (`src/debug/`). It lists every catalog picture whose grid is on the phone (bundled; remote ones the catalog check fetched, future drops included: it bypasses only the date and earn gates, never the signature). Never a photo canvas.
+- Renders through the existing encoder and `FramePlan` from a synthetic log: `ClipOrders` in `commonMain` (`byColor`: palette slot order, reading order within a slot; `ripple`: rings out from the grid's center, 4-connected; `random`: seeded shuffle), each a permutation of every cell index. Watermark and app name stay on.
+- Outputs to `getExternalFilesDir(Environment.DIRECTORY_MOVIES)/clips/`: `<id>-<order>.mp4` (9:16), `<id>-<order>-4x5.mp4`, `<id>-before-after.png` (source art beside the gem canvas), `<id>-finished.png`. Errors show a line on the screen.
+- README: how to make and pull clips.
+
+**Tests:** `ClipOrdersTest` (each order a permutation; ripple distance order; seeded random stable), unit check that the release merged manifest has no Clips entry, R1: the player's own 9:16 share is unchanged (existing time-lapse tests), connected `ClipsScreenTest` (one picture → four files).
+
+**Done when:** a debug build renders all four outputs for any listed picture, release builds don't contain the screen, and the player's share is unchanged.
+
+**Design review (Phase 5):** a plain list on `felt` in Figtree: each picture row with three order chips (by color, ripple, random) and a format choice (9:16, 4:5, stills); one render at a time, the row showing "Rendering… 45%", then "Saved 4 files" with the folder path; a failure adds one line under the row; an empty list reads "No pictures on this phone yet".
+
+Depends on: none. Effort: human ~2d / CC ~1h.
+
+---
+
+## T48: Strings to resources: every word out of the code, English unchanged
+Labels: P1, ui, a11y
+
+**Why:** the app is English only, with copy hard-coded in ~48 app files and built as English sentences in 19 `commonMain` files; nothing can be translated until it lives in resources. Plan: T48; eng E1, O-E4.
+
+**Scope**
+- Every user-facing string in `androidApp` moves into `res/values/strings.xml` (`<plurals>` where counts appear): screens, notifications and channel names, the widget, TalkBack descriptions, toasts, the time-lapse band and streak card text, the share text.
+- `commonMain` copy (`ReminderReasons`/`ReminderAsk` copy, `StreakNudge`, `DailyStreak` text, `CollectionRules`, `Mystery`, `FallbackChain`, `ProgressShare`, `ShareLink` text and the rest) returns per-feature sealed message types (e.g. `ReminderMsg.Drop(title)`); one `Messages` resolver in `androidApp` maps each with an exhaustive `when` (a missing mapping is a compile error). `commonMain` stays pure Kotlin; no Compose Multiplatform resources.
+- Numbers, percents and dates are formatted in the language the app shows (English for everyone until T49), never the phone's raw locale.
+- Not ours, left as is: UMP, ads, Play Billing, Play review, Play Games screens, the system share sheet.
+- Lands last in wave 1 and alone (it touches every screen).
+
+**Tests:** JVM `MessagesTest` (every message type resolves; argument counts match per locale); **R1 English pixel diff:** `StoreScreenshots` and `ScreenSizesWalkthrough` captured on main and on the branch with a fixed clock and seeds, every difference explained; existing a11y walkthroughs green.
+
+**Done when:** no user-facing English literal is left in Kotlin (lint or a grep check in CI), English screens are pixel-identical, and the resolver covers every message.
+
+Depends on: T50 merged first (both edit `ShareLink`). Effort: human ~1wk / CC ~3-4h.
+
+---
+
+## T49: Gemmory in 11 languages: app, store listing, picture titles
+Labels: P1, ui, a11y
+
+**Why:** Play search ranks listings per language; an English-only app is invisible to most diamond-painting players. Plan: T49; CEO C3, C4, C10, C11, X1, X2, X4; eng E2, O-E2, O-E6, O-E10, O-E11.
+
+**Scope**
+- **Languages (C3):** `values-de`, `values-es` (one Spanish, Spain + Latin America), `values-pt-rBR`, `values-fr`, `values-it`, `values-ro`, `values-pl`, `values-tr`, `values-hu`, `values-bg`, `values-ja`. Claude drafts all; the founder reviews ro; one native speaker per other language reviews the app + listing once; a language without a reviewer by the start ships unreviewed (C10) with a `docs/todos.md` line until reviewed. Romanian uses ș/ț only (one ş/ţ normalizer, shared with `PictureBatch`).
+- **Build (E2, X1):** language splits off (`bundle { language { enableSplit = false } }`); `androidResources { generateLocaleConfig = true; localeFilters += en + the eleven }` with `resources.properties` `unqualifiedResLocale=en`, so Android 13+ lists Gemmory under Settings → Apps → Language. The AAB size change is reported, fonts separate from strings.
+- **Fonts (C11):** Onest (body) and Geologica (titles) for Bulgarian, Zen Kaku Gothic New (400 / 700) for Japanese, bundled in `res/font` and picked by the app's language (design consultation, design-system Typography → Other scripts).
+- **GlyphCheck:** one implementation in `shared/jvmMain` (`java.awt.Font.canDisplay`); a `shared` JVM test checks every `values-xx` string against the font that draws it (hard failure), declaring `androidApp/src/main/res` as task inputs; `publishPictureBatch` warns for a translated title the bundled font can't draw.
+- **Titles (X4):** bundled titles as `title_<id>` resources; remote picture, collection and event titles in an optional per-language `titles` map in the signed catalog, filled by the batch CSV (a `title_<lang>` column per language, drafted by the batch tool and spot-checked). Ignorable by old apps, so it never raises `minAppVersion`. Each entry gets the English title's checks (≤ 60 chars, no control characters) and the mystery hiding (T43). Shown titles resolve by id at display time through the locale chain (pt-BR → pt → en); a stored remote record keeps English as the last fallback.
+- **Time-lapse cache key** gains the language, so a switch never reuses an old-language title band.
+- **Store listing (X2):** a frame tool in `tools/store/` (captions file + `StoreScreenshots` raw shots in a locale → the five captioned frames, one command); listings de-DE, es-ES and es-419 (same text), pt-BR, fr-FR, it-IT, ro, pl-PL, tr-TR, hu-HU, bg, ja-JP; the founder uploads.
+- **Layout:** 200% font walkthroughs in de, hu and ja; Japanese line breaking; no plural forms lost (`<plurals>` per language rules).
+
+**Tests:** GlyphCheck test; `MessagesTest` per locale (argument counts); `RemoteCatalogTest` (titles round trip, caps, mystery, R1: an 0.8.1-shaped parse reads a catalog with `titles`); `TitleResolverTest` (chain, missing language → English, withdrawn → record title); `PictureBatchTest` (title columns, ro normalizer, glyph warning); `GalleryLoadTimingTest` with titles in 11 languages within its 2× bound; connected: language switch mid-canvas (canvas restored), 200% font in de, hu, ja.
+
+**Done when:** a phone in any of the eleven languages, or the Android 13+ per-app pick, shows the app, notifications, widget and titles in that language with our fonts, the listing frames exist per language, and the checks above pass. Wave 2 (the first production update).
+
+**Design review (Phase 5, DR5, DR6):**
+- **Settings → Language** (Android 13+ only): end text the language's own name ("Deutsch"), opens the system per-app language page; TalkBack "Language, Deutsch, button"; hidden below 13.
+- **Long text:** body, sheets, toasts and hints wrap freely; buttons and sheet actions wrap to 2 lines and grow, never ellipsize; the tile's "Watch to unlock" label wraps to 2 lines and above 1.5× font shows only the play icon (full text for TalkBack); tile and Today titles 2 lines then ellipsis; top bar, chips, tabs and Settings end text 1 line with ellipsis (tabs scroll at 200%); hyphenation for de and hu, phrase line breaking for ja.
+- The 9:16 time-lapse title uses the per-language fonts and the sender's language; GlyphCheck covers the frame text. Mixed English fallback titles are accepted. The Japanese 1.6 line height is checked against fixed-height rows. The streak calendar's week start follows the phone's region.
+
+Depends on: T48. Effort: human ~2-3wk / CC ~1-2d + reviewer time.
+
+---
+
+## T50: Shared picture landing: a friend's link opens that picture
+Labels: P2, game, telemetry
+
+**Why:** a share link today lands a new player on the store, then on the starter; the picture that made them install is lost. Plan: T50; CEO O4, C7; eng O-E3.
+
+**Scope**
+- `ShareLink.url` appends `%26utm_content%3D<id>` (encoded once inside `referrer`) for a time-lapse or progress share of a bundled or remote picture. A photo canvas share and the streak card never carry an id.
+- At the first launch of a fresh install (T46's read), if the id is a picture this phone can list (`openableRef`: a hidden drop, an unearned keepsake, unknown or crafted ids open nothing), the shared picture replaces the starter as the first canvas: after consent (EEA), the gallery shows and its canvas opens once, free to start like Today's picture (first gem unlocks it). Only while the first gallery session shows and no canvas was opened. A remote id not on the phone yet waits for that session's first catalog check, once, then is dropped. Nothing waits on the network before the gallery draws.
+- Accepted: a crafted link can open one locked picture free, once, on a fresh install. No kill switch (C7).
+- `canvas_started` `entry` = share_link; navigation map: the first-launch branch.
+
+**Docs this issue owns:** `docs/design-system.md` (navigation map), `docs/privacy-policy.md` / `docs/play-compliance.md` (if T46's wording needs the picture id).
+
+**Tests:** `ShareLinkTest` (content id, photo and streak without), `ShareLandingTest` (listable, hidden, unknown, crafted, already opened a canvas), connected landing test with `-Pgemmory.fakeReferrer` (bundled id → its canvas once; hidden → gallery; remote id after the check). The real path is checked once on the closed track from a crafted Play link (written in the PR).
+
+**Done when:** a fresh install from a picture's share link opens that picture once, free, and nothing else changes for anyone else.
+
+**Design review (Phase 5, DR1-DR4):**
+- The shared picture's canvas opens with a one-time toast "Shared with you: <title>" (16sp, 4 s, polite live region); a mystery picture reads "Shared with you: a mystery picture". Big pictures open too.
+- If the picture is only ready after the gallery has drawn (it had to download), nothing jumps: a toast "Shared with you: <title> · Open" for 8 s; Open starts it free.
+- Leaving the shared picture lands in the normal gallery with everything (Today card, Tomorrow line, collection rows), not the first-finish-hidden first screen. Backed out with no gem, it stays free until local midnight in the open group with no lock label, then follows its lock.
+
+Depends on: T46. Effort: human ~2d / CC ~1.5h.
+
+---
+
+## T51: Feed-tuned share: a ≤7 s clip for TikTok, Reels and Shorts (gated)
+Labels: P2, timelapse
+
+**Gate (C6): don't start this issue until the founder's posting test says so.** Opens if 10 hand-posted clips over ~10 days average ≥ 1,000 views but listing visits from them are under 1% of views; if views stay under ~200 a clip, it stays closed (the engine is elsewhere).
+
+**Why:** feeds reward short clips with a hook in the first second and drop share-text links. Plan: T51.
+
+**Scope (when opened):** a ≤7 s cut whose first frame is already striking (the finished picture, or the photo turning into gems for a photo canvas), the app name and "on Google Play" burned into the frames; the same encoder, no new save or grid format. Whether it's a player-facing "Share to feeds" choice or a second file is decided then.
+
+Depends on: the posting test; T47 for the founder's clips. Effort: human ~2d / CC ~1.5h.
+
+---
+
+## T52: Review prompt always on: remove the catalog switch
+Labels: P2, game
+
+**Why:** founder decision (CEO C8): the in-app review prompt (T39) shouldn't wait for a catalog flip. Plan: CEO C8, O8; eng fixes.
+
+**Scope**
+- Delete `RemoteFeatures`, the catalog's `features` writer, `:shared:setRemoteFeature` and the review gate's flag input; the 3rd/10th/25th-finish rules, 14-day gap and first-finish-day rule stay.
+- The parser still accepts and ignores a `features` key, so an old signed catalog stays valid; phones on 0.8.1 stay off (the catalog never sets it).
+- Closed testers on this build get Play's private-feedback sheet (accepted). Ships in wave 2, with or after production access; the review prompt also shows in languages shipped unreviewed (O8, accepted).
+- README (catalog switches), `docs/play-compliance.md` (In-app review) updated.
+
+**Tests:** `RemoteCatalogTest` (`features` ignored; R1 old catalog with `features` still verifies), `ReviewPromptTest` without the flag, connected `ReviewFlowTest` updated (R1).
+
+**Done when:** the prompt follows its finish rules in every build with no catalog switch, and old catalogs still verify.
+
+Depends on: none (ships in wave 2). Effort: human ~0.5d / CC ~30min.

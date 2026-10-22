@@ -46,6 +46,38 @@
 - **Priority:** P3
 - **Depends on / blocked by:** a release-signed build on a phone with Play Games (closed testing) to confirm sign-in and achievements still work.
 
+### Cloud save through Play Games Saved Games (round 3, D3)
+- **What:** Sync non-photo progress (bundled and remote canvases, unlocks, inventory, the streak) between a player's devices through Play Games Services v2 Saved Games (snapshots), with merge rules that can never duplicate an inventory item or a streak day. Photo canvases never leave the phone.
+- **Why:** The category's top complaint is "no cloud sync"; Android Auto Backup already restores the same data on a new phone, but not live between two devices or when backup is off or stale.
+- **Pros:** Two-device players keep one progress; a restore that doesn't depend on Google backup.
+- **Cons:** Merge rules for a placement log, inventory and streak; Saved Games turned on in the Play Console; privacy policy and Data safety updates; no effect on installs or the first session.
+- **Context:** Offered in round 2 (not taken up), raised again by the founder in round 3 ("cloud save could be added through play games? if not then defer") and deferred at the round-3 CEO review on 2026-10-22 (`docs/designs/gemmory-round3.md`). Start from `PlayGamesBackend` and the backed-up stores listed in `BackupRulesTest`.
+- **Effort estimate:** human M-L / CC M
+- **Priority:** P3
+- **Depends on / blocked by:** Store reviews or support asks mentioning a lost save or a second device.
+
+## Localization
+
+### More languages (round 3)
+- **What:** Add the next app and store-listing languages after the round-3 set (de, es, pt-BR, fr, it, ro, pl, tr, hu, bg, ja). Candidates: Indonesian, Korean, Vietnamese, Dutch, Czech.
+- **Why:** Play search ranks listings per language; each new one opens a market's searches.
+- **Pros:** Cheap once strings live in resources (T48) and the round-3 tooling exists (frames, translated titles, glyph test).
+- **Cons:** Every monthly picture batch needs titles in one more language; a script our fonts lack needs a bundled font (as bg and ja did).
+- **Context:** The founder added languages through the round-3 CEO review on 2026-10-22 and noted "we could add more languages later". Pick by Play Console's per-country store visits and installs.
+- **Effort estimate:** human S per language / CC S
+- **Priority:** P3
+- **Depends on / blocked by:** T48 and T49 shipped; about 30 days of production data per country.
+
+### Revisit the bundled Japanese font (round 3)
+- **What:** Drop the bundled Zen Kaku Gothic New and let Android draw Japanese in the phone's own Noto CJK font.
+- **Why:** The font is most of round 3's install-size growth (about 2.9 MB compressed for every player), while Android already falls back glyph by glyph to the system's Noto fonts, so Japanese never shows empty boxes without it.
+- **Pros:** A smaller install for everyone.
+- **Cons:** Japanese text no longer matches the bundled design-system fonts exactly (founder's reason for bundling, round-3 CEO C11).
+- **Context:** Raised by the round-3 eng outside voice on 2026-10-22 (`docs/designs/gemmory-round3.md`, Eng Review → Outside voice, #1); the founder kept the font and asked for this TODO. GlyphCheck's font list and the design system's typography entry change with it.
+- **Effort estimate:** human S / CC S
+- **Priority:** P3
+- **Depends on / blocked by:** Play Console showing install size hurting installs (store listing to install conversion, or size warnings on low-end phones).
+
 ## Game
 
 ### Home-screen widget (round 2, E2)

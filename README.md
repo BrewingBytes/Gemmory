@@ -22,6 +22,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 |---|---|
 | [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, decision ledgers |
 | [docs/designs/gemmory-round2.md](docs/designs/gemmory-round2.md) | Round 2 design doc (T35-T44) and its review ledgers |
+| [docs/designs/gemmory-round3.md](docs/designs/gemmory-round3.md) | Round 3 design doc (T45-T52) and its review ledgers |
 | [docs/designs/streak-screen.md](docs/designs/streak-screen.md) | Streak screen design doc, its review ledgers and mockup |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, components, navigation, canvas gestures, copy, accessibility |
 | [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, Test Lab CI credentials, the production gate |
