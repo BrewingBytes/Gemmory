@@ -21,4 +21,13 @@ class ShareLinkTest {
             ShareLink.text(ShareLink.Medium.BUNDLED),
         )
     }
+
+    @Test
+    fun streakCardShareText() {
+        assertEquals(
+            "Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
+                "&referrer=utm_source%3Dshare%26utm_medium%3Dstreak%26utm_campaign%3Dstreak_card",
+            ShareLink.streakText(),
+        )
+    }
 }

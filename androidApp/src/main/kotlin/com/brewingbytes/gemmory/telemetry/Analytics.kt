@@ -134,6 +134,9 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** The nudge was tapped (#102): [target] is `today`, `canvas`, `quick`, `repair` (the broken variant) or `none`. */
         fun streakNudgeTapped(target: String) = AnalyticsEvent("streak_nudge_tapped", mapOf("target" to target))
 
+        /** The player picked an app in the share sheet for the [milestone] streak card (7, 30, 50, 100 or 365; #104). */
+        fun streakShareCompleted(milestone: Int) = AnalyticsEvent("streak_share_completed", mapOf("milestone" to milestone.toLong()))
+
         /** The first home-screen streak widget was placed (#103). */
         fun streakWidgetAdded() = AnalyticsEvent("streak_widget_added", emptyMap())
 

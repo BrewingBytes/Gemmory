@@ -77,6 +77,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.gallery.locked
 import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.share.ShareIntents
 import com.brewingbytes.gemmory.streak.RepairActions
 import com.brewingbytes.gemmory.streak.STREAK_REPAIR_TAG
 import com.brewingbytes.gemmory.streak.StreakCelebration
@@ -496,6 +497,8 @@ class MainActivity : ComponentActivity() {
                             streakDay.done()
                             stack.openStreak(if (repair) "celebration_repair" else "celebration")
                         },
+                        // The share sheet opens over the celebration; back from it lands here again (#104).
+                        onShare = { card, milestone -> startActivity(ShareIntents.streakChooser(this, card, milestone)) },
                     )
                 }
             }

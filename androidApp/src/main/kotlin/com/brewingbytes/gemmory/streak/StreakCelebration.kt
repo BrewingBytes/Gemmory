@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
 import android.app.Application
+import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -31,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,22 +55,34 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
+import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.play.PendingCelebration
 import com.brewingbytes.gemmory.policy.BrokenStreak
 import com.brewingbytes.gemmory.policy.CalendarCell
 import com.brewingbytes.gemmory.policy.StreakCalendar
+import com.brewingbytes.gemmory.policy.StreakShareCard
+import com.brewingbytes.gemmory.storage.AtomicFiles
+import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.timelapse.EncodeManager
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemTextButton
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import com.brewingbytes.gemmory.ui.withFullMotion
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
 import java.time.temporal.WeekFields
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * What the celebration shows, read once when it opens, so a rotation shows the same and replays nothing. [repairable]:
@@ -119,6 +133,39 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
     fun done() {
         data = null
     }
+
+    private val sharing = AtomicBoolean(false)
+
+    /**
+     * The milestone share card (#104) as a PNG in the share cache, made off the main thread; null when this isn't a
+     * milestone, the card couldn't be written, or one is already being made (a second tap does nothing).
+     */
+    suspend fun shareCard(): File? {
+        val data = data ?: return null
+        val c = data.celebration
+        val title = StreakText.milestone(c.length) ?: return null
+        if (!sharing.compareAndSet(false, true)) return null
+        try {
+            val (pictures, photos) = app.store.summaries()
+            val playable = (pictures + photos).filterIsInstance<CanvasSummary.Playable>()
+            val finishes = playable.mapNotNull { s -> s.firstFinishedDay?.let { it to CanvasStore.reminderKey(s.ref) } }.groupBy({ it.first }, { it.second })
+            // Bundled and remote pictures only: a photo canvas's grid is never handed to the card.
+            val patterns = playable.filter { it.ref.kind != CanvasKind.PHOTO }.associate { CanvasStore.reminderKey(it.ref) to it.state.pattern }
+            val days = StreakShareCard.days(data.week, c.day, finishes, CardPictures::isPicture)
+            val letters = data.week.map { StreakText.weekday(it.day).take(1) }
+            return withContext(Dispatchers.Default) {
+                val card = StreakShareCardRenderer(app).render(c.length, title, days, letters) { ref ->
+                    patterns[CanvasStore.reminderKey(ref)]?.let { CardPictures.art(ref, it) }
+                }
+                val png = ByteArrayOutputStream().also { card.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+                card.recycle()
+                val file = File(File(app.cacheDir, EncodeManager.DIR).apply { mkdirs() }, "streak-${c.length}.png")
+                withContext(Dispatchers.IO) { runCatching { AtomicFiles().write(file, png) } }.map { file }.getOrNull()
+            }
+        } finally {
+            sharing.set(false)
+        }
+    }
 }
 
 /** The locale's first day of the week (G12), for the week row and the calendar. */
@@ -128,15 +175,23 @@ fun firstDayOfWeek(): kotlinx.datetime.DayOfWeek =
 const val CELEBRATION_TAG = "streak-celebration"
 const val CELEBRATION_CONTINUE_TAG = "streak-celebration-continue"
 const val CELEBRATION_SEE_TAG = "streak-celebration-see"
+const val CELEBRATION_SHARE_TAG = "streak-celebration-share"
 
 /**
  * The new streak day (#101): full screen on `felt-deep-dark` after the completion screen. The flame ignites, the number
  * rolls up, the week row fills, then the copy table's words. Milestones (7/30/50/100/365) get the bigger flame and the
- * lamp edge once. Continue (and back) closes it to the gallery; "See your streak" opens the streak screen. Reduced
+ * lamp edge once. Continue (and back) closes it to the gallery; "See your streak" opens the streak screen, and on
+ * milestones "Share" shares the card (#104) through the share sheet, back to here. Reduced
  * motion: all at once; sound and haptic stay unless Milestones are off (G15).
  */
 @Composable
-fun StreakCelebration(data: StreakDayData, vm: StreakDayViewModel, onContinue: () -> Unit, onSeeStreak: (repair: Boolean) -> Unit) {
+fun StreakCelebration(
+    data: StreakDayData,
+    vm: StreakDayViewModel,
+    onContinue: () -> Unit,
+    onSeeStreak: (repair: Boolean) -> Unit,
+    onShare: (card: File, milestone: Int) -> Unit,
+) {
     val c = data.celebration
     val milestone = StreakText.isMilestone(c.length)
     val reduced = rememberReducedMotion()
@@ -212,14 +267,23 @@ fun StreakCelebration(data: StreakDayData, vm: StreakDayViewModel, onContinue: (
                 Spacer(Modifier.height(16.dp))
             }
             PrimaryButton("Continue", onContinue, Modifier.padding(top = 8.dp).widthIn(max = 480.dp).fillMaxWidth().testTag(CELEBRATION_CONTINUE_TAG))
-            // Share on milestones arrives with the share card (#104, G10); until then, the streak screen. With a repair
-            // open (#102), it says the old streak can still come back.
+            // Milestones share the card (#104, G10); other days open the streak screen. With a repair open (#102), it
+            // says the old streak can still come back.
             val repairable = data.repairable
-            GemTextButton(
-                repairable?.let { StreakText.stillRestorable(it.length) } ?: "See your streak",
-                { onSeeStreak(repairable != null) },
-                Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SEE_TAG),
-            )
+            if (milestone) {
+                val scope = rememberCoroutineScope()
+                GemTextButton(
+                    "Share",
+                    { scope.launch { vm.shareCard()?.let { onShare(it, c.length) } } },
+                    Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SHARE_TAG),
+                )
+            } else {
+                GemTextButton(
+                    repairable?.let { StreakText.stillRestorable(it.length) } ?: "See your streak",
+                    { onSeeStreak(repairable != null) },
+                    Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SEE_TAG),
+                )
+            }
         }
         // One polite announcement (accessibility table); the roll-up isn't read digit by digit.
         Box(Modifier.size(1.dp).semantics { contentDescription = data.text.announcement; liveRegion = LiveRegionMode.Polite })
