@@ -26,7 +26,12 @@ class StreakTextTest {
         assertEquals("Your day off on Tuesday kept it going.", StreakText.celebration(8, dayOff, false).line)
         assertEquals("8 days in a row. Your day off on Tuesday kept it going.", StreakText.celebration(8, dayOff, false).announcement)
         assertEquals("Your VIP freeze kept it going.", StreakText.celebration(8, listOf(CoveredDay(tuesday, DayKind.VIP_FREEZE)), true).line)
-        assertEquals("A streak freeze kept it going on Tuesday.", StreakText.celebration(8, listOf(CoveredDay(tuesday, DayKind.FREEZE)), false).line)
+        assertEquals("A streak freeze kept it going on Tuesday. 1 left.", StreakText.celebration(8, listOf(CoveredDay(tuesday, DayKind.FREEZE)), false, freezesLeft = 1).line)
+        assertEquals(
+            "2 streak freezes kept it going. None left.",
+            StreakText.celebration(8, listOf(CoveredDay(tuesday - 1, DayKind.FREEZE), CoveredDay(tuesday, DayKind.FREEZE)), false).line,
+        )
+        assertEquals("Streak freezes 2" to "Covers a missed day. Hold up to 2.", StreakText.freezes(2))
         assertEquals(
             "Your day off and a streak freeze kept it going.",
             StreakText.celebration(9, dayOff + CoveredDay(tuesday + 1, DayKind.FREEZE), false).line,

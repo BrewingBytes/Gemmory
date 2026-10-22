@@ -4,12 +4,19 @@ import android.app.Activity
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.ConsumeResult
+import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.policy.DayKind
+import com.brewingbytes.gemmory.policy.DayResult
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.InventoryCodec
+import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.policy.Spent
+import com.brewingbytes.gemmory.policy.StreakState
 import com.brewingbytes.gemmory.policy.VipPlan
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
@@ -234,6 +241,62 @@ class MonetizationTest {
         assertEquals(0, again.inventory.value.tokens)
         assertEquals(setOf("sunflowers"), again.unlocks.unlocked.value)
         assertFalse(again.useToken("wave"), "none left")
+    }
+
+    private val inventoryFile get() = File(tmp.root, StorageLayout.INVENTORY)
+
+    private fun heldOnDisk(): Int = (InventoryCodec.decode(inventoryFile.readBytes()) as Decoded.Ok).value.freezes
+
+    private fun seedFreezes(n: Int) {
+        inventoryFile.parentFile!!.mkdirs()
+        inventoryFile.writeBytes(InventoryCodec.encode(InventoryState(freezes = n)))
+    }
+
+    /**
+     * #102, E5/O3: the day is resolved with the freezes held and saved inside [Monetization.streakDay]; only after it
+     * returns is each freeze it used spent, once per covered day, so a crash in between keeps the freeze.
+     */
+    @Test
+    fun freezesAreSpentOnlyAfterTheDayIsSaved() = runTest(UnconfinedTestDispatcher()) {
+        seedFreezes(2)
+        val m = monetization()
+        var passed = -1
+        var heldWhileSaving = -1
+        val covered = listOf(CoveredDay(20_000, DayKind.DAY_OFF), CoveredDay(20_001, DayKind.FREEZE))
+        val result = m.streakDay { vip, freezes ->
+            assertFalse(vip)
+            passed = freezes
+            heldWhileSaving = heldOnDisk()
+            DayResult(StreakState(length = 9, lastDay = 20_002), covered)
+        }
+        assertEquals(9, result?.length)
+        assertEquals(2, passed, "the day is resolved with every freeze held")
+        assertEquals(2, heldWhileSaving, "nothing is spent before the day is saved")
+        assertEquals(1, heldOnDisk(), "one covered day, one freeze")
+        assertEquals(1, m.inventory.value.freezes)
+        // The same covered day resolved again (a retry) takes nothing more.
+        m.streakDay { _, _ -> DayResult(StreakState(length = 9, lastDay = 20_002), covered) }
+        assertEquals(1, heldOnDisk())
+        assertEquals(1, m.freezes())
+    }
+
+    /** #102, O2: VIP resolves with no held freezes and never spends them; they're kept for after a lapse. */
+    @Test
+    fun vipNeverSpendsHeldFreezes() = runTest(UnconfinedTestDispatcher()) {
+        seedFreezes(2)
+        val m = monetization()
+        entitlements.value = Entitlements(VipPlan.YEARLY)
+        var passed = -1
+        m.streakDay { vip, freezes ->
+            assertTrue(vip)
+            passed = freezes
+            DayResult(StreakState(length = 9, lastDay = 20_002), listOf(CoveredDay(20_001, DayKind.VIP_FREEZE)))
+        }
+        assertEquals(0, passed)
+        assertEquals(0, m.freezes(), "VIP counts none")
+        assertEquals(2, heldOnDisk(), "and keeps both")
+        entitlements.value = Entitlements.FREE
+        assertEquals(2, m.freezes(), "back after the lapse")
     }
 
     @Test

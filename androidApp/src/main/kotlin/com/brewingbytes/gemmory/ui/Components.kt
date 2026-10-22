@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -152,6 +153,12 @@ object GemIcons {
             ),
             fill = SolidColor(Color.White),
         )
+        .build()
+
+    /** Inventory: streak freezes (#102), the freeze mark: a square with a cross, as on the calendar and the wheel. */
+    val Freeze: ImageVector = ImageVector.Builder("Freeze", 24.dp, 24.dp, 24f, 24f)
+        .addPath(addPathNodes("M4 4h16v16H4V4zm2 2v12h12V6H6z"), fill = SolidColor(Color.White), pathFillType = PathFillType.EvenOdd)
+        .addPath(addPathNodes("M11 7.5h2v9h-2zM7.5 11h9v2h-9z"), fill = SolidColor(Color.White))
         .build()
 
     /** Material "visibility" eye, for the canvas's Peek (#35). */

@@ -66,10 +66,10 @@ class InventoryTest {
     fun aSpinAddsItsPrizeAtOnce() {
         val inv = inventory()
         repeat(3) { inv.onStreakDay(5) }
-        rolls += listOf(0, 95, 70)
-        assertEquals(WheelPrize.FILLS_5, inv.spin())
-        assertEquals(WheelPrize.UNLOCK_TOKEN, inv.spin())
-        assertEquals(WheelPrize.PHOTO_CANVAS, inv.spin())
+        rolls += listOf(0, 85, 70)
+        assertEquals(WheelPrize.FILLS_5, inv.spin()?.prize)
+        assertEquals(WheelPrize.UNLOCK_TOKEN, inv.spin()?.prize)
+        assertEquals(WheelPrize.PHOTO_CANVAS, inv.spin()?.prize)
         assertNull(inv.spin(), "no spin left")
         assertEquals(InventoryState(fills = 5, canvases = 1, tokens = 1, spinsEarned = 3, spinsUsed = 3), inv.state)
         // What's on disk is the same: a kill right after a spin can't spin it again.
@@ -81,11 +81,31 @@ class InventoryTest {
         val counts = (0 until 100).groupingBy(WheelPrize::forRoll).eachCount()
         assertEquals(WheelPrize.entries.associateWith { it.percent }, counts)
         assertEquals(100, WheelPrize.entries.sumOf { it.percent })
-        assertEquals(WheelPrize.FILLS_5, WheelPrize.forRoll(49))
-        assertEquals(WheelPrize.FILLS_10, WheelPrize.forRoll(50))
-        assertEquals(WheelPrize.FILLS_10, WheelPrize.forRoll(69))
-        assertEquals(WheelPrize.PHOTO_CANVAS, WheelPrize.forRoll(89))
-        assertEquals(WheelPrize.UNLOCK_TOKEN, WheelPrize.forRoll(99))
+        // #102, E7: 45/20/15/10/10, in this order.
+        assertEquals(listOf(45, 20, 15, 10, 10), WheelPrize.entries.map { it.percent })
+        assertEquals(WheelPrize.FILLS_5, WheelPrize.forRoll(44))
+        assertEquals(WheelPrize.FILLS_10, WheelPrize.forRoll(45))
+        assertEquals(WheelPrize.FILLS_10, WheelPrize.forRoll(64))
+        assertEquals(WheelPrize.PHOTO_CANVAS, WheelPrize.forRoll(79))
+        assertEquals(WheelPrize.UNLOCK_TOKEN, WheelPrize.forRoll(89))
+        assertEquals(WheelPrize.STREAK_FREEZE, WheelPrize.forRoll(90))
+        assertEquals(WheelPrize.STREAK_FREEZE, WheelPrize.forRoll(99))
+    }
+
+    /** #102, E7: the freeze slice pays a freeze up to 2 held, then 5 fills; nothing ever holds a 3rd. */
+    @Test
+    fun aFreezeAtTheCapPaysFiveFills() {
+        val inv = inventory()
+        repeat(3) { inv.onStreakDay(5) }
+        rolls += listOf(95, 95, 95)
+        assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.STREAK_FREEZE, 1), inv.spin())
+        assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.STREAK_FREEZE, 1), inv.spin())
+        assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.FILLS, Inventory.FILLS_PER_VIDEO), inv.spin())
+        assertEquals(InventoryState(fills = 5, spinsEarned = 3, spinsUsed = 3, freezes = 2), inv.state)
+        inv.earn(Item.STREAK_FREEZE, 1)
+        assertEquals(Inventory.MAX_FREEZES, inv.count(Item.STREAK_FREEZE), "held up to 2")
+        assertTrue(inv.spend(Item.STREAK_FREEZE, "freeze-20000"))
+        assertEquals(1, Inventory(store).count(Item.STREAK_FREEZE))
     }
 
     @Test
@@ -125,16 +145,31 @@ class InventoryTest {
         assertFalse(again.earnOnce(Item.UNLOCK_TOKEN, 1, "collection-seaside"))
     }
 
-    /** R1: a v1 file (before T37) reads as before, with no one-time earns, and is written back as v2. */
+    /** R1: a v1 file (before T37) reads as before, with no one-time earns and no freezes. */
     @Test
     fun aVersionOneFileStillReads() {
         val state = InventoryState(fills = 7, tokens = 2, spinsEarned = 1, recent = listOf(Spend("photo-1", Item.PHOTO_CANVAS)))
-        val v2 = Envelope.open(InventoryCodec.encode(state), InventoryCodec.MAGIC) as Decoded.Ok<Envelope.Opened>
-        // v1's body is v2's without the trailing empty earn list (one varint 0).
-        val v1 = Envelope.wrap(InventoryCodec.MAGIC, 1, v2.value.body.copyOf(v2.value.body.size - 1))
+        val v3 = Envelope.open(InventoryCodec.encode(state), InventoryCodec.MAGIC) as Decoded.Ok<Envelope.Opened>
+        // v1's body is v3's without the trailing empty earn list and the freezes (two varint 0s).
+        val v1 = Envelope.wrap(InventoryCodec.MAGIC, 1, v3.value.body.copyOf(v3.value.body.size - 2))
         assertEquals(state, assertIs<Decoded.Ok<InventoryState>>(InventoryCodec.decode(v1)).value)
         val rewarded = state.copy(rewarded = setOf("collection-seaside"))
         assertEquals(rewarded, assertIs<Decoded.Ok<InventoryState>>(InventoryCodec.decode(InventoryCodec.encode(rewarded))).value)
+    }
+
+    /** R1 (#102): a v2 file (T37 on) keeps every count and one-time earn, and reads 0 freezes. */
+    @Test
+    fun aVersionTwoFileReadsWithNoFreezes() {
+        val state = InventoryState(fills = 9, canvases = 1, tokens = 3, spinsEarned = 2, spinsUsed = 1, rewarded = setOf("collection-garden"))
+        val v3 = Envelope.open(InventoryCodec.encode(state), InventoryCodec.MAGIC) as Decoded.Ok<Envelope.Opened>
+        val v2 = Envelope.wrap(InventoryCodec.MAGIC, 2, v3.value.body.copyOf(v3.value.body.size - 1))
+        assertEquals(state, assertIs<Decoded.Ok<InventoryState>>(InventoryCodec.decode(v2)).value)
+        val held = state.copy(freezes = 2, recent = listOf(Spend("freeze-20000", Item.STREAK_FREEZE)))
+        assertEquals(held, assertIs<Decoded.Ok<InventoryState>>(InventoryCodec.decode(InventoryCodec.encode(held))).value)
+        // More than 2 held is malformed.
+        val v3Body = (Envelope.open(InventoryCodec.encode(state.copy(freezes = 2)), InventoryCodec.MAGIC) as Decoded.Ok<Envelope.Opened>).value.body
+        val three = Envelope.wrap(InventoryCodec.MAGIC, 3, v3Body.copyOf().also { it[it.size - 1] = 3 })
+        assertEquals(Decoded.Refused(Refusal.Malformed), InventoryCodec.decode(three))
     }
 
     @Test

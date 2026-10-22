@@ -28,7 +28,8 @@ object StreakText {
     /** The weekday [day] (local epoch day) falls on: "Tuesday". */
     fun weekday(day: Long): String = LocalDate.ofEpochDay(day).dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
 
-    fun celebration(length: Int, covered: List<CoveredDay>, vip: Boolean): CelebrationText {
+    /** [freezesLeft]: streak freezes still held after this day spent its own (#102), for the freeze line. */
+    fun celebration(length: Int, covered: List<CoveredDay>, vip: Boolean, freezesLeft: Int = 0): CelebrationText {
         val milestone = when (length) {
             7 -> "A week of gems"
             30 -> "A month of gems"
@@ -41,27 +42,37 @@ object StreakText {
         val line = when {
             milestone != null -> "${days(length)} in a row."
             length == 1 -> "Finish a picture tomorrow to make it 2."
-            covered.isNotEmpty() -> keptBy(covered)
+            covered.isNotEmpty() -> keptBy(covered, freezesLeft)
             else -> "Finish one tomorrow to make it ${length + 1}."
         }
         val gift = "Your 5-day gift spin is in the bag.".takeIf { !vip && length % Inventory.SPIN_EVERY == 0 }
-        val kept = if (covered.isEmpty()) "" else " " + keptBy(covered)
+        val kept = if (covered.isEmpty()) "" else " " + keptBy(covered, freezesLeft)
         val announcement = if (length == 1) "Streak started. 1 day." else "${days(length)} in a row.$kept"
         return CelebrationText(title, line, gift, announcement)
     }
 
-    /** "Your day off on Tuesday kept it going." and the other covered-day lines. */
-    fun keptBy(covered: List<CoveredDay>): String {
+    /**
+     * "Your day off on Tuesday kept it going." and the other covered-day lines; a day kept by streak freezes alone says
+     * how many are [freezesLeft] (#102): "A streak freeze kept it going on Tuesday. 1 left."
+     */
+    fun keptBy(covered: List<CoveredDay>, freezesLeft: Int = 0): String {
         val kinds = covered.map { it.kind }.distinct()
         if (kinds.size > 1) return "${kinds.joinToString(" and ") { phrase(it) }.replaceFirstChar { it.uppercase() }} kept it going."
+        val left = " " + left(freezesLeft)
         val day = weekday(covered.last().day)
         return when (kinds.single()) {
             DayKind.DAY_OFF -> "Your day off on $day kept it going."
             DayKind.VIP_FREEZE -> "Your VIP freeze kept it going."
-            DayKind.FREEZE -> "A streak freeze kept it going on $day."
+            DayKind.FREEZE -> if (covered.size > 1) "${covered.size} streak freezes kept it going.$left" else "A streak freeze kept it going on $day.$left"
             DayKind.FINISHED, DayKind.REPAIRED -> "Your streak kept going."
         }
     }
+
+    /** "1 left." / "None left." */
+    private fun left(freezes: Int): String = if (freezes == 0) "None left." else "$freezes left."
+
+    /** The streak screen's freeze row (#102): "Streak freezes 1" over "Covers a missed day. Hold up to 2." */
+    fun freezes(held: Int): Pair<String, String> = "Streak freezes $held" to "Covers a missed day. Hold up to ${Inventory.MAX_FREEZES}."
 
     private fun phrase(kind: DayKind): String = when (kind) {
         DayKind.DAY_OFF -> "your day off"

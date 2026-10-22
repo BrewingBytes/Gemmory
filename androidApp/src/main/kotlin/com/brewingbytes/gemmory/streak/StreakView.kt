@@ -6,6 +6,7 @@ import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.StreakState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -29,22 +30,27 @@ data class StreakSnapshot(val state: StreakState, val today: Long, val cover: Co
 
 /**
  * The one reader of the streak (#101, O8): the stored state with what covers a missed day (the VIP freeze while VIP;
- * streak freezes from #102), for the chip, the streak screen, the evening reminder and the achievements backfill. It
- * follows every finish and VIP change; [refresh] picks up a new day.
+ * else the streak freezes held, #102), for the chip, the streak screen and the achievements backfill. It follows every
+ * finish, VIP change and inventory change; [refresh] picks up a new day.
  */
 class StreakView(
     private val streak: PlayStreak,
     private val clock: DayClock,
     private val entitlements: StateFlow<Entitlements>,
+    /** The inventory as Monetization last read it, for the freezes held. */
+    private val inventory: StateFlow<InventoryState>,
     scope: CoroutineScope,
 ) {
     private val _snapshot = MutableStateFlow(read())
     val snapshot: StateFlow<StreakSnapshot> = _snapshot.asStateFlow()
 
-    private val following: Job = scope.launch { combine(streak.changes, entitlements) { _, _ -> }.collect { refresh() } }
+    private val following: Job = scope.launch { combine(streak.changes, entitlements, inventory) { _, _, _ -> }.collect { refresh() } }
 
-    /** What covers a missed day right now. */
-    fun cover(): Cover = Cover(vip = entitlements.value.vip)
+    /** What covers a missed day right now: VIP never spends held freezes (O2), so they count only without it. */
+    fun cover(): Cover {
+        val vip = entitlements.value.vip
+        return Cover(vip = vip, freezes = if (vip) 0 else inventory.value.freezes)
+    }
 
     /** Re-reads the streak as of today. */
     fun refresh(): StreakSnapshot = read().also { _snapshot.value = it }

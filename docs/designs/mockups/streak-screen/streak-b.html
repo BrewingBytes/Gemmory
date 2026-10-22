@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemmory streak B</title>
+<style>
+@font-face { font-family: "Bricolage"; src: url("../../../../androidApp/src/main/res/font/bricolage_grotesque.ttf"); }
+@font-face { font-family: "Figtree"; src: url("../../../../androidApp/src/main/res/font/figtree.ttf"); }
+@font-face { font-family: "AHMono"; src: url("../../../../androidApp/src/main/res/font/atkinson_hyperlegible_mono.ttf"); font-weight: 700; }
+:root {
+  --felt:#4F5A52; --felt-deep:#3E4741; --felt-raised:#5C685F; --felt-deep-dark:#2E3530;
+  --bone:#E9E4D8; --on-bone:#2B322D; --muted:#CDD3C9; --lamp:#F4E3B1; --patina:#7FB3A0;
+  --fault:#E8B09E; --ground:#262c28; --flame:#F5A623; --flame-30:#F08A2C; --flame-100:#E0563B; --ember:#7E8880;
+}
+* { box-sizing: border-box; }
+::selection { background: var(--lamp); color: var(--on-bone); }
+body { margin:0; padding:28px 32px 80px; background:var(--ground); color:var(--bone); font-family:Figtree, sans-serif; }
+h1 { font-family:Bricolage; font-weight:600; font-size:30px; margin:0 0 6px; }
+h2 { font-family:Bricolage; font-weight:600; font-size:22px; margin:48px 0 4px; }
+p.lead, .note { color:var(--muted); max-width:1100px; line-height:1.5; font-size:14px; margin:4px 0 12px; }
+.note b, .lead b { color:var(--bone); }
+.row { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+.col { width:360px; }
+.cap { font-size:13px; color:var(--muted); line-height:1.45; margin-top:8px; }
+.cap b { color:var(--bone); }
+.opt { font-family:Bricolage; font-size:18px; margin:0 0 6px; }
+.chosen { color:var(--patina); font-size:13px; font-family:Figtree; }
+.pend { color:var(--lamp); font-size:13px; font-family:Figtree; }
+code { font-family:AHMono; font-size:12px; }
+a { color:var(--lamp); }
+.decided { max-width:1100px; background:var(--felt-deep); border-radius:12px; padding:12px 16px; font-size:13px; line-height:1.6; color:var(--muted); }
+.decided b { color:var(--bone); }
+
+.phone { width:360px; min-height:640px; background:var(--felt); border-radius:18px; overflow:hidden; position:relative; }
+.bar { height:56px; display:flex; align-items:center; padding:0 8px 0 4px; gap:4px; }
+.bar .t { font-family:Bricolage; font-weight:600; font-size:22px; flex:1; }
+.ib { width:48px; height:48px; display:grid; place-items:center; font-size:22px; }
+.tabs { display:flex; gap:8px; padding:0 16px 8px; align-items:center; font-size:15px; flex-wrap:wrap; }
+.tab { padding:10px 14px; border-radius:6px; } .tab.on { background:var(--felt-deep); font-weight:600; }
+.chipS { margin-left:auto; background:var(--felt-deep); border-radius:4px; padding:0 10px 0 8px; font-size:13px; display:flex; align-items:center; gap:6px; min-height:48px; }
+.chipS b { font-family:AHMono; font-size:15px; }
+.today { margin:4px 16px 12px; background:var(--felt-deep); border-radius:12px; padding:12px; }
+.today .top { display:flex; gap:12px; }
+.today .k { font-size:13px; color:var(--muted); } .today .ti { font-size:16px; font-weight:600; margin:2px 0; } .today .l { font-size:13px; color:var(--muted); }
+.today .line { border-top:1px solid rgba(233,228,216,.14); margin-top:12px; padding-top:10px; display:flex; gap:10px; align-items:center; min-height:56px; }
+.qb { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:0 16px; background:var(--felt-raised); color:var(--bone); border-radius:6px; font-weight:600; font-size:15px; margin-top:8px; }
+.pb { display:flex; align-items:center; justify-content:center; min-height:48px; padding:0 18px; background:var(--bone); color:var(--on-bone); border-radius:6px; font-weight:600; font-size:16px; }
+.tb { min-height:48px; display:flex; align-items:center; justify-content:center; text-decoration:underline; text-underline-offset:3px; font-size:16px; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px 16px; }
+.grid canvas { width:100%; border-radius:4px; display:block; }
+
+.cele { background:var(--felt-deep-dark); min-height:640px; display:flex; flex-direction:column; padding:48px 24px 24px; position:relative; }
+.cele .anchor { align-self:center; margin:12px 0 0; height:112px; display:grid; place-items:end center; }
+.cele .num { font-family:AHMono; font-size:88px; line-height:1; text-align:center; height:92px; overflow:hidden; }
+.cele .num span { display:block; transition: transform 600ms cubic-bezier(.2,.8,.2,1); }
+.cele .what { font-family:Bricolage; font-weight:600; font-size:22px; text-align:center; margin:6px 0 4px; }
+.cele .sub { font-size:16px; text-align:center; color:var(--muted); line-height:1.5; margin:0 8px; }
+.cele .giftline { margin:14px 0 0; text-align:center; font-size:15px; color:var(--bone); }
+.cele .spacer { flex:1; }
+.cele .milestone { position:absolute; inset:0; pointer-events:none; animation: edge 1400ms 300ms ease-in-out 1 forwards; }
+@keyframes edge { 40% { box-shadow: inset 0 0 0 2px rgba(244,227,177,.9); } 100% { box-shadow: inset 0 0 0 2px rgba(244,227,177,0); } }
+.week { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:6px; margin:22px 0 0; }
+.week .d { text-align:center; font-size:12px; color:var(--muted); }
+.week .c { aspect-ratio:1; border-radius:2px; display:grid; place-items:center; background:var(--felt-deep); }
+.week .c.today { box-shadow: 0 0 0 2px var(--lamp); }
+
+.hero { display:flex; gap:14px; align-items:center; padding:8px 16px 4px; }
+.hero .n { font-family:AHMono; font-size:56px; line-height:1; }
+.hero .w { font-family:Bricolage; font-weight:600; font-size:22px; }
+.hero .b { font-size:13px; margin-top:2px; } .hero .b b { font-family:AHMono; }
+.todayline { margin:4px 16px 0; font-size:15px; display:flex; gap:8px; align-items:center; }
+.sect { margin:12px 16px; background:var(--felt-deep); border-radius:12px; padding:12px 14px; }
+.sect h4 { margin:0 0 8px; font-size:13px; font-weight:600; color:var(--muted); }
+.status { display:flex; gap:10px; align-items:center; font-size:15px; min-height:32px; }
+.status + .status { margin-top:8px; }
+.status .ic { width:22px; display:grid; place-items:center; flex:none; }
+.status small { color:var(--muted); font-size:13px; }
+.steps { display:flex; gap:4px; margin-top:8px; } .steps i { flex:1; height:6px; border-radius:2px; background:var(--felt); } .steps i.on { background:var(--bone); }
+.cal { display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
+.cal .h { font-size:12px; color:var(--muted); text-align:center; }
+.cal .c { aspect-ratio:1; border-radius:2px; position:relative; display:grid; place-items:center; font-family:AHMono; font-size:11px; color:var(--muted); }
+.cal .c.past { background:var(--felt); }
+.cal .c canvas { width:100%; height:100%; display:block; border-radius:2px; }
+.cal .c.today { box-shadow:0 0 0 2px var(--lamp); }
+.cal .c .mk { position:absolute; inset:0; display:grid; place-items:center; }
+.calnav { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.calnav .m { font-weight:600; font-size:15px; }
+.repair { margin:12px 16px; background:var(--felt-deep); border-radius:12px; padding:14px; }
+.repair .t { font-family:Bricolage; font-weight:600; font-size:22px; margin-bottom:4px; }
+.repair p { margin:0 0 12px; font-size:16px; line-height:1.5; }
+.repair .mut { font-size:13px; color:var(--muted); margin-top:8px; }
+
+.sheetwrap { background:rgba(20,24,21,.55); padding-top:150px; min-height:640px; }
+.sheet { background:var(--felt-deep); border-radius:16px 16px 0 0; padding:8px 20px 20px; }
+.handle { width:32px; height:4px; background:var(--muted); opacity:.6; border-radius:2px; margin:10px auto 14px; }
+.sheet h3 { font-family:Bricolage; font-weight:600; font-size:22px; margin:0 0 10px; }
+.item { display:flex; gap:12px; align-items:center; padding:8px 0; }
+.item .well { width:56px; height:56px; border-radius:6px; background:var(--felt-deep-dark); box-shadow: inset 0 3px 6px rgba(0,0,0,.45); display:grid; place-items:center; flex:none; position:relative; }
+.item .well b { position:absolute; right:4px; bottom:2px; font-family:AHMono; font-size:13px; }
+.item .tx { font-size:16px; } .item .tx small { display:block; font-size:13px; color:var(--muted); line-height:1.4; }
+
+.home { width:360px; height:220px; border-radius:18px; background: linear-gradient(160deg,#2c3a46,#1f2730); padding:20px; display:flex; gap:12px; }
+.wid { width:100px; height:100px; border-radius:20px; background:var(--felt); padding:10px; display:flex; flex-direction:column; justify-content:space-between; }
+.wid .n { font-family:AHMono; font-size:30px; line-height:1; } .wid .s { font-size:11px; }
+.card916 { width:270px; height:480px; border-radius:12px; background:var(--felt-deep); display:flex; flex-direction:column; align-items:center; padding:56px 20px 24px; }
+.card916 .n { font-family:AHMono; font-size:96px; line-height:1; margin-top:12px; }
+.card916 .t { font-family:Bricolage; font-weight:600; font-size:26px; margin-top:4px; }
+.card916 .brand { margin-top:auto; font-family:Bricolage; font-weight:600; font-size:16px; color:#F2EEE4; }
+.shade { width:360px; background:#1d2022; border-radius:18px; padding:12px; }
+.notif { background:#2c3134; border-radius:20px; padding:12px 14px; display:flex; gap:12px; color:#e8eaed; }
+.notif .body { flex:1; } .notif .app { font-size:12px; color:#aab0b5; } .notif .tt { font-size:15px; font-weight:600; margin-top:2px; } .notif .tx { font-size:14px; color:#c9cdd1; margin-top:1px; }
+
+.states { display:flex; gap:28px; align-items:flex-end; flex-wrap:wrap; }
+.states figure { margin:0; text-align:center; } .states figcaption { font-size:12px; color:var(--muted); margin-top:6px; max-width:110px; }
+
+/* flame motion */
+.flm { transform-origin:50% 95%; animation: flick 1.6s ease-in-out infinite; }
+.flm .core { transform-origin:50% 95%; animation: flick2 1.1s ease-in-out infinite; }
+@keyframes flick { 0%,100% { transform: scale(1,1) skewX(0); } 30% { transform: scale(.97,1.05) skewX(-2deg); } 60% { transform: scale(1.02,.97) skewX(1.5deg); } }
+@keyframes flick2 { 0%,100% { transform: scale(1,1); } 50% { transform: scale(.88,1.14); } }
+.ignite { animation: ignite 800ms cubic-bezier(.2,.8,.2,1) 1 both; transform-origin:50% 95%; }
+@keyframes ignite { 0% { transform: scale(.25); filter: grayscale(1); } 55% { transform: scale(1.14); filter: grayscale(0); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .flm, .flm .core, .ignite { animation:none !important; } }
+.wheelbox { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.odds { display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:center; font-size:13px; color:var(--muted); }
+.odds span { display:inline-flex; align-items:center; gap:6px; }
+.odds i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.result { font-size:15px; text-align:center; margin:4px 0 8px; }
+.qbw { display:flex; align-items:center; justify-content:center; min-height:48px; background:var(--felt-raised); border-radius:6px; font-weight:600; font-size:16px; }
+.repair .fault { color:var(--fault); }
+.repair .pb.held { opacity:.55; }
+.load { height:2px; background:linear-gradient(90deg,var(--bone) 40%,transparent 40%); margin-top:8px; }
+.roll { font-family:AHMono; }
+.coll { margin:0 16px 12px; background:var(--felt-deep); border-radius:12px; padding:12px; display:flex; gap:10px; align-items:center; font-size:15px; }
+.big { font-size:30px !important; }
+.big .line { font-size:30px; }
+.notifs { display:flex; flex-direction:column; gap:8px; }
+.rank { font-size:12px; color:var(--muted); margin:10px 0 4px; }
+</style>
+</head>
+<body>
+<h1>Streak B · freezes, repair, nudge, reminder</h1>
+<p class="lead">Mockup for #102, filling the states the approved v3 (<code>ui.html</code>) leaves out. Same tokens and flame. Copy comes from the spec tables in <code>docs/designs/streak-screen.md</code> (G2-G5, G7, E5-E8). Please give a verdict per section (ok / change).</p>
+<div class="decided"><b>Founder picks 2026-10-22:</b> the wheel's freeze slice is <b>felt + bone cross</b> (shell tokens, no new color) · on repair grace, <b>"Bring it back" is tapped</b> like every other grace · 3 stacked PRs (freezes → repair → nudge + reminder).</div>
+
+<h2>1 · Gift wheel with the freeze (PR 1)</h2>
+<p class="lead">Five slices clockwise from the top, sized by their odds: 5 fills 45, 10 fills 20, photo canvas 15, unlock token 10, streak freeze 10. While 2 freezes are held, the freeze slice reads and pays "5 fills" (E7). The odds are in words under the wheel; TalkBack reads "Gift wheel. 5 fills 45%, …, Streak freeze 10%".</p>
+<div class="row">
+  <div class="col"><div class="opt">Before spinning</div><div class="phone" id="w-a"></div><div class="cap">Same sheet "Your gift", the 220dp wheel, a <code>bone</code> pointer and <code>felt-deep</code> seams. The new slice is <code>felt</code> with a small bone cross (the freeze mark).</div></div>
+  <div class="col"><div class="opt">Landed on the freeze</div><div class="phone" id="w-b"></div><div class="cap">"A streak freeze added to your inventory." in the polite live region; then a quiet "Done".</div></div>
+  <div class="col"><div class="opt">At the cap (2 held)</div><div class="phone" id="w-c"></div><div class="cap">The slice's label and the odds line read "5 fills" (the cross stays, so the wheel keeps its look); landing pays 5 fills: "5 fills added to your inventory."</div></div>
+</div>
+
+<h2>2 · Inventory and the streak screen (PR 1)</h2>
+<div class="row">
+  <div class="col"><div class="opt">Inventory sheet, 1 freeze</div><div class="phone" id="i-a"></div><div class="cap">4th row "Streak freezes" / "Covers a missed day after your day off. Hold up to 2." The well shows the freeze mark and the count; at 0 the row stays (the wheel is the only way to earn one), count 0.</div></div>
+  <div class="col"><div class="opt">Your streak, free player</div><div class="phone" id="i-b"></div><div class="cap">Safety section: "Day off ready", then "Streak freezes 2 · Covers a missed day. Hold up to 2." The next gift follows.</div></div>
+  <div class="col"><div class="opt">Your streak, VIP</div><div class="phone" id="i-c"></div><div class="cap">VIP never spends held freezes (kept for after a lapse), so no freeze row: day off + "VIP freeze ready". No gift.</div></div>
+  <div class="col"><div class="opt">Celebration kept by a freeze</div><div class="phone" id="i-d"></div><div class="cap">"A streak freeze kept it going on Tuesday. 1 left." The week row shows Tuesday's freeze square.</div></div>
+</div>
+
+<h2>3 · Repair panel, every state (PR 2)</h2>
+<p class="lead">First section of Your streak while an offer stands (broken streak of 2+ days, within 2 days of the day it ended; a video repair any number of times). The flame stays grey and the number reads 0 until it's restored.</p>
+<div class="row" id="repairs"></div>
+<div class="row" style="margin-top:26px">
+  <div class="col"><div class="opt">Celebration: restart with repair open</div><div class="phone" id="r-cel"></div><div class="cap">Day 1 of a new streak while the old one can still come back: text button "Your 12 days can still be restored" (→ Your streak once the exit chain has run). Repairing then adds today on: 13 days.</div></div>
+</div>
+
+<h2>4 · Gallery nudge (PR 3)</h2>
+<p class="lead">For a streak of 2+ days with nothing finished today. A line under a hairline in the Today card that opens its canvas directly. The target is Today's picture if it's Quick and unfinished, else the canvas closest to done, else a Quick picture. It's gone once a picture is finished today. With the kill-switch flag off it never shows.</p>
+<div class="row">
+  <div class="col"><div class="opt">Today's picture is Quick</div><div class="phone" id="g-a"></div><div class="cap">"Finish a picture today to keep your 6 days" / "Today's picture is Quick" → Lighthouse's canvas. <b>TalkBack:</b> one node, "Finish a picture today to keep your 6 days. Today's picture is Quick, button".</div></div>
+  <div class="col"><div class="opt">Closest to done</div><div class="phone" id="g-b"></div><div class="cap">Today's picture is Big (or done): "Harbour is 82% done" → Harbour.</div></div>
+  <div class="col"><div class="opt">A Quick picture, yesterday awaiting cover</div><div class="phone" id="g-c"></div><div class="cap">Nothing started: "Beach Huts is Quick". Yesterday was missed and the day off covers it on a finish: muted extra line "Yesterday is covered when you finish".</div></div>
+  <div class="col"><div class="opt">No Today card, Tomorrow line too</div><div class="phone" id="g-d"></div><div class="cap">Every picture is open (VIP has none, or today's is done and the card is gone): the nudge is its own <code>felt-deep</code> card in that slot. The Tomorrow line (T36) sits under it in the same card.</div></div>
+</div>
+<div class="row" style="margin-top:26px">
+  <div class="col"><div class="opt">Broken, repair window</div><div class="phone" id="g-e"></div><div class="cap">Chip: grey flame "0 ›" (shown only in the window). Line "Your 12 days can still be restored" / "See your streak" → Your streak. Both are gone after the window.</div></div>
+  <div class="col"><div class="opt">Font above 1.5x</div><div class="phone" id="g-f"></div><div class="cap">The line wraps; it replaces the 2nd collection row, so the grid doesn't move further down.</div></div>
+</div>
+
+<h2>5 · Evening reminder, streak first (PR 3)</h2>
+<p class="lead">Only on a night the streak really ends at midnight (day off, VIP freeze and freezes held all counted: with a freeze in the bag there is no streak reminder). On that night it outranks tonight's drop and Today's picture. Tap → the nudge's canvas. Large icon: the app icon (never a photo).</p>
+<div class="row">
+  <div class="col"><div class="opt">Target: Quick picture</div><div class="shade"><div class="notifs" id="n-a"></div></div></div>
+  <div class="col"><div class="opt">Target: closest to done</div><div class="shade"><div class="notifs" id="n-b"></div></div></div>
+  <div class="col"><div class="opt">Priority on that night</div><div class="sect" style="margin:0"><div class="rank">1 · Streak that ends at midnight (new: first)</div><div class="rank">2 · Tonight's drop</div><div class="rank">3 · Today's picture</div><div class="rank">4 · Almost finished</div><div class="rank" style="margin-top:12px">On any other night: drop → Today → almost finished (unchanged).</div></div></div>
+</div>
+
+<script>
+const C = { felt:'#4F5A52', deep:'#3E4741', raised:'#5C685F', bone:'#E9E4D8', onBone:'#2B322D', muted:'#CDD3C9', lamp:'#F4E3B1', patina:'#7FB3A0', fault:'#E8B09E', ember:'#7E8880' };
+function flameCol(t){ return t>=100?'#E0563B':t>=30?'#F08A2C':'#F5A623'; }
+function flame(size, tier=1, lit=true, opts={}) {
+  const col = lit?flameCol(tier):C.ember, core = lit?'#FCE3A6':'#A3ACA4';
+  const anim = lit && size>=40 && !opts.still ? 'flm' : '';
+  return `<svg class="${anim} ${opts.ignite?'ignite':''}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5-1.5 5-1.5 7.5 0 1.6 1.2 2.6 2.4 2.6 1.8 0 2.6-1.6 2.1-3.6C17.6 10.4 19 13 19 15.3 19 19 15.9 22 12 22s-7-3-7-6.7c0-4.4 4.5-6.2 7-13.3z" fill="${col}"/><path class="core" d="M12 13.5c.4 1.4-.8 2.2-.8 3.4 0 .9.7 1.5 1.5 1.5 1.2 0 1.9-1 1.6-2.4.9.7 1.4 1.7 1.4 2.6 0 1.9-1.6 3.4-3.6 3.4s-3.6-1.5-3.6-3.4c0-2.2 2.2-3.2 3.5-5.1z" fill="${core}"/></svg>`;
+}
+function mark(m,s){
+  if(m==='o') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="none" stroke="${C.bone}" stroke-width="2"/></svg>`;
+  if(m==='f') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="${C.patina}"/><path d="M${s/2} 7v${s-14}M7 ${s/2}h${s-14}" stroke="${C.deep}" stroke-width="1.6"/></svg>`;
+  if(m==='r') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="${C.bone}"/><path d="M6 ${s/2}h${s-12}" stroke="${C.onBone}" stroke-width="1.6" stroke-dasharray="3 2"/></svg>`;
+  if(m==='p') return `<svg width="${s}" height="${s}"><rect x="3" y="3" width="${s-6}" height="${s-6}" fill="none" stroke="${C.muted}" stroke-width="1.5" stroke-dasharray="3 3"/></svg>`;
+  return '';
+}
+function rnd(seed){ let x=seed*9301+49297; return ()=>{ x=(x*9301+49297)%233280; return x/233280; }; }
+const PALS = [['#2f4f6f','#6f9fbf','#e8d8a8','#c86f3f','#1f2f3f'],['#5f7f3f','#9fbf5f','#3f5f2f','#e8e0b0','#8f6f3f'],['#8f3f4f','#df8f8f','#f0d0c0','#5f2f3f','#2f1f2f'],['#3f6f6f','#7fbfaf','#d0e8d8','#1f3f3f','#e0b060'],['#6f4f8f','#a08fc0','#e8d8f0','#3f2f4f','#d0a060']];
+function pic(w,h,seed,cells=10){ const cv=document.createElement('canvas'); cv.width=cells; cv.height=Math.round(cells*h/w); const g=cv.getContext('2d'); const r=rnd(seed); const pal=PALS[seed%PALS.length];
+  for(let y=0;y<cv.height;y++)for(let x=0;x<cells;x++){ const band=Math.floor((y/cv.height)*3+r()*1.2); g.fillStyle=pal[Math.min(pal.length-1,band+(r()<.2?1:0))]; g.fillRect(x,y,1,1);} cv.style.imageRendering='pixelated'; return cv; }
+const bar = t => `<div class="bar"><span class="ib">←</span><span class="t">${t}</span></div>`;
+const hero = (n,best,lit,roll) => `<div class="hero"><div>${flame(72,n||1,lit)}</div><div><div class="n">${roll?`<span class="rollto" data-to="${n}">0</span>`:n}</div><div class="w">days in a row</div>${best?`<div class="b">Best: <b>${best}</b></div>`:''}</div></div>`;
+const status = (ic, a, b) => `<div class="status"><span class="ic">${ic}</span><span>${a}${b?`<br><small>${b}</small>`:''}</span></div>`;
+const num = n => `<b style="font-family:AHMono">${n}</b>`;
+const sheet = (title, inner) => `<div class="sheetwrap" style="padding-top:90px"><div class="sheet"><div class="handle"></div><h3>${title}</h3>${inner}</div></div>`;
+
+// ---- 1 · wheel
+const PATINA_TEXT = '#ACD6C6';
+const PRIZES = [
+  { label:'5 fills', pct:45, fill:C.patina },
+  { label:'10 fills', pct:20, fill:PATINA_TEXT },
+  { label:'1 photo canvas', pct:15, fill:C.bone },
+  { label:'1 unlock token', pct:10, fill:C.muted },
+  { label:'Streak freeze', pct:10, fill:C.felt, cross:true },
+];
+function wheel(size, rotation, atCap){
+  const r = size/2, cx=r, cy=r; let a0 = -90, out='';
+  PRIZES.forEach(p=>{
+    const a1 = a0 + p.pct*3.6, rad=d=>d*Math.PI/180;
+    const x0=cx+r*Math.cos(rad(a0)), y0=cy+r*Math.sin(rad(a0)), x1=cx+r*Math.cos(rad(a1)), y1=cy+r*Math.sin(rad(a1));
+    out += `<path d="M${cx} ${cy}L${x0} ${y0}A${r} ${r} 0 ${p.pct>50?1:0} 1 ${x1} ${y1}Z" fill="${p.fill}" stroke="${C.deep}" stroke-width="3"/>`;
+    if (p.cross) { const m=rad((a0+a1)/2), mx=cx+r*.66*Math.cos(m), my=cy+r*.66*Math.sin(m), s=9;
+      out += `<path d="M${mx} ${my-s}v${2*s}M${mx-s} ${my}h${2*s}" stroke="${C.bone}" stroke-width="2.4" stroke-linecap="round"/>`; }
+    a0 = a1;
+  });
+  out += `<circle cx="${cx}" cy="${cy}" r="${size*.09}" fill="${C.deep}"/>`;
+  return `<div style="position:relative;width:${size}px;height:${size+12}px"><svg width="${size}" height="${size}" style="position:absolute;top:12px;transform:rotate(${rotation}deg)">${out}</svg>
+    <svg width="22" height="18" style="position:absolute;left:${r-11}px;top:0"><path d="M0 0h22L11 18z" fill="${C.bone}"/></svg></div>`;
+}
+const odds = atCap => `<div class="odds">${PRIZES.map(p=>`<span><i style="background:${p.fill};${p.cross?'box-shadow:inset 0 0 0 1px '+C.bone:''}"></i>${p.cross&&atCap?'5 fills':p.label} ${p.pct}%</span>`).join('')}</div>`;
+// The freeze slice spans 90-100% of the turn, middle at 342°: rotate so it's under the pointer.
+const FREEZE_UP = 18;
+document.getElementById('w-a').innerHTML = sheet('Your gift', `<div class="wheelbox">${wheel(220,0,false)}${odds(false)}</div><div style="height:14px"></div><div class="pb">Spin</div>`);
+document.getElementById('w-b').innerHTML = sheet('Your gift', `<div class="wheelbox">${wheel(220,FREEZE_UP+0,false)}${odds(false)}</div><div class="result">A streak freeze added to your inventory.</div><div class="qbw">Done</div>`);
+document.getElementById('w-c').innerHTML = sheet('Your gift', `<div class="wheelbox">${wheel(220,FREEZE_UP,true)}${odds(true)}</div><div class="result">5 fills added to your inventory.</div><div class="qbw">Done</div>`);
+
+// ---- 2 · inventory + streak screen
+document.getElementById('i-a').innerHTML = `<div class="sheetwrap"><div class="sheet"><div class="handle"></div><h3>Inventory</h3>
+  <div class="item"><div class="well">▦<b>12</b></div><div class="tx">Fills<small>One fills a region, the rest of a color, or a brush stroke.</small></div></div>
+  <div class="item"><div class="well">▣<b>1</b></div><div class="tx">Photo canvases<small>For a photo after today's free one. Kept until you use them.</small></div></div>
+  <div class="item"><div class="well">◆<b>0</b></div><div class="tx">Unlock tokens<small>Opens any locked picture for good.</small></div></div>
+  <div class="item"><div class="well">${mark('f',30)}<b>1</b></div><div class="tx">Streak freezes<small>Covers a missed day after your day off. Hold up to 2.</small></div></div>
+  <div style="height:12px"></div><div class="pb">Watch a video: +5 fills</div></div></div>`;
+const gift = `<div class="sect"><h4>Next gift spin at 15 days in a row</h4><div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div>`;
+document.getElementById('i-b').innerHTML = bar('Your streak') + hero(12,12,false) +
+  `<div class="sect">${status(mark('p',22),'Finish a picture today to keep it')}<div class="qb" style="width:100%">Today's picture</div></div>
+   <div class="sect">${status(mark('o',22),'Day off ready')}${status(mark('f',22),`Streak freezes ${num(2)}`,'Covers a missed day. Hold up to 2.')}</div>` + gift;
+document.getElementById('i-c').innerHTML = bar('Your streak') + hero(31,31,true) +
+  `<div class="todayline">${flame(18,31,true,{still:true})} Done for today</div>
+   <div class="sect">${status(mark('o',22),'Day off used Saturday','Ready again next Saturday')}${status(mark('f',22),'VIP freeze ready')}</div>`;
+const last7 = ['M','T','W','T','F','S','S'];
+function weekRow(marks, tier, today){
+  return `<div class="week">${last7.map(d=>`<div class="d">${d}</div>`).join('')}${marks.map((m,i)=>`<div class="c${i===today?' today':''}">${m==='g'?flame(22,tier,true,{still:true}):m==='e'?'':mark(m,26)}</div>`).join('')}</div>`; }
+const cele = (to, what, sub, week, today, extra='') => `<div class="cele"><div class="anchor">${flame(96,to,true,{ignite:true})}</div><div class="num"><span>${to}</span></div>
+  <div class="what">${what}</div><div class="sub">${sub}</div>${weekRow(week,to,today)}<div class="spacer"></div><div class="pb">Continue</div>${extra||'<div class="tb">See your streak</div>'}</div>`;
+document.getElementById('i-d').innerHTML = cele(9,'9 days in a row','A streak freeze kept it going on Tuesday. 1 left.',['g','f','g','e','e','e','e'],2);
+document.getElementById('r-cel').innerHTML = cele(1,'You started a streak','Finish a picture tomorrow to make it 2.',['e','e','e','g','e','e','e'],3,'<div class="tb">Your 12 days can still be restored</div>');
+
+// ---- 3 · repair states
+const R = {
+  title:'Bring back your 12 days', body:'Your streak ended on Tuesday. Watch a short video to restore it.', until:'You can do this until Thursday.',
+};
+const states = [
+  ['Ready', `<p>${R.body}</p><div class="pb">Watch a video</div><div class="mut">${R.until}</div>`],
+  ['VIP, weekly repair ready', `<p>Your streak ended on Tuesday. Your weekly VIP repair can bring it back.</p><div class="pb">Bring it back</div><div class="mut">${R.until}</div>`],
+  ['VIP, weekly repair used', `<p>${R.body}</p><div class="pb">Watch a video</div><div class="mut">VIP repair used Monday · ready again next Monday</div><div class="mut">${R.until}</div>`],
+  ['Loading', `<p>${R.body}</p><div class="pb held">Loading video…</div><div class="load"></div><div class="mut">${R.until}</div>`],
+  ['Closed early', `<p>${R.body}</p><div class="pb">Watch a video</div><div class="mut" style="color:var(--muted)">Watch to the end to bring it back.</div><div class="mut">${R.until}</div>`],
+  ['Offline', `<p class="fault">You're offline. Connect to watch a video.</p><div class="qbw">Try again</div><div class="mut">${R.until}</div>`],
+  ['No video (grace used this month)', `<p>No video right now. Try again in a bit.</p><div class="qbw">Try again</div><div class="mut">${R.until}</div>`],
+  ['Grace (online no-fill)', `<p>No video right now. This one's on us today.</p><div class="pb">Bring it back</div><div class="mut">${R.until}</div>`],
+];
+document.getElementById('repairs').innerHTML = states.map(([name, inner], i) =>
+  `<div class="col"><div class="opt">${name}</div><div class="phone">${bar('Your streak')}${hero(0,12,false)}<div class="repair"><div class="t">${R.title}</div>${inner}</div></div></div>`).join('') +
+  `<div class="col"><div class="opt">Restored</div><div class="phone">${bar('Your streak')}${hero(12,12,false,true)}<div class="todayline" style="margin-bottom:8px">Streak back: ${num(12)} days</div>
+     <div class="sect">${status(mark('r',22),'Monday and Tuesday repaired')}${status(mark('p',22),'Finish a picture today to keep it')}<div class="qb" style="width:100%">Today's picture</div></div></div>
+     <div class="cap">The panel goes; the number rolls 0 → 12 over 600ms (shown at once under reduced motion); "Streak back: 12 days" is announced politely. The missed days show the repaired stitch in the calendar. The flame stays grey until today's finish.</div></div>`;
+document.getElementById('repairs').insertAdjacentHTML('beforeend', `<div class="col"><div class="cap" style="margin-top:28px"><b>Notes.</b> The panel is the rewarded sheet's state machine drawn inline (same 5s load, same online-no-fill rule, the same grace once a day for this type). <b>Founder 2026-10-22:</b> video repairs have no monthly limit (ad revenue); the 2-day window and 2-day minimum stay. <b>VIP</b>: one free repair a week, then a video like anyone. <b>Grace</b> repair (online no-fill) at most once in 30 days; after that a no-fill reads "No video right now. Try again in a bit." The VIP lines are proposals. <b>Offline</b> uses <code>fault</code> on felt-deep (valid grounds). Never on the canvas or the completion screen.</div></div>`);
+setTimeout(()=>document.querySelectorAll('.rollto').forEach(el=>{ const to=+el.dataset.to; let t0=null;
+  const step=t=>{ if(t0===null) t0=t; const k=Math.min(1,Math.max(0,(t-t0)/600)), e=1-Math.pow(1-k,3); el.textContent=Math.round(to*e); if(k<1) requestAnimationFrame(step); }; requestAnimationFrame(step); }), 500);
+
+// ---- 4 · gallery nudge
+function gallery(o){
+  const chip = `<span class="chipS">${flame(16, o.n||1, false)}<b>${o.n}</b><span>›</span></span>`;
+  const top = `<div class="bar" style="padding-left:16px"><span class="t">Gemmory</span><span class="ib">▣</span><span class="ib">⚙</span></div><div class="tabs"><span class="tab on">Pictures</span><span class="tab">My Photos</span>${chip}</div>`;
+  const line = `<div class="line"${o.big?' style="font-size:24px"':''}><div style="flex:none">${flame(o.big?32:20,o.n||1,false)}</div><div style="flex:1;font-size:${o.big?'24px':'15px'};line-height:1.3">${o.line}<div class="l"${o.big?' style="font-size:21px"':''}>${o.hint}</div>${o.await?`<div class="l"${o.big?' style="font-size:21px"':''}>${o.await}</div>`:''}</div><span>›</span></div>`;
+  const tomorrow = o.tomorrow ? `<div class="line"><div id="${o.id}-tm" style="width:40px;height:40px;flex:none;filter:blur(2px) saturate(.5);opacity:.8"></div><div style="flex:1"><div class="l">Tomorrow</div><div style="font-size:15px">A new picture</div></div></div>` : '';
+  const card = o.noToday
+    ? `<div class="today" style="padding-top:0">${line.replace('class="line"','class="line" style="border-top:none;margin-top:0"')}${tomorrow}</div>`
+    : `<div class="today"><div class="top"><div id="${o.id}-tp" style="width:72px;height:72px;flex:none"></div><div><div class="k">Today's picture</div><div class="ti">${o.title}</div><div class="l">${o.meta}</div><span class="qb">${o.cont?'Continue':'Start'}</span></div></div>${line}${tomorrow}</div>`;
+  const colls = o.big ? `<div class="coll" style="font-size:24px">Garden · 2 of 6</div>` : `<div class="coll">Garden · 2 of 6</div><div class="coll">Night Sky · 1 of 5</div>`;
+  return top + card + colls + `<div class="grid" id="${o.id}-grid"></div>`; }
+const N = n => `<b style="font-family:AHMono">${n}</b>`;
+for (const o of [
+  {id:'g-a',n:6,title:'Lighthouse',meta:'Quick · free today',line:`Finish a picture today to keep your ${N(6)} days`,hint:"Today's picture is Quick"},
+  {id:'g-b',n:6,title:'Old Town',meta:'Big · free today',line:`Finish a picture today to keep your ${N(6)} days`,hint:`Harbour is ${N('82%')} done`},
+  {id:'g-c',n:6,title:'Old Town',meta:'Big · done',line:`Finish a picture today to keep your ${N(6)} days`,hint:'Beach Huts is Quick',await:'Yesterday is covered when you finish',cont:true},
+  {id:'g-d',n:6,noToday:true,tomorrow:true,line:`Finish a picture today to keep your ${N(6)} days`,hint:`Harbour is ${N('82%')} done`},
+  {id:'g-e',n:0,title:'Lighthouse',meta:'Quick · free today',line:`Your ${N(12)} days can still be restored`,hint:'See your streak'},
+  {id:'g-f',n:6,big:true,title:'Lighthouse',meta:'Quick · free today',line:`Finish a picture today to keep your ${N(6)} days`,hint:"Today's picture is Quick"},
+]) {
+  const el=document.getElementById(o.id); el.innerHTML=gallery(o);
+  const tp=document.getElementById(o.id+'-tp'); if (tp) { const c=pic(1,1,3,10); c.style.width='72px'; c.style.height='72px'; c.style.borderRadius='4px'; tp.appendChild(c); }
+  const tm=document.getElementById(o.id+'-tm'); if (tm) { const c=pic(1,1,11,8); c.style.width='40px'; c.style.height='40px'; tm.appendChild(c); }
+  const g=document.getElementById(o.id+'-grid'); [5,9,12,4].forEach(s=>g.appendChild(pic(3,4,s,12)));
+}
+// the C card's Today picture is done: no Start/Continue button
+document.querySelector('#g-c .today .qb').remove();
+
+// ---- 5 · reminder
+const notif = (t, x) => `<div class="notif"><div style="flex:none;width:36px;height:36px;border-radius:50%;background:${C.deep};display:grid;place-items:center">◆</div><div class="body"><div class="app">Gemmory · 20:30</div><div class="tt">${t}</div><div class="tx">${x}</div></div></div>`;
+document.getElementById('n-a').innerHTML = notif('Your 6-day streak ends at midnight','Finish any picture tonight to keep it. Lighthouse is Quick.');
+document.getElementById('n-b').innerHTML = notif('Your 6-day streak ends at midnight','Finish any picture tonight to keep it. Harbour is 82% done.');
+</script>
+</body>
+</html>

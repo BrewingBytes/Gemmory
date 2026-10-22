@@ -113,6 +113,15 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
             mapOf("length" to length.toLong(), "milestone" to milestone.toLong(), "saved_by" to savedBy),
         )
 
+        /**
+         * The gift wheel landed on the streak freeze (#102, E7): [paid] is `freeze`, or `fills` when 2 were already held
+         * (it pays 5 fills instead).
+         */
+        fun streakFreezeEarned(paid: String) = AnalyticsEvent("streak_freeze_earned", mapOf("paid" to paid))
+
+        /** A new streak day spent [count] streak freezes on the missed days before it (#102, E5). */
+        fun streakFreezeUsed(count: Int) = AnalyticsEvent("streak_freeze_used", mapOf("count" to count.toLong()))
+
         /** The streak screen opened (#101), from [source]: `chip` or `celebration`. */
         fun streakScreenOpened(source: String) = AnalyticsEvent("streak_screen_opened", mapOf(SOURCE to source))
 

@@ -144,10 +144,12 @@ class StreakViewModel(application: Application) : AndroidViewModel(application) 
 
 const val STREAK_SCREEN_TAG = "streak-screen"
 const val STREAK_TODAYS_PICTURE_TAG = "streak-todays-picture"
+const val STREAK_FREEZES_TAG = "streak-freezes"
 
 /**
  * "Your streak" (#101, the streak screen copy and spec tables): the flame and the number with the best, today's
- * status, the weekly covers (day off; VIP freeze for VIP), the next gift (not VIP), then the month calendar. [onToday]
+ * status, the covers (day off; VIP freeze for VIP, else the streak freezes held, #102), the next gift (not VIP), then
+ * the month calendar. [onToday]
  * opens Today's picture, null when there is none to finish.
  */
 @Composable
@@ -184,9 +186,13 @@ fun StreakScreen(vm: StreakViewModel, onBack: () -> Unit, onToday: (() -> Unit)?
                 if (shown > 0) {
                     Section {
                         Weekly("Day off", s.state.restDay, s.today, CellKind.DAY_OFF, shown)
+                        Spacer(Modifier.height(8.dp))
                         if (vip) {
-                            Spacer(Modifier.height(8.dp))
                             Weekly("VIP freeze", s.state.vipFreezeDay, s.today, CellKind.VIP_FREEZE, shown)
+                        } else {
+                            // VIP never spends held freezes (O2), so only players without it see them (#102).
+                            val (line, sub) = StreakText.freezes(s.cover.freezes)
+                            SafetyRow(line, sub, CellKind.FREEZE, s.today, shown, Modifier.testTag(STREAK_FREEZES_TAG))
                         }
                     }
                 }
@@ -258,8 +264,14 @@ private fun Section(content: @Composable () -> Unit) {
 @Composable
 private fun Weekly(name: String, lastUsed: Long, today: Long, mark: CellKind, length: Int) {
     val (line, sub) = StreakText.weekly(name, lastUsed, today)
+    SafetyRow(line, sub, mark, today, length)
+}
+
+/** A safety row: the cover's mark, its line and an optional muted line under it; one TalkBack node. */
+@Composable
+private fun SafetyRow(line: String, sub: String?, mark: CellKind, today: Long, length: Int, modifier: Modifier = Modifier) {
     Row(
-        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+        modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(22.dp)) { DayMark(CalendarCell(today, mark), length, pictures = false) }

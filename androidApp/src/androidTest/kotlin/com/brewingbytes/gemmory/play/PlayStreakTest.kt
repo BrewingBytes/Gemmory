@@ -22,12 +22,21 @@ import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.gallery.STREAK_TAG
 import com.brewingbytes.gemmory.streak.STREAK_SCREEN_TAG
+import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DayKind
 import com.brewingbytes.gemmory.policy.HistoryDay
+import com.brewingbytes.gemmory.policy.InventoryCodec
+import com.brewingbytes.gemmory.policy.InventoryState
+import com.brewingbytes.gemmory.policy.StreakHistoryCodec
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -76,6 +85,42 @@ class PlayStreakTest {
         hints.commit()
         // No real AdMob: an interstitial after Done would cover the gallery (lessons, #50).
         app.resetMonetizationForTest(NoAds)
+    }
+
+    /**
+     * #102, E5/O3 (R1): the process dies after the new day is committed but before its streak freeze is spent. The
+     * day is kept, the freeze too (a crash never loses a day; it may leave a freeze), and the restarted app neither
+     * counts the day again nor spends the freeze for it.
+     */
+    @Test
+    fun aCrashBetweenTheSaveAndTheSpendKeepsTheDayAndTheFreeze() = runBlocking<Unit> {
+        val today = LocalDate.now().toEpochDay()
+        // Yesterday was missed and the day off was used 3 days ago: only a streak freeze covers it.
+        prefs.edit().clear().putInt("length", 4).putLong("lastDay", today - 2).putLong("restDay", today - 5).commit()
+        File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
+        val inventory = File(context.filesDir, StorageLayout.INVENTORY)
+        inventory.parentFile!!.mkdirs()
+        inventory.writeBytes(InventoryCodec.encode(InventoryState(freezes = 1)))
+        app.resetMonetizationForTest(NoAds)
+        val history = FileStateStore(File(context.filesDir, StorageLayout.STREAK_HISTORY), StreakHistoryCodec::encode, StreakHistoryCodec::decode)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        // The policy thread resolves and saves the day, then "dies" before Monetization spends the freeze.
+        val dying = PlayStreak(context, app.dayClock, app.analytics, history, scope, resolve = { block ->
+            block(false, 1)
+            throw IllegalStateException("killed before the spend")
+        })
+        assertTrue(runCatching { dying.played("PHOTO/streak").await() }.isFailure)
+        assertEquals(5, prefs.getInt("length", 0), "the day is committed")
+        assertEquals(today, prefs.getLong("lastDay", 0))
+        assertEquals(1, app.monetization.freezes(), "the freeze is kept")
+
+        // The restarted app: the day is already counted, so nothing is resolved or spent again.
+        app.resetStreakForTest(celebrations = false)
+        assertNull(app.streak.played("PHOTO/streak").await())
+        assertEquals(5, app.streak.current(Cover(freezes = 1)))
+        assertEquals(1, app.monetization.freezes())
+        scope.cancel()
+        inventory.delete()
     }
 
     @After

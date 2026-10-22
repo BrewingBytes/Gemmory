@@ -92,8 +92,9 @@ import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.photo.allowanceLine
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.policy.InventoryState
-import com.brewingbytes.gemmory.policy.WheelPrize
+import com.brewingbytes.gemmory.policy.Spin
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -230,7 +231,7 @@ fun GalleryScreen(
     /** What the player holds (#38); null for VIP, who has everything unlimited and no inventory. */
     inventory: InventoryState? = null,
     onWatchFills: () -> Unit = {},
-    onSpin: suspend () -> WheelPrize? = { null },
+    onSpin: suspend () -> Spin? = { null },
     /** The first-music chip (T42, D24) is up; it goes on a tap, a tile tap or after 8s (no timeout under TalkBack). */
     musicChip: Boolean = false,
     onMusicChipGone: () -> Unit = {},
@@ -452,7 +453,7 @@ fun GalleryScreen(
             onSpin = { inventorySheet = 2 },
             onDismiss = { inventorySheet = 0 },
         )
-        2 -> WheelSheet(inventory.spinsWaiting, onSpin, onDismiss = { inventorySheet = 0 })
+        2 -> WheelSheet(inventory.spinsWaiting, inventory.freezes >= Inventory.MAX_FREEZES, onSpin, onDismiss = { inventorySheet = 0 })
         }
     }
     if (collectionsSheet) {

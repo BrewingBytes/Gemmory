@@ -90,7 +90,7 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
         val start = StreakCalendar.weekStart(snapshot.today, firstDayOfWeek())
         val week = StreakCalendar.cells(start..start + 6, app.streak.history(), snapshot.state, snapshot.cover, snapshot.today)
         val vip = snapshot.cover.vip
-        return StreakDayData(celebration, week, vip, StreakText.celebration(celebration.length, celebration.covered, vip)).also { data = it }
+        return StreakDayData(celebration, week, vip, StreakText.celebration(celebration.length, celebration.covered, vip, snapshot.cover.freezes)).also { data = it }
     }
 
     /** Logs `streak_celebration_shown` once per celebration; true the first time, when the sound plays. */
