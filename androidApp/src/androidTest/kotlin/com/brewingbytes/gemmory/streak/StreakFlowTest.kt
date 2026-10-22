@@ -17,6 +17,7 @@ import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.app.A11yTestSupport
+import com.brewingbytes.gemmory.gallery.FINISHED_TAG
 import com.brewingbytes.gemmory.gallery.tileTag
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession
@@ -178,6 +179,18 @@ class StreakFlowTest {
         compose.waitForIdle()
     }
 
+    /**
+     * The gallery after a finish (#128): a finished canvas moves to the collapsed Finished section (#89), so the wait
+     * is for its [heading] ("Finished, 2 photo canvases"), whose count is right once the gallery has reloaded.
+     */
+    private fun backOnGallery(heading: String) {
+        waitFor("the gallery") {
+            !exists(CELEBRATION_TAG) &&
+                compose.onAllNodes(hasTestTag(FINISHED_TAG) and hasContentDescription(heading)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitForIdle()
+    }
+
     /** O4: a new day's celebration comes first; the return chain waits for the gallery, then runs once. */
     @Test
     fun aNewDayIsCelebratedThenTheReturnChainRuns() {
@@ -193,8 +206,7 @@ class StreakFlowTest {
 
         // A second finish the same day: no celebration, the plain return.
         finishAndDone(second)
-        waitFor("the gallery") { exists(tileTag(first)) }
-        assertFalse(exists(CELEBRATION_TAG))
+        backOnGallery("Finished, 2 photo canvases")
         waitFor("the chain ran again") { reminderPrefs().finishes == 2 }
     }
 
@@ -243,7 +255,7 @@ class StreakFlowTest {
         assertTrue(shows("Done for today"))
         assertEquals(0, reminderPrefs().finishes)
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        waitFor("the gallery") { exists(tileTag(first)) }
+        backOnGallery("Finished, 1 photo canvas")
         waitFor("the chain ran") { reminderPrefs().finishes == 1 }
     }
 
@@ -253,7 +265,7 @@ class StreakFlowTest {
         seed(length = 2, celebrations = false)
         launch()
         finishAndDone(first)
-        waitFor("the gallery") { exists(tileTag(first)) }
+        backOnGallery("Finished, 1 photo canvas")
         assertFalse(exists(CELEBRATION_TAG))
         waitFor("the chain ran") { reminderPrefs().finishes == 1 }
         assertEquals(3, app.streak.state().length, "the day still counts")

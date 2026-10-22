@@ -22,6 +22,7 @@ import com.brewingbytes.gemmory.app.A11yTestSupport
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.gallery.FINISHED_TAG
 import com.brewingbytes.gemmory.gallery.tileTag
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession
@@ -181,7 +182,7 @@ class StreakShareFlowTest {
         assertFalse("analytics share_completed" in analyticsLog(), "not counted as a picture share")
 
         compose.onNodeWithTag(CELEBRATION_CONTINUE_TAG).performClick()
-        waitFor("the gallery") { !exists(CELEBRATION_TAG) && exists(tileTag(photo)) }
+        waitFor("the gallery") { !exists(CELEBRATION_TAG) && exists(FINISHED_TAG) }
     }
 
     /** R1: an ordinary day keeps "See your streak" and no Share. */
