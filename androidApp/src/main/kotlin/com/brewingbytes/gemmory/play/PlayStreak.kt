@@ -37,6 +37,9 @@ data class PendingCelebration(
     val canvas: String,
 )
 
+/** The streak's preferences file; the launch funnel (T46) reads whether it exists. */
+const val STREAK_PREFS = "streak"
+
 /** How a broken streak is brought back (#102): a rewarded video, the online no-fill grace, or VIP's weekly repair. */
 enum class RepairHow { VIDEO, GRACE, VIP }
 
@@ -234,7 +237,7 @@ class PlayStreak(
     }
 
     private companion object {
-        const val FILE = "streak"
+        const val FILE = STREAK_PREFS
         const val LENGTH = "length"
         const val LAST_DAY = "lastDay"
         const val REST_DAY = "restDay"

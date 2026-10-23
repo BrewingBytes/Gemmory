@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory
 
 import android.app.Activity
 import android.app.Application
+import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -29,6 +30,7 @@ import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.play.PlayStreak
+import com.brewingbytes.gemmory.play.STREAK_PREFS
 import com.brewingbytes.gemmory.policy.Achievement
 import com.brewingbytes.gemmory.policy.AchievementCodec
 import com.brewingbytes.gemmory.policy.AchievementRules
@@ -39,6 +41,7 @@ import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
 import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.policy.PlayGamesTurn
+import com.brewingbytes.gemmory.policy.ReferrerParse
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.StreakHistoryCodec
@@ -69,6 +72,12 @@ import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.streak.StreakView
 import com.brewingbytes.gemmory.widget.StreakWidgets
 import com.brewingbytes.gemmory.telemetry.Analytics
+import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.FirstRun
+import com.brewingbytes.gemmory.telemetry.InstallReferrerReader
+import com.brewingbytes.gemmory.telemetry.PlayReferrerClient
+import com.brewingbytes.gemmory.telemetry.ReferrerAnswer
+import com.brewingbytes.gemmory.telemetry.ReferrerClient
 import com.brewingbytes.gemmory.telemetry.ConsentFirst
 import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
 import com.brewingbytes.gemmory.telemetry.FirebaseAnalyticsLogger
@@ -86,6 +95,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import java.io.File
@@ -223,6 +233,9 @@ class GemmoryApp : Application() {
         private set
 
     lateinit var consent: ConsentManager
+
+    /** The launch funnel (T46): a fresh install's `first_launch`, `first_gem` and install referrer. */
+    lateinit var firstRun: FirstRun
         private set
 
     lateinit var ads: AdGateway
@@ -633,6 +646,13 @@ class GemmoryApp : Application() {
         consent = ConsentManager(this, reporter)
         analytics.consent(consent.consentMode.value)
         settings = AppSettings(this)
+        // Before anything below writes a canvas, the achievements or the streak: is this a fresh install (T46)?
+        firstRun = FirstRun(
+            filesDir = filesDir,
+            streakPrefs = File(dataDir, "shared_prefs/$STREAK_PREFS.xml"),
+            marker = getSharedPreferences(FirstRun.MARKER_FILE, MODE_PRIVATE),
+            funnel = getSharedPreferences(FirstRun.FUNNEL_FILE, MODE_PRIVATE),
+        )
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         encodes = EncodeManager(
             cacheDir = cacheDir,
@@ -643,6 +663,7 @@ class GemmoryApp : Application() {
             analytics = analytics,
         )
         appScope = scope
+        readInstallReferrer()
         remote = newRemote()
         store = newStore()
         billing = BillingRepository(
@@ -701,11 +722,31 @@ class GemmoryApp : Application() {
     }
 
     /**
+     * A fresh install reads Play's install referrer once, from process start (T46, eng O-E3): it's read on the phone,
+     * so it needs no consent, and it's kept there for T50. `-Pgemmory.fakeReferrer` stands in for Play in debug builds.
+     */
+    private fun readInstallReferrer() {
+        if (!firstRun.referrerDue()) return
+        val client = if (BuildConfig.FAKE_REFERRER.isNotEmpty()) ReferrerClient { ReferrerAnswer.Ok(BuildConfig.FAKE_REFERRER) } else PlayReferrerClient(this)
+        appScope.launch(Dispatchers.IO) {
+            val raw = InstallReferrerReader(client, reporter).read()
+            firstRun.referrerRead(raw)
+            if (BuildConfig.DEBUG) Log.i("Gemmory", "install referrer ${ReferrerParse.parse(raw)}")
+        }
+    }
+
+    /**
      * The process came to the screen for the first time (T35, eng D11). Only now does it count as a cold start for the
      * first session, and only now does the achievements backfill run, so a reminder, reboot or update that starts the
      * process in the background does none of it. Play Games starts here only once its turn has come (T45).
      */
     private fun onFirstForeground() {
+        // The launch funnel starts before the backfills below write anything (T46); first_launch waits for consent.
+        firstRun.onFirstForeground(dayClock.nowMillis())
+        appScope.launch {
+            consent.launchSettled.first { it }
+            if (firstRun.launchDue()) analytics.log(AnalyticsEvent.firstLaunch)
+        }
         monetization.onProcessStart()
         // Past the first finish, Play Games starts with the app (T45, founder: as early as allowed); before it, a fresh
         // install sees nothing of it until a gallery visit after that finish.

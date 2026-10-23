@@ -87,7 +87,11 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
             launch {
                 var before = session.placedCount
                 snapshotFlow { session.placedCount }.collect { placed ->
-                    if (placed > before && app.dayPlayed.gemPlaced()) app.analytics.log(AnalyticsEvent.dayPlayed(entry))
+                    if (placed > before) {
+                        // `first_gem` (T46): a fresh install's first gem on any canvas, once, with its time since the first launch.
+                        app.firstRun.gemPlaced(app.dayClock.nowMillis())?.let { app.analytics.log(AnalyticsEvent.firstGem(it, ref, entry)) }
+                        if (app.dayPlayed.gemPlaced()) app.analytics.log(AnalyticsEvent.dayPlayed(entry))
+                    }
                     before = placed
                 }
             }
