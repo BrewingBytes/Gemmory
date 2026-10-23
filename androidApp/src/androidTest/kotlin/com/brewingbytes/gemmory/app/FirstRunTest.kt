@@ -129,7 +129,10 @@ class FirstRunTest {
         compose.waitUntil("Play Games' turn at the gallery", 5_000) { exists("gallery-grid") && app.playGamesStartedForTest }
     }
 
-    /** An upgrader with a finished canvas has had Play Games before: it starts at the first gallery, as in 0.8.1. */
+    /**
+     * An upgrader with a finished canvas is past the first finish. In production Play Games starts with the app
+     * ([PlayGamesTurn.startAtLaunch], unit-tested); this process is already in front, so here the first gallery starts it.
+     */
     @Test
     fun anUpgraderWithAFinishGetsPlayGamesAtTheFirstGallery() {
         app.seedFirstFinish()

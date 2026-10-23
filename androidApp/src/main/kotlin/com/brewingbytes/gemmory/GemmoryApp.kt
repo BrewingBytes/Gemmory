@@ -709,7 +709,7 @@ class GemmoryApp : Application() {
         monetization.onProcessStart()
         // Past the first finish, Play Games starts with the app (T45, founder: as early as allowed); before it, a fresh
         // install sees nothing of it until a gallery visit after that finish.
-        if (playGamesReady()) startPlayGames()
+        if (PlayGamesTurn.startAtLaunch(playGamesReady())) startPlayGames()
         val streakNow = streakView.refresh().shown
         watchPlayGamesTurn(after = achievements.backfill { finishedOnPhone() to streakNow })
         appScope.launch { streak.backfill(::firstFinishes) }

@@ -4,7 +4,10 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** Play Games' turn (T45): after the first finish, at a later gallery visit, never over a canvas. */
+/**
+ * Play Games' turn (T45): nothing before the first finish; then with the app, and in that finish's session at a
+ * gallery visit that isn't its return.
+ */
 class PlayGamesTurnTest {
     @Test
     fun aFreshInstallIsNotReady() {
@@ -34,8 +37,23 @@ class PlayGamesTurnTest {
         assertTrue(PlayGamesTurn.startNow(ready = true, onGallery = true, finishReturn = false))
     }
 
+    /** In the first finish's session, only the gallery starts it, not a canvas the player went on to. */
     @Test
-    fun neverOverACanvas() {
+    fun inTheFirstFinishSessionOnlyAGalleryVisitStartsIt() {
         assertFalse(PlayGamesTurn.startNow(ready = true, onGallery = false, finishReturn = false))
+    }
+
+    /** Past the first finish it starts with the app, wherever the launch lands; before it, never. */
+    @Test
+    fun itStartsWithTheAppOnceReady() {
+        assertTrue(PlayGamesTurn.startAtLaunch(ready = true))
+        assertFalse(PlayGamesTurn.startAtLaunch(ready = false))
+    }
+
+    /** A progress share needs only a gem (#36), so Work in Progress alone isn't a first finish. */
+    @Test
+    fun workInProgressAloneIsNotReady() {
+        assertFalse(PlayGamesTurn.ready(finishes = 0, unlocked = setOf(Achievement.WORK_IN_PROGRESS)))
+        assertTrue(PlayGamesTurn.ready(finishes = 0, unlocked = setOf(Achievement.WORK_IN_PROGRESS, Achievement.SHOW_AND_TELL)))
     }
 }

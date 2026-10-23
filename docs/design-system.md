@@ -179,7 +179,8 @@ first launch ─► UMP consent (EEA only, first launch, before any ad request; 
             │    only; the reminder ask, Play's review sheet, the interstitial and the streak celebration only follow a finish;
             │    the gift wheel waits 5 days; rewarded sheets open only on a tap. Play Games' turn: nothing of it before a
             │    picture is finished. In the session of the first finish it starts on the next gallery visit that isn't the
-            │    finish's return and has no reminder or widget tap opening over it; from then on it starts with the app (the
+            │    finish's return, with no reminder ask, review flow or rewarded sheet up and no reminder or widget tap opening
+            │    over it; a progress share alone (Work in Progress) doesn't count as a finish; from then on it starts with the app (the
             │    first foreground), as early as allowed (founder), and so does it at once for an upgrader with a finish or an
             │    achievement. Its sign-in may show its one-time UI (welcome pop-up, or Google's profile sheet) over whatever
             │    shows then: the gallery in the E3 spike (2026-10-22), or a canvas after a cold reminder tap or a quick tap,
