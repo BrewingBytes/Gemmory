@@ -1,0 +1,10 @@
+new-fallback.png pixels-differing=0
+new-progress.mp4 frames=504 identical
+new-starter.mp4 frames=504 identical
+new-vip.mp4 frames=450 identical
+new-wave.mp4 frames=504 identical
+today-fallback.png pixels-differing=0
+today-progress.mp4 frames=450 identical
+today-starter.mp4 frames=450 identical
+today-vip.mp4 frames=450 identical
+today-wave.mp4 frames=450 identical
