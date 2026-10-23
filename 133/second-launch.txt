@@ -1,0 +1,2 @@
+name=streak_celebration_shown,params=Bundle[{saved_by=finish, length=1, milestone=0, }]
+name=canvas_started,params=Bundle[{source=bundled, size=quick, entry=gallery}]
