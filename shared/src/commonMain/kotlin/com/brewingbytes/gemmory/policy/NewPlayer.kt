@@ -28,8 +28,13 @@ data class FirstRunState(
     val launchLogged: Boolean = false,
     val gemLogged: Boolean = false,
     val referrerRead: Boolean = false,
-    /** Play's raw install referrer (`utm_source=…&…`), kept until T50 hands its picture id over. */
+    /** Play's raw install referrer (`utm_source=…&…`), kept until the share landing (T50) has used it, then dropped. */
     val referrerRaw: String? = null,
+    /** The shared picture the landing opened (T50): free to start on [sharedDay] (a local day), unlocked by its first gem. */
+    val sharedId: String? = null,
+    val sharedDay: Long = 0,
+    /** The share landing has ended (T50): a referrer read that ends later isn't kept. */
+    val landingEnded: Boolean = false,
 )
 
 /**
@@ -83,8 +88,24 @@ class FirstRunFunnel(private val store: StateStore<FirstRunState>) {
             readBeforeBegin = true
             referrerBeforeBegin = raw
         } else if (!s.referrerRead) {
-            save(s.copy(referrerRead = true, referrerRaw = raw))
+            // A landing that ended before the read did (the player left the gallery) has no use for it (T50).
+            save(s.copy(referrerRead = true, referrerRaw = raw.takeUnless { s.landingEnded }))
         }
+    }
+
+    /** The shared picture the landing opened (T50), while it's free: on the day it opened. Null otherwise. */
+    fun sharedFree(today: Long): String? = state?.takeIf { it.sharedDay == today }?.sharedId
+
+    /** A share landing opened (T50): the player is in the normal game from here on, whether or not they placed a gem. */
+    val landed: Boolean get() = state?.sharedId != null
+
+    /**
+     * The share landing has ended (T50): it opened [sharedId] on [day] (null when nothing opened). The raw referrer
+     * isn't needed any more, so it's dropped from the phone.
+     */
+    fun landingEnded(sharedId: String?, day: Long) {
+        val s = state ?: return
+        save(s.copy(referrerRaw = null, sharedId = sharedId ?: s.sharedId, sharedDay = if (sharedId != null) day else s.sharedDay, landingEnded = true))
     }
 
     private fun save(value: FirstRunState) {

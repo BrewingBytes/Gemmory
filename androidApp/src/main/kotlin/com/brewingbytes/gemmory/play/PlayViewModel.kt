@@ -52,6 +52,14 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
     /** First-time hints (design D12); kept here so a rotation doesn't lose the one showing. */
     val hints = CoachHints(application)
 
+    /** A share link's "Shared with you: <title>" (T50) while it shows on this canvas; kept here across rotation. */
+    var sharedToast by mutableStateOf<String?>(null)
+        private set
+
+    fun sharedToastShown() {
+        sharedToast = null
+    }
+
     /**
      * Opens [ref] unless it's already open (a recreated screen after rotation calls this again). [entry]: where it was
      * opened from, for the canvas events and `day_played` (T36).
@@ -60,6 +68,7 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         if (ref == this.ref) return
         close()
         this.ref = ref
+        sharedToast = app.sharedLanding.takeCanvasToast(ref)
         opening = viewModelScope.launch {
             val opened = store.open(ref, entry)
             ui = when (opened) {
@@ -114,6 +123,7 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
         (ui as? PlayUi.Ready)?.session?.close()
         ui = PlayUi.Loading
         ref = null
+        sharedToast = null
         sharing.clear()
         hints.reset()
     }

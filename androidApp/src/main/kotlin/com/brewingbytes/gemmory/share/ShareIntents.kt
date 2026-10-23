@@ -20,7 +20,7 @@ object ShareIntents {
         val send = Intent(Intent.ACTION_SEND)
             .setType(if (file.name.endsWith(".png")) "image/png" else "video/mp4")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, ShareLink.text(request.medium))
+            .putExtra(Intent.EXTRA_TEXT, ShareLink.text(request.medium, request.pictureId))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         // ClipData carries the read grant through the chooser to the app the player picks.
         send.clipData = ClipData.newRawUri(null, uri)

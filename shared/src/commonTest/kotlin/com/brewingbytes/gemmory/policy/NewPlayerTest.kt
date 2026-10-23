@@ -101,4 +101,42 @@ class NewPlayerTest {
         funnel.referrerRead("late")
         assertNull(store.saved?.referrerRaw)
     }
+
+    @Test
+    fun aLandingKeepsItsPictureFreeThatDayAndDropsTheReferrer() {
+        val store = MemoryStore()
+        val funnel = FirstRunFunnel(store)
+        funnel.begin(1_000)
+        funnel.referrerRead("utm_source=share&utm_content=fox-in-snow")
+        assertFalse(funnel.landed)
+        funnel.landingEnded("fox-in-snow", day = 20_000)
+        val reread = FirstRunFunnel(store)
+        assertTrue(reread.landed)
+        assertEquals("fox-in-snow", reread.sharedFree(today = 20_000))
+        assertNull(reread.sharedFree(today = 20_001), "free until local midnight, then it follows its lock")
+        assertNull(reread.referrer, "the raw referrer is dropped once the landing has used it")
+    }
+
+    @Test
+    fun aLandingThatOpenedNothingOnlyDropsTheReferrer() {
+        val store = MemoryStore()
+        val funnel = FirstRunFunnel(store)
+        funnel.begin(1_000)
+        funnel.referrerRead("utm_content=crafted")
+        funnel.landingEnded(null, day = 20_000)
+        assertFalse(funnel.landed)
+        assertNull(funnel.sharedFree(20_000))
+        assertNull(funnel.referrer)
+    }
+
+    @Test
+    fun aReadEndingAfterTheLandingIsNotKept() {
+        val store = MemoryStore()
+        val funnel = FirstRunFunnel(store)
+        funnel.begin(1_000)
+        funnel.landingEnded(null, day = 20_000) // the player left the gallery before the 2 s read ended
+        funnel.referrerRead("utm_content=fox-in-snow")
+        assertNull(funnel.referrer)
+        assertTrue(store.saved!!.referrerRead, "still read once")
+    }
 }

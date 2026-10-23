@@ -21,6 +21,10 @@ class EncodeRequest(
     val medium: ShareLink.Medium
         get() = if (ref.kind == CanvasKind.PHOTO) ShareLink.Medium.PHOTO else ShareLink.Medium.BUNDLED
 
+    /** The picture's id for the share link (T50): a bundled or remote picture's; never a photo canvas's. */
+    val pictureId: String?
+        get() = ref.id.takeIf { ref.kind != CanvasKind.PHOTO }
+
     /** Shared before the last gem (#36). */
     val inProgress: Boolean get() = log.size < pattern.cells.size
 

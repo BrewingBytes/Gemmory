@@ -40,7 +40,10 @@ class TodaysPicturesTest {
         override fun log(event: AnalyticsEvent) {
             events += event
         }
-    }, todaysDrops = { drops })
+    }, todaysDrops = { drops }, shared = { shared })
+
+    /** The share landing's picture while it's free (T50), as FirstRun would answer for the clock's date. */
+    private var shared: String? = null
 
     private fun at(local: String) = LocalDateTime.parse(local).toInstant(zone).toEpochMilliseconds()
 
@@ -110,5 +113,20 @@ class TodaysPicturesTest {
         drops = emptySet()
         assertFalse(todays.isFreeToday(drop))
         assertNull(todays.opened(drop, vip = false))
+    }
+
+    @Test
+    fun aSharedPictureIsFreeTodayAndItsFirstGemUnlocksItWithoutTodaysEvent() {
+        val id = BundledPictures.ALL.first { it.locked }.id
+        shared = id
+        assertTrue(todays.isFreeToday(ref(id)))
+        assertTrue(id in todays.freeToday(), "in the open group, no lock label")
+        assertNull(todays.opened(CanvasRef(CanvasKind.PHOTO, id), vip = false), "never a photo canvas")
+        assertNotNull(todays.opened(ref(id), vip = false)).placed(78, 104)
+        assertTrue(id in unlocks.unlocked.value, "its first gem unlocks it for good")
+        assertTrue(events.isEmpty(), "not Today's picture: no todays_picture_started")
+
+        shared = null // past local midnight, FirstRun answers null
+        assertFalse(todays.isFreeToday(ref(id)))
     }
 }

@@ -126,6 +126,9 @@ import com.brewingbytes.gemmory.ui.noteFitsBeside
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import kotlinx.coroutines.delay
 import android.view.accessibility.AccessibilityManager
+import com.brewingbytes.gemmory.policy.ShareLanding
+import com.brewingbytes.gemmory.share.LandingUi
+import com.brewingbytes.gemmory.share.SharedLandingCopy
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.graphics.graphicsLayer
@@ -243,6 +246,11 @@ fun GalleryScreen(
     onMusicOff: () -> Unit = {},
     /** The streak chip (#101) and the nudge's broken variant (#102) open the streak screen, from `chip` or `nudge`. */
     onStreak: (source: String) -> Unit = {},
+    /** A share link's picture that arrived after the gallery drew (T50, DR2): "Shared with you: <title> · Open". */
+    sharedOffer: LandingUi.Offer? = null,
+    onSharedOpen: (LandingUi.Offer) -> Unit = {},
+    /** The offer's 8 s ran out (it has no timeout under TalkBack, D7). */
+    onSharedOfferGone: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.refresh() }
@@ -271,6 +279,15 @@ fun GalleryScreen(
         val timeout = MusicRules.chipTimeoutMs(touchExploration) ?: return@LaunchedEffect
         delay(timeout)
         chipGone()
+    }
+    val offerGone by rememberUpdatedState(onSharedOfferGone)
+    LaunchedEffect(sharedOffer) {
+        if (sharedOffer == null) return@LaunchedEffect
+        val touchExploration = touchExplorationForTest
+            ?: context.getSystemService(AccessibilityManager::class.java)?.isTouchExplorationEnabled ?: false
+        val timeout = ShareLanding.offerTimeoutMs(touchExploration) ?: return@LaunchedEffect
+        delay(timeout)
+        offerGone()
     }
     val tab = vm.tab
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
@@ -453,6 +470,16 @@ fun GalleryScreen(
                     .testTag(TOAST_TAG),
             )
         }
+        if (sharedOffer != null) {
+            // In the "Opens tomorrow" spot (plan-design-review D8), centred 16dp above New from photo (T50, DR2).
+            SharedOfferChip(
+                SharedLandingCopy.shared(sharedOffer.title),
+                onOpen = { onSharedOpen(sharedOffer) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 16.dp, end = 16.dp, bottom = with(LocalDensity.current) { overlayHeight.toDp() } + 32.dp),
+            )
+        }
     }
 
     ProgressShareHost(vm.sharing, returnFocusTo = vm.sharing.request?.ref?.let(::tileTag))
@@ -553,6 +580,36 @@ private fun MusicChip(onTurnOff: () -> Unit) {
 }
 
 private const val MUSIC_CHIP_FADE_MS = 150
+
+/** The late share-link offer (T50). */
+const val SHARED_OFFER_TAG = "gallery-shared-offer"
+
+/**
+ * "Shared with you: <title> · Open" (T50, DR2): the music chip's look, read once by TalkBack (a polite live region),
+ * fading in like every chip. Its text wraps; Open never ellipsizes.
+ */
+@Composable
+private fun SharedOfferChip(text: String, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { withFullMotion { alpha.animateTo(1f, tween(MUSIC_CHIP_FADE_MS)) } }
+    Row(
+        modifier
+            .graphicsLayer { this.alpha = alpha.value }
+            .clip(RoundedCornerShape(4.dp))
+            .background(LocalFelt.current.deep)
+            .padding(start = 12.dp)
+            .testTag(SHARED_OFFER_TAG),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text,
+            style = GemType.body,
+            color = GemColors.Bone,
+            modifier = Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        GemTextButton(SharedLandingCopy.OPEN, onOpen, Modifier.testTag("gallery-shared-open"))
+    }
+}
 
 /**
  * The allowance note on a felt-deep chip, so tile art scrolling underneath never meets its text (founder call #14;

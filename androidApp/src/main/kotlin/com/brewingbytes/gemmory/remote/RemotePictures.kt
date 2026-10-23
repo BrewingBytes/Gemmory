@@ -104,6 +104,14 @@ class RemotePictures internal constructor(
     /** Counts background checks that brought something new (a catalog, a grid or a withdrawal): the gallery reloads. */
     val updates: StateFlow<Int> = _updates.asStateFlow()
 
+    private val _checksEnded = MutableStateFlow(0)
+
+    /**
+     * Counts the gallery's background checks that ended, whatever the outcome (not a cancelled one): a share link's
+     * remote picture waits for the session's first (T50).
+     */
+    val checksEnded: StateFlow<Int> = _checksEnded.asStateFlow()
+
     private fun current(): Snapshot = snapshot ?: synchronized(this) { snapshot ?: load().also { snapshot = it } }
 
     /** Downloaded and verified, dated or not, hidden or not. */
@@ -197,7 +205,10 @@ class RemotePictures internal constructor(
     @Synchronized
     fun checkIfDue() {
         if (job?.isActive == true || !RemoteSchedule.isDue(current().state, clock.nowMillis())) return
-        job = scope.launch { if (check() == CheckOutcome.UPDATED) _updates.update { it + 1 } }
+        job = scope.launch {
+            if (check() == CheckOutcome.UPDATED) _updates.update { it + 1 }
+            _checksEnded.update { it + 1 }
+        }
     }
 
     /**
