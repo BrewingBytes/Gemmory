@@ -133,6 +133,28 @@ Achievements (#49, no leaderboards) go through Play Games Services v2. The found
 
 How it behaves (T45, first run clear): nothing of Play Games before the player's first finish. No build has the SDK's `PlayGamesInitProvider` (the main manifest removes it), and `PlayGamesBackend`, which calls `PlayGamesSdk.initialize`, is created only once the player has finished a picture or earned an achievement (the backed-up `play_games_ready` setting, or the ledger, so an upgrader with either is ready at once). Then it starts at the app's first foreground (founder: as early as allowed); in the session of the first finish itself, at the next gallery visit that isn't that finish's return, with no reminder ask, review flow or rewarded sheet up and no reminder or widget tap opening something over it. A progress share alone (Work in Progress) doesn't make a player ready, since it needs only one gem. Then it signs the player in on its own, with no sign-in screen; when that fails or the player declines, nothing is shown. Until its turn every Play Games call is a no-op, the Settings row is hidden and unlocks wait in the ledger; the first gallery after the start sends them. Unlocks are counted on the phone as they happen and sent only while the Gallery or Settings shows, so Play Games' own "Achievement unlocked" pop-up never covers the canvas or the completion screen. Settings → Achievements opens Play Games' achievements screen (signing in first if needed). A player without a Play Games profile sees Play Games' own "Create a Play Games profile" sheet once, at that first start (never before the first gem; it lands on whatever shows then, as Play Games v2 can't pin its pop-ups). On a google_apis emulator image Play Games can't run (its Google Play services module never downloads); use a Play Store image (`gemmory_play`, lessons) or a phone, with the upload-signed release build and a tester account.
 
+## Making clips (founder clip tool, T47)
+
+Debug builds have a Clips screen for posting time-lapses without finishing a picture by hand: Settings → Clips (the last row before Version; release builds don't have it, and `bundleRelease` fails if the release manifest ever names it). It lists every bundled picture and every remote one the catalog check has downloaded and verified, future drops and unearned keepsakes included (only the date and earn gates are bypassed, never the signature). Never a photo canvas.
+
+Each row has an order (By color: palette order, reading order within a color; Ripple: rings out from the center; Random: a shuffle seeded by the picture's id, so it's the same every time) and formats (any of 9:16, 4:5, Stills; all on by default). Render makes, through the player's own encoder from a synthetic log, watermark and app name on:
+
+| File | What |
+|---|---|
+| `<id>-<order>.mp4` | the 15 s 9:16 time-lapse, 1080×1920 (720×1280 if the phone can't) |
+| `<id>-<order>-4x5.mp4` | the same at 4:5, 1080×1350 (864×1080 fallback), the canvas fitted above the title |
+| `<id>-before-after.png` | 1080×1350: the picture as flat pixel art beside the finished gem canvas, with the title and watermark |
+| `<id>-finished.png` | the finished gem canvas alone, about 1080 wide |
+
+One render at a time; leaving the screen stops it. To pull them:
+
+```sh
+./gradlew :androidApp:installDebug
+adb pull /sdcard/Android/data/com.brewingbytes.gemmory/files/Movies/clips/ clips/
+```
+
+Uninstalling the app deletes the folder. For a remote picture that isn't on the phone yet, open the gallery once online (or run `app.remote.check(force = true)` from a test) so the catalog check downloads it.
+
 ## Adding a bundled picture
 
 Grids are frozen once and never re-converted. Re-freezing a shipped picture changes its CRC and orphans saves made on it.

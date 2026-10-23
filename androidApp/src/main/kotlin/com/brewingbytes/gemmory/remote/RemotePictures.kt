@@ -124,6 +124,15 @@ class RemotePictures internal constructor(
     /** Catalog pictures downloaded and verified, hidden or not: a collection member that isn't listed yet is "coming". */
     fun storedIds(): Set<String> = current().ready
 
+    /**
+     * Every downloaded and verified picture, future drops and unearned keepsakes included: the debug Clips screen
+     * (T47) bypasses the date and earn gates, never the signature.
+     */
+    fun storedPictures(): List<RemotePicture> = stored()
+
+    /** A [storedPictures] grid, checked against the signed catalog like [grid]. For the debug Clips screen (T47). */
+    fun storedGrid(id: String): ByteArray? = stored().firstOrNull { it.id == id }?.let(::verifiedGrid)
+
     /** A keepsake was copied into its canvas (T37, plan-design-review D25): New from today for 7 days. */
     fun earnedToday(id: String) {
         scope.launch(io) { update(current().let { Snapshot(it.catalog, it.ready, it.state.seenOn(id, today())) }) }
