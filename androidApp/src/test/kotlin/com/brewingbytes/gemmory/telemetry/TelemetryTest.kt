@@ -162,7 +162,7 @@ class TelemetryTest {
         )
         assertEquals(AnalyticsEvent("day_played", mapOf("entry" to "today_card")), AnalyticsEvent.dayPlayed(CanvasEntry.TODAY_CARD))
         assertEquals(AnalyticsEvent("teaser_tapped"), AnalyticsEvent.teaserTapped)
-        assertEquals(listOf("gallery", "today_card", "reminder", "collection", "event", "streak_nudge"), CanvasEntry.entries.map { it.param })
+        assertEquals(listOf("gallery", "today_card", "reminder", "collection", "event", "streak_nudge", "share_link"), CanvasEntry.entries.map { it.param })
         val params = listOf(AnalyticsEvent.dayPlayed(CanvasEntry.REMINDER), AnalyticsEvent.canvasStarted(drop, 90, 90, daysSinceAvailable = 1))
             .flatMap { it.params.values }
         assertTrue(params.none { it == "lighthouse" }, "no picture id in any param")
@@ -184,6 +184,10 @@ class TelemetryTest {
         assertEquals(mapOf("ms_since_first_launch" to 9L, "source" to "remote", "entry" to "today_card"), params)
         assertTrue(params.values.none { it == "fox-in-snow" })
         assertEquals("photo", AnalyticsEvent.firstGem(0, photo, CanvasEntry.GALLERY).params["source"])
+        // A share link's landing (T50): the entry says so, the shared picture's id is never sent.
+        val shared = AnalyticsEvent.canvasStarted(fox, 106, 142, entry = CanvasEntry.SHARE_LINK).params
+        assertEquals("share_link", shared["entry"])
+        assertTrue(shared.values.none { it == "fox-in-snow" })
     }
 
     /**

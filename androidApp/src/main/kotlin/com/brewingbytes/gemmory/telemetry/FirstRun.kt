@@ -17,9 +17,16 @@ import java.io.File
  * in [funnel] ("first_run"), excluded from backup and device transfer: a restored phone never inherits a pending
  * `first_gem` or the raw install referrer. Safe from any thread.
  */
-class FirstRun(filesDir: File, streakPrefs: File, private val marker: SharedPreferences, funnel: SharedPreferences) {
+class FirstRun(
+    filesDir: File,
+    streakPrefs: File,
+    private val marker: SharedPreferences,
+    funnel: SharedPreferences,
+    /** Connected tests only (T50): a launch counted as fresh whatever is on the disk. */
+    forceFresh: Boolean = false,
+) {
     /** Nothing of a played install was on the disk when the process started. */
-    val freshDisk: Boolean = NewPlayer.isFresh(
+    val freshDisk: Boolean = forceFresh || NewPlayer.isFresh(
         NewPlayer.Disk(
             canvas = hasCanvas(File(filesDir, StorageLayout.CANVASES)),
             achievements = File(filesDir, StorageLayout.ACHIEVEMENTS).exists(),
@@ -52,9 +59,25 @@ class FirstRun(filesDir: File, streakPrefs: File, private val marker: SharedPref
     @Synchronized
     fun referrerRead(raw: String?) = funnel.referrerRead(raw)
 
-    /** The raw install referrer of a fresh install, kept on the phone until T50 reads its picture id. */
+    /** The raw install referrer of a fresh install, kept on the phone until the share landing (T50) has used it. */
     val referrer: String?
         @Synchronized get() = funnel.referrer
+
+    /** The referrer's read has ended (or this launch never reads one). */
+    val referrerReadDone: Boolean
+        @Synchronized get() = !funnel.referrerDue(freshDisk)
+
+    /** A share landing opened its picture (T50): the gallery is the normal game from then on (DR4). */
+    val landed: Boolean
+        @Synchronized get() = funnel.landed
+
+    /** The shared picture the landing opened, while it's free: on the local day it opened (T50). */
+    @Synchronized
+    fun sharedFree(today: Long): String? = funnel.sharedFree(today)
+
+    /** The share landing ended on [day]: [sharedId] opened, or nothing did (null). The raw referrer is dropped. */
+    @Synchronized
+    fun landingEnded(sharedId: String?, day: Long) = funnel.landingEnded(sharedId, day)
 
     private class PrefsStore(private val prefs: SharedPreferences) : StateStore<FirstRunState> {
         override fun load(): FirstRunState? {
@@ -65,6 +88,9 @@ class FirstRun(filesDir: File, streakPrefs: File, private val marker: SharedPref
                 gemLogged = prefs.getBoolean(GEM_LOGGED, false),
                 referrerRead = prefs.getBoolean(REFERRER_READ, false),
                 referrerRaw = prefs.getString(REFERRER, null),
+                sharedId = prefs.getString(SHARED_ID, null),
+                sharedDay = prefs.getLong(SHARED_DAY, 0),
+                landingEnded = prefs.getBoolean(LANDING_ENDED, false),
             )
         }
 
@@ -74,6 +100,9 @@ class FirstRun(filesDir: File, streakPrefs: File, private val marker: SharedPref
             putBoolean(GEM_LOGGED, value.gemLogged)
             putBoolean(REFERRER_READ, value.referrerRead)
             putString(REFERRER, value.referrerRaw)
+            putString(SHARED_ID, value.sharedId)
+            putLong(SHARED_DAY, value.sharedDay)
+            putBoolean(LANDING_ENDED, value.landingEnded)
         }
     }
 
@@ -90,6 +119,9 @@ class FirstRun(filesDir: File, streakPrefs: File, private val marker: SharedPref
         private const val GEM_LOGGED = "gem_logged"
         private const val REFERRER_READ = "referrer_read"
         private const val REFERRER = "referrer"
+        private const val SHARED_ID = "shared_id"
+        private const val SHARED_DAY = "shared_day"
+        private const val LANDING_ENDED = "landing_ended"
 
         /** A canvas directory, `canvases/<kind>/<id>/`: an empty `canvases/<kind>/` isn't a canvas. */
         private fun hasCanvas(canvases: File): Boolean =

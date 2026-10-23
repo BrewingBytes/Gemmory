@@ -351,9 +351,10 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             val entitlements = monetization.entitlements.value
             // The day's pick is made either way; the card and the Tomorrow line wait for the player's first finish, so
             // the starter is the first thing a stranger sees (T45, DR4). Once past it, always past it: the ledger (backed
-            // up) remembers a finish that Play again, Start over or a deleted photo took off the grid.
-            // A share-link player's exception comes with T50.
-            val anyFinished = tiles.first.any { it.done } || tiles.second.any { it.done } || app.achievements.finishes > 0
+            // up) remembers a finish that Play again, Start over or a deleted photo took off the grid. A player a share
+            // link landed on its picture (T50) is in the normal game once they leave it (DR4).
+            val anyFinished = tiles.first.any { it.done } || tiles.second.any { it.done } || app.achievements.finishes > 0 ||
+                app.firstRun.landed
             val today = todayCard(pictures, tiles.first, unlocked, entitlements.vip)?.takeIf { anyFinished }
             val todayFree = if (entitlements.vip) emptySet() else app.todays.freeToday()
             val ordered = picturesInOrder(tiles.first.filterNot { it.done }, unlocked, entitlements, todayFree)
@@ -404,7 +405,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         val progress = settled.statuses.map { it.progress }
         val completed = settled.statuses.mapNotNull { s -> s.completedDay?.let { s.id to it } }.toMap()
         val glints = settled.statuses.filter { it.glintPending }.map { it.id }.toSet()
-        val anyFinished = pictures.any { it.done } || photos.any { it.done }
+        // Collection rows show once a picture is finished (D5), or once a share link has landed (T50, DR4).
+        val anyFinished = pictures.any { it.done } || photos.any { it.done } || app.firstRun.landed
         val today = app.dayClock.today()
         val inWindow = settled.statuses.filter { it.inWindow }.map { it.id }.toSet()
         val pick = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = false, inWindow)

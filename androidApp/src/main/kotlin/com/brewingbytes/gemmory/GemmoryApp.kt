@@ -75,6 +75,9 @@ import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.FirstRun
 import com.brewingbytes.gemmory.telemetry.InstallReferrerReader
+import com.brewingbytes.gemmory.share.LandingSource
+import com.brewingbytes.gemmory.share.SharedLanding
+import com.brewingbytes.gemmory.share.SharedLandingCopy
 import com.brewingbytes.gemmory.telemetry.PlayReferrerClient
 import com.brewingbytes.gemmory.telemetry.ReferrerAnswer
 import com.brewingbytes.gemmory.telemetry.ReferrerClient
@@ -239,6 +242,10 @@ class GemmoryApp : Application() {
     lateinit var firstRun: FirstRun
         private set
 
+    /** The shared picture landing (T50): a fresh install's share link opens its picture, once. */
+    lateinit var sharedLanding: SharedLanding
+        private set
+
     lateinit var ads: AdGateway
         private set
 
@@ -310,6 +317,8 @@ class GemmoryApp : Application() {
         enabled,
         // Read on each use, so a connected test's replaced remote pictures count (T36).
         { remote.todaysDrops() },
+        // The share landing's picture, free on the day it opened (T50).
+        { firstRun.sharedFree(dayClock.today()) },
     )
 
     private fun newRemote(
@@ -360,6 +369,59 @@ class GemmoryApp : Application() {
         remote.pause()
         remote = if (source == null) newRemote() else newRemote(source, keys, appVersion)
         store = newStore()
+        followRemoteChecks()
+    }
+
+    private var remoteChecks: Job? = null
+
+    /** The share landing hears when a catalog check of this session ends (T50): a remote picture waits for it. */
+    private fun followRemoteChecks() {
+        remoteChecks?.cancel()
+        val current = remote
+        remoteChecks = appScope.launch { current.checksEnded.collect { if (it > 0) sharedLanding.checkEnded() } }
+    }
+
+    private fun newSharedLanding(active: Boolean) = SharedLanding(
+        active = active,
+        // Read on each use: a connected test replaces the funnel.
+        source = object : LandingSource {
+            override val referrer: String? get() = firstRun.referrer
+            override val referrerRead: Boolean get() = firstRun.referrerReadDone
+            override fun openable(id: String): CanvasRef? = openableRef(id)
+            override fun title(ref: CanvasRef): String = sharedTitle(ref)
+            override fun ended(sharedId: String?) = firstRun.landingEnded(sharedId, dayClock.today())
+        },
+        scope = appScope,
+        serial = Dispatchers.IO.limitedParallelism(1),
+    )
+
+    /**
+     * Connected tests only (T50): a share landing as on a fresh install's first launch, reading [rawReferrer] (through the
+     * same parser) instead of Play's, already read; the test cleared the `first_run` preferences first. [fresh] false
+     * puts back a launch that isn't fresh and never lands.
+     */
+    @VisibleForTesting
+    internal fun resetSharedLandingForTest(rawReferrer: String?, fresh: Boolean = true) {
+        firstRun = FirstRun(
+            filesDir = filesDir,
+            streakPrefs = File(dataDir, "shared_prefs/$STREAK_PREFS.xml"),
+            marker = getSharedPreferences(FirstRun.MARKER_FILE, MODE_PRIVATE),
+            funnel = getSharedPreferences(FirstRun.FUNNEL_FILE, MODE_PRIVATE),
+            forceFresh = fresh,
+        )
+        if (fresh) {
+            firstRun.onFirstForeground(dayClock.nowMillis())
+            firstRun.referrerRead(rawReferrer)
+        }
+        sharedLanding = newSharedLanding(active = fresh)
+        followRemoteChecks()
+    }
+
+    /** What the landing's toasts call [ref]: its title, or "a mystery picture" while it's an unfinished mystery (T43). */
+    private fun sharedTitle(ref: CanvasRef): String {
+        if (store.hiddenAs(ref) != null) return SharedLandingCopy.MYSTERY
+        return BundledPictures.byId(ref.id)?.title ?: remote.listed().firstOrNull { it.id == ref.id }?.title
+            ?: CanvasStore.titleOf(ref, store.repository.readRecord(ref))
     }
 
     /** A picture's canvas by id: ids are unique across bundled and remote pictures (the catalog check refuses a clash). */
@@ -664,9 +726,14 @@ class GemmoryApp : Application() {
             analytics = analytics,
         )
         appScope = scope
+        // Only a fresh install's first launch lands on a share link's picture (T50). A first session that ended before
+        // its landing did (swiped away on the consent form, say) leaves the raw referrer behind: it goes now.
+        sharedLanding = newSharedLanding(active = firstRun.freshDisk)
+        if (!firstRun.freshDisk && firstRun.referrer != null) firstRun.landingEnded(null, dayClock.today())
         readInstallReferrer()
         remote = newRemote()
         store = newStore()
+        followRemoteChecks()
         billing = BillingRepository(
             backend = BillingBackends.create(this, reporter),
             cache = EntitlementCache(
@@ -732,6 +799,7 @@ class GemmoryApp : Application() {
         appScope.launch(Dispatchers.IO) {
             val raw = InstallReferrerReader(client, reporter).read()
             firstRun.referrerRead(raw)
+            sharedLanding.referrerRead()
             if (BuildConfig.DEBUG) Log.i("Gemmory", "install referrer ${ReferrerParse.parse(raw)}")
         }
     }

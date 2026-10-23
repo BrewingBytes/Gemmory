@@ -252,7 +252,8 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 /**
  * Where a canvas was opened from (T36): the `entry` of `canvas_started`, `canvas_finished` and `day_played`. The
  * gallery's grid (and My Photos, and Preview's Start) is [GALLERY], the Today's picture card [TODAY_CARD]; the rest
- * come with the reminder (T35), collections (T37), the weekly event (T38) and the streak nudge (#102).
+ * come with the reminder (T35), collections (T37), the weekly event (T38), the streak nudge (#102) and a share link's
+ * landing on a fresh install (T50).
  */
 enum class CanvasEntry(val param: String) {
     GALLERY("gallery"),
@@ -261,6 +262,7 @@ enum class CanvasEntry(val param: String) {
     COLLECTION("collection"),
     EVENT("event"),
     STREAK_NUDGE("streak_nudge"),
+    SHARE_LINK("share_link"),
 }
 
 /** Why no rewarded video was there (design doc: no_fill | offline | timeout), plus `error` for anything else. */

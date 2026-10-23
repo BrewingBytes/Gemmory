@@ -77,6 +77,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.gallery.locked
 import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.share.LandingUi
 import com.brewingbytes.gemmory.share.ShareIntents
 import com.brewingbytes.gemmory.streak.RepairActions
 import com.brewingbytes.gemmory.streak.STREAK_REPAIR_TAG
@@ -85,6 +86,7 @@ import com.brewingbytes.gemmory.streak.StreakDayViewModel
 import com.brewingbytes.gemmory.streak.StreakScreen
 import com.brewingbytes.gemmory.streak.StreakViewModel
 import com.brewingbytes.gemmory.widget.StreakWidget
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
@@ -308,6 +310,8 @@ class MainActivity : ComponentActivity() {
             // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
             val leftFresh = left is Route.Completion && left != top && completion.fresh.left(left)
             if (top != Route.Gallery) finishReturn = false
+            // Leaving the first gallery session ends the share landing (T50): a canvas opened by hand, Settings, anything.
+            if (left == Route.Gallery && top != Route.Gallery) app.sharedLanding.leftGallery()
             when {
                 // A new streak day (#101): the celebration is part of the exit, and the return chain waits for the
                 // gallery (G6), after Continue or after the streak screen closes. Saved, so a rotation keeps it (O6).
@@ -332,6 +336,22 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+        // The shared picture landing (T50): the gallery is in view once its tiles have loaded and consent has settled
+        // (the EEA form shows over it), and only then may a share link's picture open over it.
+        val galleryLoaded = gallery.state.collectAsStateWithLifecycle().value.loaded
+        LaunchedEffect(top == Route.Gallery && galleryLoaded) {
+            if (top != Route.Gallery || !galleryLoaded) return@LaunchedEffect
+            app.consent.launchSettled.first { it }
+            app.sharedLanding.galleryInView()
+        }
+        val landing by app.sharedLanding.ui.collectAsStateWithLifecycle()
+        // Done only once its canvas is on the stack: a rotation while it's read runs this again (the stack is saved,
+        // so a canvas already pushed isn't pushed twice).
+        LaunchedEffect(landing) {
+            val open = landing as? LandingUi.Open ?: return@LaunchedEffect
+            if (stack.top == Route.Gallery) stack.openTile(open.ref, CanvasEntry.SHARE_LINK, app.store::isFinished)
+            app.sharedLanding.opened()
         }
         // A reminder tap (T35): its canvas, or the gallery when it's stale (design system, navigation map).
         val tap = reminderTap
@@ -431,6 +451,10 @@ class MainActivity : ComponentActivity() {
                     musicChip = musicChip,
                     onMusicChipGone = { musicChip = false },
                     onMusicOff = { app.settings.setMusic(false) },
+                    sharedOffer = landing as? LandingUi.Offer,
+                    // Opens through the landing's Open, like a picture ready at the first look.
+                    onSharedOpen = app.sharedLanding::offerTaken,
+                    onSharedOfferGone = app.sharedLanding::offerGone,
                 )
             }
             Route.Settings -> {

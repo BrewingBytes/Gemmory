@@ -121,6 +121,7 @@ import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
+import com.brewingbytes.gemmory.ui.GemToast
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
@@ -247,7 +248,7 @@ fun PlayScreen(
                 val rail = with(LocalDensity.current) { window.width.toDp() >= RAIL_MIN_WIDTH } && window.width > window.height
                 if (rail) {
                     Row(Modifier.weight(1f).fillMaxWidth()) {
-                        GemCanvas(s, controller, vm.hints, peek, Modifier.weight(1f).fillMaxHeight())
+                        GemCanvas(s, controller, vm.hints, peek, vm.sharedToast, vm::sharedToastShown, Modifier.weight(1f).fillMaxHeight())
                         Box(
                             Modifier.fillMaxHeight().graphicsLayer {
                                 alpha = chrome.value
@@ -256,7 +257,7 @@ fun PlayScreen(
                         ) { Tray(s, controller, rail = true, reducedMotion) }
                     }
                 } else {
-                    GemCanvas(s, controller, vm.hints, peek, Modifier.weight(1f).fillMaxWidth())
+                    GemCanvas(s, controller, vm.hints, peek, vm.sharedToast, vm::sharedToastShown, Modifier.weight(1f).fillMaxWidth())
                     Box(
                         Modifier.graphicsLayer {
                             alpha = chrome.value
@@ -530,7 +531,15 @@ private class CanvasController(
 }
 
 @Composable
-private fun GemCanvas(session: PlaySession, controller: CanvasController, hints: CoachHints, peek: Peek, modifier: Modifier) {
+private fun GemCanvas(
+    session: PlaySession,
+    controller: CanvasController,
+    hints: CoachHints,
+    peek: Peek,
+    sharedToast: String?,
+    onSharedToastGone: () -> Unit,
+    modifier: Modifier,
+) {
     val viewport = session.viewport
     val context = LocalContext.current
     val density = LocalDensity.current.density
@@ -610,8 +619,21 @@ private fun GemCanvas(session: PlaySession, controller: CanvasController, hints:
         PeekOverlay(session.pattern, peek, canvasSize)
         MilestoneBanner(session, controller.feedback, controller.view, controller.reducedMotion)
         Announcer(session)
+        // A share link's one-time "Shared with you: <title>" (T50, DR1), 16dp above the tray, clear of the first coach
+        // hint at the top (D6). Held by the ViewModel, so a rotation or a rail switch neither loses nor repeats it.
+        sharedToast?.let { text ->
+            GemToast(
+                text,
+                key = Unit,
+                onGone = onSharedToastGone,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp).testTag(SHARED_TOAST_TAG),
+            )
+        }
     }
 }
+
+/** The share landing's toast on its picture's canvas (T50). */
+const val SHARED_TOAST_TAG = "canvas-shared-toast"
 
 /**
  * The one polite live region for the canvas's announcements (design D19; eng re-check: not the deprecated
