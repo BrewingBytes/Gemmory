@@ -10,11 +10,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.settings.CLIPS_ROW_TAG
 import com.brewingbytes.gemmory.settings.SettingsScreen
 import com.brewingbytes.gemmory.ui.GemmoryTheme
 import org.junit.After
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -55,6 +57,8 @@ class ClipsScreenTest {
 
     @Test
     fun debugSettingsHaveTheClipsRow() {
+        // The perf build compiles src/debug but hides the row (not debuggable, no Clips in its manifest).
+        assumeTrue(BuildConfig.DEBUG)
         compose.setContent { GemmoryTheme { SettingsScreen(onBack = {}, onMembership = {}) } }
         compose.onNodeWithTag(CLIPS_ROW_TAG).performScrollTo().assertExists()
     }
