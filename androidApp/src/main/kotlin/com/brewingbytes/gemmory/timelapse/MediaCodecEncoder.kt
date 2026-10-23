@@ -33,7 +33,7 @@ class MediaCodecEncoder(
     // context.cacheDir re-creates the directory if the system cleared it.
     private val free: () -> Long = { StatFs(context.cacheDir.path).availableBytes },
 ) : EncodeBackend {
-    private val plan = FramePlan(request.log.size, photoIntro = request.source?.isFile == true)
+    private val plan = FramePlan(request.log.size, photoIntro = request.source?.isFile == true, endCard = request.endCard)
 
     override fun probe(target: EncodeTarget): String? {
         val infos = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
@@ -102,7 +102,7 @@ class MediaCodecEncoder(
                 throw EncodeFailure(EncodeStage.CONFIGURE, e)
             }
             try {
-                gl.upload(art.background, art.canvas, art.source)
+                gl.upload(art.background, art.canvas, art.source, art.overlay, art.card)
             } catch (e: Exception) {
                 throw EncodeFailure(EncodeStage.CONFIGURE, e)
             }
@@ -110,8 +110,10 @@ class MediaCodecEncoder(
                 checkCancelled()
                 sink.rethrow()
                 try {
-                    val (changed, photoAlpha) = art.apply(plan.frame(i))
-                    gl.write(art.canvas, changed, art.boardRect, photoAlpha, plan.presentationTimeUs(i))
+                    val frame = plan.frame(i)
+                    val (changed, photoAlpha) = art.apply(frame)
+                    val endCard = (frame as? Frame.EndCard)?.let { art.endCard(it.alpha) }
+                    gl.write(art.canvas, changed, art.boardRect, photoAlpha, plan.presentationTimeUs(i), art.overlayRect, endCard)
                 } catch (e: Exception) {
                     throw EncodeFailure(EncodeStage.ENCODE, e)
                 }

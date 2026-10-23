@@ -12,6 +12,7 @@ import com.brewingbytes.gemmory.timelapse.EncodeTarget
 import com.brewingbytes.gemmory.timelapse.FallbackChain
 import com.brewingbytes.gemmory.timelapse.FramePlan
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
+import com.brewingbytes.gemmory.timelapse.ShareFrame
 import kotlinx.coroutines.CancellationException
 import java.io.File
 
@@ -43,7 +44,7 @@ class ClipRenderer(private val context: Context, val dir: File) {
         dir.mkdirs()
         val id = picture.ref.id
         val log = ClipOrders.of(order, pattern, ClipOrders.seedOf(id))
-        val request = EncodeRequest(picture.ref, pattern, log, picture.title, source = null, watermark = true)
+        val request = EncodeRequest(picture.ref, pattern, log, picture.title, source = null, watermark = true, frame = ShareFrame.CLIP)
         val videos = listOf(ClipFormat.NINE_SIXTEEN, ClipFormat.FOUR_FIVE).filter { it in formats }
         val units = videos.size * FramePlan.TOTAL_FRAMES + if (ClipFormat.STILLS in formats) STILLS_UNITS else 0
         var done = 0

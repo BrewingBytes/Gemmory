@@ -428,3 +428,19 @@ Written into `docs/design-system.md` (Typography → Other scripts, navigation m
 Fixes (outside voice): a shared picture backed out of stays free until local midnight in the open group, no lock label; the 9:16 frame title uses the per-language fonts in the sender's language and GlyphCheck covers frame text; mixed English fallback titles are accepted; the Japanese 1.6 line height is checked against fixed-height rows; the streak calendar's week start follows the phone's region; the T45 fallback row reads "Sign in"; the T47 Clips screen states (empty, order chips, one render at a time, progress, saved line, error line).
 
 Issue edits for #132 (T45), #134 (T47), #136 (T49), #137 (T50) are drafted from this table; GitHub after the founder sees them.
+
+## Design Review addendum (2026-10-23): T50's share frame (T53) and the founder clips (#144)
+
+/plan-design-review during T50's implementation (founder, 2026-10-23), over the player's shared time-lapse and the T50 landing toasts. Mock: `docs/designs/mockups/share-video-ad/` (copied in T53's PR from `~/.gstack/projects/Gemmory/designs/t50-share-frame-20261023/`).
+
+| ID | Decision | Answer |
+|---|---|---|
+| D1 | What the share video says about Gemmory | A Gemmory row on every frame (icon, "Gemmory", "Your photos in gems", Google's official Play badge, unmodified) on a 150px `scrim` band at 55%, replacing "Made with Gemmory", plus a ~1.8 s end card (picture, icon, name, tagline, badge) after the hold |
+| D2/D3 | Zoom and pan | None: the whole picture fitted at full width, centered above the row; title and app line over a dark fade (rejected: fill + pan, in the mock as `share-video-mock.mp4`) |
+| D4 | VIP | Neither the row nor the end card ("No watermark on your videos" stays) |
+| D5 | Where it's built | Its own ticket, T53 (#145), after T50 and before T48; encoder change, so the Test Lab smoke, and T47's R1 "9:16 share unchanged" replaced on purpose. T51 shrinks to the ≤7 s feed cut |
+| D6 | T50: where the canvas toast sits | Above the tray |
+| D7 | T50: the late "· Open" toast under TalkBack | Stays until used |
+| T53 build | Agent defaults approved from emulator stills | A tall picture fits a 760px square on the end card; the end-card block is centered; a progress share's end card shows the canvas as it stands (founder pick) |
+
+**Founder clips (#144, same day):** the founder asked for a store ask on the clips posted to TikTok, Reels and Shorts. /plan-design-review (3/10 → 8/10) picked C2 (an icon lockup "Gemmory / Free on Google Play", no Google badge, at the bottom of the safe area x 60-940, y 250-1440), E2b (end card on the blurred band, "Turn any photo into gem art") and H1 (0.5 s finished-picture hook; 18 s, 540 frames). The clips get their own feed-safe frame because the feeds' overlays cover the share frame's bottom row; T53 covers the player's share only. Mock: `~/.gstack/projects/Gemmory/designs/clip-cta-20261023/`; spec in #144.

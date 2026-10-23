@@ -23,15 +23,17 @@ import java.nio.FloatBuffer
  * took the previous one replaces it (the smoke test lost 1-6 of 450 frames), and frames carry wall-clock timestamps
  * that confuse the encoder's rate control. An EGL window surface blocks in `eglSwapBuffers` instead of dropping.
  *
- * The layers are three textures: the static background, the canvas (re-uploaded only on frames that placed gems)
- * and, for the photo intro, the source photo drawn over the canvas with its opacity.
+ * The layers are textures: the static background, the canvas (re-uploaded only on frames that placed gems), for the
+ * photo intro the source photo drawn over the canvas with its opacity, and for the player's share (T53) the overlay
+ * (fade, title and Gemmory row) over all of them. On end-card frames the band, a black dim, the card layer and the
+ * canvas at the card's picture rect fade in over that. Bitmaps upload premultiplied, so blending is premultiplied.
  */
 class GlFrameWriter(surface: Surface, private val width: Int, private val height: Int) {
     private var display: EGLDisplay = EGL14.EGL_NO_DISPLAY
     private var context: EGLContext = EGL14.EGL_NO_CONTEXT
     private var eglSurface: EGLSurface = EGL14.EGL_NO_SURFACE
     private var program = 0
-    private val textures = IntArray(3)
+    private val textures = IntArray(TEXTURES)
     private val quad: FloatBuffer = ByteBuffer.allocateDirect(4 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
     private var aPosition = 0
     private var aTexCoord = 0
@@ -70,15 +72,33 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
     }
 
     /** Uploads the layers that don't change during the video. */
-    fun upload(background: Bitmap, canvas: Bitmap, photo: Bitmap?) {
-        GLES20.glGenTextures(3, textures, 0)
+    fun upload(background: Bitmap, canvas: Bitmap, photo: Bitmap?, overlay: Bitmap? = null, card: Bitmap? = null) {
+        GLES20.glGenTextures(TEXTURES, textures, 0)
         load(BACKGROUND, background)
         load(CANVAS, canvas)
         if (photo != null) load(PHOTO, photo)
+        if (overlay != null) load(OVERLAY, overlay)
+        if (card != null) {
+            load(CARD, card)
+            val black = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF000000.toInt()) }
+            load(BLACK, black)
+            black.recycle()
+        }
     }
 
-    /** Draws one frame and hands it to the encoder at [presentationTimeUs]. */
-    fun write(canvas: Bitmap, canvasChanged: Boolean, canvasRect: Rect, photoAlpha: Float, presentationTimeUs: Long) {
+    /**
+     * Draws one frame and hands it to the encoder at [presentationTimeUs]: the [overlay] layer at [overlayRect] when
+     * there is one, and the end card when [endCard] is given.
+     */
+    fun write(
+        canvas: Bitmap,
+        canvasChanged: Boolean,
+        canvasRect: Rect,
+        photoAlpha: Float,
+        presentationTimeUs: Long,
+        overlayRect: Rect? = null,
+        endCard: EndCardRects? = null,
+    ) {
         if (canvasChanged) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[CANVAS])
             GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, canvas)
@@ -87,10 +107,23 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
         GLES20.glDisable(GLES20.GL_BLEND)
         drawQuad(BACKGROUND, Rect(0, 0, width, height), 1f)
         drawQuad(CANVAS, canvasRect, 1f)
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
         if (photoAlpha > 0f) {
             GLES20.glEnable(GLES20.GL_BLEND)
-            GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
             drawQuad(PHOTO, canvasRect, photoAlpha)
+        }
+        if (overlayRect != null) {
+            GLES20.glEnable(GLES20.GL_BLEND)
+            drawQuad(OVERLAY, overlayRect, 1f)
+        }
+        if (endCard != null) {
+            val a = endCard.alpha
+            GLES20.glEnable(GLES20.GL_BLEND)
+            drawQuad(BACKGROUND, Rect(0, 0, width, height), a)
+            drawQuad(BLACK, Rect(0, 0, width, height), FrameStyle.END_CARD_DIM * a)
+            // The card layer holds the picture's shadow, so the canvas goes over it.
+            drawQuad(CARD, endCard.content, a)
+            drawQuad(CANVAS, endCard.picture, a)
         }
         checkGl("draw")
         EGLExt.eglPresentationTimeANDROID(display, eglSurface, presentationTimeUs * 1_000)
@@ -102,7 +135,7 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
         if (display == EGL14.EGL_NO_DISPLAY) return
         if (context != EGL14.EGL_NO_CONTEXT) {
             runCatching {
-                GLES20.glDeleteTextures(3, textures, 0)
+                GLES20.glDeleteTextures(TEXTURES, textures, 0)
                 if (program != 0) GLES20.glDeleteProgram(program)
             }
         }
@@ -181,6 +214,10 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
         const val BACKGROUND = 0
         const val CANVAS = 1
         const val PHOTO = 2
+        const val OVERLAY = 3
+        const val CARD = 4
+        const val BLACK = 5
+        const val TEXTURES = 6
 
         const val VERTEX = """
             attribute vec4 aPosition;
@@ -198,8 +235,7 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
             uniform sampler2D uTexture;
             uniform float uAlpha;
             void main() {
-                vec4 c = texture2D(uTexture, vTexCoord);
-                gl_FragColor = vec4(c.rgb, c.a * uAlpha);
+                gl_FragColor = texture2D(uTexture, vTexCoord) * uAlpha;
             }
         """
     }

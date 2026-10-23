@@ -3,12 +3,16 @@ package com.brewingbytes.gemmory.timelapse
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.StaticLayout
@@ -28,9 +32,13 @@ import kotlin.math.roundToInt
 
 /**
  * The 9:16 time-lapse frame (design system, 9:16 time-lapse frame), drawn at 1080×1920 and scaled by width for
- * smaller targets: the canvas at full width under a 36px top margin ([FrameLayout]; the founder clip tool's 4:5 fits
- * it above the text instead, T47), over a band made of the finished canvas blurred and darkened, with the title, the
- * app line and the watermark row.
+ * smaller targets, over a band made of the finished canvas blurred and darkened.
+ *
+ * The player's share ([ShareFrame.PLAYER], T53, [ShareLayout]): the whole picture at full width, centered above the
+ * Gemmory row, with the title and app line over a dark fade ([overlay], drawn over the canvas), the row on every
+ * non-VIP frame, and the non-VIP end card ([card] plus the canvas itself at [cardPicture]). A founder clip
+ * ([ShareFrame.CLIP], T47) keeps the frame from before T53: the canvas under a 36px top margin ([FrameLayout]; the
+ * 4:5 fits it above the text), with the title, app line and "Made with Gemmory" in the [background].
  *
  * Built once per attempt. The canvas lives in one bitmap that starts as the empty tint grid and gets each frame's
  * new gems drawn onto it, so a whole video costs O(gems + frames) draws (eng finding 12).
@@ -38,18 +46,24 @@ import kotlin.math.roundToInt
 class FrameArt(context: Context, private val request: EncodeRequest, val width: Int, val height: Int) {
     private val style = FrameStyle(context, width)
     private val pattern = request.pattern
-    private val layout = FrameLayout.board(width, height, pattern.width, pattern.height)
+    private val share: ShareLayout? =
+        if (request.frame == ShareFrame.PLAYER) ShareLayout.of(width, height, pattern.width, pattern.height, request.watermark) else null
+    private val layout = share?.board ?: FrameLayout.board(width, height, pattern.width, pattern.height)
     private val painter = GemRenderer.GemPainter(pattern, layout.width, layout.height)
     private val board: Bitmap = createBitmap(layout.width, layout.height)
     private val boardCanvas = Canvas(board)
     private val chrome: Bitmap = createBitmap(width, height)
     private val photo: Bitmap? = request.source?.let { decodeSource(it, layout.width, layout.height) }
+    private val overlayTop = share?.fadeTop ?: 0
+    private val overlayBitmap: Bitmap? = share?.let { createBitmap(width, height - it.fadeTop) }
+    private val cardArea: Rect? = share?.card?.let { Rect(0, it.top - style.px(FrameStyle.CARD_SHADOW_ROOM), width, it.bottom) }
+    private val cardBitmap: Bitmap? = cardArea?.let { createBitmap(it.width(), it.height()) }
     private var drawn = 0
 
-    /** The canvas's place in the frame ([FrameLayout]: full width in 9:16, fitted above the text in 4:5). */
+    /** The canvas's place in the frame ([ShareLayout] for the player's share, [FrameLayout] for a founder clip). */
     val boardRect = Rect(layout.left, layout.top, layout.right, layout.bottom)
 
-    /** The static frame behind the canvas: band, title, app line and watermark row. */
+    /** The static frame behind the canvas: the band, plus a founder clip's title, app line and watermark row. */
     val background: Bitmap get() = chrome
 
     /** The canvas as of the last [apply]: the tint grid plus every gem placed so far. */
@@ -58,11 +72,45 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     /** The cropped source photo at the canvas's size, for the photo intro; null for bundled pictures. */
     val source: Bitmap? get() = photo
 
+    /** The player's share: fade, title, app line and (non-VIP) the Gemmory row, drawn over the canvas at [overlayRect]. */
+    val overlay: Bitmap? get() = overlayBitmap
+    val overlayRect: Rect? = overlayBitmap?.let { Rect(0, overlayTop, width, height) }
+
+    /** The end card's shadow, icon, name, tagline and badge (non-VIP player share); null without an end card. */
+    val card: Bitmap? get() = cardBitmap
+
     init {
         for (cell in pattern.cells.indices) painter.drawCell(boardCanvas, cell, isPlaced = false)
         val c = Canvas(chrome)
         style.drawBand(c, pattern, height)
-        style.drawText(c, request.title, layout.bottom, height, request.watermark, request.progressLine)
+        if (share == null) {
+            style.drawText(c, request.title, layout.bottom, height, request.watermark, request.progressLine)
+        } else {
+            val o = Canvas(overlayBitmap!!)
+            o.translate(0f, -overlayTop.toFloat())
+            style.drawShareText(o, share, request.title, request.progressLine)
+            share.row?.let { style.drawRow(o, it) }
+            share.card?.let { card ->
+                val k = Canvas(cardBitmap!!)
+                k.translate(0f, -cardArea!!.top.toFloat())
+                style.drawCard(k, card)
+            }
+        }
+    }
+
+    /**
+     * Where the end card draws at [alpha]: the canvas at its picture rect, the [card] layer at its rect, both slid
+     * down by the part of the 30px slide still to go. Null without an end card.
+     */
+    fun endCard(alpha: Float): EndCardRects? {
+        val card = share?.card ?: return null
+        val dy = ((1f - alpha) * card.slide).roundToInt()
+        val p = card.picture
+        return EndCardRects(
+            alpha = alpha,
+            picture = Rect(p.left, p.top + dy, p.right, p.bottom + dy),
+            content = Rect(cardArea!!).apply { offset(0, dy) },
+        )
     }
 
     /**
@@ -73,7 +121,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         val before = drawn
         when (frame) {
             is Frame.Build -> advanceTo(frame.placed)
-            Frame.Hold -> advanceTo(request.log.size)
+            Frame.Hold, is Frame.EndCard -> advanceTo(request.log.size)
             is Frame.Intro -> Unit
         }
         val alpha = if (frame is Frame.Intro && photo != null) frame.photoAlpha else 0f
@@ -84,6 +132,8 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         board.recycle()
         chrome.recycle()
         photo?.recycle()
+        overlayBitmap?.recycle()
+        cardBitmap?.recycle()
     }
 
     private fun advanceTo(placed: Int) {
@@ -103,7 +153,8 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         /**
          * The before/after picture (eng E1 fallback), 1080×1920: the cropped photo (or, for a bundled picture, the
          * empty tint grid) above the finished canvas, on the same band with the same text. A progress share (#36)
-         * shows the canvas as it stands, labelled "So far".
+         * shows the canvas as it stands, labelled "So far". The player's share (T53) has the Gemmory row at the
+         * bottom for non-VIP, in place of the watermark, and slightly shorter boxes so the text clears it.
          */
         fun beforeAfter(context: Context, request: EncodeRequest): Bitmap {
             val width = 1080
@@ -118,8 +169,9 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             val after = GemRenderer.render(pattern, cellPx) { placed[it] }
             val before = request.source?.let { decodeSource(it, after.width, after.height) }
                 ?: GemRenderer.render(pattern, cellPx) { false }
+            val player = request.frame == ShareFrame.PLAYER
             val boxW = width - 2 * style.px(FrameStyle.MARGIN)
-            val boxH = 640
+            val boxH = if (player) 620 else 640
             val label = style.labelPaint()
             var top = 48
             for ((name, bitmap) in listOf(BEFORE to before, afterLabel(request) to after)) {
@@ -134,7 +186,12 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             }
             before.recycle()
             after.recycle()
-            style.drawText(canvas, request.title, top, height, request.watermark, request.progressLine)
+            if (player) {
+                style.drawText(canvas, request.title, top, height, watermark = false, request.progressLine)
+                if (request.watermark) ShareLayout.of(width, height, pattern.width, pattern.height, branded = true).row?.let { style.drawRow(canvas, it) }
+            } else {
+                style.drawText(canvas, request.title, top, height, request.watermark, request.progressLine)
+            }
             return out
         }
 
@@ -145,11 +202,16 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     }
 }
 
-/** Band, type and watermark of the 9:16 frame. Sizes are given at 1080 wide and scaled by [width]. */
-internal class FrameStyle(context: Context, private val width: Int) {
+/** Where the end card draws in one frame ([FrameArt.endCard]): both layers at [alpha]. */
+class EndCardRects(val alpha: Float, val picture: Rect, val content: Rect)
+
+/** Band, type, Gemmory row, end card and watermark of the 9:16 frame. Sizes are given at 1080 wide and scaled by [width]. */
+internal class FrameStyle(private val context: Context, private val width: Int) {
     private val s = width / 1080f
     private val bricolage = ResourcesCompat.getFont(context, R.font.bricolage_grotesque) ?: Typeface.DEFAULT
     private val figtree = ResourcesCompat.getFont(context, R.font.figtree) ?: Typeface.DEFAULT
+    private val icon: Bitmap? by lazy { asset(ICON_ASSET) }
+    private val badge: Bitmap? by lazy { asset(BADGE_ASSET) }
 
     fun px(at1080: Int): Int = (at1080 * s).roundToInt()
 
@@ -232,6 +294,118 @@ internal class FrameStyle(context: Context, private val width: Int) {
         canvas.drawText(WATERMARK, width - margin, baseline, markPaint)
     }
 
+    /**
+     * The player's share text (T53): a `scrim` fade from 0 to 78% across the 420px above the picture area's bottom,
+     * then, upward from the bottom, "Gemmory · Photo Diamond Art" (Figtree 36px), a progress share's [progressLine]
+     * (Figtree 600 36px) and the title (Bricolage Grotesque 600, 60px, at most 2 lines then an ellipsis), left-aligned
+     * at 48px.
+     */
+    fun drawShareText(canvas: Canvas, layout: ShareLayout, title: String, progressLine: String?) {
+        val fade = Paint().apply {
+            shader = LinearGradient(
+                0f, layout.fadeTop.toFloat(), 0f, layout.areaBottom.toFloat(),
+                SCRIM and 0x00FFFFFF, (SCRIM and 0x00FFFFFF) or ((255 * FADE_ALPHA).roundToInt() shl 24), Shader.TileMode.CLAMP,
+            )
+        }
+        canvas.drawRect(0f, layout.fadeTop.toFloat(), width.toFloat(), layout.areaBottom.toFloat(), fade)
+        val left = layout.textLeft.toFloat()
+        val appPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = figtree
+            textSize = 36 * s
+            color = FRAME_TEXT
+        }
+        var baseline = layout.appBaseline.toFloat()
+        canvas.drawText(APP_LINE, left, baseline, appPaint)
+        if (progressLine != null) {
+            baseline -= px(LINE_GAP)
+            val progressPaint = TextPaint(appPaint).apply { fontVariationSettings = "'wght' 600" }
+            canvas.drawText(progressLine, left, baseline, progressPaint)
+        }
+        baseline -= px(ShareLayout.TITLE_GAP)
+        val titleLayout = titleLayout(title)
+        val top = baseline - titleLayout.getLineBaseline(titleLayout.lineCount - 1)
+        canvas.withTranslation(left, top) { titleLayout.draw(this) }
+    }
+
+    /**
+     * The Gemmory row (T53 D1): a 150px `scrim` band at 55%, the app icon, "Gemmory" (Bricolage Grotesque 600, 44px),
+     * "Your photos in gems" (Figtree 28px, 80%), and Google's Play badge at the right, the file unchanged.
+     */
+    fun drawRow(canvas: Canvas, row: ShareLayout.Row) {
+        val scrim = Paint().apply { color = SCRIM; alpha = (255 * ROW_SCRIM_ALPHA).roundToInt() }
+        canvas.drawRect(0f, row.top.toFloat(), width.toFloat(), (row.top + px(ShareLayout.ROW)).toFloat(), scrim)
+        drawIcon(canvas, row.icon, row.iconRadius)
+        canvas.drawText(NAME, row.textLeft.toFloat(), row.nameBaseline.toFloat(), namePaint(44))
+        val tagline = taglinePaint(28).apply { alpha = (255 * 0.8f).roundToInt() }
+        canvas.drawText(TAGLINE, row.textLeft.toFloat(), row.taglineBaseline.toFloat(), tagline)
+        drawBadge(canvas, row.badge)
+    }
+
+    /**
+     * The end card's layer (T53): the picture's shadow (the picture itself is the canvas, drawn over it), the icon at
+     * 180px, "Gemmory" (Bricolage Grotesque 600, 104px), "Your photos in gems" (Figtree 44px) and the badge at 520px,
+     * centered. Its backdrop, the band at ~30%, is the encoder's.
+     */
+    fun drawCard(canvas: Canvas, card: ShareLayout.Card) {
+        val p = card.picture
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x80000000.toInt()
+            maskFilter = BlurMaskFilter(px(CARD_SHADOW_BLUR).toFloat(), BlurMaskFilter.Blur.NORMAL)
+        }
+        val dy = px(CARD_SHADOW_Y).toFloat()
+        canvas.drawRect(p.left.toFloat(), p.top + dy, p.right.toFloat(), p.bottom + dy, shadow)
+        drawIcon(canvas, card.icon, card.iconRadius)
+        val center = width / 2f
+        canvas.drawText(NAME, center, card.nameBaseline.toFloat(), namePaint(104).apply { textAlign = Paint.Align.CENTER })
+        canvas.drawText(TAGLINE, center, card.taglineBaseline.toFloat(), taglinePaint(44).apply { textAlign = Paint.Align.CENTER })
+        drawBadge(canvas, card.badge)
+    }
+
+    private fun titleLayout(title: String): StaticLayout {
+        val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = bricolage
+            fontVariationSettings = "'wght' 600"
+            textSize = 60 * s
+            letterSpacing = -0.01f
+            color = FRAME_TEXT
+        }
+        val textWidth = (width - 2 * px(MARGIN))
+        return StaticLayout.Builder.obtain(title, 0, title.length, titlePaint, textWidth)
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setMaxLines(2)
+            .setEllipsize(TextUtils.TruncateAt.END)
+            .build()
+    }
+
+    private fun namePaint(size: Int) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = bricolage
+        fontVariationSettings = "'wght' 600"
+        textSize = size * s
+        color = FRAME_TEXT
+    }
+
+    private fun taglinePaint(size: Int) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = figtree
+        textSize = size * s
+        color = FRAME_TEXT
+    }
+
+    private fun drawIcon(canvas: Canvas, at: BoardRect, radius: Int) {
+        val bitmap = icon ?: return
+        val rect = RectF(at.left.toFloat(), at.top.toFloat(), at.right.toFloat(), at.bottom.toFloat())
+        canvas.save()
+        canvas.clipPath(Path().apply { addRoundRect(rect, radius.toFloat(), radius.toFloat(), Path.Direction.CW) })
+        canvas.drawBitmap(bitmap, null, rect, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        canvas.restore()
+    }
+
+    private fun drawBadge(canvas: Canvas, at: BoardRect) {
+        val bitmap = badge ?: return
+        canvas.drawBitmap(bitmap, null, Rect(at.left, at.top, at.right, at.bottom), Paint(Paint.FILTER_BITMAP_FLAG))
+    }
+
+    private fun asset(path: String): Bitmap? = runCatching { context.assets.open(path).use(BitmapFactory::decodeStream) }.getOrNull()
+
     fun labelPaint(): TextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = figtree
         textSize = 30 * s
@@ -243,7 +417,28 @@ internal class FrameStyle(context: Context, private val width: Int) {
         const val WATERMARK_ROW = 78
         const val BAND_BRIGHTNESS = 0.45f
         const val APP_LINE = "Gemmory · Photo Diamond Art"
+
+        /** A founder clip's watermark (T47); the player's share has the Gemmory row instead (T53). */
         const val WATERMARK = "Made with Gemmory"
+        const val NAME = "Gemmory"
+        const val TAGLINE = "Your photos in gems"
+        const val ROW_SCRIM_ALPHA = 0.55f
+        const val FADE_ALPHA = 0.78f
+
+        /** The baseline step between two 36px lines over the fade (a progress line above the app line). */
+        const val LINE_GAP = 48
+        const val CARD_SHADOW_BLUR = 52
+        const val CARD_SHADOW_Y = 24
+
+        /** Room above the end card's picture for its shadow. */
+        const val CARD_SHADOW_ROOM = 100
+
+        /** Black over the band behind the end card: 45% brightness × 0.67 ≈ 30%. */
+        const val END_CARD_DIM = 0.33f
+        const val ICON_ASSET = "share/app_icon.png"
+
+        /** Google's official "Get it on Google Play" badge (play.google.com/intl/en_us/badges), the file unchanged. */
+        const val BADGE_ASSET = "share/play_badge_en.png"
         private const val FRAME_TEXT = 0xFFF2EEE4.toInt()
         private const val SCRIM = 0xFF141815.toInt()
 
