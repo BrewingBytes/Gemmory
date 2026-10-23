@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -47,10 +48,12 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.ui.withFigures
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.Products
 import com.brewingbytes.gemmory.ui.GemColors
@@ -106,9 +109,11 @@ fun PaywallScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing),
         contentAlignment = Alignment.TopCenter,
     ) {
+        val strings = strings()
+        val copy = BillingCopy(strings)
         Column(Modifier.widthIn(max = 480.dp).fillMaxWidth()) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconAction(GemIcons.Close, "Close", onClose, Modifier.testTag("paywall-close"))
+                IconAction(GemIcons.Close, stringResource(R.string.action_close), onClose, Modifier.testTag("paywall-close"))
             }
             Column(
                 Modifier
@@ -117,35 +122,35 @@ fun PaywallScreen(
                     .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             ) {
                 Text(
-                    BillingCopy.TITLE,
+                    copy.title,
                     style = GemType.display.copy(fontSize = 30.sp),
                     color = GemColors.Bone,
                     modifier = Modifier.testTag(PAYWALL_TITLE_TAG).semantics { heading() },
                 )
                 Spacer(Modifier.height(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { BillingCopy.PERKS.forEach { Perk(it) } }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { copy.perks.forEach { Perk(it) } }
                 Spacer(Modifier.height(24.dp))
                 when (prices) {
                     PricesUi.Loading -> Column(
-                        Modifier.semantics { contentDescription = "Loading prices" },
+                        Modifier.semantics { contentDescription = strings.text(R.string.billing_loading_prices) },
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         repeat(2) { Placeholder() }
                     }
                     PricesUi.Failed -> {
-                        OfflineLine(BillingCopy.PRICES_FAILED)
+                        OfflineLine(copy.pricesFailed)
                         Spacer(Modifier.height(12.dp))
-                        QuietButton(BillingCopy.TRY_AGAIN, onRetryPrices, Modifier.testTag("paywall-retry"))
+                        QuietButton(stringResource(R.string.action_try_again), onRetryPrices, Modifier.testTag("paywall-retry"))
                     }
                     is PricesUi.Ready -> Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PlanRow("Yearly", yearlyLine(prices.prices.yearly), selected = yearly, tag = "plan-yearly") { yearly = true }
-                        PlanRow("Weekly", weeklyLine(prices.prices.weekly), selected = !yearly, tag = "plan-weekly") { yearly = false }
+                        PlanRow(stringResource(R.string.billing_plan_yearly), yearlyLine(strings, prices.prices.yearly), selected = yearly, tag = "plan-yearly") { yearly = true }
+                        PlanRow(stringResource(R.string.billing_plan_weekly), weeklyLine(strings, prices.prices.weekly), selected = !yearly, tag = "plan-weekly") { yearly = false }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
                 val message = when (purchase) {
-                    is PurchaseUi.Pending -> BillingCopy.pending(purchase.product)
-                    PurchaseUi.Failed -> BillingCopy.PURCHASE_FAILED
+                    is PurchaseUi.Pending -> copy.pending(purchase.product)
+                    PurchaseUi.Failed -> copy.purchaseFailed
                     else -> null
                 }
                 if (message != null) {
@@ -162,7 +167,7 @@ fun PaywallScreen(
                 val ready = prices as? PricesUi.Ready
                 val vipPending = purchase is PurchaseUi.Pending && purchase.product != Products.REMOVE_ADS
                 PrimaryButton(
-                    BillingCopy.START_VIP,
+                    copy.startVip,
                     onClick = { onBuy(if (yearly) Products.VIP_YEARLY else Products.VIP_WEEKLY) },
                     enabled = ready != null && !vipPending,
                     held = purchase is PurchaseUi.Launching,
@@ -177,7 +182,7 @@ fun PaywallScreen(
                     ) { onBuy(Products.REMOVE_ADS) }
                 }
                 Spacer(Modifier.height(16.dp))
-                Text(BillingCopy.FINE_PRINT, style = GemType.label, color = GemColors.Bone, modifier = Modifier.testTag("paywall-fine-print"))
+                Text(copy.finePrint, style = GemType.label, color = GemColors.Bone, modifier = Modifier.testTag("paywall-fine-print"))
             }
         }
     }
@@ -188,17 +193,12 @@ private const val OPEN_FOCUS_DELAY_MS = 400L
 private val mono = SpanStyle(fontFamily = GemType.mono.fontFamily, fontWeight = GemType.mono.fontWeight, fontFeatureSettings = "tnum")
 
 /** "$29.99 / year ($0.58 a week)", prices in mono (figures only, never labels). */
-private fun yearlyLine(price: Price): AnnotatedString = buildAnnotatedString {
-    withStyle(mono) { append(price.formatted) }
-    append(" / year (")
-    withStyle(mono) { append(BillingCopy.perWeek(price)) }
-    append(" a week)")
+private fun yearlyLine(s: Strings, price: Price): AnnotatedString {
+    val perWeek = BillingCopy.perWeek(price)
+    return withFigures(BillingCopy(s).yearly(price), listOf(price.formatted, perWeek), mono)
 }
 
-private fun weeklyLine(price: Price): AnnotatedString = buildAnnotatedString {
-    withStyle(mono) { append(price.formatted) }
-    append(" / week")
-}
+private fun weeklyLine(s: Strings, price: Price): AnnotatedString = withFigures(BillingCopy(s).weekly(price), listOf(price.formatted), mono)
 
 /** A perk line with its patina square bullet, centered on the first line when the text wraps (200% font). */
 @Composable
@@ -262,11 +262,7 @@ private fun RemoveAdsRow(price: Price, enabled: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            buildAnnotatedString {
-                append("Just remove ads · ")
-                withStyle(mono) { append(price.formatted) }
-                append(" once")
-            },
+            withFigures(BillingCopy(strings()).removeAds(price), listOf(price.formatted), mono),
             style = GemType.button,
             color = if (enabled) GemColors.Bone else GemColors.Bone.copy(alpha = 0.55f),
         )

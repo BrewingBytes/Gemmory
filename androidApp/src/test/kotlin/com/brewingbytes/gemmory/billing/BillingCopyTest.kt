@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.billing
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.Membership
 import com.brewingbytes.gemmory.policy.Products
@@ -9,11 +10,14 @@ import kotlin.test.assertEquals
 
 /** The decided copy (design system, Paywall and Settings; founder answers #8). */
 class BillingCopyTest {
+    /** The real English resources (T48): these lines are the copy, word for word. */
+    private val copy = BillingCopy(XmlStrings.en)
+
     @Test
     fun planRows() {
-        assertEquals("$29.99 / year ($0.58 a week)", BillingCopy.yearly(Price("$29.99", 29_990_000, "USD")))
-        assertEquals("$2.99 / week", BillingCopy.weekly(Price("$2.99", 2_990_000, "USD")))
-        assertEquals("Just remove ads · $4.99 once", BillingCopy.removeAds(Price("$4.99", 4_990_000, "USD")))
+        assertEquals("$29.99 / year ($0.58 a week)", copy.yearly(Price("$29.99", 29_990_000, "USD")))
+        assertEquals("$2.99 / week", copy.weekly(Price("$2.99", 2_990_000, "USD")))
+        assertEquals("Just remove ads · $4.99 once", copy.removeAds(Price("$4.99", 4_990_000, "USD")))
     }
 
     @Test
@@ -40,17 +44,17 @@ class BillingCopyTest {
     fun membershipRestoreAndNoticeLines() {
         assertEquals(
             listOf("VIP · yearly", "VIP · weekly", "VIP · connect to Google Play to confirm", "Ads removed", "Free"),
-            Membership.entries.map(BillingCopy::membership),
+            Membership.entries.map(copy::membership),
         )
-        assertEquals("Purchases restored: VIP (yearly)", BillingCopy.restored(Entitlements(VipPlan.YEARLY, removeAds = true)))
-        assertEquals("Purchases restored: VIP (weekly)", BillingCopy.restored(Entitlements(VipPlan.WEEKLY)))
-        assertEquals("Purchases restored: Ads removed", BillingCopy.restored(Entitlements(removeAds = true)))
-        assertEquals("No purchases found on this account", BillingCopy.restored(Entitlements.FREE))
-        assertEquals("You're VIP. Every gallery picture is unlocked.", BillingCopy.notice(Notice.VIP_STARTED))
-        assertEquals("Ads are off for good.", BillingCopy.notice(Notice.ADS_OFF))
-        assertEquals("We couldn't confirm VIP for a week. Connect to the internet to restore it.", BillingCopy.notice(Notice.VIP_LAPSED))
-        assertEquals("Payment pending. VIP starts when Google Play confirms it.", BillingCopy.pending(Products.VIP_YEARLY))
-        assertEquals("Payment pending. Ads turn off when Google Play confirms it.", BillingCopy.pending(Products.REMOVE_ADS))
+        assertEquals("Purchases restored: VIP (yearly)", copy.restored(Entitlements(VipPlan.YEARLY, removeAds = true)))
+        assertEquals("Purchases restored: VIP (weekly)", copy.restored(Entitlements(VipPlan.WEEKLY)))
+        assertEquals("Purchases restored: Ads removed", copy.restored(Entitlements(removeAds = true)))
+        assertEquals("No purchases found on this account", copy.restored(Entitlements.FREE))
+        assertEquals("You're VIP. Every gallery picture is unlocked.", copy.notice(Notice.VIP_STARTED))
+        assertEquals("Ads are off for good.", copy.notice(Notice.ADS_OFF))
+        assertEquals("We couldn't confirm VIP for a week. Connect to the internet to restore it.", copy.notice(Notice.VIP_LAPSED))
+        assertEquals("Payment pending. VIP starts when Google Play confirms it.", copy.pending(Products.VIP_YEARLY))
+        assertEquals("Payment pending. Ads turn off when Google Play confirms it.", copy.pending(Products.REMOVE_ADS))
     }
 
     /**
@@ -59,6 +63,6 @@ class BillingCopyTest {
      */
     @Test
     fun theVipPerkPromisesEveryGalleryPicture() {
-        assertEquals("Every gallery picture unlocked", BillingCopy.PERKS.first())
+        assertEquals("Every gallery picture unlocked", copy.perks.first())
     }
 }

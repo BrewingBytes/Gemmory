@@ -163,7 +163,7 @@ object RemotePictureTool {
         val image = r.sourceImage ?: ImageIO.read(r.source) ?: error("cannot read image ${r.source}")
         val pattern = BundledGridTool.convertImage(image, spec.copy(paletteCap = size.cap(r.colors)), r.focus, ConverterOptions.of(r.colors))
         require(pattern.palette.size <= size.paletteCap || r.minAppVersion == null || r.minAppVersion >= RemoteCatalogs.MORE_COLORS_MIN_APP) {
-            "${pattern.palette.size} colors is above ${size.label}'s Standard ${size.paletteCap}: older apps would refuse the " +
+            "${pattern.palette.size} colors is above ${size.name.lowercase()}'s Standard ${size.paletteCap}: older apps would refuse the " +
                 "whole catalog, so run with -PminAppVersion=${RemoteCatalogs.MORE_COLORS_MIN_APP} or later (or leave it out to stamp it)"
         }
         val grid = GridCodec.encode(pattern)

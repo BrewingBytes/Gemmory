@@ -80,6 +80,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -104,6 +105,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.game.Batch
 import com.brewingbytes.gemmory.game.CanvasGestures
 import com.brewingbytes.gemmory.game.CanvasZoom
@@ -136,7 +139,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 import kotlin.math.ceil
 
 /**
@@ -196,9 +198,9 @@ fun PlayScreen(
             PlayUi.Damaged -> {
                 TopBar("", progress = null, onBack = leave)
                 Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.Center) {
-                    Text("This canvas's file is damaged, so it can't be opened.", style = GemType.body, color = GemColors.Bone)
+                    Text(stringResource(R.string.play_damaged), style = GemType.body, color = GemColors.Bone)
                     Spacer(Modifier.height(16.dp))
-                    QuietButton("Back", leave, Modifier.fillMaxWidth())
+                    QuietButton(stringResource(R.string.action_back), leave, Modifier.fillMaxWidth())
                 }
             }
             is PlayUi.Ready -> {
@@ -234,7 +236,7 @@ fun PlayScreen(
                 val diskFull by s.diskFull.collectAsStateWithLifecycle()
                 if (diskFull) {
                     Text(
-                        "Progress isn't saving: phone storage is full.",
+                        stringResource(R.string.play_disk_full),
                         style = GemType.label,
                         color = GemColors.Bone,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
@@ -286,7 +288,7 @@ private fun TopBar(
 ) {
     val largeFont = LocalDensity.current.fontScale > LARGE_FONT_SCALE
     Row(modifier.fillMaxWidth().heightIn(min = 56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconAction(GemIcons.Back, "Back", onBack)
+        IconAction(GemIcons.Back, stringResource(R.string.action_back), onBack)
         Spacer(Modifier.width(4.dp))
         Text(
             title,
@@ -297,12 +299,16 @@ private fun TopBar(
             modifier = Modifier.weight(1f),
         )
         if (peek != null) PeekButton(peek, Modifier.padding(start = 4.dp))
-        if (onShare != null) IconAction(GemIcons.Share, "Share progress", onShare, Modifier.testTag(SHARE_PROGRESS_TAG))
+        if (onShare != null) IconAction(GemIcons.Share, stringResource(R.string.action_share_progress), onShare, Modifier.testTag(SHARE_PROGRESS_TAG))
         if (progress != null) {
-            val format = remember { NumberFormat.getIntegerInstance() }
+            val strings = strings()
             val (placed, total) = progress
             Text(
-                if (largeFont) "${placed * 100L / maxOf(1, total)}%" else "${format.format(placed)} / ${format.format(total)}",
+                if (largeFont) {
+                    strings.text(R.string.play_progress_percent, placed * 100L / maxOf(1, total))
+                } else {
+                    strings.text(R.string.play_progress_count, strings.number(placed), strings.number(total))
+                },
                 style = GemType.mono.copy(fontSize = 14.sp),
                 color = GemColors.Bone,
                 maxLines = 1,
@@ -562,26 +568,27 @@ private fun GemCanvas(
 
     // TalkBack (design D19): the canvas is one node with six actions (eight with the tools, #20) instead of a node per cell. Its description
     // changes at most once per placement. The peek action (#35) reads "Back to canvas" while the picture shows.
-    val format = remember { NumberFormat.getIntegerInstance() }
+    val strings = strings()
+    val a11y = remember(strings) { A11yText(strings) }
     val slot = session.selectedSlot
-    val description = A11yText.canvas(session.placedCount, session.cellCount, slot + 1, session.remaining(slot), format)
+    val description = a11y.canvas(session.placedCount, session.cellCount, slot + 1, session.remaining(slot))
     val peeking = peek.shown
     // Placement tools (#20, VIP): "Fill region at next gem", and "Fill the rest of color 7" while Fill color shows.
     val toolsOn = session.toolsUsable
     val fillColor = session.fillColorVisible
-    val actions = remember(controller, peeking, toolsOn, fillColor, slot, mystery) {
+    val actions = remember(controller, peeking, toolsOn, fillColor, slot, mystery, strings) {
         listOfNotNull(
-            CustomAccessibilityAction("Place next gem") { controller.placeNext() },
-            if (toolsOn) CustomAccessibilityAction("Fill region at next gem") { controller.fillRegionNext() } else null,
-            if (fillColor) CustomAccessibilityAction(A11yText.fillColor(slot + 1)) { controller.fillColor(announceCount = true) } else null,
-            CustomAccessibilityAction("Find next gem") { controller.find() },
-            CustomAccessibilityAction("Zoom in") { controller.zoomStep(zoomIn = true) },
-            CustomAccessibilityAction("Zoom out") { controller.zoomStep(zoomIn = false) },
-            CustomAccessibilityAction("Whole picture") { controller.wholePicture() },
+            CustomAccessibilityAction(strings.text(R.string.a11y_action_place_next)) { controller.placeNext() },
+            if (toolsOn) CustomAccessibilityAction(strings.text(R.string.a11y_action_fill_region_next)) { controller.fillRegionNext() } else null,
+            if (fillColor) CustomAccessibilityAction(a11y.fillColor(slot + 1)) { controller.fillColor(announceCount = true) } else null,
+            CustomAccessibilityAction(strings.text(R.string.a11y_action_find_next)) { controller.find() },
+            CustomAccessibilityAction(strings.text(R.string.a11y_action_zoom_in)) { controller.zoomStep(zoomIn = true) },
+            CustomAccessibilityAction(strings.text(R.string.a11y_action_zoom_out)) { controller.zoomStep(zoomIn = false) },
+            CustomAccessibilityAction(strings.text(R.string.a11y_action_whole_picture)) { controller.wholePicture() },
             if (mystery) {
                 null
             } else {
-                CustomAccessibilityAction(if (peeking) "Back to canvas" else "Peek at picture") {
+                CustomAccessibilityAction(strings.text(if (peeking) R.string.a11y_peek_hidden else R.string.a11y_action_peek)) {
                     session.announcePeek(peek.toggle())
                     true
                 }
@@ -613,7 +620,7 @@ private fun GemCanvas(
             drawIntoCanvas { renderer.draw(it.nativeCanvas, session, density, style, controller.effects, now) }
         }
         Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
-            if (shown != null) HintChip(shown.text)
+            if (shown != null) HintChip(stringResource(shown.text))
         }
         // Over the hint chip, so the peek shows only the finished picture; under the banner, so a milestone still shows.
         PeekOverlay(session.pattern, peek, canvasSize)
@@ -851,12 +858,15 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
 }
 
 /** The placement tools' names (#20), on the tool troughs and in the well's label. */
-private fun PlacementTool.label(): String = when (this) {
-    PlacementTool.TAP -> "Tap"
-    PlacementTool.BRUSH -> "Brush 3×3"
-    PlacementTool.REGION -> "Fill region"
-    PlacementTool.FILL_COLOR -> "Fill color"
-}
+@Composable
+private fun PlacementTool.label(): String = stringResource(
+    when (this) {
+        PlacementTool.TAP -> R.string.tool_tap
+        PlacementTool.BRUSH -> R.string.tool_brush
+        PlacementTool.REGION -> R.string.tool_region
+        PlacementTool.FILL_COLOR -> R.string.tool_fill_color
+    },
+)
 
 private fun PlacementTool.icon() = when (this) {
     PlacementTool.TAP -> GemIcons.ToolTap
@@ -872,6 +882,7 @@ private fun PlacementTool.icon() = when (this) {
  */
 @Composable
 private fun ToolWell(tool: PlacementTool, count: Int?, usable: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val description = A11yText(strings()).tool(tool.label(), count)
     Box(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -881,7 +892,7 @@ private fun ToolWell(tool: PlacementTool, count: Int?, usable: Boolean, onClick:
             .clickable(role = Role.Button, onClick = onClick)
             // The tag before the clear, which drops everything after it.
             .testTag("tool-well")
-            .clearAndSetSemantics { contentDescription = A11yText.tool(tool.label(), count) },
+            .clearAndSetSemantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         // Above 1.5× font the count would cover the icon, so it sits beside it and the well widens (D20).
@@ -928,6 +939,8 @@ private fun ToolTrough(
     val lift by animateDpAsState(if (selected) (-3).dp else 0.dp, if (instantLift) snap() else tween(LIFT_MS), label = "lift")
     val shape = RoundedCornerShape(8.dp)
     val felt = LocalFelt.current
+    val label = tool.label()
+    val description = if (enabled) label else stringResource(R.string.tool_no_fills_left, label)
     Column(
         modifier
             .heightIn(min = 64.dp)
@@ -939,7 +952,7 @@ private fun ToolTrough(
             .background(felt.ground)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .clearAndSetSemantics {
-                contentDescription = if (enabled) tool.label() else "${tool.label()}, no fills left"
+                contentDescription = description
                 this.selected = selected
                 if (!enabled) disabled()
             }
@@ -951,7 +964,7 @@ private fun ToolTrough(
             Image(tool.icon(), contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
             Spacer(Modifier.height(4.dp))
         }
-        Text(tool.label(), style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
+        Text(label, style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
     }
 }
 
@@ -959,6 +972,8 @@ private fun ToolTrough(
 @Composable
 private fun FillColorButton(session: PlaySession, controller: CanvasController, modifier: Modifier = Modifier) {
     val left = session.remaining(session.selectedSlot)
+    val strings = strings()
+    val description = A11yText(strings).fillColor(session.selectedSlot + 1)
     Row(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -966,27 +981,28 @@ private fun FillColorButton(session: PlaySession, controller: CanvasController, 
             .background(LocalFelt.current.raised)
             .clickable(role = Role.Button) { controller.fillColor() }
             .testTag("fill-color")
-            .clearAndSetSemantics { contentDescription = A11yText.fillColor(session.selectedSlot + 1) }
+            .clearAndSetSemantics { contentDescription = description }
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         Image(GemIcons.FillColor, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
         Spacer(Modifier.width(6.dp))
-        Text("Fill $left", style = GemType.button, color = GemColors.Bone, maxLines = 1)
+        Text(strings.text(R.string.tool_fill_left, left), style = GemType.button, color = GemColors.Bone, maxLines = 1)
     }
 }
 
 /** Find (design D24): a 48dp quiet icon button labelled "Find". */
 @Composable
 private fun FindButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.action_find)
     Box(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(LocalFelt.current.raised)
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = "Find" }
+            .semantics { contentDescription = label }
             .testTag("find"),
         contentAlignment = Alignment.Center,
     ) {
@@ -1011,7 +1027,8 @@ private fun Trough(
     val finished = remaining == 0
     val lift by animateDpAsState(if (selected) (-3).dp else 0.dp, if (instantLift) snap() else tween(LIFT_MS), label = "lift")
     val shape = RoundedCornerShape(8.dp)
-    val format = remember { NumberFormat.getIntegerInstance() }
+    val strings = strings()
+    val description = A11yText(strings).trough(number, remaining)
     Column(
         modifier
             .width(width)
@@ -1025,7 +1042,7 @@ private fun Trough(
             .clickable(enabled = !finished, role = Role.Button, onClick = onClick)
             // One node that reads "Color 7, 312 left" (D19), even when the count is hidden at large font (D20).
             .clearAndSetSemantics {
-                contentDescription = A11yText.trough(number, remaining, format)
+                contentDescription = description
                 this.selected = selected
                 lampOutline = outline
             }
@@ -1044,7 +1061,7 @@ private fun Trough(
         )
         if (showCount) {
             Text(
-                if (finished) "" else format.format(remaining),
+                if (finished) "" else strings.number(remaining),
                 style = GemType.mono.copy(fontSize = 12.sp),
                 color = GemColors.TextMuted,
                 maxLines = 1,

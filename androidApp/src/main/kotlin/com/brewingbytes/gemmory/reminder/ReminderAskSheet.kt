@@ -17,28 +17,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.GemTextButton
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.PrimaryButton
-
-/** The ask's copy (design system, Evening reminder; plan-design-review D10, D12). */
-object ReminderAskCopy {
-    const val TITLE = "Remind me in the evening?"
-    const val SETTINGS_LINE = "Change the time or turn it off in Settings."
-    const val YES = "Yes, remind me"
-    const val NOT_NOW = "Not now"
-
-    fun body(time: String) =
-        "One quiet note a day around $time, only when there's something to play: a new picture, today's picture, a " +
-            "streak to keep, or one you're close to finishing."
-
-    /** The gallery's one line once reminders are on. */
-    fun onLine(time: String) = "Reminders on, around $time. Change it in Settings."
-}
 
 const val REMINDER_ASK_YES_TAG = "reminder-ask-yes"
 const val REMINDER_ASK_NOT_NOW_TAG = "reminder-ask-not-now"
@@ -49,15 +36,15 @@ const val REMINDER_ASK_NOT_NOW_TAG = "reminder-ask-not-now"
  */
 @Composable
 fun ReminderAskSheet(time: String, onYes: () -> Unit, onNotNow: () -> Unit) {
-    GemSheet(ReminderAskCopy.TITLE, onDismiss = onNotNow) {
-        Text(ReminderAskCopy.body(time), style = GemType.body, color = GemColors.Bone)
+    GemSheet(stringResource(R.string.reminder_ask_title), onDismiss = onNotNow) {
+        Text(stringResource(R.string.reminder_ask_body, time), style = GemType.body, color = GemColors.Bone)
         Spacer(Modifier.height(8.dp))
-        Text(ReminderAskCopy.SETTINGS_LINE, style = GemType.label, color = GemColors.TextMuted)
+        Text(stringResource(R.string.reminder_ask_settings_line), style = GemType.label, color = GemColors.TextMuted)
         Spacer(Modifier.height(20.dp))
-        PrimaryButton(ReminderAskCopy.YES, onYes, Modifier.fillMaxWidth().testTag(REMINDER_ASK_YES_TAG))
+        PrimaryButton(stringResource(R.string.reminder_ask_yes), onYes, Modifier.fillMaxWidth().testTag(REMINDER_ASK_YES_TAG))
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            GemTextButton(ReminderAskCopy.NOT_NOW, onNotNow, Modifier.testTag(REMINDER_ASK_NOT_NOW_TAG))
+            GemTextButton(stringResource(R.string.reminder_ask_not_now), onNotNow, Modifier.testTag(REMINDER_ASK_NOT_NOW_TAG))
         }
     }
 }

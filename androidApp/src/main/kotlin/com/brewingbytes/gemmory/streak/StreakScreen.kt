@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -65,6 +66,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.ads.RewardPhase
 import com.brewingbytes.gemmory.ads.RewardedUi
@@ -98,7 +102,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.TextStyle
-import java.util.Locale
 import kotlin.math.roundToInt
 
 /** The streak screen's state (#101): the streak as it stands, the best, the log and the month showing. */
@@ -225,8 +228,9 @@ fun StreakScreen(
     val restored = ui.restored
     val shown = if (restored != null) maxOf(s.shown, restored.length) else s.shown
     val vip = s.cover.vip
+    val text = StreakText(strings())
     Column(Modifier.fillMaxSize().feltGround(LocalFelt.current.ground).windowInsetsPadding(WindowInsets.safeDrawing).testTag(STREAK_SCREEN_TAG)) {
-        AppTopBar("Your streak", onBack)
+        AppTopBar(stringResource(R.string.streak_screen_title), onBack)
         Column(
             Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -238,7 +242,7 @@ fun StreakScreen(
                 Hero(shown, ui.best, s.doneToday, rollUp = restored?.rollUp == true, onRolledUp = vm::rolledUp)
                 if (restored != null) {
                     Text(
-                        StreakText.restored(restored.length),
+                        text.restored(restored.length),
                         style = GemType.body,
                         color = GemColors.Bone,
                         modifier = Modifier
@@ -249,32 +253,32 @@ fun StreakScreen(
                     )
                 }
                 Section {
-                    val status = StreakText.todayStatus(shown, s.doneToday)
+                    val status = text.todayStatus(shown, s.doneToday)
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {}) {
                         if (s.doneToday) {
                             Flame(lit = true, length = shown, size = 18.dp, still = true)
                             Spacer(Modifier.width(8.dp))
                         }
                         Column {
-                            restored?.let { r -> StreakText.repaired(r.days)?.let { Text(it, style = GemType.body, color = GemColors.Bone) } }
+                            restored?.let { r -> text.repaired(r.days)?.let { Text(it, style = GemType.body, color = GemColors.Bone) } }
                             Text(status, style = GemType.body, color = GemColors.Bone)
-                            StreakText.awaiting(s.awaiting, s.today)?.let { Text(it, style = GemType.label, color = GemColors.TextMuted) }
+                            text.awaiting(s.awaiting, s.today)?.let { Text(it, style = GemType.label, color = GemColors.TextMuted) }
                         }
                     }
                     if (!s.doneToday && onToday != null) {
                         Spacer(Modifier.height(8.dp))
-                        QuietButton("Today's picture", onToday, Modifier.fillMaxWidth().testTag(STREAK_TODAYS_PICTURE_TAG))
+                        QuietButton(stringResource(R.string.today_label_picture), onToday, Modifier.fillMaxWidth().testTag(STREAK_TODAYS_PICTURE_TAG))
                     }
                 }
                 if (shown > 0) {
                     Section {
-                        Weekly("Day off", s.state.restDay, s.today, CellKind.DAY_OFF, shown)
+                        Weekly(stringResource(R.string.streak_day_off), s.state.restDay, s.today, CellKind.DAY_OFF, shown)
                         Spacer(Modifier.height(8.dp))
                         if (vip) {
-                            Weekly("VIP freeze", s.state.vipFreezeDay, s.today, CellKind.VIP_FREEZE, shown)
+                            Weekly(stringResource(R.string.streak_vip_freeze), s.state.vipFreezeDay, s.today, CellKind.VIP_FREEZE, shown)
                         } else {
                             // VIP never spends held freezes (O2), so only players without it see them (#102).
-                            val (line, sub) = StreakText.freezes(s.cover.freezes)
+                            val (line, sub) = text.freezes(s.cover.freezes)
                             SafetyRow(line, sub, CellKind.FREEZE, s.today, shown, Modifier.testTag(STREAK_FREEZES_TAG))
                         }
                     }
@@ -294,15 +298,16 @@ fun StreakScreen(
 private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairActions) {
     val phase = video?.phase
     val vipFree = offer.vipReady && video == null
+    val text = StreakText(strings())
     Column(Modifier.testTag(STREAK_REPAIR_TAG)) {
         Section {
-            Text(StreakText.repairTitle(offer.broken.length), style = GemType.display, color = GemColors.Bone, modifier = Modifier.semantics { heading() })
+            Text(text.repairTitle(offer.broken.length), style = GemType.display, color = GemColors.Bone, modifier = Modifier.semantics { heading() })
             Spacer(Modifier.height(4.dp))
             val (line, fault) = when ((phase as? RewardPhase.NotAvailable)?.kind) {
-                Unavailable.OFFLINE -> "You're offline. Connect to watch a video." to true
-                Unavailable.NO_VIDEO -> "No video right now. Try again in a bit." to false
-                Unavailable.GRACE_OFFER -> "No video right now. This one's on us today." to false
-                null -> StreakText.repairBody(offer.broken.endedOn, vipFree) to false
+                Unavailable.OFFLINE -> stringResource(R.string.video_offline) to true
+                Unavailable.NO_VIDEO -> stringResource(R.string.video_none) to false
+                Unavailable.GRACE_OFFER -> stringResource(R.string.video_grace) to false
+                null -> text.repairBody(offer.broken.endedOn, vipFree) to false
             }
             Text(
                 line,
@@ -314,24 +319,24 @@ private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairA
             Spacer(Modifier.height(12.dp))
             val primary = Modifier.fillMaxWidth().testTag(STREAK_REPAIR_PRIMARY_TAG)
             when {
-                vipFree -> PrimaryButton("Bring it back", actions.onVipRepair, primary)
+                vipFree -> PrimaryButton(stringResource(R.string.streak_bring_back), actions.onVipRepair, primary)
                 phase == RewardPhase.Loading -> {
-                    PrimaryButton("Loading video…", {}, primary, enabled = false)
+                    PrimaryButton(stringResource(R.string.video_loading), {}, primary, enabled = false)
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(2.dp).clearAndSetSemantics {},
                         color = GemColors.Bone,
                         trackColor = Color.Transparent,
                     )
                 }
-                phase is RewardPhase.NotAvailable && phase.kind == Unavailable.GRACE_OFFER -> PrimaryButton("Bring it back", actions.onGrace, primary)
-                phase is RewardPhase.NotAvailable -> QuietButton("Try again", actions.onWatch, primary)
-                else -> PrimaryButton("Watch a video", actions.onWatch, primary, held = phase == RewardPhase.Showing || phase == RewardPhase.Unlocked)
+                phase is RewardPhase.NotAvailable && phase.kind == Unavailable.GRACE_OFFER -> PrimaryButton(stringResource(R.string.streak_bring_back), actions.onGrace, primary)
+                phase is RewardPhase.NotAvailable -> QuietButton(stringResource(R.string.action_try_again), actions.onWatch, primary)
+                else -> PrimaryButton(stringResource(R.string.video_watch), actions.onWatch, primary, held = phase == RewardPhase.Showing || phase == RewardPhase.Unlocked)
             }
             if (video?.closedEarly == true && (phase == RewardPhase.Loading || phase == RewardPhase.Ready)) {
-                Muted("Watch to the end to bring it back.", Modifier.testTag("streak-repair-closed-early"))
+                Muted(stringResource(R.string.streak_watch_to_end), Modifier.testTag("streak-repair-closed-early"))
             }
-            if (offer.vip && !offer.vipReady) Muted(StreakText.vipRepairUsed(offer.lastVipRepairDay))
-            Muted(StreakText.repairUntil(offer.until))
+            if (offer.vip && !offer.vipReady) Muted(text.vipRepairUsed(offer.lastVipRepairDay))
+            Muted(text.repairUntil(offer.until))
         }
     }
 }
@@ -356,19 +361,18 @@ private fun Hero(shown: Int, best: Int, lit: Boolean, rollUp: Boolean = false, o
     }
     val number = (shown * roll.value).roundToInt()
     val big = LocalDensity.current.fontScale > 1.5f
-    val text = buildString {
-        append("${StreakText.days(shown)} in a row")
-        if (best > 0) append(". Best: ${StreakText.days(best)}")
-    }
+    val strings = strings()
+    val inARow = strings.plural(R.plurals.streak_in_a_row, shown, shown)
+    val text = if (best > 0) strings.text(R.string.streak_hero_best, inARow, StreakText(strings).days(best)) else inARow
     val digits: @Composable () -> Unit = {
         Text("$number", style = GemType.streakHero.copy(fontSize = 56.sp, lineHeight = 60.sp), color = GemColors.Bone)
     }
     val words: @Composable () -> Unit = {
         Column {
-            Text(if (shown == 1) "day in a row" else "days in a row", style = GemType.display, color = GemColors.Bone)
+            Text(strings.plural(R.plurals.streak_hero_words, shown), style = GemType.display, color = GemColors.Bone)
             if (best > 0) {
                 Text(
-                    buildBest(best),
+                    buildBest(strings.text(R.string.streak_best, best), "$best"),
                     style = GemType.label,
                     color = GemColors.Bone,
                 )
@@ -394,11 +398,18 @@ private fun Hero(shown: Int, best: Int, lit: Boolean, rollUp: Boolean = false, o
 /** The restored number's roll-up (#102, mockup section 3). */
 private const val ROLL_UP_MS = 600
 
-private fun buildBest(best: Int) = buildAnnotatedString {
-    append("Best: ")
+/** "Best: 12" with the number in mono. */
+private fun buildBest(text: String, figure: String) = buildAnnotatedString {
+    val at = text.lastIndexOf(figure)
+    if (at < 0) {
+        append(text)
+        return@buildAnnotatedString
+    }
+    append(text.substring(0, at))
     pushStyle(GemType.mono.toSpanStyle())
-    append("$best")
+    append(figure)
     pop()
+    append(text.substring(at + figure.length))
 }
 
 @Composable
@@ -416,7 +427,7 @@ private fun Section(content: @Composable () -> Unit) {
 /** One weekly cover's row (the safety rows): its mark, "Day off ready" or when it was used and is ready again. */
 @Composable
 private fun Weekly(name: String, lastUsed: Long, today: Long, mark: CellKind, length: Int) {
-    val (line, sub) = StreakText.weekly(name, lastUsed, today)
+    val (line, sub) = StreakText(strings()).weekly(name, lastUsed, today)
     SafetyRow(line, sub, mark, today, length)
 }
 
@@ -441,22 +452,23 @@ private fun SafetyRow(line: String, sub: String?, mark: CellKind, today: Long, l
 private fun Calendar(ui: StreakUi, vm: StreakViewModel) {
     val s = ui.snapshot
     val first = LocalDate.ofEpochDay(ui.month.first)
-    val title = "${first.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} ${first.year}"
+    val strings = strings()
+    val title = strings.text(R.string.streak_month_title, first.month.getDisplayName(TextStyle.FULL, strings.locale), first.year)
     val cells = StreakCalendar.cells(ui.month, ui.history, s.state, s.cover, s.today)
     val lead = ((first.dayOfWeek.value - 1) - firstDayOfWeek().ordinal + 7) % 7
     val canBack = ui.month.first > ui.firstMonth.first
     val canForward = ui.month.last < s.today
     Column(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.alpha(if (canBack) 1f else 0.35f)) { IconAction(GemIcons.PreviousMonth, "Previous month", { if (canBack) vm.previousMonth() }) }
+            Box(Modifier.alpha(if (canBack) 1f else 0.35f)) { IconAction(GemIcons.PreviousMonth, stringResource(R.string.streak_previous_month), { if (canBack) vm.previousMonth() }) }
             Text(title, style = GemType.button, color = GemColors.Bone, textAlign = TextAlign.Center, modifier = Modifier.weight(1f).semantics { heading() })
-            Box(Modifier.alpha(if (canForward) 1f else 0.35f)) { IconAction(GemIcons.NextMonth, "Next month", { if (canForward) vm.nextMonth() }) }
+            Box(Modifier.alpha(if (canForward) 1f else 0.35f)) { IconAction(GemIcons.NextMonth, stringResource(R.string.streak_next_month), { if (canForward) vm.nextMonth() }) }
         }
         val start = StreakCalendar.weekStart(ui.month.first, firstDayOfWeek())
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.clearAndSetSemantics { }) {
             for (d in 0 until 7) {
                 Text(
-                    StreakText.weekday(start + d).take(1),
+                    Messages.weekday(strings, start + d).take(1),
                     style = GemType.label.copy(fontSize = 12.sp),
                     color = GemColors.TextMuted,
                     textAlign = TextAlign.Center,
@@ -481,9 +493,10 @@ private fun Calendar(ui: StreakUi, vm: StreakViewModel) {
 private fun CalendarDay(cell: CalendarCell, length: Int, titles: Map<String, String>, today: Long, vm: StreakViewModel) {
     val shape = RoundedCornerShape(2.dp)
     val past = cell.kind != CellKind.FUTURE
+    val text = StreakText(strings())
     val what = when (cell.kind) {
-        CellKind.FINISHED -> cell.canvas?.let(titles::get)?.let { "finished $it" } ?: "done"
-        else -> StreakText.what(cell.kind) ?: if (cell.today) "not finished yet" else null
+        CellKind.FINISHED -> cell.canvas?.let(titles::get)?.let { stringResource(R.string.streak_what_finished, it) } ?: text.what(cell.kind)
+        else -> text.what(cell.kind) ?: if (cell.today) stringResource(R.string.streak_what_not_yet) else null
     }
     Box(
         Modifier
@@ -491,7 +504,7 @@ private fun CalendarDay(cell: CalendarCell, length: Int, titles: Map<String, Str
             .clip(shape)
             .then(if (past) Modifier.background(GemColors.Felt) else Modifier)
             .then(if (cell.today) Modifier.border(BorderStroke(2.dp, GemColors.Lamp), shape) else Modifier)
-            .clearAndSetSemantics { contentDescription = StreakText.cell(cell.day, today, what) },
+            .clearAndSetSemantics { contentDescription = text.cell(cell.day, today, what) },
         contentAlignment = Alignment.Center,
     ) {
         val canvas = cell.canvas

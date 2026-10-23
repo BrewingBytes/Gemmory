@@ -5,14 +5,16 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.annotation.StringRes
 import androidx.core.content.edit
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.game.CanvasZoom
 
-/** The three first-time hints (design D12), with their exact copy. */
-enum class CoachHint(val key: String, val text: String) {
-    ZOOM_IN("zoomIn", "Pinch or tap to zoom in until numbers appear"),
-    PICK_COLOR("pickColor", "Pick a color below, then tap or drag its numbers"),
-    TAP_ZOOMED("tapZoomed", "Zoomed in so you can see the numbers"),
+/** The three first-time hints (design D12), with their exact copy ([text], a string resource). */
+enum class CoachHint(val key: String, @StringRes val text: Int) {
+    ZOOM_IN("zoomIn", R.string.hint_zoom_in),
+    PICK_COLOR("pickColor", R.string.hint_pick_color),
+    TAP_ZOOMED("tapZoomed", R.string.hint_tap_zoomed),
 }
 
 /**

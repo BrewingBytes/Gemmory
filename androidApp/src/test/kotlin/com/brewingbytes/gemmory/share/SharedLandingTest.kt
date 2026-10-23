@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.share
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +26,7 @@ class SharedLandingTest {
     private val source = FakeSource()
 
     // Unconfined: every input is handled before the call returns.
-    private fun landing(active: Boolean = true) = SharedLanding(active, source, CoroutineScope(Dispatchers.Unconfined), Dispatchers.Unconfined)
+    private fun landing(active: Boolean = true) = SharedLanding(active, source, CoroutineScope(Dispatchers.Unconfined), Dispatchers.Unconfined, XmlStrings.en)
 
     private val fox = CanvasRef(CanvasKind.BUNDLED, "fox-in-snow")
 

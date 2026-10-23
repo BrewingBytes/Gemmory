@@ -36,6 +36,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.game.Milestones
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
@@ -43,7 +45,6 @@ import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.withFullMotion
 import kotlinx.coroutines.delay
-import java.text.NumberFormat
 
 /**
  * The progress milestone banner (#35, founder pick "B3", design system Play canvas and Motion): a felt-deep band
@@ -71,8 +72,8 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
         shown = null
     }
     val current = shown ?: return
-    val format = remember { NumberFormat.getIntegerInstance() }
-    val count = "${format.format(Milestones.threshold(current.percent, session.cellCount))} / ${format.format(session.cellCount)} gems"
+    val strings = strings()
+    val count = strings.text(R.string.milestone_count, strings.number(Milestones.threshold(current.percent, session.cellCount)), strings.number(session.cellCount))
 
     fun t() = clock.value
     fun phase(from: Int, to: Int): Float = ((t() - from) / (to - from)).coerceIn(0f, 1f)
@@ -111,7 +112,7 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("${current.percent}%", style = GemType.mono.copy(fontSize = 20.sp), color = GemColors.OnBone)
+                Text(strings.text(R.string.percent, current.percent), style = GemType.mono.copy(fontSize = 20.sp), color = GemColors.OnBone)
             }
             Column(
                 Modifier
@@ -122,7 +123,7 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
                     }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
-                Text(A11yText.milestone(current.percent), style = GemType.display, color = GemColors.Bone)
+                Text(A11yText(strings).milestone(current.percent), style = GemType.display, color = GemColors.Bone)
                 Text(count, style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.TextMuted)
             }
         }

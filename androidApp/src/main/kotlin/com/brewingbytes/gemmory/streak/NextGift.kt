@@ -17,6 +17,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemType
@@ -30,13 +33,15 @@ import com.brewingbytes.gemmory.ui.LocalFelt
 fun NextGift(streak: Int, tag: String, modifier: Modifier = Modifier) {
     val done = streak % Inventory.SPIN_EVERY
     val next = streak - done + Inventory.SPIN_EVERY
+    val strings = strings()
+    val description = nextGiftText(strings, next, done)
     Column(
         modifier
             .fillMaxWidth()
             .testTag(tag)
-            .clearAndSetSemantics { contentDescription = nextGiftText(next, done) },
+            .clearAndSetSemantics { contentDescription = description },
     ) {
-        Text("Next gift spin at $next days in a row", style = GemType.label, color = GemColors.TextMuted)
+        Text(strings.text(R.string.next_gift, next), style = GemType.label, color = GemColors.TextMuted)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             repeat(Inventory.SPIN_EVERY) { i ->
@@ -52,4 +57,4 @@ fun NextGift(streak: Int, tag: String, modifier: Modifier = Modifier) {
     }
 }
 
-internal fun nextGiftText(next: Int, done: Int) = "Next gift spin at $next days in a row. $done of ${Inventory.SPIN_EVERY} days so far."
+internal fun nextGiftText(s: Strings, next: Int, done: Int) = s.text(R.string.next_gift_description, next, done, Inventory.SPIN_EVERY)

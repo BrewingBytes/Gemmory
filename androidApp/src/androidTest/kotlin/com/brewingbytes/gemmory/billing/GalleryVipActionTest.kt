@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.billing
 
+import com.brewingbytes.gemmory.copy.strings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -65,7 +66,7 @@ class GalleryVipActionTest {
         compose.onNodeWithTag(VIP_ACTION_TAG).assertTextEquals("VIP").assertHeightIsAtLeast(48.dp).performClick()
         assertEquals(1, opened)
         compose.onNodeWithTag("gallery-notice").assertDoesNotExist()
-        notice = BillingCopy.notice(Notice.VIP_STARTED)
+        notice = BillingCopy(app.strings).notice(Notice.VIP_STARTED)
         compose.onNodeWithText("You're VIP. Every gallery picture is unlocked.").assertExists()
     }
 }

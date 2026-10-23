@@ -53,6 +53,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -65,6 +66,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.converter.ColorChoice
@@ -83,7 +88,6 @@ import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
-import java.text.NumberFormat
 import kotlin.math.roundToInt
 
 @Composable
@@ -102,7 +106,7 @@ private fun FlowScaffold(title: String, onBack: () -> Unit, content: @Composable
 /** Crop (design D4): ratio chips, pinch and drag inside the frame, no rotation; the photo always covers the frame. */
 @Composable
 fun CropScreen(state: PhotoFlowState, onRatio: (AspectRatio) -> Unit, onView: (CropView) -> Unit, onNext: (Rect) -> Unit, onBack: () -> Unit) {
-    FlowScaffold("Crop", onBack) {
+    FlowScaffold(stringResource(R.string.photo_crop), onBack) {
         val source = state.source
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AspectRatio.entries.forEach { r -> Chip(r.label, selected = r == state.ratio, onClick = { onRatio(r) }) }
@@ -111,7 +115,7 @@ fun CropScreen(state: PhotoFlowState, onRatio: (AspectRatio) -> Unit, onView: (C
             if (source != null) CropFrame(source, state.ratio, state.crop, onView)
         }
         PrimaryButton(
-            "Next",
+            stringResource(R.string.action_next),
             onClick = { source?.let { onNext(cropRect(it, state.ratio, state.crop)) } },
             enabled = source != null,
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
@@ -173,54 +177,55 @@ private fun CropFrame(source: Bitmap, ratio: AspectRatio, view: CropView, onView
     }
 }
 
-private val numbers: NumberFormat = NumberFormat.getIntegerInstance()
-
 /** "8,112 gems · 24 colors": the real palette once converted, else the cap for the size and color choice (#29). */
-internal fun summary(size: CanvasSize, ratio: AspectRatio, conversion: Conversion?, choice: ColorChoice = ColorChoice.STANDARD): String {
+internal fun summary(s: Strings, size: CanvasSize, ratio: AspectRatio, conversion: Conversion?, choice: ColorChoice = ColorChoice.STANDARD): String {
     val spec = GridSpec.of(size, ratio, choice)
     val colors = (conversion as? Conversion.Ready)?.pattern?.palette?.size ?: spec.paletteCap
-    return "${numbers.format(spec.cellCount)} gems · $colors colors"
+    return s.text(R.string.photo_summary, s.number(spec.cellCount), colors)
 }
 
 /**
  * The line under Preview's size line (#29): what More needs while it's chosen without VIP, else the allowance line
  * (design D5). Null when there's nothing to say (VIP).
  */
-internal fun previewLine(allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean, kept: Int = 0): String? =
+internal fun previewLine(s: Strings, allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean, kept: Int = 0): String? =
     when (PhotoFlowRules.previewPrimary(allowance, choice, moreUnlocked)) {
-        PreviewPrimary.WATCH_FOR_COLORS -> "More colors: watch a video, or get VIP."
+        PreviewPrimary.WATCH_FOR_COLORS -> s.text(R.string.photo_more_colors_line)
         PreviewPrimary.WATCH_FOR_CANVAS ->
-            if (choice == ColorChoice.MORE && !moreUnlocked) "One video gets this canvas with more colors." else allowanceLine(allowance, kept)
-        PreviewPrimary.START -> allowanceLine(allowance, kept)
+            if (choice == ColorChoice.MORE && !moreUnlocked) s.text(R.string.photo_one_video_more_colors) else allowanceLine(s, allowance, kept)
+        PreviewPrimary.START -> allowanceLine(s, allowance, kept)
     }
 
-internal fun primaryText(primary: PreviewPrimary): String = when (primary) {
-    PreviewPrimary.START -> "Start"
-    PreviewPrimary.WATCH_FOR_CANVAS -> "Watch a video"
-    PreviewPrimary.WATCH_FOR_COLORS -> "Watch a video for more colors"
+internal fun primaryText(s: Strings, primary: PreviewPrimary): String = when (primary) {
+    PreviewPrimary.START -> s.text(R.string.action_start)
+    PreviewPrimary.WATCH_FOR_CANVAS -> s.text(R.string.video_watch)
+    PreviewPrimary.WATCH_FOR_COLORS -> s.text(R.string.photo_watch_for_colors)
 }
 
 /** A color trough's TalkBack line (#29): "More, 60 colors, needs a video or VIP". */
-internal fun colorTroughLabel(size: CanvasSize, choice: ColorChoice, needsVideo: Boolean): String =
-    "${choice.label}, ${size.cap(choice)} colors" + if (needsVideo) ", needs a video or VIP" else ""
+internal fun colorTroughLabel(s: Strings, size: CanvasSize, choice: ColorChoice, needsVideo: Boolean): String =
+    s.text(if (needsVideo) R.string.photo_colors_trough_video else R.string.photo_colors_trough, Messages.colors(s, choice), size.cap(choice))
 
-internal fun hintText(hint: FaceHint): String = when (hint) {
-    FaceHint.LOOK_BEST_MEDIUM_OR_BIG -> "Faces look best at Medium or Big"
-    FaceHint.NEED_BIG -> "Faces need Big"
-    FaceHint.NOT_SUPPORTED -> "Faces aren't supported yet"
-}
+internal fun hintText(s: Strings, hint: FaceHint): String = s.text(
+    when (hint) {
+        FaceHint.LOOK_BEST_MEDIUM_OR_BIG -> R.string.photo_faces_best
+        FaceHint.NEED_BIG -> R.string.photo_faces_need_big
+        FaceHint.NOT_SUPPORTED -> R.string.photo_faces_unsupported
+    },
+)
 
 /** Size picker (design system, Layout): the face hint on top, then three option rows. */
 @Composable
 fun SizeScreen(state: PhotoFlowState, onSize: (CanvasSize) -> Unit, onNext: () -> Unit, onBack: () -> Unit) {
-    FlowScaffold("Choose a size", onBack) {
+    val strings = strings()
+    FlowScaffold(stringResource(R.string.photo_choose_size), onBack) {
         val rules = state.rules
         val hint = rules.hint
         when {
             state.faceCheck == FaceCheck.RUNNING ->
-                Text("Checking for faces…", style = GemType.label, color = GemColors.Bone, modifier = Modifier.padding(bottom = 12.dp))
+                Text(stringResource(R.string.photo_checking_faces), style = GemType.label, color = GemColors.Bone, modifier = Modifier.padding(bottom = 12.dp))
             hint != null ->
-                Text(hintText(hint), style = GemType.body, color = GemColors.Lamp, modifier = Modifier.padding(bottom = 12.dp))
+                Text(hintText(strings, hint), style = GemType.body, color = GemColors.Lamp, modifier = Modifier.padding(bottom = 12.dp))
         }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()),
@@ -229,7 +234,7 @@ fun SizeScreen(state: PhotoFlowState, onSize: (CanvasSize) -> Unit, onNext: () -
             CanvasSize.entries.forEach { size ->
                 SizeRow(
                     size = size,
-                    summary = summary(size, state.ratio, state.conversions[size]),
+                    summary = summary(strings, size, state.ratio, state.conversions[size]),
                     conversion = state.conversions[size],
                     selected = size == state.size && size !in rules.disabled,
                     enabled = size !in rules.disabled,
@@ -237,13 +242,14 @@ fun SizeScreen(state: PhotoFlowState, onSize: (CanvasSize) -> Unit, onNext: () -
                 )
             }
         }
-        PrimaryButton("Next", onNext, Modifier.fillMaxWidth().padding(vertical = 16.dp))
+        PrimaryButton(stringResource(R.string.action_next), onNext, Modifier.fillMaxWidth().padding(vertical = 16.dp))
     }
 }
 
 @Composable
 private fun SizeRow(size: CanvasSize, summary: String, conversion: Conversion?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
+    val name = Messages.size(strings(), size)
     Row(
         Modifier
             .fillMaxWidth()
@@ -258,14 +264,14 @@ private fun SizeRow(size: CanvasSize, summary: String, conversion: Conversion?, 
     ) {
         Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
             when (conversion) {
-                is Conversion.Ready -> GemImage(remember(conversion) { conversion.preview.asImageBitmap() }, "${size.label} preview")
+                is Conversion.Ready -> GemImage(remember(conversion) { conversion.preview.asImageBitmap() }, stringResource(R.string.photo_size_preview, name))
                 Conversion.Running -> ThinProgress()
                 else -> Unit
             }
         }
         Spacer(Modifier.width(16.dp))
         Column {
-            Text(size.label, style = GemType.button, color = GemColors.Bone)
+            Text(name, style = GemType.button, color = GemColors.Bone)
             Text(summary, style = GemType.label, color = GemColors.TextMuted)
         }
     }
@@ -295,11 +301,11 @@ private fun GemImage(bitmap: ImageBitmap, description: String, modifier: Modifie
  * The allowance line on Preview and the gallery note (design D5); null when there is none (VIP). [kept]: photo
  * canvases kept in the inventory (#38); a bonus from before the update, used today, reads as before.
  */
-internal fun allowanceLine(allowance: Allowance, kept: Int = 0): String? = when (allowance) {
+internal fun allowanceLine(s: Strings, allowance: Allowance, kept: Int = 0): String? = when (allowance) {
     Allowance.Unlimited -> null
-    Allowance.Free -> "Uses today's free photo canvas."
-    Allowance.Bonus -> if (kept > 0) "Uses a kept photo canvas ($kept left)." else "Uses a bonus canvas from a video."
-    Allowance.WatchVideo -> "Today's free one is used. Watch a video for another."
+    Allowance.Free -> s.text(R.string.allowance_free)
+    Allowance.Bonus -> if (kept > 0) s.text(R.string.allowance_kept, kept) else s.text(R.string.allowance_bonus)
+    Allowance.WatchVideo -> s.text(R.string.allowance_watch)
 }
 
 /**
@@ -326,7 +332,8 @@ fun PreviewScreen(
     // While another color choice converts, the last preview stays, dimmed under a 2dp line (#29).
     var lastReady by remember { mutableStateOf<Conversion.Ready?>(null) }
     LaunchedEffect(conversion) { if (conversion is Conversion.Ready) lastReady = conversion }
-    FlowScaffold("Preview", onBack) {
+    val strings = strings()
+    FlowScaffold(stringResource(R.string.photo_preview), onBack) {
         Box(
             Modifier
                 .weight(1f)
@@ -339,16 +346,16 @@ fun PreviewScreen(
             when {
                 conversion is Conversion.Ready -> {
                     val bitmap = remember(conversion) { conversion.preview.asImageBitmap() }
-                    GemImage(bitmap, "Gem preview", Modifier.fillMaxSize().padding(8.dp))
+                    GemImage(bitmap, stringResource(R.string.photo_gem_preview), Modifier.fillMaxSize().padding(8.dp))
                 }
                 conversion is Conversion.Failed -> Unit
                 previous != null && previous.pattern.width == GridSpec.of(state.size, state.ratio).width -> {
                     val bitmap = remember(previous) { previous.preview.asImageBitmap() }
-                    GemImage(bitmap, "Updating gem preview", Modifier.fillMaxSize().padding(8.dp).alpha(0.35f))
+                    GemImage(bitmap, stringResource(R.string.photo_gem_preview_updating), Modifier.fillMaxSize().padding(8.dp).alpha(0.35f))
                     ThinProgress(Modifier.padding(horizontal = 24.dp))
                 }
                 else -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                    Text("Setting the gems…", style = GemType.body, color = GemColors.Bone)
+                    Text(stringResource(R.string.photo_setting_gems), style = GemType.body, color = GemColors.Bone)
                     Spacer(Modifier.height(12.dp))
                     ThinProgress()
                 }
@@ -360,24 +367,24 @@ fun PreviewScreen(
         Spacer(Modifier.height(16.dp))
         when {
             conversion is Conversion.Failed -> {
-                Text("Couldn't make this canvas. Try Medium or another photo.", style = GemType.body, color = GemColors.Bone)
+                Text(stringResource(R.string.photo_convert_failed), style = GemType.body, color = GemColors.Bone)
                 Spacer(Modifier.height(12.dp))
-                QuietButton("Back", onBack, Modifier.fillMaxWidth().padding(bottom = 16.dp))
+                QuietButton(stringResource(R.string.action_back), onBack, Modifier.fillMaxWidth().padding(bottom = 16.dp))
             }
             !rules.startAllowed -> {
-                Text(hintText(rules.hint ?: FaceHint.NOT_SUPPORTED), style = GemType.body, color = GemColors.Lamp)
+                Text(hintText(strings, rules.hint ?: FaceHint.NOT_SUPPORTED), style = GemType.body, color = GemColors.Lamp)
                 Spacer(Modifier.height(12.dp))
-                PrimaryButton("Choose another photo", onChooseAnother, Modifier.fillMaxWidth().padding(bottom = 16.dp))
+                PrimaryButton(stringResource(R.string.photo_choose_another), onChooseAnother, Modifier.fillMaxWidth().padding(bottom = 16.dp))
             }
             else -> {
                 Text(
-                    "${state.size.label} · ${summary(state.size, state.ratio, conversion, state.choice)}",
+                    strings.text(R.string.photo_size_summary, Messages.size(strings, state.size), summary(strings, state.size, state.ratio, conversion, state.choice)),
                     style = GemType.body,
                     color = GemColors.Bone,
                 )
                 if (state.faceCheck == FaceCheck.RUNNING) {
                     Text(
-                        "Checking for faces…",
+                        stringResource(R.string.photo_checking_faces),
                         style = GemType.label,
                         color = GemColors.Bone,
                         modifier = Modifier.padding(top = 4.dp),
@@ -385,13 +392,13 @@ fun PreviewScreen(
                 }
                 if (state.startFailed) {
                     Text(
-                        "Couldn't save this canvas on the phone. Try again.",
+                        stringResource(R.string.photo_save_failed),
                         style = GemType.label,
                         color = GemColors.Bone,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                previewLine(allowance, state.choice, state.moreUnlocked, kept)?.let {
+                previewLine(strings, allowance, state.choice, state.moreUnlocked, kept)?.let {
                     Text(
                         it,
                         style = GemType.label,
@@ -403,10 +410,10 @@ fun PreviewScreen(
                 val primary = PhotoFlowRules.previewPrimary(allowance, state.choice, state.moreUnlocked)
                 val tag = Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("preview-primary")
                 when (primary) {
-                    PreviewPrimary.WATCH_FOR_CANVAS -> PrimaryButton(primaryText(primary), onWatchVideo, tag)
-                    PreviewPrimary.WATCH_FOR_COLORS -> PrimaryButton(primaryText(primary), onWatchColors, tag)
+                    PreviewPrimary.WATCH_FOR_CANVAS -> PrimaryButton(primaryText(strings, primary), onWatchVideo, tag)
+                    PreviewPrimary.WATCH_FOR_COLORS -> PrimaryButton(primaryText(strings, primary), onWatchColors, tag)
                     PreviewPrimary.START -> PrimaryButton(
-                        primaryText(primary),
+                        primaryText(strings, primary),
                         onStart,
                         enabled = state.canStart && allowance.canStart,
                         held = state.starting,
@@ -425,13 +432,15 @@ fun PreviewScreen(
 @Composable
 private fun ColorRow(size: CanvasSize, choice: ColorChoice, needsVideo: Boolean, onChoice: (ColorChoice) -> Unit) {
     Spacer(Modifier.height(12.dp))
-    Text("Colors", style = GemType.label, color = GemColors.Bone, modifier = Modifier.semantics { heading() })
+    val strings = strings()
+    Text(stringResource(R.string.photo_colors), style = GemType.label, color = GemColors.Bone, modifier = Modifier.semantics { heading() })
     Spacer(Modifier.height(6.dp))
     Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ColorChoice.entries.forEach { c ->
             val selected = c == choice
             val locked = c == ColorChoice.MORE && needsVideo
             val shape = RoundedCornerShape(8.dp)
+            val troughLabel = colorTroughLabel(strings, size, c, locked)
             Box(
                 Modifier
                     .weight(1f)
@@ -444,7 +453,7 @@ private fun ColorRow(size: CanvasSize, choice: ColorChoice, needsVideo: Boolean,
                     // The tag goes before the clear, which drops semantics set after it (lessons, #35).
                     .testTag("colors-${c.param}")
                     .clearAndSetSemantics {
-                        contentDescription = colorTroughLabel(size, c, locked)
+                        contentDescription = troughLabel
                         this.selected = selected
                         role = Role.RadioButton
                     }
@@ -452,7 +461,7 @@ private fun ColorRow(size: CanvasSize, choice: ColorChoice, needsVideo: Boolean,
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(c.label, style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
+                    Text(Messages.colors(strings, c), style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
                     Text("${size.cap(c)}", style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.TextMuted)
                 }
                 if (locked) {

@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.CanvasSize
@@ -44,6 +45,7 @@ class RemoteCanvasStoreTest {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             writer = Dispatchers.IO.limitedParallelism(1),
             nowMillis = { 0L },
+            strings = XmlStrings.en,
             bundledGrid = { _: BundledPicture -> bundledGrid },
             encodes = object : EncodeCanceller {
                 override suspend fun cancelAndClear(ref: CanvasRef) = Unit

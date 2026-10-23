@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -33,23 +34,14 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemSwitch
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.LocalFelt
-
-/** Music copy (design system, Settings → Music, T42). */
-object MusicCopy {
-    const val TITLE = "Music"
-    const val VOLUME = "Music volume"
-    const val CHIP = "Music is playing"
-    const val TURN_OFF = "Turn off"
-    const val OFF_LINE = "Music off. Turn it back on in Settings."
-
-    fun percent(value: Int) = "$value%"
-}
 
 const val MUSIC_TAG = "settings-music"
 const val MUSIC_VOLUME_TAG = "settings-music-volume"
@@ -64,6 +56,8 @@ const val MUSIC_VOLUME_TAG = "settings-music-volume"
 internal fun MusicRows(settings: AppSettings) {
     val on by settings.music.collectAsStateWithLifecycle()
     val volume by settings.musicVolume.collectAsStateWithLifecycle()
+    val strings = strings()
+    val volumeLabel = stringResource(R.string.music_volume)
     Row(
         Modifier
             .fillMaxWidth()
@@ -73,7 +67,7 @@ internal fun MusicRows(settings: AppSettings) {
             .testTag(MUSIC_TAG),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(MusicCopy.TITLE, style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+        Text(stringResource(R.string.music_title), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
         GemSwitch(on, onCheckedChange = null)
     }
     if (!on) return
@@ -86,7 +80,7 @@ internal fun MusicRows(settings: AppSettings) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The slider reads its own label and value; these two would read them twice.
-        Text(MusicCopy.VOLUME, style = GemType.body, color = GemColors.Bone, modifier = Modifier.clearAndSetSemantics {})
+        Text(volumeLabel, style = GemType.body, color = GemColors.Bone, modifier = Modifier.clearAndSetSemantics {})
         Spacer(Modifier.width(16.dp))
         Slider(
             value = volume.toFloat(),
@@ -106,14 +100,14 @@ internal fun MusicRows(settings: AppSettings) {
             modifier = Modifier
                 .weight(1f)
                 .semantics {
-                    contentDescription = MusicCopy.VOLUME
-                    stateDescription = A11yText.musicVolume(volume)
+                    contentDescription = volumeLabel
+                    stateDescription = A11yText(strings).musicVolume(volume)
                 }
                 .testTag(MUSIC_VOLUME_TAG),
         )
         Spacer(Modifier.width(12.dp))
         Text(
-            MusicCopy.percent(volume),
+            strings.text(R.string.percent, volume),
             style = GemType.mono.copy(fontSize = 13.sp),
             color = GemColors.Bone,
             modifier = Modifier.testTag("settings-music-volume-value").clearAndSetSemantics {},

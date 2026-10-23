@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.billing
 
+import com.brewingbytes.gemmory.copy.strings
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,8 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class PaywallScreenTest {
+    private val copy = BillingCopy(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.strings)
+
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
@@ -82,8 +85,8 @@ class PaywallScreenTest {
         // Close is there from the first frame: no delayed close (D6).
         compose.onNodeWithContentDescription("Close").assertIsDisplayed().assertIsEnabled()
         text("Gemmory VIP").assertExists()
-        BillingCopy.PERKS.forEach { text(it).assertExists() }
-        text(BillingCopy.FINE_PRINT).assertExists()
+        copy.perks.forEach { text(it).assertExists() }
+        text(copy.finePrint).assertExists()
 
         // Prices loading: placeholders, Start VIP disabled, no remove-ads row.
         compose.onNodeWithContentDescription("Loading prices").assertExists()
@@ -99,7 +102,7 @@ class PaywallScreenTest {
         prices = ready
         val p = BillingBackends.fake.prices
         text("Yearly").assertExists()
-        text(BillingCopy.yearly(p.yearly)).assertExists()
+        text(copy.yearly(p.yearly)).assertExists()
         text("Weekly").assertExists()
         text("${p.weekly.formatted} / week").assertExists()
         text("Just remove ads · ${p.removeAds!!.formatted} once").assertExists()

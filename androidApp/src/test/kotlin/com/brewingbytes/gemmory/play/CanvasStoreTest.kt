@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.ColorChoice
@@ -74,6 +75,7 @@ class CanvasStoreTest {
             scope = scope,
             writer = Dispatchers.IO.limitedParallelism(1),
             nowMillis = { now },
+            strings = XmlStrings.en,
             bundledGrid = { _: BundledPicture -> bundledGrid },
             encodes = object : EncodeCanceller {
                 override suspend fun cancelAndClear(ref: CanvasRef) {

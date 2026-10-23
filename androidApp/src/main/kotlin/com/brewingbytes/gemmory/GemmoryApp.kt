@@ -26,6 +26,8 @@ import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.collections.CollectionPrefs
 import com.brewingbytes.gemmory.collections.Collections
+import com.brewingbytes.gemmory.copy.LiveStrings
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
@@ -77,7 +79,6 @@ import com.brewingbytes.gemmory.telemetry.FirstRun
 import com.brewingbytes.gemmory.telemetry.InstallReferrerReader
 import com.brewingbytes.gemmory.share.LandingSource
 import com.brewingbytes.gemmory.share.SharedLanding
-import com.brewingbytes.gemmory.share.SharedLandingCopy
 import com.brewingbytes.gemmory.telemetry.PlayReferrerClient
 import com.brewingbytes.gemmory.telemetry.ReferrerAnswer
 import com.brewingbytes.gemmory.telemetry.ReferrerClient
@@ -393,6 +394,7 @@ class GemmoryApp : Application() {
         },
         scope = appScope,
         serial = Dispatchers.IO.limitedParallelism(1),
+        strings = LiveStrings(this),
     )
 
     /**
@@ -419,9 +421,9 @@ class GemmoryApp : Application() {
 
     /** What the landing's toasts call [ref]: its title, or "a mystery picture" while it's an unfinished mystery (T43). */
     private fun sharedTitle(ref: CanvasRef): String {
-        if (store.hiddenAs(ref) != null) return SharedLandingCopy.MYSTERY
+        if (store.hiddenAs(ref) != null) return strings.text(R.string.shared_mystery)
         return BundledPictures.byId(ref.id)?.title ?: remote.listed().firstOrNull { it.id == ref.id }?.title
-            ?: CanvasStore.titleOf(ref, store.repository.readRecord(ref))
+            ?: store.titleOf(ref, store.repository.readRecord(ref))
     }
 
     /** A picture's canvas by id: ids are unique across bundled and remote pictures (the catalog check refuses a clash). */
@@ -514,7 +516,7 @@ class GemmoryApp : Application() {
             }
         }
         val listed = remote.listed().firstOrNull { it.id == id }
-        val title = listed?.title ?: CanvasStore.titleOf(ref, store.repository.readRecord(ref))
+        val title = listed?.title ?: store.titleOf(ref, store.repository.readRecord(ref))
         // An unfinished mystery (T43) is never named or drawn in the reminder.
         val mystery = store.hiddenAs(ref) != null
         return ReminderPicture(title, listed?.size, mystery) {
@@ -583,6 +585,7 @@ class GemmoryApp : Application() {
         remote = remote,
         achievements = { achievements.record(it) },
         dayClock = dayClock,
+        strings = LiveStrings(this),
     )
 
     private val storeWriter = Dispatchers.IO.limitedParallelism(1)
@@ -724,6 +727,7 @@ class GemmoryApp : Application() {
             canvasExists = { ref -> store.repository.dirOf(ref).isDirectory },
             reporter = reporter,
             analytics = analytics,
+            language = { strings.locale.language },
         )
         appScope = scope
         // Only a fresh install's first launch lands on a share link's picture (T50). A first session that ended before

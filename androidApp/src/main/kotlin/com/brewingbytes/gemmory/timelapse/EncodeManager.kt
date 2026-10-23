@@ -63,7 +63,7 @@ class TimelapseException(ref: CanvasRef, cause: Throwable) : Exception("time-lap
 /**
  * App-scoped time-lapse encodes (eng D2, E4d, E7, re-check R-X1 and finding 3). An encode starts on Share tap, runs
  * one at a time per canvas, keeps going while the process lives (no foreground service, design D8), and can be
- * cancelled. Finished MP4s are cached in `cacheDir/timelapse/` under [EncodeRequest.key], so a re-share is instant;
+ * cancelled. Finished MP4s are cached in `cacheDir/timelapse/` under [EncodeRequest.key] and the frames' language, so a re-share is instant;
  * cacheDir is never backed up and the files only leave the phone through the player's own share.
  *
  * While an encode runs, `cacheDir/encode-<canvasId>.pending` exists. If the process dies mid-encode the marker stays:
@@ -83,6 +83,8 @@ class EncodeManager(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val log: (String) -> Unit = { Log.i("Gemmory", it) },
     private val nowNanos: () -> Long = System::nanoTime,
+    /** The language the frames' words are drawn in (T48): part of a cached file's name, so a switch never reuses one. */
+    private val language: () -> String = { "en" },
 ) : EncodeCanceller {
     val dir = File(cacheDir, DIR)
     private val lock = Any()
@@ -179,7 +181,8 @@ class EncodeManager(
         val ref = request.ref
         val context = currentCoroutineContext()
         val job = context[Job]!!
-        val video = File(dir, "${request.key}.mp4")
+        val name = "${request.key}.${language()}"
+        val video = File(dir, "$name.mp4")
         if (video.isFile) {
             post(ref, job, EncodeState.Video(video))
             return
@@ -206,7 +209,7 @@ class EncodeManager(
             )
             val result = when (outcome) {
                 is ChainOutcome.Video -> publish(ref, partialOf(ref, outcome.target), video)?.let(EncodeState::Video)
-                ChainOutcome.Picture -> publish(ref, partialOf(ref, null), File(dir, "${request.key}.png"))?.let(EncodeState::Picture)
+                ChainOutcome.Picture -> publish(ref, partialOf(ref, null), File(dir, "$name.png"))?.let(EncodeState::Picture)
                 ChainOutcome.Failed -> EncodeState.Failed
                 ChainOutcome.DiskFull -> EncodeState.DiskFull
             }

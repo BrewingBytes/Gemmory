@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
 import androidx.core.graphics.createBitmap
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.FrameArt
@@ -43,7 +44,7 @@ object ClipStills {
         val top = max(TOP, (height - FrameStyle.WATERMARK_ROW - (LABEL_ROW + h + FrameLayout.TEXT_RESERVE - FrameStyle.WATERMARK_ROW)) / 2)
         val label = style.labelPaint()
         val imageTop = top + LABEL_ROW
-        for ((i, pair) in listOf(FrameArt.BEFORE to before, AFTER to after).withIndex()) {
+        for ((i, pair) in listOf(context.getString(R.string.frame_before) to before, AFTER to after).withIndex()) {
             val (name, bitmap) = pair
             val left = margin + i * (boxW + GAP) + (boxW - w) / 2
             canvas.drawText(name, left.toFloat(), (imageTop - 14).toFloat(), label)

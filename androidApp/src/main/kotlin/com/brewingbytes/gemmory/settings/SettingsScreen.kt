@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.activity.compose.LocalActivity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
@@ -39,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.achievements.AchievementsRow
 import com.brewingbytes.gemmory.billing.BillingCopy
@@ -90,13 +93,14 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
             .feltGround(LocalFelt.current.ground)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        AppTopBar("Settings", onBack)
+        val billingCopy = BillingCopy(strings())
+        AppTopBar(stringResource(R.string.settings_title), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            ToggleRow("Sound", sound, app.settings::setSound)
-            ToggleRow("Haptics", haptics, app.settings::setHaptics)
+            ToggleRow(stringResource(R.string.settings_sound), sound, app.settings::setSound)
+            ToggleRow(stringResource(R.string.settings_haptics), haptics, app.settings::setHaptics)
             // Ambient music (T42): its own switch and, while on, the volume.
             MusicRows(app.settings)
-            ToggleRow("Milestones", milestones, app.settings::setMilestones)
+            ToggleRow(stringResource(R.string.settings_milestones), milestones, app.settings::setMilestones)
             // The evening reminder (T35): the switch and, while on, its time.
             ReminderRows(app)
             Row(
@@ -108,10 +112,10 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     .testTag(HIGHLIGHT_TAG),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(HighlightCopy.TITLE, style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.highlight_title), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(16.dp))
                 Text(
-                    HighlightCopy.name(highlight),
+                    stringResource(HighlightCopy.name(highlight)),
                     style = GemType.body,
                     color = GemColors.Bone,
                     textAlign = TextAlign.End,
@@ -129,10 +133,10 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     .testTag(MEMBERSHIP_TAG),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Membership", style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.settings_membership), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(16.dp))
                 Text(
-                    BillingCopy.membership(membership),
+                    billingCopy.membership(membership),
                     style = GemType.body,
                     color = GemColors.Bone,
                     textAlign = TextAlign.End,
@@ -154,7 +158,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                         .padding(horizontal = 16.dp)
                         .testTag("settings-manage-subscription"),
                     verticalAlignment = Alignment.CenterVertically,
-                ) { Text("Manage subscription", style = GemType.body, color = GemColors.Bone) }
+                ) { Text(stringResource(R.string.settings_manage_subscription), style = GemType.body, color = GemColors.Bone) }
             }
             // A live region, so the result is read out when it appears without hunting for it.
             Column(
@@ -164,14 +168,14 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     .semantics { liveRegion = LiveRegionMode.Polite },
             ) {
                 QuietButton(
-                    if (restore == RestoreUi.Checking) BillingCopy.CHECKING else "Restore purchases",
+                    if (restore == RestoreUi.Checking) billingCopy.checking else stringResource(R.string.settings_restore),
                     onClick = app.billing::restore,
                     enabled = restore != RestoreUi.Checking,
                     modifier = Modifier.testTag("settings-restore"),
                 )
                 val line = when (val r = restore) {
-                    is RestoreUi.Done -> BillingCopy.restored(r.found)
-                    RestoreUi.Failed -> BillingCopy.RESTORE_FAILED
+                    is RestoreUi.Done -> billingCopy.restored(r.found)
+                    RestoreUi.Failed -> billingCopy.restoreFailed
                     else -> null
                 }
                 if (line != null) {
@@ -187,7 +191,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                         .padding(horizontal = 16.dp)
                         .testTag("settings-privacy-choices"),
                     verticalAlignment = Alignment.CenterVertically,
-                ) { Text("Privacy choices", style = GemType.body, color = GemColors.Bone) }
+                ) { Text(stringResource(R.string.settings_privacy_choices), style = GemType.body, color = GemColors.Bone) }
             }
             // A plain bone row, not a red button (design D27).
             Row(
@@ -198,7 +202,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     .padding(horizontal = 16.dp)
                     .testTag(DELETE_ALL_TAG),
                 verticalAlignment = Alignment.CenterVertically,
-            ) { Text("Delete all photo canvases", style = GemType.body, color = GemColors.Bone) }
+            ) { Text(stringResource(R.string.settings_delete_all), style = GemType.body, color = GemColors.Bone) }
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -211,7 +215,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     }
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-            ) { Text("Privacy policy", style = GemType.body, color = GemColors.Bone) }
+            ) { Text(stringResource(R.string.settings_privacy_policy), style = GemType.body, color = GemColors.Bone) }
             // Debug builds only: the founder clip tool (T47). Release builds have an empty stub.
             DebugRows()
             Row(
@@ -221,7 +225,7 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Version", style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.settings_version), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
                 Text(version, style = GemType.mono.copy(fontSize = 14.sp), color = GemColors.Bone)
             }
         }
@@ -241,9 +245,9 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
 
     if (confirmDelete) {
         ConfirmSheet(
-            title = "Delete all photo canvases?",
-            body = "Every photo, grid and its progress is removed from this phone. Pictures and purchases stay.",
-            confirm = "Delete",
+            title = stringResource(R.string.settings_delete_all_title),
+            body = stringResource(R.string.settings_delete_all_body),
+            confirm = stringResource(R.string.action_delete),
             onConfirm = {
                 confirmDelete = false
                 app.store.deleteAllPhotosInBackground()

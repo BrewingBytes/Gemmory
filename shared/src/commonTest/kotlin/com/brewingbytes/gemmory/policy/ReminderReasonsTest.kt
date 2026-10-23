@@ -174,62 +174,53 @@ class ReminderReasonsTest {
         assertEquals(ReminderOutcome.Late(40), ReminderReasons.decide(run))
     }
 
+    /** The words are string resources (T48); the app's MessagesTest pins this copy's English word for word. */
     @Test
     fun copyNamesThePictureAndStatesOnlyTheFact() {
         val drop = ReminderOutcome.Post(ReminderReason.DROP, pictureId = "lighthouse")
-        assertEquals(ReminderText("Tonight: Lighthouse", "A new picture, free to start today."), ReminderCopy.of(drop, "Lighthouse", null, vip = false))
+        assertEquals(ReminderMsg.Drop("Lighthouse"), ReminderCopy.of(drop, "Lighthouse", null, vip = false))
         val today = ReminderOutcome.Post(ReminderReason.TODAY, pictureId = "huts")
-        assertEquals(
-            ReminderText("Today's picture: Beach Huts", "A Quick picture, free to start today."),
-            ReminderCopy.of(today, "Beach Huts", CanvasSize.QUICK, vip = false),
-        )
-        assertEquals(
-            ReminderText("Today's pick: Beach Huts", "A Quick picture, ready when you are."),
-            ReminderCopy.of(today, "Beach Huts", CanvasSize.QUICK, vip = true),
-        )
+        assertEquals(ReminderMsg.Today("Beach Huts", false, CanvasSize.QUICK, vip = false), ReminderCopy.of(today, "Beach Huts", CanvasSize.QUICK, vip = false))
+        assertEquals(ReminderMsg.Today("Beach Huts", false, CanvasSize.QUICK, vip = true), ReminderCopy.of(today, "Beach Huts", CanvasSize.QUICK, vip = true))
         val venice = ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, pictureId = "venice", canvas = canvas("venice", placed = 829, total = 1000))
-        assertEquals(ReminderText("You're 82% through Venice", "Pick up where you left off."), ReminderCopy.of(venice, "Venice", null, vip = false))
+        assertEquals(ReminderMsg.AlmostFinished(82, ReminderMsg.Subject.Titled("Venice")), ReminderCopy.of(venice, "Venice", null, vip = false))
     }
 
     /** #102 G5: the streak's copy names its target; no clock, no "!", nothing about losing. */
     @Test
     fun theStreakCopyNamesItsTarget() {
-        val ends = "Your 6-day streak ends at midnight"
         val quick = ReminderOutcome.Post(ReminderReason.STREAK, pictureId = "lighthouse", streak = 6)
         assertEquals(
-            ReminderText(ends, "Finish any picture tonight to keep it. Lighthouse is Quick."),
+            ReminderMsg.Streak(6, NudgeHint.Quick(NudgeName.Titled("Lighthouse"))),
             ReminderCopy.of(quick, "Lighthouse", CanvasSize.QUICK, vip = false),
         )
         val harbour = ReminderOutcome.Post(ReminderReason.STREAK, pictureId = "harbour", canvas = canvas("harbour", placed = 829, total = 1000), streak = 6)
-        assertEquals(ReminderText(ends, "Finish any picture tonight to keep it. Harbour is 82% done."), ReminderCopy.of(harbour, "Harbour", null, vip = false))
+        assertEquals(ReminderMsg.Streak(6, NudgeHint.Done(NudgeName.Titled("Harbour"), 82)), ReminderCopy.of(harbour, "Harbour", null, vip = false))
         assertEquals(
-            "Finish any picture tonight to keep it. Your mystery picture is 82% done.",
-            ReminderCopy.of(harbour, "Lantern", null, vip = false, mystery = true).text,
+            ReminderMsg.Streak(6, NudgeHint.Done(NudgeName.Mystery, 82)),
+            ReminderCopy.of(harbour, "Lantern", null, vip = false, mystery = true),
         )
         val photo = ReminderOutcome.Post(ReminderReason.STREAK, canvas = canvas("photo/abc", placed = 82, photo = true), streak = 6)
-        assertEquals("Finish any picture tonight to keep it. Your photo canvas is 82% done.", ReminderCopy.of(photo, null, null, vip = false).text)
-        assertEquals(ReminderText(ends, "Finish any picture tonight to keep it."), ReminderCopy.of(ReminderOutcome.Post(ReminderReason.STREAK, streak = 6), null, null, vip = false))
+        assertEquals(ReminderMsg.Streak(6, NudgeHint.Done(NudgeName.Photo, 82)), ReminderCopy.of(photo, null, null, vip = false))
+        assertEquals(ReminderMsg.Streak(6, null), ReminderCopy.of(ReminderOutcome.Post(ReminderReason.STREAK, streak = 6), null, null, vip = false))
     }
 
     /** T43: an unfinished mystery is never named; its drop has its own line (design system, notification table). */
     @Test
     fun aMysteryIsNeverNamed() {
         val drop = ReminderOutcome.Post(ReminderReason.DROP, pictureId = "lantern")
-        assertEquals(
-            ReminderText("Tonight's mystery picture", "A new picture, hidden until you finish it."),
-            ReminderCopy.of(drop, "Lantern", null, vip = false, mystery = true),
-        )
+        assertEquals(ReminderMsg.MysteryDrop, ReminderCopy.of(drop, "Lantern", null, vip = false, mystery = true))
         val today = ReminderOutcome.Post(ReminderReason.TODAY, pictureId = "lantern")
-        assertEquals("Today's picture: Mystery picture", ReminderCopy.of(today, "Lantern", CanvasSize.QUICK, vip = false, mystery = true).title)
+        assertEquals(ReminderMsg.Today("Lantern", true, CanvasSize.QUICK, vip = false), ReminderCopy.of(today, "Lantern", CanvasSize.QUICK, vip = false, mystery = true))
         val almost = ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, pictureId = "lantern", canvas = canvas("lantern", placed = 829, total = 1000))
-        assertEquals("You're 82% through your mystery picture", ReminderCopy.of(almost, "Lantern", null, vip = false, mystery = true).title)
-        assertEquals("Tonight: Lantern", ReminderCopy.of(drop, "Lantern", null, vip = false).title, "R1: an ordinary drop is named")
+        assertEquals(ReminderMsg.AlmostFinished(82, ReminderMsg.Subject.Mystery), ReminderCopy.of(almost, "Lantern", null, vip = false, mystery = true))
+        assertEquals(ReminderMsg.Drop("Lantern"), ReminderCopy.of(drop, "Lantern", null, vip = false), "R1: an ordinary drop is named")
     }
 
     @Test
     fun aPhotoCanvasIsNeverNamed() {
         val photo = ReminderOutcome.Post(ReminderReason.ALMOST_FINISHED, canvas = canvas("photo/abc", placed = 82, photo = true))
-        assertEquals("You're 82% through your photo canvas", ReminderCopy.of(photo, "Grandma's garden", null, vip = false).title)
+        assertEquals(ReminderMsg.AlmostFinished(82, ReminderMsg.Subject.Photo), ReminderCopy.of(photo, "Grandma's garden", null, vip = false))
     }
 
     @Test

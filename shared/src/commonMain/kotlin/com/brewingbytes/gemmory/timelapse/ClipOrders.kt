@@ -3,11 +3,11 @@ package com.brewingbytes.gemmory.timelapse
 import com.brewingbytes.gemmory.converter.Pattern
 import kotlin.random.Random
 
-/** The placement orders of the founder clip tool (T47); [fileName] goes into the clip's file name. */
-enum class ClipOrder(val fileName: String, val label: String) {
-    BY_COLOR("by-color", "By color"),
-    RIPPLE("ripple", "Ripple"),
-    RANDOM("random", "Random"),
+/** The placement orders of the founder clip tool (T47); [fileName] goes into the clip's file name. Its debug screen names them. */
+enum class ClipOrder(val fileName: String) {
+    BY_COLOR("by-color"),
+    RIPPLE("ripple"),
+    RANDOM("random"),
 }
 
 /**

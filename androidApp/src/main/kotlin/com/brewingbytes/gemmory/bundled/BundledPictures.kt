@@ -100,9 +100,6 @@ object BundledPictures {
 
     fun byId(id: String): BundledPicture? = ALL.firstOrNull { it.id == id }
 
-    /** "Quick", "Medium" or "Big" for a catalog picture (Today's picture card, #34); null for the starter. */
-    fun sizeOf(id: String): String? = canvasSizeOf(id)?.label
-
     /** A catalog picture's size, which places remote pictures beside it (#43); null for the starter. */
     fun canvasSizeOf(id: String): CanvasSize? = when {
         QUICK.any { it.id == id } -> CanvasSize.QUICK

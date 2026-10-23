@@ -1,6 +1,613 @@
 <resources>
+    <!--
+    Every word the app shows (T48, #135), in English. Grouped by screen. Arguments are positional (%1$s, %1$d); a
+    percent sign is %%. Read in code through copy/Strings.kt, which formats in app_locale's language (eng O-E4).
+    -->
     <string name="app_name">Gemmory</string>
+    <!-- The language these resources are written in: numbers, percents and dates are formatted in it. -->
+    <string name="app_locale" translatable="false">en</string>
     <!-- The streak widget (#103): its name and description in the widget picker. -->
     <string name="widget_streak_label">Streak</string>
     <string name="widget_streak_description">Your streak and whether today\'s picture is done</string>
+
+    <!-- Shared words -->
+    <string name="size_quick">Quick</string>
+    <string name="size_medium">Medium</string>
+    <string name="size_big">Big</string>
+    <string name="colors_fewer">Fewer</string>
+    <string name="colors_standard">Standard</string>
+    <string name="colors_more">More</string>
+    <string name="mystery_today">Today\'s mystery picture</string>
+    <string name="mystery_tonight">Tonight\'s mystery picture</string>
+    <string name="mystery_later">Mystery picture</string>
+    <string name="today_label_picture">Today\'s picture</string>
+    <string name="today_label_pick">Today\'s pick</string>
+    <string name="day_yesterday">Yesterday</string>
+
+    <!-- Evening reminder notification (T36, #102) -->
+    <string name="reminder_mystery_drop_text">A new picture, hidden until you finish it.</string>
+    <string name="reminder_drop_title">Tonight: %1$s</string>
+    <string name="reminder_drop_text">A new picture, free to start today.</string>
+    <string name="reminder_today_title">Today\'s picture: %1$s</string>
+    <string name="reminder_today_pick_title">Today\'s pick: %1$s</string>
+    <!-- %1$s: the size, "Quick". -->
+    <string name="reminder_today_sized">A %1$s picture</string>
+    <string name="reminder_today_unsized">A picture</string>
+    <string name="reminder_today_text">%1$s, free to start today.</string>
+    <string name="reminder_today_pick_text">%1$s, ready when you are.</string>
+    <string name="reminder_streak_title">Your %1$d-day streak ends at midnight</string>
+    <string name="reminder_streak_text">Finish any picture tonight to keep it.</string>
+    <!-- %1$s: the nudge's hint, "Harbour is 82% done". -->
+    <string name="reminder_streak_text_hint">Finish any picture tonight to keep it. %1$s.</string>
+    <string name="reminder_almost_title">You\'re %1$d%% through %2$s</string>
+    <string name="reminder_almost_photo">your photo canvas</string>
+    <string name="reminder_almost_mystery">your mystery picture</string>
+    <string name="reminder_almost_text">Pick up where you left off.</string>
+
+    <!-- Keep-it-alive nudge (#102) -->
+    <plurals name="nudge_line">
+        <item quantity="one">Finish a picture today to keep your %1$d day</item>
+        <item quantity="other">Finish a picture today to keep your %1$d days</item>
+    </plurals>
+    <string name="nudge_broken_hint">See your streak</string>
+    <string name="nudge_hint_quick">%1$s is Quick</string>
+    <string name="nudge_hint_done">%1$s is %2$d%% done</string>
+    <string name="nudge_name_photo">Your photo canvas</string>
+    <string name="nudge_name_mystery">Your mystery picture</string>
+    <string name="nudge_name_generic">Your picture</string>
+    <string name="nudge_awaiting_several">Your missed days are covered when you finish</string>
+    <!-- %1$s: "Yesterday" or a weekday. -->
+    <string name="nudge_awaiting_one">%1$s is covered when you finish</string>
+
+    <!-- Progress share band (#36) and share text -->
+    <string name="progress_just_started">Just started</string>
+    <string name="progress_done">%1$d%% done</string>
+    <!-- %1$s: the Play link. -->
+    <string name="share_text">Made with Gemmory: %1$s</string>
+
+    <!-- Evening reminder channel (T35) -->
+    <string name="reminder_channel_name">Evening reminder</string>
+    <string name="reminder_channel_description">One note a day about something new to play or a picture you\'re close to finishing.</string>
+
+    <!-- TalkBack (design system, Accessibility) -->
+    <string name="a11y_canvas_progress">Canvas. %1$s of %2$s placed.</string>
+    <!-- %1$s: a11y_canvas_progress. -->
+    <string name="a11y_canvas_selected">%1$s Color %2$d selected, %3$s left.</string>
+    <string name="a11y_not_color">Not color %1$d</string>
+    <string name="a11y_color_done">Color %1$d done.</string>
+    <string name="a11y_color_done_next">Color %1$d done. Color %2$d selected.</string>
+    <string name="a11y_left">%1$s left</string>
+    <!-- %2$s: a11y_left. -->
+    <string name="a11y_batch">%1$s placed. %2$s</string>
+    <!-- Two spoken phrases: "98 left. Halfway there". -->
+    <string name="a11y_join">%1$s. %2$s</string>
+    <!-- %1$s: an announcement ending in a full stop, %2$s: a milestone. -->
+    <string name="a11y_with_milestone">%1$s %2$s.</string>
+    <string name="a11y_tool">Tool: %1$s</string>
+    <plurals name="a11y_tool_fills">
+        <item quantity="one">Tool: %1$s, %2$d fill</item>
+        <item quantity="other">Tool: %1$s, %2$d fills</item>
+    </plurals>
+    <string name="a11y_fill_color">Fill the rest of color %1$d</string>
+    <string name="a11y_music_volume">%1$d percent</string>
+    <string name="milestone_quarter">A quarter done</string>
+    <string name="milestone_half">Halfway there</string>
+    <string name="milestone_three_quarters">Three quarters done</string>
+    <string name="a11y_peek_shown">Showing the finished picture</string>
+    <string name="a11y_peek_hidden">Back to canvas</string>
+    <string name="a11y_trough_done">Color %1$d, done</string>
+    <string name="a11y_trough_left">Color %1$d, %2$s left</string>
+    <string name="a11y_tomorrow">Tomorrow\'s picture, opens tomorrow</string>
+    <!-- %1$s: the mystery's neutral name. -->
+    <string name="a11y_today_mystery">%1$s, hidden until finished</string>
+    <string name="a11y_today_mystery_drop">%1$s, new today, hidden until finished</string>
+    <!-- %1$s: "Today's picture" or "Today's pick", %2$s: the title. -->
+    <string name="a11y_today_head">%1$s: %2$s</string>
+    <string name="a11y_today_head_drop">%1$s, new today: %2$s</string>
+    <string name="a11y_done">%1$s, done</string>
+    <string name="a11y_percent_done">%1$s, %2$d%% done</string>
+    <!-- %2$s: the size, "Medium". -->
+    <string name="a11y_today_free">%1$s, %2$s, free to start today</string>
+    <string name="a11y_today_sized">%1$s, %2$s</string>
+    <plurals name="a11y_finished_photos">
+        <item quantity="one">Finished, %1$d photo canvas</item>
+        <item quantity="other">Finished, %1$d photo canvases</item>
+    </plurals>
+    <plurals name="a11y_finished_pictures">
+        <item quantity="one">Finished, %1$d picture</item>
+        <item quantity="other">Finished, %1$d pictures</item>
+    </plurals>
+    <string name="a11y_collection">%1$s, %2$d of %3$d finished</string>
+    <string name="a11y_collection_coming">%1$s, %2$d of %3$d finished, %4$d more coming</string>
+    <string name="a11y_collection_complete">%1$s complete.</string>
+    <string name="a11y_collection_complete_keepsake">%1$s complete. Keepsake picture added.</string>
+    <string name="a11y_event_added">%1$s: keepsake picture added.</string>
+    <string name="a11y_event_earned">%1$s: keepsake earned.</string>
+    <string name="a11y_tile_mystery">%1$s, hidden until finished</string>
+    <string name="a11y_tile_new">%1$s, new</string>
+    <string name="a11y_tile_damaged">%1$s, can\'t open</string>
+    <string name="a11y_tile_locked">%1$s, locked, watch a video to unlock</string>
+
+    <!-- Photo canvases -->
+    <string name="photo_default_title">My photo</string>
+
+    <!-- Common actions -->
+    <string name="action_back">Back</string>
+    <string name="action_share_progress">Share progress</string>
+    <string name="action_find">Find</string>
+
+    <!-- Play canvas (design system, Play canvas) -->
+    <string name="play_damaged">This canvas\'s file is damaged, so it can\'t be opened.</string>
+    <string name="play_disk_full">Progress isn\'t saving: phone storage is full.</string>
+    <string name="play_progress_percent">%1$d%%</string>
+    <string name="play_progress_count">%1$s / %2$s</string>
+    <string name="a11y_action_place_next">Place next gem</string>
+    <string name="a11y_action_fill_region_next">Fill region at next gem</string>
+    <string name="a11y_action_find_next">Find next gem</string>
+    <string name="a11y_action_zoom_in">Zoom in</string>
+    <string name="a11y_action_zoom_out">Zoom out</string>
+    <string name="a11y_action_whole_picture">Whole picture</string>
+    <string name="a11y_action_peek">Peek at picture</string>
+    <string name="tool_tap">Tap</string>
+    <string name="tool_brush">Brush 3×3</string>
+    <string name="tool_region">Fill region</string>
+    <string name="tool_fill_color">Fill color</string>
+    <!-- %1$s: a tool's name. -->
+    <string name="tool_no_fills_left">%1$s, no fills left</string>
+    <string name="tool_fill_left">Fill %1$d</string>
+
+    <string name="action_peek">Peek</string>
+    <!-- A whole percent, "47%". -->
+    <string name="percent">%1$d%%</string>
+    <!-- Coach hints (design D12) -->
+    <string name="hint_zoom_in">Pinch or tap to zoom in until numbers appear</string>
+    <string name="hint_pick_color">Pick a color below, then tap or drag its numbers</string>
+    <string name="hint_tap_zoomed">Zoomed in so you can see the numbers</string>
+    <!-- Milestone banner (#35): "1,200 / 4,800 gems". -->
+    <string name="milestone_count">%1$s / %2$s gems</string>
+
+    <!-- Lists and sentences -->
+    <!-- Two items: "Monday and Tuesday"; longer lists repeat it. -->
+    <string name="list_and">%1$s and %2$s</string>
+    <!-- Between items of a spoken list: "Monday, Tuesday done". -->
+    <string name="list_separator">,\u0020</string>
+    <!-- Two sentences one after the other. -->
+    <string name="sentences">%1$s %2$s</string>
+    <string name="day_today">Today</string>
+
+    <!-- Streak (#101, #102): celebration, chip, streak screen -->
+    <plurals name="streak_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="streak_in_a_row">
+        <item quantity="one">%1$d day in a row</item>
+        <item quantity="other">%1$d days in a row</item>
+    </plurals>
+    <plurals name="streak_in_a_row_sentence">
+        <item quantity="one">%1$d day in a row.</item>
+        <item quantity="other">%1$d days in a row.</item>
+    </plurals>
+    <string name="streak_milestone_7">A week of gems</string>
+    <string name="streak_milestone_30">A month of gems</string>
+    <string name="streak_milestone_50">50 days of gems</string>
+    <string name="streak_milestone_100">100 days of gems</string>
+    <string name="streak_milestone_365">A year of gems</string>
+    <string name="streak_started_title">You started a streak</string>
+    <string name="streak_line_day_one">Finish a picture tomorrow to make it 2.</string>
+    <string name="streak_line_next">Finish one tomorrow to make it %1$d.</string>
+    <string name="streak_gift_line">Your 5-day gift spin is in the bag.</string>
+    <string name="streak_started_announcement">Streak started. 1 day.</string>
+    <!-- %1$s: "Your day off and a streak freeze". -->
+    <string name="streak_kept_joined">%1$s kept it going.</string>
+    <string name="streak_kept_day_off">Your day off on %1$s kept it going.</string>
+    <string name="streak_kept_vip_freeze">Your VIP freeze kept it going.</string>
+    <string name="streak_kept_freezes">%1$d streak freezes kept it going.</string>
+    <string name="streak_kept_freeze">A streak freeze kept it going on %1$s.</string>
+    <string name="streak_kept_going">Your streak kept going.</string>
+    <string name="streak_none_left">None left.</string>
+    <string name="streak_left">%1$d left.</string>
+    <string name="streak_freezes_row">Streak freezes %1$d</string>
+    <string name="streak_freezes_sub">Covers a missed day. Hold up to %1$d.</string>
+    <string name="streak_by_day_off">your day off</string>
+    <string name="streak_by_vip_freeze">your VIP freeze</string>
+    <string name="streak_by_freeze">a streak freeze</string>
+    <string name="streak_by_streak">your streak</string>
+    <string name="streak_done_today">Done for today</string>
+    <string name="streak_status_start">Finish any picture to start a streak.</string>
+    <string name="streak_status_keep">Finish a picture today to keep it</string>
+    <string name="streak_awaiting_several">Your missed days are covered when you finish today.</string>
+    <!-- %1$s: "Yesterday" or a weekday, %2$s: "your day off". -->
+    <string name="streak_awaiting_one">%1$s is covered by %2$s when you finish today.</string>
+    <!-- %1$s: "Day off" or "VIP freeze". -->
+    <string name="streak_weekly_ready">%1$s ready</string>
+    <string name="streak_weekly_used">%1$s used %2$s</string>
+    <string name="streak_weekly_again">Ready again next %1$s</string>
+    <plurals name="streak_repair_title">
+        <item quantity="one">Bring back your %1$d day</item>
+        <item quantity="other">Bring back your %1$d days</item>
+    </plurals>
+    <string name="streak_repair_body_vip">Your streak ended on %1$s. Your weekly VIP repair can bring it back.</string>
+    <string name="streak_repair_body_video">Your streak ended on %1$s. Watch a short video to restore it.</string>
+    <string name="streak_repair_until">You can do this until %1$s.</string>
+    <string name="streak_vip_repair_used">VIP repair used %1$s · ready again next %2$s</string>
+    <plurals name="streak_restored">
+        <item quantity="one">Streak back: %1$d day</item>
+        <item quantity="other">Streak back: %1$d days</item>
+    </plurals>
+    <string name="streak_repaired">%1$s repaired</string>
+    <plurals name="streak_days_repaired">
+        <item quantity="one">%1$d day repaired</item>
+        <item quantity="other">%1$d days repaired</item>
+    </plurals>
+    <plurals name="streak_still_restorable">
+        <item quantity="one">Your %1$d day can still be restored</item>
+        <item quantity="other">Your %1$d days can still be restored</item>
+    </plurals>
+    <plurals name="streak_chip_done">
+        <item quantity="one">%1$d day in a row, done today, opens your streak</item>
+        <item quantity="other">%1$d days in a row, done today, opens your streak</item>
+    </plurals>
+    <plurals name="streak_chip_not_done">
+        <item quantity="one">%1$d day in a row, not done today, opens your streak</item>
+        <item quantity="other">%1$d days in a row, not done today, opens your streak</item>
+    </plurals>
+    <plurals name="streak_chip_broken">
+        <item quantity="one">0 days in a row, your %1$d day can still be restored, opens your streak</item>
+        <item quantity="other">0 days in a row, your %1$d days can still be restored, opens your streak</item>
+    </plurals>
+    <string name="streak_week">This week: %1$s</string>
+    <string name="streak_week_today_done">%1$s today, done</string>
+    <string name="streak_week_today">%1$s today</string>
+    <!-- %1$s: a weekday, %2$s: how it counted ("done", "day off"). -->
+    <string name="streak_week_day">%1$s %2$s</string>
+    <string name="streak_what_not_counted">not counted</string>
+    <string name="streak_what_done">done</string>
+    <string name="streak_what_day_off">day off</string>
+    <string name="streak_what_vip_freeze">kept by your VIP freeze</string>
+    <string name="streak_what_freeze">kept by a streak freeze</string>
+    <string name="streak_what_repaired">repaired</string>
+    <string name="streak_what_awaiting">covered when you finish today</string>
+    <!-- "Tuesday 14". -->
+    <string name="streak_cell_day">%1$s %2$d</string>
+    <string name="streak_cell_what">%1$s, %2$s</string>
+
+    <string name="action_try_again">Try again</string>
+    <!-- Rewarded videos (#32, #102) -->
+    <string name="video_offline">You\'re offline. Connect to watch a video.</string>
+    <string name="video_none">No video right now. Try again in a bit.</string>
+    <string name="video_grace">No video right now. This one\'s on us today.</string>
+    <string name="video_loading">Loading video…</string>
+    <string name="video_watch">Watch a video</string>
+    <!-- Your streak screen (#101, #102) -->
+    <string name="streak_screen_title">Your streak</string>
+    <string name="streak_day_off">Day off</string>
+    <string name="streak_vip_freeze">VIP freeze</string>
+    <string name="streak_bring_back">Bring it back</string>
+    <string name="streak_watch_to_end">Watch to the end to bring it back.</string>
+    <!-- %1$s: "12 days in a row", %2$s: "20 days". -->
+    <string name="streak_hero_best">%1$s. Best: %2$s</string>
+    <plurals name="streak_hero_words">
+        <item quantity="one">day in a row</item>
+        <item quantity="other">days in a row</item>
+    </plurals>
+    <string name="streak_best">Best: %1$d</string>
+    <!-- "October 2026". -->
+    <string name="streak_month_title">%1$s %2$d</string>
+    <string name="streak_previous_month">Previous month</string>
+    <string name="streak_next_month">Next month</string>
+    <string name="streak_what_finished">finished %1$s</string>
+    <string name="streak_what_not_yet">not finished yet</string>
+
+    <string name="action_continue">Continue</string>
+    <string name="action_share">Share</string>
+    <!-- The celebration's title and line read as one node: "A week of gems. 7 days in a row.". -->
+    <string name="streak_celebration_words">%1$s. %2$s</string>
+    <!-- Next gift spin (#38, #101) -->
+    <string name="next_gift">Next gift spin at %1$d days in a row</string>
+    <string name="next_gift_description">Next gift spin at %1$d days in a row. %2$d of %3$d days so far.</string>
+
+    <string name="action_delete">Delete</string>
+    <string name="action_start_over">Start over</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_save">Save</string>
+    <string name="action_keep">Keep</string>
+    <string name="action_open">Open</string>
+    <string name="action_start">Start</string>
+    <string name="a11y_expanded">expanded</string>
+    <string name="a11y_collapsed">collapsed</string>
+    <string name="a11y_more_options">More options</string>
+    <!-- The tile's ⋮ button: "More for Sunflowers". -->
+    <string name="a11y_more_for">More for %1$s</string>
+    <string name="watch_to_unlock">Watch to unlock</string>
+    <string name="vip_action">VIP</string>
+    <string name="settings_title">Settings</string>
+
+    <!-- Gallery (design system, Gallery) -->
+    <string name="gallery_photo_failed">This photo couldn\'t be opened. Try another one.</string>
+    <string name="gallery_new_from_photo">New from photo</string>
+    <string name="gallery_opens_tomorrow">Opens tomorrow</string>
+    <string name="gallery_delete_title">Delete this photo canvas?</string>
+    <string name="gallery_delete_body">The photo, grid and progress are removed from this phone.</string>
+    <string name="gallery_start_over_title">Start this picture over?</string>
+    <string name="gallery_start_over_body">Your progress on it is cleared.</string>
+    <string name="gallery_cant_open">Can\'t open</string>
+    <string name="gallery_damaged_body">This canvas\'s file is damaged, so it can\'t be opened. You can delete it, or start the picture over.</string>
+    <string name="gallery_tab_pictures">Pictures</string>
+    <string name="gallery_tab_photos">My Photos</string>
+    <string name="gallery_new_today">New today</string>
+    <string name="gallery_tomorrow">Tomorrow</string>
+    <string name="gallery_tomorrow_line">A new picture opens at midnight</string>
+    <!-- Today card's line: %1$s is the size, "Medium". -->
+    <string name="today_line_done">%1$s · done</string>
+    <!-- %2$s: a percent, "12%". -->
+    <string name="today_line_percent">%1$s · %2$s done</string>
+    <string name="today_line_free">%1$s · free today</string>
+    <string name="gallery_finished">Finished</string>
+    <string name="gallery_new">New</string>
+    <string name="gallery_mystery">Mystery</string>
+    <string name="gallery_done">Done</string>
+    <string name="gallery_photos_empty_title">Your photos, in gems</string>
+    <string name="gallery_photos_empty_body">Turn a photo of your own into a canvas you can finish. It never leaves this phone.</string>
+
+    <!-- Collection and event rows (T37, T38) -->
+    <string name="collections_all">All collections</string>
+    <string name="collections_title">Collections</string>
+    <string name="collection_count">%1$d of %2$d finished</string>
+    <!-- Above 1.5× font: %1$s is collection_count, %2$s the well's words. -->
+    <string name="collection_count_coming">%1$s · %2$s</string>
+    <string name="collection_coming">%1$d more coming</string>
+    <string name="collection_coming_daily">%1$d more coming, one a day</string>
+    <string name="collection_for_keepsake">Finish all %1$d for a keepsake picture.</string>
+    <string name="collection_to_complete">Finish all %1$d to complete it.</string>
+    <string name="collection_for_token">Finish all %1$d for an unlock token.</string>
+    <string name="collection_keepsake_added">Keepsake added: %1$s.</string>
+    <string name="collection_keepsake_offline">Keepsake earned. It arrives next time you\'re online.</string>
+    <string name="collection_keepsake_space">Keepsake earned. It arrives when there\'s space on this phone.</string>
+    <string name="collection_complete">Complete.</string>
+    <string name="collection_token_added">1 unlock token added.</string>
+    <string name="event_keepsake_earned">Keepsake earned: %1$s.</string>
+    <string name="event_line">One new picture a day. Finish any 3 this week for a keepsake picture.</string>
+
+    <!-- Inventory (#38) and the gift wheel -->
+    <string name="inventory_title">Inventory</string>
+    <string name="inventory_spin_waiting">Inventory, gift spin waiting</string>
+    <string name="inventory_fills">Fills</string>
+    <string name="inventory_fills_body">One fills a region, the rest of a color, or a brush stroke.</string>
+    <string name="inventory_canvases">Photo canvases</string>
+    <string name="inventory_canvases_body">For a photo after today\'s free one. Kept until you use them.</string>
+    <string name="inventory_tokens">Unlock tokens</string>
+    <string name="inventory_tokens_body">Opens any locked picture for good.</string>
+    <string name="inventory_freezes">Streak freezes</string>
+    <string name="inventory_freezes_body">Covers a missed day after your day off. Hold up to %1$d.</string>
+    <string name="inventory_watch">Watch a video: +%1$d fills</string>
+    <string name="inventory_spin_several">Spin for your gift (%1$d waiting)</string>
+    <string name="inventory_spin">Spin for your %1$d-day gift</string>
+    <!-- An item row for TalkBack: "Fills: 4. One fills a region, …". -->
+    <string name="inventory_item">%1$s: %2$d. %3$s</string>
+    <plurals name="prize_fills">
+        <item quantity="one">%1$d fill</item>
+        <item quantity="other">%1$d fills</item>
+    </plurals>
+    <plurals name="prize_photo_canvases">
+        <item quantity="one">%1$d photo canvas</item>
+        <item quantity="other">%1$d photo canvases</item>
+    </plurals>
+    <plurals name="prize_unlock_tokens">
+        <item quantity="one">%1$d unlock token</item>
+        <item quantity="other">%1$d unlock tokens</item>
+    </plurals>
+    <string name="prize_streak_freeze">Streak freeze</string>
+    <string name="prize_added_freeze">A streak freeze added to your inventory.</string>
+    <plurals name="prize_added_fills">
+        <item quantity="one">%1$d fill added to your inventory.</item>
+        <item quantity="other">%1$d fills added to your inventory.</item>
+    </plurals>
+    <!-- %1$s: a prize, "1 photo canvas". -->
+    <string name="prize_added">%1$s added to your inventory.</string>
+    <string name="wheel_title">Your gift</string>
+    <string name="wheel_description">Gift wheel. %1$s</string>
+    <!-- A slice and its odds: "5 fills 45%". -->
+    <string name="wheel_odd">%1$s %2$d%%</string>
+    <string name="wheel_spin">Spin</string>
+
+    <string name="action_done">Done</string>
+    <!-- Completion (design system, Completion) -->
+    <string name="completion_title">Finished</string>
+    <!-- "Lighthouse · 4,812 gems · 1 h 12 min". -->
+    <string name="completion_meta">%1$s · %2$s gems · %3$s</string>
+    <string name="play_time_minutes">%1$d min</string>
+    <string name="play_time_hours">%1$d h %2$d min</string>
+    <string name="completion_killed">The video stopped when the app closed. Tap Share to try again.</string>
+    <string name="completion_play_again">Play again</string>
+    <string name="completion_picture">Finished picture</string>
+
+    <!-- Streak widget (#103) -->
+    <string name="widget_start">Start a streak</string>
+    <string name="widget_done">Done today</string>
+    <string name="widget_not_yet">Not yet today</string>
+    <string name="widget_description_start">Gemmory streak, start a streak</string>
+    <plurals name="widget_description_done">
+        <item quantity="one">Gemmory streak, %1$d day, done today</item>
+        <item quantity="other">Gemmory streak, %1$d days, done today</item>
+    </plurals>
+    <plurals name="widget_description_not_done">
+        <item quantity="one">Gemmory streak, %1$d day, not done today</item>
+        <item quantity="other">Gemmory streak, %1$d days, not done today</item>
+    </plurals>
+
+    <string name="action_cancel">Cancel</string>
+    <!-- Share-link landing (T50) -->
+    <string name="shared_with_you">Shared with you: %1$s</string>
+    <string name="shared_mystery">a mystery picture</string>
+    <!-- Share sheet (#12, T53) -->
+    <string name="share_making">Making your video</string>
+    <string name="share_making_line">A few seconds of sparkle. Keep the app open.</string>
+    <string name="share_picture_title">Here\'s a picture instead</string>
+    <string name="share_picture_progress">Video isn\'t supported on this phone, so here\'s a picture of your progress instead.</string>
+    <string name="share_picture_before_after">Video isn\'t supported on this phone, so here\'s a before/after picture instead.</string>
+    <string name="share_picture">Share picture</string>
+    <string name="share_failed">Couldn\'t make the video. Try again.</string>
+    <string name="share_disk_full">Not enough space on this phone to make the video.</string>
+    <!-- Time-lapse frames and the before/after picture (#12, T53) -->
+    <string name="frame_before">Before</string>
+    <string name="frame_so_far">So far</string>
+    <string name="frame_after">After</string>
+
+    <string name="frame_app_line">Gemmory · Photo Diamond Art</string>
+    <!-- A founder clip's watermark (T47). -->
+    <string name="frame_watermark">Made with Gemmory</string>
+    <!-- The Gemmory row and end card (T53). -->
+    <string name="frame_tagline">Your photos in gems</string>
+
+    <string name="action_next">Next</string>
+    <!-- Photo flow: crop, size, preview (design system, Photo flow) -->
+    <string name="photo_crop">Crop</string>
+    <string name="photo_choose_size">Choose a size</string>
+    <string name="photo_preview">Preview</string>
+    <!-- "My photo · 13 Oct". -->
+    <string name="photo_default_title_dated">My photo · %1$s</string>
+    <!-- "8,112 gems · 24 colors". -->
+    <string name="photo_summary">%1$s gems · %2$d colors</string>
+    <!-- "Big · 8,112 gems · 24 colors". -->
+    <string name="photo_size_summary">%1$s · %2$s</string>
+    <string name="photo_more_colors_line">More colors: watch a video, or get VIP.</string>
+    <string name="photo_one_video_more_colors">One video gets this canvas with more colors.</string>
+    <string name="photo_watch_for_colors">Watch a video for more colors</string>
+    <!-- A color choice for TalkBack: "Fewer, 16 colors". -->
+    <string name="photo_colors_trough">%1$s, %2$d colors</string>
+    <string name="photo_colors_trough_video">%1$s, %2$d colors, needs a video or VIP</string>
+    <string name="photo_faces_best">Faces look best at Medium or Big</string>
+    <string name="photo_faces_need_big">Faces need Big</string>
+    <string name="photo_faces_unsupported">Faces aren\'t supported yet</string>
+    <string name="photo_checking_faces">Checking for faces…</string>
+    <string name="photo_size_preview">%1$s preview</string>
+    <string name="photo_gem_preview">Gem preview</string>
+    <string name="photo_gem_preview_updating">Updating gem preview</string>
+    <string name="photo_setting_gems">Setting the gems…</string>
+    <string name="photo_convert_failed">Couldn\'t make this canvas. Try Medium or another photo.</string>
+    <string name="photo_choose_another">Choose another photo</string>
+    <string name="photo_save_failed">Couldn\'t save this canvas on the phone. Try again.</string>
+    <string name="photo_colors">Colors</string>
+    <!-- Allowance line (design D5, #38) -->
+    <string name="allowance_free">Uses today\'s free photo canvas.</string>
+    <string name="allowance_kept">Uses a kept photo canvas (%1$d left).</string>
+    <string name="allowance_bonus">Uses a bonus canvas from a video.</string>
+    <string name="allowance_watch">Today\'s free one is used. Watch a video for another.</string>
+
+    <!-- Music (T42) -->
+    <string name="music_title">Music</string>
+    <string name="music_volume">Music volume</string>
+    <string name="music_chip">Music is playing</string>
+    <string name="music_turn_off">Turn off</string>
+    <string name="music_off_line">Music off. Turn it back on in Settings.</string>
+
+    <!-- Selected color (#19) -->
+    <string name="highlight_title">Selected color</string>
+    <string name="highlight_tint">Stronger tint</string>
+    <string name="highlight_outline">Outline</string>
+    <string name="highlight_dim">Dim the rest</string>
+    <string name="highlight_tint_description">Its cells turn a deeper shade</string>
+    <string name="highlight_outline_description">A ring around its cells when zoomed in</string>
+    <string name="highlight_dim_description">Every other color steps back</string>
+
+    <!-- VIP paywall, membership and restore (design system, Paywall and Settings) -->
+    <string name="billing_title">Gemmory VIP</string>
+    <string name="billing_perk_pictures">Every gallery picture unlocked</string>
+    <string name="billing_perk_canvases">Unlimited photo canvases</string>
+    <string name="billing_perk_ads">No ads ever</string>
+    <string name="billing_perk_watermark">No watermark on your videos</string>
+    <string name="billing_perk_tools">Brush and fill tools</string>
+    <string name="billing_start_vip">Start VIP</string>
+    <string name="billing_fine_print">VIP renews automatically until you cancel. Cancel anytime in Google Play.</string>
+    <string name="billing_prices_failed">Prices couldn\'t load. Connect and try again.</string>
+    <string name="billing_purchase_failed">Google Play couldn\'t finish the purchase. You weren\'t charged.</string>
+    <string name="billing_pending_vip">Payment pending. VIP starts when Google Play confirms it.</string>
+    <string name="billing_pending_ads">Payment pending. Ads turn off when Google Play confirms it.</string>
+    <string name="billing_checking">Checking Google Play…</string>
+    <string name="billing_restore_none">No purchases found on this account</string>
+    <string name="billing_restore_failed">Couldn\'t reach Google Play. Try again.</string>
+    <!-- Prices are Play's own strings: "$29.99 / year ($0.58 a week)". -->
+    <string name="billing_yearly">%1$s / year (%2$s a week)</string>
+    <string name="billing_weekly">%1$s / week</string>
+    <string name="billing_remove_ads">Just remove ads · %1$s once</string>
+    <string name="membership_vip_yearly">VIP · yearly</string>
+    <string name="membership_vip_weekly">VIP · weekly</string>
+    <string name="membership_vip_unconfirmed">VIP · connect to Google Play to confirm</string>
+    <string name="membership_ads_removed">Ads removed</string>
+    <string name="membership_free">Free</string>
+    <string name="billing_restored_yearly">Purchases restored: VIP (yearly)</string>
+    <string name="billing_restored_weekly">Purchases restored: VIP (weekly)</string>
+    <string name="billing_restored_ads">Purchases restored: Ads removed</string>
+    <string name="billing_notice_vip">You\'re VIP. Every gallery picture is unlocked.</string>
+    <string name="billing_notice_ads_off">Ads are off for good.</string>
+    <string name="billing_notice_lapsed">We couldn\'t confirm VIP for a week. Connect to the internet to restore it.</string>
+
+    <string name="action_close">Close</string>
+    <string name="billing_loading_prices">Loading prices</string>
+    <string name="billing_plan_yearly">Yearly</string>
+    <string name="billing_plan_weekly">Weekly</string>
+
+    <!-- Settings (design system, Settings) -->
+    <string name="settings_sound">Sound</string>
+    <string name="settings_haptics">Haptics</string>
+    <string name="settings_milestones">Milestones</string>
+    <string name="settings_membership">Membership</string>
+    <string name="settings_manage_subscription">Manage subscription</string>
+    <string name="settings_restore">Restore purchases</string>
+    <string name="settings_privacy_choices">Privacy choices</string>
+    <string name="settings_delete_all">Delete all photo canvases</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_delete_all_title">Delete all photo canvases?</string>
+    <string name="settings_delete_all_body">Every photo, grid and its progress is removed from this phone. Pictures and purchases stay.</string>
+
+    <!-- Reminders in Settings and the ask (T35) -->
+    <string name="reminders_title">Reminders</string>
+    <string name="reminders_time">Reminder time</string>
+    <string name="reminders_blocked">Notifications are off for Gemmory</string>
+    <string name="reminders_open_settings">Open settings</string>
+    <!-- %1$s: a time, "21:30". -->
+    <string name="reminders_around">Around %1$s</string>
+    <string name="reminders_sheet_line">We\'ll remind you around %1$s.</string>
+    <string name="reminder_ask_title">Remind me in the evening?</string>
+    <string name="reminder_ask_body">One quiet note a day around %1$s, only when there\'s something to play: a new picture, today\'s picture, a streak to keep, or one you\'re close to finishing.</string>
+    <string name="reminder_ask_settings_line">Change the time or turn it off in Settings.</string>
+    <string name="reminder_ask_yes">Yes, remind me</string>
+    <string name="reminder_ask_not_now">Not now</string>
+    <string name="reminder_on_line">Reminders on, around %1$s. Change it in Settings.</string>
+
+    <!-- Achievements row (#49) -->
+    <string name="achievements_title">Achievements</string>
+    <string name="achievements_value">Play Games</string>
+    <string name="achievements_checking">Checking…</string>
+    <string name="achievements_failed">Couldn\'t reach Play Games. Try again.</string>
+
+    <!-- Rewarded video sheet (#32, #38) -->
+    <string name="rewarded_fills_title">More fills</string>
+    <string name="rewarded_colors_title">More colors</string>
+    <string name="rewarded_canvas_title">Another photo canvas</string>
+    <string name="rewarded_fills_added">%1$d fills added</string>
+    <string name="rewarded_colors_unlocked">More colors unlocked</string>
+    <string name="rewarded_unlocked">Unlocked</string>
+    <string name="rewarded_grace_fills">No video right now. These are on us today.</string>
+    <string name="rewarded_offline">You\'re offline, connect to watch a video</string>
+    <string name="rewarded_picture_body">Watch a short video to unlock this picture for good.</string>
+    <string name="rewarded_fills_body">Watch a short video for %1$d fills. Each fills a region, the rest of a color, or a brush stroke.</string>
+    <string name="rewarded_colors_body">Watch a short video for more colors on this photo canvas.</string>
+    <string name="rewarded_canvas_body">Watch a short video for one more photo canvas. It\'s kept until you use it.</string>
+    <string name="rewarded_watch_to_end">Watch to the end to unlock.</string>
+    <string name="rewarded_watch">Watch video</string>
+    <string name="rewarded_grace_picture">Unlock picture</string>
+    <string name="rewarded_grace_fills_button">Get %1$d fills</string>
+    <string name="rewarded_grace_colors">Use more colors</string>
+    <string name="rewarded_grace_canvas">Start canvas</string>
+    <string name="rewarded_vip_picture">Or get VIP: every gallery picture unlocked</string>
+    <string name="rewarded_vip_fills">Or get VIP: unlimited fills</string>
+    <string name="rewarded_vip_colors">Or get VIP: more colors on every photo</string>
+    <string name="rewarded_vip_canvas">Or get VIP: unlimited photo canvases</string>
+    <string name="rewarded_vip_no_videos">Get VIP: no videos needed</string>
+    <string name="rewarded_token">Use an unlock token · %1$d left</string>
+
+    <string name="a11y_drag_handle">Drag handle</string>
 </resources>

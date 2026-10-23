@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.streak
 
+import com.brewingbytes.gemmory.copy.strings
 import android.app.Activity
 import android.content.Context
 import android.os.Handler
@@ -209,8 +210,8 @@ class StreakRepairFlowTest {
         waitFor("the celebration") { exists(CELEBRATION_TAG) }
         assertTrue(shows("Your 6 days can still be restored"))
         compose.onNodeWithTag(CELEBRATION_SEE_TAG).performClick()
-        waitFor("the repair panel") { shows("Your streak ended on ${StreakText.weekday(today - 2)}. Watch a short video to restore it.") }
-        assertTrue(shows("You can do this until ${StreakText.weekday(today)}."))
+        waitFor("the repair panel") { shows("Your streak ended on ${StreakText(context.strings).weekday(today - 2)}. Watch a short video to restore it.") }
+        assertTrue(shows("You can do this until ${StreakText(context.strings).weekday(today)}."))
         tapPrimary()
         // Today's finish adds on: 6 + 1.
         waitRestored(7)
@@ -318,7 +319,7 @@ class StreakRepairFlowTest {
         launch()
         openStreakScreen()
         assertTrue(shows("Watch a short video to restore it."))
-        assertTrue(shows(StreakText.vipRepairUsed(today - 1)))
+        assertTrue(shows(StreakText(context.strings).vipRepairUsed(today - 1)))
         assertFalse(shows("Your weekly VIP repair can bring it back."))
         tapPrimary()
         waitRestored(7)

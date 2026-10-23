@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.widget
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.StreakState
 import com.brewingbytes.gemmory.streak.StreakSnapshot
@@ -16,26 +17,26 @@ class StreakWidgetStateTest {
     fun neverPlayedStartsAStreak() {
         val w = widget(StreakState())
         assertEquals(StreakWidgetState(0, lit = false), w)
-        assertEquals("Start a streak", w.line)
+        assertEquals("Start a streak", w.line(XmlStrings.en))
         assertEquals(WidgetFlame.EMBER, w.flame)
-        assertEquals("Gemmory streak, start a streak", w.description)
+        assertEquals("Gemmory streak, start a streak", w.description(XmlStrings.en))
     }
 
     @Test
     fun dayOneDoneIsLit() {
         val w = widget(StreakState(length = 1, lastDay = today))
-        assertEquals("Done today", w.line)
+        assertEquals("Done today", w.line(XmlStrings.en))
         assertEquals(WidgetFlame.LIT, w.flame)
-        assertEquals("Gemmory streak, 1 day, done today", w.description)
+        assertEquals("Gemmory streak, 1 day, done today", w.description(XmlStrings.en))
     }
 
     @Test
     fun aStreakNotDoneTodayIsGrey() {
         val w = widget(StreakState(length = 6, lastDay = today - 1))
         assertEquals(StreakWidgetState(6, lit = false), w)
-        assertEquals("Not yet today", w.line)
+        assertEquals("Not yet today", w.line(XmlStrings.en))
         assertEquals(WidgetFlame.EMBER, w.flame)
-        assertEquals("Gemmory streak, 6 days, not done today", w.description)
+        assertEquals("Gemmory streak, 6 days, not done today", w.description(XmlStrings.en))
     }
 
     @Test
@@ -47,7 +48,7 @@ class StreakWidgetStateTest {
 
     @Test
     fun aStreakDoneTodayIsLit() {
-        assertEquals("Done today", widget(StreakState(length = 6, lastDay = today)).line)
+        assertEquals("Done today", widget(StreakState(length = 6, lastDay = today)).line(XmlStrings.en))
     }
 
     @Test
@@ -55,7 +56,7 @@ class StreakWidgetStateTest {
         // Ended the day after it was last played; still repairable on the streak screen, never on the widget.
         val w = widget(StreakState(length = 6, lastDay = today - 3, restDay = today - 6))
         assertEquals(StreakWidgetState(0, lit = false), w)
-        assertEquals("Start a streak", w.line)
+        assertEquals("Start a streak", w.line(XmlStrings.en))
     }
 
     @Test

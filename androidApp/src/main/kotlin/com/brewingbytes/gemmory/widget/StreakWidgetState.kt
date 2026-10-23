@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.widget
 
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
 import com.brewingbytes.gemmory.streak.StreakSnapshot
 
 /** What the flame shows (G1): the grey ember, or the lit flame in its tier's color. */
@@ -12,12 +14,13 @@ enum class WidgetFlame { EMBER, LIT, LIT_30, LIT_100 }
  */
 data class StreakWidgetState(val number: Int, val lit: Boolean) {
     /** The status line under the number. */
-    val line: String
-        get() = when {
-            number == 0 -> "Start a streak"
-            lit -> "Done today"
-            else -> "Not yet today"
-        }
+    fun line(s: Strings): String = s.text(
+        when {
+            number == 0 -> R.string.widget_start
+            lit -> R.string.widget_done
+            else -> R.string.widget_not_yet
+        },
+    )
 
     val flame: WidgetFlame
         get() = when {
@@ -28,12 +31,10 @@ data class StreakWidgetState(val number: Int, val lit: Boolean) {
         }
 
     /** The widget is one TalkBack node: "Gemmory streak, 6 days, done today". */
-    val description: String
-        get() = if (number == 0) {
-            "Gemmory streak, start a streak"
-        } else {
-            "Gemmory streak, $number ${if (number == 1) "day" else "days"}, ${if (lit) "done today" else "not done today"}"
-        }
+    fun description(s: Strings): String = when {
+        number == 0 -> s.text(R.string.widget_description_start)
+        else -> s.plural(if (lit) R.plurals.widget_description_done else R.plurals.widget_description_not_done, number, number)
+    }
 
     companion object {
         fun of(snapshot: StreakSnapshot): StreakWidgetState {

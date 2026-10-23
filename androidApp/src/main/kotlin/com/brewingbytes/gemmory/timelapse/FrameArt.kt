@@ -22,6 +22,8 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import androidx.core.graphics.withTranslation
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.ui.GemRenderer
@@ -174,7 +176,9 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             val boxH = if (player) 620 else 640
             val label = style.labelPaint()
             var top = 48
-            for ((name, bitmap) in listOf(BEFORE to before, afterLabel(request) to after)) {
+            val strings = context.strings
+            val afterLabel = strings.text(if (request.inProgress) R.string.frame_so_far else R.string.frame_after)
+            for ((name, bitmap) in listOf(strings.text(R.string.frame_before) to before, afterLabel to after)) {
                 val scale = min(boxW.toFloat() / bitmap.width, boxH.toFloat() / bitmap.height)
                 val w = (bitmap.width * scale).roundToInt()
                 val h = (bitmap.height * scale).roundToInt()
@@ -195,10 +199,6 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             return out
         }
 
-        const val BEFORE = "Before"
-
-        /** "After" for a finished picture, "So far" for a progress share (#36). */
-        fun afterLabel(request: EncodeRequest): String = if (request.inProgress) "So far" else "After"
     }
 }
 
@@ -208,6 +208,9 @@ class EndCardRects(val alpha: Float, val picture: Rect, val content: Rect)
 /** Band, type, Gemmory row, end card and watermark of the 9:16 frame. Sizes are given at 1080 wide and scaled by [width]. */
 internal class FrameStyle(private val context: Context, private val width: Int) {
     private val s = width / 1080f
+
+    /** The frame's words (T48), in the app's language. */
+    private val strings = context.strings
     private val bricolage = ResourcesCompat.getFont(context, R.font.bricolage_grotesque) ?: Typeface.DEFAULT
     private val figtree = ResourcesCompat.getFont(context, R.font.figtree) ?: Typeface.DEFAULT
     private val icon: Bitmap? by lazy { asset(ICON_ASSET) }
@@ -246,7 +249,8 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
      * bottom-right, over a 25% scrim band), so the title never collides with it. A progress share (#36) has its
      * [progressLine] ("47% done", Figtree 600 36px) between the title and the app line.
      */
-    fun drawText(canvas: Canvas, title: String, textTop: Int, height: Int, watermark: Boolean, progressLine: String? = null) {
+    fun drawText(canvas: Canvas, title: String, textTop: Int, height: Int, watermark: Boolean, progress: ProgressLine? = null) {
+        val progressLine = progress?.let { Messages.progress(strings, it) }
         val margin = px(MARGIN).toFloat()
         val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = bricolage
@@ -275,7 +279,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
             canvas.drawText(progressLine, margin, appTop - progressPaint.fontMetrics.ascent, progressPaint)
             appTop += progressPaint.fontSpacing + px(2)
         }
-        canvas.drawText(APP_LINE, margin, appTop - appPaint.fontMetrics.ascent, appPaint)
+        canvas.drawText(strings.text(R.string.frame_app_line), margin, appTop - appPaint.fontMetrics.ascent, appPaint)
 
         if (!watermark) return
         val rowHeight = px(WATERMARK_ROW)
@@ -291,7 +295,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         }
         val fm = markPaint.fontMetrics
         val baseline = height - rowHeight / 2f - (fm.ascent + fm.descent) / 2f
-        canvas.drawText(WATERMARK, width - margin, baseline, markPaint)
+        canvas.drawText(strings.text(R.string.frame_watermark), width - margin, baseline, markPaint)
     }
 
     /**
@@ -300,7 +304,8 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
      * (Figtree 600 36px) and the title (Bricolage Grotesque 600, 60px, at most 2 lines then an ellipsis), left-aligned
      * at 48px.
      */
-    fun drawShareText(canvas: Canvas, layout: ShareLayout, title: String, progressLine: String?) {
+    fun drawShareText(canvas: Canvas, layout: ShareLayout, title: String, progress: ProgressLine?) {
+        val progressLine = progress?.let { Messages.progress(strings, it) }
         val fade = Paint().apply {
             shader = LinearGradient(
                 0f, layout.fadeTop.toFloat(), 0f, layout.areaBottom.toFloat(),
@@ -315,7 +320,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
             color = FRAME_TEXT
         }
         var baseline = layout.appBaseline.toFloat()
-        canvas.drawText(APP_LINE, left, baseline, appPaint)
+        canvas.drawText(strings.text(R.string.frame_app_line), left, baseline, appPaint)
         if (progressLine != null) {
             baseline -= px(LINE_GAP)
             val progressPaint = TextPaint(appPaint).apply { fontVariationSettings = "'wght' 600" }
@@ -335,9 +340,9 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         val scrim = Paint().apply { color = SCRIM; alpha = (255 * ROW_SCRIM_ALPHA).roundToInt() }
         canvas.drawRect(0f, row.top.toFloat(), width.toFloat(), (row.top + px(ShareLayout.ROW)).toFloat(), scrim)
         drawIcon(canvas, row.icon, row.iconRadius)
-        canvas.drawText(NAME, row.textLeft.toFloat(), row.nameBaseline.toFloat(), namePaint(44))
+        canvas.drawText(strings.text(R.string.app_name), row.textLeft.toFloat(), row.nameBaseline.toFloat(), namePaint(44))
         val tagline = taglinePaint(28).apply { alpha = (255 * 0.8f).roundToInt() }
-        canvas.drawText(TAGLINE, row.textLeft.toFloat(), row.taglineBaseline.toFloat(), tagline)
+        canvas.drawText(strings.text(R.string.frame_tagline), row.textLeft.toFloat(), row.taglineBaseline.toFloat(), tagline)
         drawBadge(canvas, row.badge)
     }
 
@@ -356,8 +361,8 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         canvas.drawRect(p.left.toFloat(), p.top + dy, p.right.toFloat(), p.bottom + dy, shadow)
         drawIcon(canvas, card.icon, card.iconRadius)
         val center = width / 2f
-        canvas.drawText(NAME, center, card.nameBaseline.toFloat(), namePaint(104).apply { textAlign = Paint.Align.CENTER })
-        canvas.drawText(TAGLINE, center, card.taglineBaseline.toFloat(), taglinePaint(44).apply { textAlign = Paint.Align.CENTER })
+        canvas.drawText(strings.text(R.string.app_name), center, card.nameBaseline.toFloat(), namePaint(104).apply { textAlign = Paint.Align.CENTER })
+        canvas.drawText(strings.text(R.string.frame_tagline), center, card.taglineBaseline.toFloat(), taglinePaint(44).apply { textAlign = Paint.Align.CENTER })
         drawBadge(canvas, card.badge)
     }
 
@@ -416,12 +421,6 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         const val MARGIN = 48
         const val WATERMARK_ROW = 78
         const val BAND_BRIGHTNESS = 0.45f
-        const val APP_LINE = "Gemmory · Photo Diamond Art"
-
-        /** A founder clip's watermark (T47); the player's share has the Gemmory row instead (T53). */
-        const val WATERMARK = "Made with Gemmory"
-        const val NAME = "Gemmory"
-        const val TAGLINE = "Your photos in gems"
         const val ROW_SCRIM_ALPHA = 0.55f
         const val FADE_ALPHA = 0.78f
 

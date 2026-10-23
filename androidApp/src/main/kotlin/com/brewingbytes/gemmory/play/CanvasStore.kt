@@ -13,6 +13,10 @@ import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.remote.Mystery
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.remote.RemoteCatalogView
 import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.remote.RemotePictureRules
@@ -139,6 +143,8 @@ class CanvasStore(
     private val achievements: (GameEvent) -> Unit = {},
     /** Wall time and local date for the `play` file (T35): when a gem was last saved and the day of the finish. */
     private val dayClock: DayClock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
+    /** The app's words (T48): a photo canvas's default title, a mystery's neutral name, TalkBack's lines. */
+    private val strings: Strings,
 ) {
     val repository = CanvasRepository(filesDir, reporter)
     private val swept: Job = scope.launch(writer) { repository.sweep() }
@@ -229,6 +235,7 @@ class CanvasStore(
             ref = ref,
             title = opened.title,
             hiddenAs = opened.hiddenAs,
+            a11y = A11yText(strings),
             pattern = opened.grid.pattern,
             state = opened.state,
             view = opened.view,
@@ -552,7 +559,7 @@ class CanvasStore(
         if (ref.kind != CanvasKind.REMOTE) return null
         val mystery = record?.mystery == true || entry?.mystery == true
         if (!Mystery.hidden(mystery, finished)) return null
-        return Mystery.name(entry?.availableFrom, LocalDate.fromEpochDays(dayClock.today()))
+        return Messages.mystery(strings, Mystery.name(entry?.availableFrom, LocalDate.fromEpochDays(dayClock.today())))
     }
 
     private fun CanvasSummary.Playable.withSize(size: CanvasSize?) =
@@ -574,8 +581,9 @@ class CanvasStore(
         repository.writeRecord(ref, current.copy(playMillis = playMillis))
     }
 
+    fun titleOf(ref: CanvasRef, record: CanvasRecord?): String = titleOf(ref, record, strings)
+
     companion object {
-        const val DEFAULT_PHOTO_TITLE = "My photo"
 
         /** How a [ReminderCanvas] names its canvas, and back (T35). */
         fun reminderKey(ref: CanvasRef): String = "${ref.kind.name}/${ref.id}"
@@ -586,10 +594,10 @@ class CanvasStore(
             return if (CanvasRef.ID.matches(id)) CanvasRef(kind, id) else null
         }
 
-        fun titleOf(ref: CanvasRef, record: CanvasRecord?): String = when (ref.kind) {
+        fun titleOf(ref: CanvasRef, record: CanvasRecord?, strings: Strings): String = when (ref.kind) {
             CanvasKind.BUNDLED -> BundledPictures.byId(ref.id)?.title ?: ref.id
             CanvasKind.REMOTE -> record?.title?.takeIf { it.isNotBlank() } ?: ref.id
-            CanvasKind.PHOTO -> record?.title?.takeIf { it.isNotBlank() } ?: DEFAULT_PHOTO_TITLE
+            CanvasKind.PHOTO -> record?.title?.takeIf { it.isNotBlank() } ?: strings.text(R.string.photo_default_title)
         }
     }
 }

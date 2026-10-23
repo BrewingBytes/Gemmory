@@ -21,6 +21,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.achievements.SendAchievementsWhileShown
 import com.brewingbytes.gemmory.ads.RewardTarget
 import com.brewingbytes.gemmory.ads.RewardedEvent
@@ -62,7 +64,6 @@ import com.brewingbytes.gemmory.play.PlayScreen
 import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.reminder.AskResult
 import com.brewingbytes.gemmory.reminder.NotificationPermission
-import com.brewingbytes.gemmory.reminder.ReminderAskCopy
 import com.brewingbytes.gemmory.reminder.ReminderAskSheet
 import com.brewingbytes.gemmory.reminder.ReminderTap
 import com.brewingbytes.gemmory.reminder.Reminders
@@ -202,7 +203,7 @@ class MainActivity : ComponentActivity() {
         val reminderMinutes by app.reminders.minutes.collectAsStateWithLifecycle()
         LaunchedEffect(stack.top == Route.Gallery, reminderLine) {
             if (stack.top == Route.Gallery && reminderLine) {
-                galleryNotice = ReminderAskCopy.onLine(Reminders.timeLabel(this@MainActivity, reminderMinutes))
+                galleryNotice = strings.text(R.string.reminder_on_line, Reminders.timeLabel(this@MainActivity, reminderMinutes))
                 app.reminders.onLineShown()
             }
         }
@@ -211,7 +212,7 @@ class MainActivity : ComponentActivity() {
             if (stack.top != Route.Gallery) {
                 galleryNotice = null
             } else if (n != null) {
-                galleryNotice = BillingCopy.notice(n)
+                galleryNotice = BillingCopy(strings).notice(n)
                 app.billing.noticeShown(n)
             }
         }

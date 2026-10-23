@@ -17,10 +17,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.play.RepairHow
 import com.brewingbytes.gemmory.policy.EarnSource
@@ -347,21 +350,24 @@ fun RewardedSheet(
     val picture = ui.target is RewardTarget.Picture
     val fills = ui.target is RewardTarget.Fills
     val colors = ui.target is RewardTarget.Colors
-    val title = when {
-        picture -> "Watch to unlock"
-        fills -> "More fills"
-        colors -> "More colors"
-        else -> "Another photo canvas"
-    }
+    val strings = strings()
+    val title = stringResource(
+        when {
+            picture -> R.string.watch_to_unlock
+            fills -> R.string.rewarded_fills_title
+            colors -> R.string.rewarded_colors_title
+            else -> R.string.rewarded_canvas_title
+        },
+    )
     GemSheet(title, onDismiss, returnFocusTo) {
         val phase = ui.phase
         when (phase) {
             RewardPhase.Unlocked -> {
                 Text(
                     when {
-                        fills -> "${Inventory.FILLS_PER_VIDEO} fills added"
-                        colors -> "More colors unlocked"
-                        else -> "Unlocked"
+                        fills -> strings.text(R.string.rewarded_fills_added, Inventory.FILLS_PER_VIDEO)
+                        colors -> strings.text(R.string.rewarded_colors_unlocked)
+                        else -> strings.text(R.string.rewarded_unlocked)
                     },
                     style = GemType.body,
                     color = GemColors.Bone,
@@ -370,11 +376,13 @@ fun RewardedSheet(
                 return@GemSheet
             }
             is RewardPhase.NotAvailable -> Text(
-                when (phase.kind) {
-                    Unavailable.GRACE_OFFER -> if (fills) "No video right now. These are on us today." else "No video right now. This one's on us today."
-                    Unavailable.NO_VIDEO -> "No video right now. Try again in a bit."
-                    Unavailable.OFFLINE -> "You're offline, connect to watch a video"
-                },
+                strings.text(
+                    when (phase.kind) {
+                        Unavailable.GRACE_OFFER -> if (fills) R.string.rewarded_grace_fills else R.string.video_grace
+                        Unavailable.NO_VIDEO -> R.string.video_none
+                        Unavailable.OFFLINE -> R.string.rewarded_offline
+                    },
+                ),
                 style = GemType.body,
                 // `fault` is offline wording only, and valid on sheets (design system, valid grounds).
                 color = if (phase.kind == Unavailable.OFFLINE) GemColors.Fault else GemColors.Bone,
@@ -382,10 +390,10 @@ fun RewardedSheet(
             )
             else -> Text(
                 when {
-                    picture -> "Watch a short video to unlock this picture for good."
-                    fills -> "Watch a short video for ${Inventory.FILLS_PER_VIDEO} fills. Each fills a region, the rest of a color, or a brush stroke."
-                    colors -> "Watch a short video for more colors on this photo canvas."
-                    else -> "Watch a short video for one more photo canvas. It's kept until you use it."
+                    picture -> strings.text(R.string.rewarded_picture_body)
+                    fills -> strings.text(R.string.rewarded_fills_body, Inventory.FILLS_PER_VIDEO)
+                    colors -> strings.text(R.string.rewarded_colors_body)
+                    else -> strings.text(R.string.rewarded_canvas_body)
                 },
                 style = GemType.body,
                 color = GemColors.Bone,
@@ -393,7 +401,7 @@ fun RewardedSheet(
         }
         if (ui.closedEarly && (phase == RewardPhase.Loading || phase == RewardPhase.Ready)) {
             Text(
-                "Watch to the end to unlock.",
+                stringResource(R.string.rewarded_watch_to_end),
                 style = GemType.label,
                 color = GemColors.TextMuted,
                 modifier = Modifier.padding(top = 4.dp).testTag("rewarded-closed-early"),
@@ -402,7 +410,7 @@ fun RewardedSheet(
         Spacer(Modifier.height(20.dp))
         when (phase) {
             RewardPhase.Loading -> {
-                PrimaryButton("Loading video…", {}, Modifier.fillMaxWidth().testTag("rewarded-primary"), enabled = false)
+                PrimaryButton(stringResource(R.string.video_loading), {}, Modifier.fillMaxWidth().testTag("rewarded-primary"), enabled = false)
                 // Decoration: the button already says "Loading video…", and the line's own 48dp-tall semantics bounds
                 // would overlap the button's touch target.
                 LinearProgressIndicator(
@@ -413,7 +421,7 @@ fun RewardedSheet(
             }
             RewardPhase.Ready, RewardPhase.Showing ->
                 PrimaryButton(
-                    "Watch video",
+                    stringResource(R.string.rewarded_watch),
                     onWatch,
                     Modifier.fillMaxWidth().testTag("rewarded-primary"),
                     held = phase == RewardPhase.Showing,
@@ -422,10 +430,10 @@ fun RewardedSheet(
                 Unavailable.GRACE_OFFER -> {
                     PrimaryButton(
                         when {
-                            picture -> "Unlock picture"
-                            fills -> "Get ${Inventory.FILLS_PER_VIDEO} fills"
-                            colors -> "Use more colors"
-                            else -> "Start canvas"
+                            picture -> strings.text(R.string.rewarded_grace_picture)
+                            fills -> strings.text(R.string.rewarded_grace_fills_button, Inventory.FILLS_PER_VIDEO)
+                            colors -> strings.text(R.string.rewarded_grace_colors)
+                            else -> strings.text(R.string.rewarded_grace_canvas)
                         },
                         onGrace,
                         Modifier.fillMaxWidth().testTag("rewarded-primary"),
@@ -433,20 +441,22 @@ fun RewardedSheet(
                     Spacer(Modifier.height(4.dp))
                     Centered {
                         GemTextButton(
-                            when {
-                                picture -> "Or get VIP: every gallery picture unlocked"
-                                fills -> "Or get VIP: unlimited fills"
-                                colors -> "Or get VIP: more colors on every photo"
-                                else -> "Or get VIP: unlimited photo canvases"
-                            },
+                            strings.text(
+                                when {
+                                    picture -> R.string.rewarded_vip_picture
+                                    fills -> R.string.rewarded_vip_fills
+                                    colors -> R.string.rewarded_vip_colors
+                                    else -> R.string.rewarded_vip_canvas
+                                },
+                            ),
                             onVip,
                         )
                     }
                 }
                 Unavailable.NO_VIDEO, Unavailable.OFFLINE -> {
-                    QuietButton("Try again", onTryAgain, Modifier.fillMaxWidth().testTag("rewarded-try-again"))
+                    QuietButton(stringResource(R.string.action_try_again), onTryAgain, Modifier.fillMaxWidth().testTag("rewarded-try-again"))
                     Spacer(Modifier.height(4.dp))
-                    Centered { GemTextButton("Get VIP: no videos needed", onVip) }
+                    Centered { GemTextButton(stringResource(R.string.rewarded_vip_no_videos), onVip) }
                 }
             }
             RewardPhase.Unlocked -> Unit
@@ -454,7 +464,7 @@ fun RewardedSheet(
         // An unlock token (#38) is another way in, offered under the video while nothing else is under way.
         if (picture && tokens > 0 && phase != RewardPhase.Showing) {
             Spacer(Modifier.height(8.dp))
-            QuietButton("Use an unlock token · $tokens left", onToken, Modifier.fillMaxWidth().testTag("rewarded-token"))
+            QuietButton(strings.text(R.string.rewarded_token, tokens), onToken, Modifier.fillMaxWidth().testTag("rewarded-token"))
         }
     }
 }

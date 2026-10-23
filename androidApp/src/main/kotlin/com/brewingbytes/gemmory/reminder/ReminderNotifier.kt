@@ -12,6 +12,8 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.scale
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.Frost
@@ -37,8 +39,9 @@ class ReminderNotifier(context: Context) : ReminderChannel {
     private val manager = NotificationManagerCompat.from(app)
 
     override fun ensureChannel() {
-        val channel = NotificationChannel(CHANNEL, "Evening reminder", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "One note a day about something new to play or a picture you're close to finishing."
+        val strings = app.strings
+        val channel = NotificationChannel(CHANNEL, strings.text(R.string.reminder_channel_name), NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = strings.text(R.string.reminder_channel_description)
         }
         app.getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
     }
@@ -57,7 +60,7 @@ class ReminderNotifier(context: Context) : ReminderChannel {
     fun post(post: ReminderOutcome.Post, picture: ReminderPicture?, vip: Boolean, day: Long): Boolean {
         if (!allowed()) return false
         ensureChannel()
-        val text = ReminderCopy.of(post, picture?.title, picture?.size, vip, picture?.mystery == true)
+        val text = Messages.reminder(app.strings, ReminderCopy.of(post, picture?.title, picture?.size, vip, picture?.mystery == true))
         val icon = picture?.takeIf { post.reason != ReminderReason.STREAK }?.pattern?.invoke()?.let { if (picture.mystery) frost(it) else flat(it) } ?: appIcon()
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification_gem)

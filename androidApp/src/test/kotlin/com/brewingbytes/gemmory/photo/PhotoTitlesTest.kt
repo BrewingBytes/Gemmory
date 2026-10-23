@@ -1,6 +1,6 @@
 package com.brewingbytes.gemmory.photo
 
-import java.util.Locale
+import com.brewingbytes.gemmory.copy.XmlStrings
 import java.util.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,7 +13,7 @@ class PhotoTitlesTest {
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         try {
             // 2026-10-13T12:00:00Z
-            assertEquals("My photo · 13 Oct", PhotoTitles.default(1_791_892_800_000, Locale.UK))
+            assertEquals("My photo · 13 Oct", PhotoTitles.default(XmlStrings.en, 1_791_892_800_000))
         } finally {
             TimeZone.setDefault(zone)
         }

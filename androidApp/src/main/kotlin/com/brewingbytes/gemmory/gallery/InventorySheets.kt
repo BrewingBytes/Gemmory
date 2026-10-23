@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -54,6 +55,9 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.policy.Inventory
@@ -84,7 +88,7 @@ const val INVENTORY_TAG = "gallery-inventory"
  */
 @Composable
 fun InventoryButton(spinWaiting: Boolean, onClick: () -> Unit) {
-    val label = if (spinWaiting) "Inventory, gift spin waiting" else "Inventory"
+    val label = stringResource(if (spinWaiting) R.string.inventory_spin_waiting else R.string.inventory_title)
     Box(
         Modifier
             .size(48.dp)
@@ -124,42 +128,45 @@ fun InventorySheet(
     onSpin: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    GemSheet("Inventory", onDismiss, returnFocusTo = INVENTORY_TAG) {
-        ItemRow(GemIcons.ToolRegion, state.fills, "Fills", "One fills a region, the rest of a color, or a brush stroke.", "inventory-fills")
-        ItemRow(GemIcons.PhotoCanvas, state.canvases, "Photo canvases", "For a photo after today's free one. Kept until you use them.", "inventory-canvases")
-        ItemRow(GemIcons.Token, state.tokens, "Unlock tokens", "Opens any locked picture for good.", "inventory-tokens")
+    val strings = strings()
+    GemSheet(stringResource(R.string.inventory_title), onDismiss, returnFocusTo = INVENTORY_TAG) {
+        ItemRow(GemIcons.ToolRegion, state.fills, stringResource(R.string.inventory_fills), stringResource(R.string.inventory_fills_body), "inventory-fills")
+        ItemRow(GemIcons.PhotoCanvas, state.canvases, stringResource(R.string.inventory_canvases), stringResource(R.string.inventory_canvases_body), "inventory-canvases")
+        ItemRow(GemIcons.Token, state.tokens, stringResource(R.string.inventory_tokens), stringResource(R.string.inventory_tokens_body), "inventory-tokens")
         ItemRow(
             GemIcons.Freeze,
             state.freezes,
-            "Streak freezes",
-            "Covers a missed day after your day off. Hold up to ${Inventory.MAX_FREEZES}.",
+            stringResource(R.string.inventory_freezes),
+            strings.text(R.string.inventory_freezes_body, Inventory.MAX_FREEZES),
             "inventory-freezes",
         )
         Spacer(Modifier.height(12.dp))
         if (state.spinsWaiting > 0) {
-            PrimaryButton(spinLabel(state.spinsWaiting), onSpin, Modifier.fillMaxWidth().testTag("inventory-spin"))
+            PrimaryButton(spinLabel(strings, state.spinsWaiting), onSpin, Modifier.fillMaxWidth().testTag("inventory-spin"))
             Spacer(Modifier.height(8.dp))
-            QuietButton(watchLabel(), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
+            QuietButton(watchLabel(strings), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
         } else {
-            PrimaryButton(watchLabel(), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
+            PrimaryButton(watchLabel(strings), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
             Spacer(Modifier.height(16.dp))
             NextGift(streak, tag = "inventory-next-gift")
         }
     }
 }
 
-internal fun watchLabel() = "Watch a video: +${Inventory.FILLS_PER_VIDEO} fills"
+internal fun watchLabel(s: Strings) = s.text(R.string.inventory_watch, Inventory.FILLS_PER_VIDEO)
 
-internal fun spinLabel(waiting: Int) = if (waiting > 1) "Spin for your gift ($waiting waiting)" else "Spin for your ${Inventory.SPIN_EVERY}-day gift"
+internal fun spinLabel(s: Strings, waiting: Int) =
+    if (waiting > 1) s.text(R.string.inventory_spin_several, waiting) else s.text(R.string.inventory_spin, Inventory.SPIN_EVERY)
 
 @Composable
 private fun ItemRow(icon: ImageVector, count: Int, name: String, body: String, tag: String) {
+    val description = strings().text(R.string.inventory_item, name, count, body)
     Row(
         Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .testTag(tag)
-            .clearAndSetSemantics { contentDescription = "$name: $count. $body" },
+            .clearAndSetSemantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -197,18 +204,18 @@ private val SEGMENTS = listOf(
  * "5 fills", "1 photo canvas", "1 unlock token", "Streak freeze"; the freeze slice reads "5 fills" while
  * [freezesFull] (#102, E7: at 2 held it pays fills).
  */
-internal fun WheelPrize.label(freezesFull: Boolean = false): String = when (item) {
-    Item.FILLS -> "$amount fills"
-    Item.PHOTO_CANVAS -> "$amount photo canvas"
-    Item.UNLOCK_TOKEN -> "$amount unlock token"
-    Item.STREAK_FREEZE -> if (freezesFull) "${Inventory.FILLS_PER_VIDEO} fills" else "Streak freeze"
+internal fun WheelPrize.label(s: Strings, freezesFull: Boolean = false): String = when (item) {
+    Item.FILLS -> s.plural(R.plurals.prize_fills, amount, amount)
+    Item.PHOTO_CANVAS -> s.plural(R.plurals.prize_photo_canvases, amount, amount)
+    Item.UNLOCK_TOKEN -> s.plural(R.plurals.prize_unlock_tokens, amount, amount)
+    Item.STREAK_FREEZE -> if (freezesFull) s.plural(R.plurals.prize_fills, Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO) else s.text(R.string.prize_streak_freeze)
 }
 
 /** "5 fills added to your inventory." / "A streak freeze added to your inventory." */
-internal fun Spin.result(): String = when (item) {
-    Item.STREAK_FREEZE -> "A streak freeze added to your inventory."
-    Item.FILLS -> "$amount fills added to your inventory."
-    else -> "${prize.label().replaceFirstChar(Char::uppercase)} added to your inventory."
+internal fun Spin.result(s: Strings): String = when (item) {
+    Item.STREAK_FREEZE -> s.text(R.string.prize_added_freeze)
+    Item.FILLS -> s.plural(R.plurals.prize_added_fills, amount, amount)
+    else -> s.text(R.string.prize_added, prize.label(s).replaceFirstChar { it.titlecase(s.locale) })
 }
 
 /** Where [prize]'s segment's middle is, in degrees clockwise from the top. */
@@ -265,7 +272,9 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
         }
     }
 
-    GemSheet("Your gift", onDismiss, returnFocusTo = INVENTORY_TAG) {
+    val strings = strings()
+    val wheelDescription = strings.text(R.string.wheel_description, odds(strings, full))
+    GemSheet(stringResource(R.string.wheel_title), onDismiss, returnFocusTo = INVENTORY_TAG) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Wheel(
                 rotation.value,
@@ -274,7 +283,7 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
                     .padding(top = 12.dp)
                     .size(220.dp)
                     .testTag("wheel")
-                    .clearAndSetSemantics { contentDescription = "Gift wheel. ${odds(full)}" },
+                    .clearAndSetSemantics { contentDescription = wheelDescription },
             )
             // The pointer, over the wheel's top edge.
             Canvas(Modifier.size(20.dp, 16.dp)) {
@@ -294,14 +303,14 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
             for ((prize, color) in SEGMENTS) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clearAndSetSemantics {}) {
                     Box(Modifier.size(9.dp).clip(RoundedCornerShape(2.dp)).background(color))
-                    Text(" ${prize.label(full)} ${prize.percent}%", style = GemType.label, color = GemColors.TextMuted)
+                    Text(" " + strings.text(R.string.wheel_odd, prize.label(strings, full), prize.percent), style = GemType.label, color = GemColors.TextMuted)
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
         val result = won?.takeIf { !spinning }
         Text(
-            result?.result() ?: "",
+            result?.result(strings) ?: "",
             style = GemType.body,
             color = GemColors.Bone,
             modifier = Modifier
@@ -312,7 +321,7 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
         Spacer(Modifier.height(12.dp))
         if (left > 0 || spinning) {
             PrimaryButton(
-                "Spin",
+                stringResource(R.string.wheel_spin),
                 {
                     if (spinning) return@PrimaryButton
                     label.spinStarted(latestFull)
@@ -345,7 +354,7 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
                 held = spinning,
             )
         } else {
-            QuietButton("Done", onDismiss, Modifier.fillMaxWidth().testTag("wheel-done"))
+            QuietButton(stringResource(R.string.action_done), onDismiss, Modifier.fillMaxWidth().testTag("wheel-done"))
         }
     }
 }
@@ -378,8 +387,8 @@ internal class FreezeLabel(full: Boolean) {
     }
 }
 
-internal fun odds(freezesFull: Boolean = false): String =
-    WheelPrize.entries.joinToString(", ") { "${it.label(freezesFull)} ${it.percent}%" }
+internal fun odds(s: Strings, freezesFull: Boolean = false): String =
+    WheelPrize.entries.joinToString(s.text(R.string.list_separator)) { s.text(R.string.wheel_odd, it.label(s, freezesFull), it.percent) }
 
 @Composable
 private fun Wheel(rotation: Float, freezesFull: Boolean, modifier: Modifier) {
