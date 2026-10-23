@@ -28,8 +28,9 @@ import kotlin.math.roundToInt
 
 /**
  * The 9:16 time-lapse frame (design system, 9:16 time-lapse frame), drawn at 1080×1920 and scaled by width for
- * smaller targets: the canvas at full width under a 36px top margin, over a band made of the finished canvas
- * blurred and darkened, with the title, the app line and the watermark row.
+ * smaller targets: the canvas at full width under a 36px top margin ([FrameLayout]; the founder clip tool's 4:5 fits
+ * it above the text instead, T47), over a band made of the finished canvas blurred and darkened, with the title, the
+ * app line and the watermark row.
  *
  * Built once per attempt. The canvas lives in one bitmap that starts as the empty tint grid and gets each frame's
  * new gems drawn onto it, so a whole video costs O(gems + frames) draws (eng finding 12).
@@ -37,17 +38,16 @@ import kotlin.math.roundToInt
 class FrameArt(context: Context, private val request: EncodeRequest, val width: Int, val height: Int) {
     private val style = FrameStyle(context, width)
     private val pattern = request.pattern
-    private val boardTop = style.px(BOARD_TOP)
-    private val boardHeight = (width.toLong() * pattern.height / pattern.width).toInt()
-    private val painter = GemRenderer.GemPainter(pattern, width, boardHeight)
-    private val board: Bitmap = createBitmap(width, boardHeight)
+    private val layout = FrameLayout.board(width, height, pattern.width, pattern.height)
+    private val painter = GemRenderer.GemPainter(pattern, layout.width, layout.height)
+    private val board: Bitmap = createBitmap(layout.width, layout.height)
     private val boardCanvas = Canvas(board)
     private val chrome: Bitmap = createBitmap(width, height)
-    private val photo: Bitmap? = request.source?.let { decodeSource(it, width, boardHeight) }
+    private val photo: Bitmap? = request.source?.let { decodeSource(it, layout.width, layout.height) }
     private var drawn = 0
 
-    /** The canvas's place in the frame. */
-    val boardRect = Rect(0, boardTop, width, boardTop + boardHeight)
+    /** The canvas's place in the frame ([FrameLayout]: full width in 9:16, fitted above the text in 4:5). */
+    val boardRect = Rect(layout.left, layout.top, layout.right, layout.bottom)
 
     /** The static frame behind the canvas: band, title, app line and watermark row. */
     val background: Bitmap get() = chrome
@@ -62,7 +62,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         for (cell in pattern.cells.indices) painter.drawCell(boardCanvas, cell, isPlaced = false)
         val c = Canvas(chrome)
         style.drawBand(c, pattern, height)
-        style.drawText(c, request.title, boardTop + boardHeight, height, request.watermark, request.progressLine)
+        style.drawText(c, request.title, layout.bottom, height, request.watermark, request.progressLine)
     }
 
     /**
@@ -92,8 +92,6 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     }
 
     companion object {
-        const val BOARD_TOP = 36
-
         /** The cropped source at the canvas's size; null if it's missing or unreadable (the intro is then tints only). */
         fun decodeSource(file: File, width: Int, height: Int): Bitmap? {
             if (!file.isFile) return null

@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import java.util.Properties
 
 plugins {
@@ -218,3 +219,27 @@ tasks.matching { it.name == "bundleRelease" }.configureEach { finalizedBy("uploa
 // Real ads (T34): a release can never ship with test ads or no ads. Hung on the release variant's first task, so
 // bundleRelease and assembleRelease fail in seconds, before R8; debug builds and connected tests never run it.
 tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(":shared:validateReleaseAdIds") }
+
+// The founder clip tool (T47) lives in src/debug: the release merged manifest must not name it. Hung on the App Bundle,
+// so the verification line's bundleRelease runs it.
+abstract class CheckNoClipsTask : DefaultTask() {
+    @get:InputFile
+    abstract val manifest: RegularFileProperty
+
+    @TaskAction
+    fun check() {
+        val file = manifest.get().asFile
+        if ("Clips" in file.readText()) throw GradleException("The release manifest names the debug Clips screen (T47): $file")
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        tasks.register<CheckNoClipsTask>("checkReleaseManifestNoClips") {
+            group = "verification"
+            description = "Fails when the release merged manifest names the debug Clips screen (T47)."
+            manifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
+        }
+    }
+}
+tasks.matching { it.name == "bundleRelease" || it.name == "assembleRelease" }.configureEach { dependsOn("checkReleaseManifestNoClips") }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- The founder clip tool (T47): debug builds only; bundleRelease checks the release manifest has no Clips. -->
+        <activity
+            android:name=".clips.ClipsActivity"
+            android:exported="false"
+            android:label="Clips" />
+    </application>
+</manifest>

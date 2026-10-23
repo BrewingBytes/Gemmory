@@ -61,7 +61,7 @@ const val PRIVACY_POLICY_URL = "https://github.com/BrewingBytes/Gemmory/blob/mai
  * Settings (design system, Settings): Sound, Haptics, Music and Music volume (T42), Milestones (#35), Reminders and Reminder time (T35),
  * Selected color (#19, opens its sheet),
  * Achievements (#49, only where Play Games can run), Membership, Manage subscription (VIP only, opens Play), Restore purchases, Privacy choices (only when UMP says
- * privacy options are required, design D3), Delete all photo canvases, Privacy policy, Version. [onMembership] opens the paywall, or Play's subscription page for VIP.
+ * privacy options are required, design D3), Delete all photo canvases, Privacy policy, Clips (debug builds only, T47), Version. [onMembership] opens the paywall, or Play's subscription page for VIP.
  */
 @Composable
 fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
@@ -212,6 +212,8 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) { Text("Privacy policy", style = GemType.body, color = GemColors.Bone) }
+            // Debug builds only: the founder clip tool (T47). Release builds have an empty stub.
+            DebugRows()
             Row(
                 Modifier
                     .fillMaxWidth()
