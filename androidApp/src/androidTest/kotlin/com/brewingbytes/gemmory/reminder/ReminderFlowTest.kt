@@ -25,6 +25,7 @@ import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.gallery.TODAY_TAG
+import com.brewingbytes.gemmory.gallery.seedFirstFinish
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.ReminderSchedule
@@ -91,6 +92,8 @@ class ReminderFlowTest {
     @Before
     fun setUp() {
         clearState()
+        // T45 (DR4): the Today card and the Tomorrow line wait for the player's first finish.
+        app.seedFirstFinish()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)

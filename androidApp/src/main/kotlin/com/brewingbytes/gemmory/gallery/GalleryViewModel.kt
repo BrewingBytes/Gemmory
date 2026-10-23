@@ -349,10 +349,15 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             val monetization = app.monetization
             val unlocked = monetization.unlocks.unlocked.value
             val entitlements = monetization.entitlements.value
-            val today = todayCard(pictures, tiles.first, unlocked, entitlements.vip)
+            // The day's pick is made either way; the card and the Tomorrow line wait for the player's first finish, so
+            // the starter is the first thing a stranger sees (T45, DR4). Once past it, always past it: the ledger (backed
+            // up) remembers a finish that Play again, Start over or a deleted photo took off the grid.
+            // A share-link player's exception comes with T50.
+            val anyFinished = tiles.first.any { it.done } || tiles.second.any { it.done } || app.achievements.finishes > 0
+            val today = todayCard(pictures, tiles.first, unlocked, entitlements.vip)?.takeIf { anyFinished }
             val todayFree = if (entitlements.vip) emptySet() else app.todays.freeToday()
             val ordered = picturesInOrder(tiles.first.filterNot { it.done }, unlocked, entitlements, todayFree)
-            val tomorrow = withContext(Dispatchers.IO) { tomorrowFrost() }
+            val tomorrow = if (anyFinished) withContext(Dispatchers.IO) { tomorrowFrost() } else null
             val snapshot = app.streakView.refresh()
             val at = nudgeAt(snapshot, today, tiles.first, tiles.second)
             pointing = at

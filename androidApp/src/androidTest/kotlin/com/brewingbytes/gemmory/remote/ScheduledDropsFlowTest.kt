@@ -26,6 +26,7 @@ import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.gallery.GalleryViewModel
 import com.brewingbytes.gemmory.gallery.NEW_TODAY_TAG
 import com.brewingbytes.gemmory.gallery.TODAY_TAG
+import com.brewingbytes.gemmory.gallery.seedFirstFinish
 import com.brewingbytes.gemmory.gallery.TOAST_TAG
 import com.brewingbytes.gemmory.gallery.TOMORROW_TAG
 import com.brewingbytes.gemmory.gallery.Tile
@@ -100,6 +101,8 @@ class ScheduledDropsFlowTest {
     @Before
     fun setUp() {
         clearState()
+        // T45 (DR4): the Today card and the Tomorrow line wait for the player's first finish.
+        app.seedFirstFinish()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         setClock(eve, LocalTime(23, 59, 50))
         app.testNowMillis = { base + SystemClock.elapsedRealtime() - since }

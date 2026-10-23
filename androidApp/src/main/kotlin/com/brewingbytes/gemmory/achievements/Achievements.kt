@@ -63,6 +63,11 @@ class Achievements(
         if (earned) _changes.value++
     }
 
+    /** Play Games just started (T45): a Gallery or Settings that's showing sends what waited in the ledger. */
+    fun resend() {
+        _changes.value++
+    }
+
     /**
      * The one-time count from the phone (founder, 2026-10-18). Call it first, at app start: [read] runs only when it
      * never ran, and events wait for it.

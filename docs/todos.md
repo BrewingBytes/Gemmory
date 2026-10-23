@@ -36,16 +36,6 @@
 
 ## Platform
 
-### Play Games only at the first foreground in release builds
-- **What:** Remove the Play Games SDK's `PlayGamesInitProvider` from release builds too, so `PlayGamesSdk.initialize` runs only from `PlayGamesBackend` at the first foreground.
-- **Why:** The provider initializes Play Games at every process start, background ones included (reminder alarm, reboot, update), which round-2 eng D11 says shouldn't happen. Debug builds already drop it (#113).
-- **Pros:** Background starts do what D11 says; one start path for Play Games.
-- **Cons:** It moves when automatic sign-in can first run in production, which only a release-signed phone signed in to Play Games can check.
-- **Context:** Found on 2026-10-21 while fixing the Test Lab frame-timing overlay (#113); release was left alone because it couldn't be verified then.
-- **Effort estimate:** human S / CC S
-- **Priority:** P3
-- **Depends on / blocked by:** a release-signed build on a phone with Play Games (closed testing) to confirm sign-in and achievements still work.
-
 ### Cloud save through Play Games Saved Games (round 3, D3)
 - **What:** Sync non-photo progress (bundled and remote canvases, unlocks, inventory, the streak) between a player's devices through Play Games Services v2 Saved Games (snapshots), with merge rules that can never duplicate an inventory item or a streak day. Photo canvases never leave the phone.
 - **Why:** The category's top complaint is "no cloud sync"; Android Auto Backup already restores the same data on a new phone, but not live between two devices or when backup is off or stale.

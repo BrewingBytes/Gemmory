@@ -16,8 +16,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
- * The Play Games Services v2 SDK (#49). Sign-in v2 is automatic: [PlayGamesSdk.initialize] at app start signs the
- * player in when it can, with nothing for the app to show. Every failure is silent (null / false): the ledger keeps
+ * The Play Games Services v2 SDK (#49). Sign-in v2 is automatic: [PlayGamesSdk.initialize], here at construction,
+ * signs the player in when it can, and may show Google's own profile sheet, so the app constructs this only at Play
+ * Games' turn (T45: after the first finish, on a later gallery visit; no init provider in any build). Every failure is silent (null / false): the ledger keeps
  * what wasn't confirmed for the next time.
  */
 class PlayGamesBackend(context: Context, projectId: String, private val reporter: NonFatalReporter) : GamesBackend {
