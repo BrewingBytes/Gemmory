@@ -64,6 +64,10 @@ class PlayReferrerClient(context: Context) : ReferrerClient {
                                 ReferrerAnswer.Ok(client.installReferrer.installReferrer)
                             } catch (e: RemoteException) {
                                 ReferrerAnswer.Failed(InstallReferrerResponse.SERVICE_DISCONNECTED)
+                            } catch (e: RuntimeException) {
+                                // The 2 s timeout can end the connection between the check above and this call
+                                // ("Service not connected"), or the binder can refuse it: no referrer, never a crash.
+                                ReferrerAnswer.Failed(InstallReferrerResponse.SERVICE_DISCONNECTED)
                             }
                         } else {
                             ReferrerAnswer.Failed(code)

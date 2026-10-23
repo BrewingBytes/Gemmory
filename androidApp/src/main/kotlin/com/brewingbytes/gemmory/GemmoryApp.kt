@@ -233,6 +233,7 @@ class GemmoryApp : Application() {
         private set
 
     lateinit var consent: ConsentManager
+        private set
 
     /** The launch funnel (T46): a fresh install's `first_launch`, `first_gem` and install referrer. */
     lateinit var firstRun: FirstRun
@@ -745,6 +746,9 @@ class GemmoryApp : Application() {
         firstRun.onFirstForeground(dayClock.nowMillis())
         appScope.launch {
             consent.launchSettled.first { it }
+            // The settled choice reaches Firebase first: the main-thread collector below may not have run yet, and an
+            // event sent while onCreate's not-yet-answered mode is applied would be dropped (and never retried).
+            analytics.consent(consent.consentMode.value)
             if (firstRun.launchDue()) analytics.log(AnalyticsEvent.firstLaunch)
         }
         monetization.onProcessStart()
