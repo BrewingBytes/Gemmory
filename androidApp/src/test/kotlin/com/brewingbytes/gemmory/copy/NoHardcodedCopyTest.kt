@@ -80,6 +80,8 @@ class NoHardcodedCopyTest {
             "No space left",
             // PhotoTitles: a date pattern, formatted in the app's language.
             "d MMM",
+            // Reminders: a time skeleton ("Hm" / "hm"), formatted in the app's language.
+            "Hm",
             // RemotePictures: a non-fatal report's reason.
             "disk full",
             "write failed",

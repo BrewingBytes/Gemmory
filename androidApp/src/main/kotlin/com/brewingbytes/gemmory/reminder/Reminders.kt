@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.reminder
 
 import android.content.Context
 import android.text.format.DateFormat
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.policy.ReminderAsk
 import com.brewingbytes.gemmory.policy.ReminderAskState
 import com.brewingbytes.gemmory.telemetry.Analytics
@@ -9,6 +10,7 @@ import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.text.SimpleDateFormat
 import java.util.Calendar
 
 /** How the reminder ask ended (`reminder_prompt_result`). */
@@ -122,13 +124,18 @@ class Reminders(
     }
 
     companion object {
-        /** "20:30", or "8:30 PM" on a phone set to 12-hour time (design system, Reminder time sheet). */
+        /**
+         * "20:30", or "8:30 PM" on a phone set to 12-hour time (design system, Reminder time sheet), in the app's
+         * language (T48, eng O-E4): what `DateFormat.getTimeFormat` does, with the shown language for the phone's.
+         */
         fun timeLabel(context: Context, minutes: Int): String {
             val at = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, minutes / 60)
                 set(Calendar.MINUTE, minutes % 60)
             }
-            return DateFormat.getTimeFormat(context).format(at.time)
+            val locale = context.strings.locale
+            val pattern = DateFormat.getBestDateTimePattern(locale, if (DateFormat.is24HourFormat(context)) "Hm" else "hm")
+            return SimpleDateFormat(pattern, locale).format(at.time)
         }
     }
 }

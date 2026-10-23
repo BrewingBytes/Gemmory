@@ -52,6 +52,7 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-24 (#135): copy tests run against the real `res/values/strings.xml` through `XmlStrings` (androidApp `src/test/.../copy/`): it parses the file from disk, maps `R.string` ids to names by reflection and formats with `java.util.Formatter`, so a JVM test pins the English with no Robolectric. It refuses strings it doesn't model (leading or trailing spaces, quoted strings): a space at either end goes in as ` `. A scripted edit can turn that ` ` into a real space (it happened once here); check the file after one.
 - 2026-10-24 (#135): in `Configuration(...).apply { setLocale(locale) }`, `locale` is the Configuration's own deprecated field, not an outer property of the same name; the only hint is the deprecation warning. Copy the outer value to a local first.
 - 2026-10-24 (#135): for an English pixel diff of two builds, `PixelPins` (androidTest `app/`) pins the day, an offline remote catalog and the demo-mode status bar, and each build's captures run on a clean install (uninstall both packages first). SystemUI's demo mode still differs between runs (repeated wifi icons, or the real clock in a later test), so diff below the status bar (the top 140 px on these displays) and say so.
+- 2026-10-24 (#135): `PlayStreakTest.aBrokenStreakShowsNothing` fails on main too (0.8.3 (19), gemmory_pixel, run alone at load ~4): a 5-day streak last played 3 days ago still shows the chip. Compare with main before calling it a regression.
 
 ## CI
 
