@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -20,7 +21,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.PictureUnlocks
+import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.bundled.BundledPictures
@@ -62,6 +65,27 @@ class StoreScreenshots {
     /** `-e storeDisplay tablet`: a 16:9 landscape tablet (2560x1440 at 320dpi, 1280x720dp) for the tablet listing. */
     private val tablet = InstrumentationRegistry.getArguments().getString("storeDisplay") == "tablet"
 
+    /** No real AdMob: an interstitial after Done would cover the screens being captured. */
+    private object NoAds : AdGateway {
+        override val sdkReady = true
+
+        override fun online() = true
+
+        override suspend fun ensureConsent(activity: Activity) = true
+
+        override suspend fun start() = Unit
+
+        override fun preloadRewarded() = Unit
+
+        override suspend fun loadRewarded() = RewardedLoad.Loaded
+
+        override fun showRewarded(activity: Activity, onEarned: () -> Unit, onClosed: (shown: Boolean) -> Unit) = false
+
+        override fun preloadInterstitial() = Unit
+
+        override fun showInterstitial(activity: Activity, onShown: () -> Unit) = false
+    }
+
     @Before
     fun setUp() {
         // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
@@ -86,24 +110,16 @@ class StoreScreenshots {
         } else {
             A11yTestSupport.shell("wm size 1080x1920")
         }
-        A11yTestSupport.shell("settings put global sysui_demo_allowed 1")
-        for (cmd in listOf(
-            "-e command enter",
-            "-e command clock -e hhmm 1000",
-            "-e command battery -e level 100 -e plugged false",
-            "-e command network -e wifi show -e level 4 -e fully true",
-            "-e command network -e mobile hide",
-            "-e command notifications -e visible false",
-        )) {
-            A11yTestSupport.shell("am broadcast -a com.android.systemui.demo $cmd")
-        }
+        // A fixed day, no remote catalog, no real ads and a demo-mode status bar (T48's R1 pixel diff).
+        PixelPins.pin(app)
+        app.resetMonetizationForTest(NoAds)
     }
 
     @After
     fun tearDown() {
         app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
-        A11yTestSupport.shell("am broadcast -a com.android.systemui.demo -e command exit")
+        PixelPins.unpin(app)
         A11yTestSupport.shell("wm size reset")
         A11yTestSupport.shell("wm density reset")
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
