@@ -9,8 +9,11 @@ data class EncodeTarget(val width: Int, val height: Int, val fps: Int = FramePla
     /** AVC bitrate for this size. */
     val bitrate: Int get() = if (width >= 1080) 8_000_000 else 4_000_000
 
-    /** Free space an attempt needs before it starts: the 15 s video at [bitrate], plus half again for the muxer. */
-    val neededBytes: Long get() = bitrate.toLong() * FramePlan.DURATION_US / 8_000_000 * 3 / 2
+    /**
+     * Free space an attempt needs before it starts: the longest video (16.8 s with the end card) at [bitrate], plus
+     * half again for the muxer.
+     */
+    val neededBytes: Long get() = bitrate.toLong() * FramePlan.MAX_DURATION_US / 8_000_000 * 3 / 2
 
     companion object {
         val FULL_HD = EncodeTarget(1080, 1920)

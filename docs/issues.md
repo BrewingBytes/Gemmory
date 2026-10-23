@@ -4,7 +4,7 @@ Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decis
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
 Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
-Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)).
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)). After round 3's planning: #144 (clip store CTA, founder request after T47, no T-number) and T53 = #145 (share video ad, from T50's /plan-design-review), both on 2026-10-23, at the end.
 
 ---
 
@@ -1256,6 +1256,8 @@ Labels: P2, timelapse
 
 **Scope (when opened):** a ≤7 s cut whose first frame is already striking (the finished picture, or the photo turning into gems for a photo canvas), the app name and "on Google Play" burned into the frames; the same encoder, no new save or grid format. Whether it's a player-facing "Share to feeds" choice or a second file is decided then.
 
+**Scope trim (2026-10-23, T50 design review D5):** T53 (#145) now burns the app name and Google's Play badge into every frame of the player's share and adds the end card, so if T51 opens it is only the ≤7 s feed cut.
+
 Depends on: the posting test; T47 for the founder's clips. Effort: human ~2d / CC ~1.5h.
 
 ---
@@ -1276,3 +1278,42 @@ Labels: P2, game
 **Done when:** the prompt follows its finish rules in every build with no catalog switch, and old catalogs still verify.
 
 Depends on: none (ships in wave 2). Effort: human ~0.5d / CC ~30min.
+
+---
+
+## T53: Share video ad: Gemmory row and end card on the player's share
+Labels: P2, timelapse, ui. GitHub #145.
+
+**Why:** the player's shared time-lapse is our best ad, but it carried only a small "Made with Gemmory" line, so a friend who watches it doesn't learn where to get the app. From T50's /plan-design-review (founder, 2026-10-23, D1-D5); approved mock `docs/designs/mockups/share-video-ad/` (video `share-video-mock-fit.mp4`, animated `video.html`).
+
+**Scope**
+- **D1:** a Gemmory row on every frame of a non-VIP share: the app icon, "Gemmory" (Bricolage 600 44px), "Your photos in gems" (Figtree 28px, 80%), Google's official "Get it on Google Play" badge at the right (336×130 incl. its clear space, the file unchanged), on a 150px `scrim` band at 55%. It replaces "Made with Gemmory".
+- **D2/D3:** no zoom, no pan: the whole picture at full width, centered in the area above the row (lifted 140px); the title and app line over a dark fade (`scrim` 0 → 78% across 420px) at the bottom of that area. The band behind is unchanged.
+- **End card:** after the 2 s hold it fades in over 0.3 s and holds to 1.8 s: on the band at ~30%, the picture (fitted in 760px, shadowed), the icon at 180px, "Gemmory" 104px, "Your photos in gems" 44px, the badge at 520px. `FramePlan` 450 → 504 frames.
+- **D4:** VIP gets neither the row nor the end card ("No watermark on your videos" stays).
+- The PNG fallback and the progress share follow (a progress share's end card shows the canvas as it stands, founder pick). The founder clips keep the old frame until #144.
+- T48/T49 translate "Your photos in gems" and use the localized badge per language.
+
+**Tests:** `ShareLayoutTest` (every grid ratio, pinned rects; replaces T47's "9:16 share unchanged", R1 changed on purpose), `FramePlanTest` (504, fade, hold), `EncodeManagerTest` (frame version in the cache key), connected `ShareFrameRenderTest` (row, card, VIP, progress, PNG), `TimelapseEncoderSmokeTest` (504; VIP 450), R1 for the clips (framemd5 main vs branch), Test Lab encoder smoke.
+
+**Done when:** a non-VIP share shows the row with the official badge throughout and ends on the end card; VIP shows neither; the fallback PNG and the progress share match; the founder clips are unchanged.
+
+Depends on: T50 (#137). Related: #144, T51 (#138). Effort: human ~2d / CC ~1.5-2h.
+
+---
+
+## #144: Clip store CTA: Gemmory lockup, end card and hook on founder clips
+Labels: P2, timelapse, ui. No T-number (founder request after T47, 2026-10-23).
+
+**Why:** the clips the founder posts on TikTok, Reels and Shorts (T51's posting test) show the app's name but not where to get it, and feeds drop links from captions; "Made with Gemmory" sits in the strip the feeds' overlays cover.
+
+**Design** (/plan-design-review 2026-10-23, mockup `~/.gstack/projects/Gemmory/designs/clip-cta-20261023/`, Round 2; copied to `docs/designs/mockups/clip-cta/` in its PR):
+- **C2:** an icon lockup ("Gemmory" / "Free on **Google Play**", our own art, no Google badge) with its bottom at the safe area's bottom (y 1440), the title above it, the canvas above the title. Safe area x 60-940, y 250-1440.
+- **E2b:** an end card on the blurred band (darkened a further 20%): the finished canvas, the lockup, "Turn any photo into gem art", centered.
+- **H1:** 0.5 s of the finished canvas first. A clip is 18 s, 540 frames; the 4:5 cut gets the same.
+
+**Scope:** the debug Clips screen's 9:16 and 4:5 videos only; the stills keep their T47 look. Since T53 (#145) merged first, the clips draw `ShareFrame.CLIP` (the pre-T53 frame, `FrameLayout`), so #144 replaces that path and leaves the player's `ShareLayout` frame byte-identical (R1).
+
+**Done when:** a founder clip opens on the finished picture, shows the lockup through the build inside the safe area, and ends on the E2b card; the player's share is unchanged.
+
+Depends on: T47 (#134, merged). Related: T51 (#138), T53 (#145).

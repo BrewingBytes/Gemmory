@@ -70,4 +70,43 @@ class FramePlanTest {
         val plan = FramePlan(0, photoIntro = false)
         assertTrue((30 until 390).all { (plan.frame(it) as Frame.Build).placed == 0 })
     }
+
+    @Test
+    fun theEndCardAddsOnePointEightSecondsAfterTheHold() {
+        val plan = FramePlan(768, photoIntro = false, endCard = true)
+        assertEquals(504, plan.frameCount)
+        assertEquals(16_800_000L, plan.durationUs)
+        assertEquals(16_800_000L, FramePlan.MAX_DURATION_US)
+        val kinds = (0 until 504).map { plan.frame(it)::class }
+        assertEquals(
+            List(30) { Frame.Intro::class } + List(360) { Frame.Build::class } + List(60) { Frame.Hold::class } + List(54) { Frame.EndCard::class },
+            kinds,
+        )
+        assertEquals(15_000_000L, plan.presentationTimeUs(450), "the card starts after the 2 s hold")
+        assertEquals(768, plan.placedAt(503), "the card's canvas is the whole log")
+    }
+
+    @Test
+    fun theEndCardFadesInOverItsFirstNineFramesThenHolds() {
+        val plan = FramePlan(768, photoIntro = false, endCard = true)
+        val alphas = (450 until 504).map { (plan.frame(it) as Frame.EndCard).alpha }
+        assertEquals(1f / 9, alphas.first())
+        assertTrue(alphas.zipWithNext().all { (a, b) -> b >= a })
+        assertTrue(alphas.take(8).all { it < 1f })
+        assertTrue(alphas.drop(8).all { it == 1f }, "fully in by frame 458, then held")
+    }
+
+    @Test
+    fun withoutTheEndCardThePlanIsTheFifteenSecondOne() {
+        val plan = FramePlan(768, photoIntro = true, endCard = false)
+        assertEquals(450, plan.frameCount)
+        assertEquals(FramePlan.DURATION_US, plan.durationUs)
+        assertEquals(Frame.Hold, plan.frame(449))
+    }
+
+    @Test
+    fun aProgressShareEndCardShowsTheCanvasAsItStands() {
+        val plan = FramePlan(300, photoIntro = false, endCard = true)
+        assertEquals(300, plan.placedAt(503))
+    }
 }

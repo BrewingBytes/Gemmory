@@ -184,7 +184,7 @@ class EncodeManager(
             post(ref, job, EncodeState.Video(video))
             return
         }
-        post(ref, job, EncodeState.Running(0, FramePlan.TOTAL_FRAMES))
+        post(ref, job, EncodeState.Running(0, FramePlan(request.log.size, photoIntro = false, endCard = request.endCard).frameCount))
         val marker = if (request.inProgress) progressMarkerOf(ref) else markerOf(ref)
         val started = nowNanos()
         try {

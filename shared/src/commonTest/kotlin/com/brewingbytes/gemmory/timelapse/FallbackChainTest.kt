@@ -140,10 +140,10 @@ class FallbackChainTest {
 
     @Test
     fun tooLittleSpaceFor1080SkipsTo720Silently() {
-        // 15 MB free: 1080 needs ~22.5 MB, 720 ~11.25 MB.
+        // 15 MB free: 1080 needs ~25.2 MB, 720 ~12.6 MB.
         val backend = FakeBackend(free = 15_000_000)
-        assertEquals(22_500_000, EncodeTarget.FULL_HD.neededBytes)
-        assertEquals(11_250_000, EncodeTarget.HD.neededBytes)
+        assertEquals(25_200_000, EncodeTarget.FULL_HD.neededBytes)
+        assertEquals(12_600_000, EncodeTarget.HD.neededBytes)
         assertEquals(ChainOutcome.Video(EncodeTarget.HD), run(backend))
         assertEquals(listOf("probe 720x1280@30", "encode 720x1280@30"), backend.calls)
         assertTrue(reports.isEmpty(), "not enough room for a size is a skip, not a failure")

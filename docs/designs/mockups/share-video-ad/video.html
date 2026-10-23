@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Share Video Mock</title>
+<style>
+@font-face { font-family: Bricolage; src: url(bricolage_grotesque.ttf); font-weight: 200 800; }
+@font-face { font-family: Figtree; src: url(figtree.ttf); font-weight: 300 900; }
+:root { --bg: #1b1f1c; --text: #F2EEE4; --muted: #b8b2a4; --lamp: #E8B04A; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Figtree, sans-serif; }
+main { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px; }
+canvas { height: min(86vh, 960px); aspect-ratio: 9 / 16; max-width: calc(100vw - 32px); border-radius: 10px; box-shadow: 0 10px 40px #000a; background: #000; }
+.bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+button { font: 600 15px Figtree; background: #2B3A33; color: var(--text); border: 1px solid #44544b; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+button.on { border-color: var(--lamp); color: var(--lamp); }
+small { color: var(--muted); }
+</style></head>
+<body><main>
+<canvas id="c" width="1080" height="1920"></canvas>
+<div class="bar">
+  <button id="play">Pause</button>
+  <button id="restart">Restart</button>
+  <button id="vip">VIP (no row)</button>
+  <button id="layout" class="on">Layout: fill + pan</button>
+  <small id="clock">0.0 s</small>
+</div>
+<small>Mock of the share video: 1 s intro · 12 s build · 2 s hold with the sparkle · 1.8 s Gemmory end card. Badge is Google's official PNG.</small>
+</main>
+<script>
+const W = 1080, H = 1920, CELL = 16, COLS = 68, ROWS = 51;
+const T_INTRO = 1, T_BUILD = 12, T_HOLD = 2, T_FADE = 0.3, T_END = 1.8;
+const TOTAL = T_INTRO + T_BUILD + T_HOLD + T_END;
+const c = document.getElementById('c'), g = c.getContext('2d');
+const BONE = [242, 238, 228];
+const load = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
+let colors, order, band, art, icon, badge, playing = true, t0 = performance.now(), paused = 0, vip = false;
+let layout = new URLSearchParams(location.search).get('layout') || 'fill';
+
+function mix(a, b, k) { return a.map((v, i) => Math.round(v + (b[i] - v) * k)); }
+function rgb(a) { return `rgb(${a[0]},${a[1]},${a[2]})`; }
+
+// Canvas area: 1080 wide, 810 tall, 40px from the top (as FrameLayout lays out a 4:3 picture).
+const CX = 0, CY = 40, CW = 1080, CH = 810, cw = CW / COLS, ch = CH / ROWS;
+
+function drawGem(x, y, col, placed, glint) {
+  if (!placed) { g.fillStyle = rgb(mix(col, BONE, 0.78)); g.fillRect(x, y, cw - 0.6, ch - 0.6); return; }
+  g.fillStyle = rgb(col); g.fillRect(x, y, cw, ch);
+  const b = cw * 0.24;
+  g.fillStyle = rgb(mix(col, [255, 255, 255], 0.28)); // top / left facets
+  g.beginPath(); g.moveTo(x, y); g.lineTo(x + cw, y); g.lineTo(x + cw - b, y + b); g.lineTo(x + b, y + b); g.lineTo(x + b, y + ch - b); g.lineTo(x, y + ch); g.fill();
+  g.fillStyle = rgb(mix(col, [0, 0, 0], 0.25)); // bottom / right facets
+  g.beginPath(); g.moveTo(x + cw, y); g.lineTo(x + cw, y + ch); g.lineTo(x, y + ch); g.lineTo(x + b, y + ch - b); g.lineTo(x + cw - b, y + ch - b); g.lineTo(x + cw - b, y + b); g.fill();
+  if (glint > 0) { g.fillStyle = `rgba(255,250,235,${0.55 * glint})`; g.fillRect(x, y, cw, ch); }
+}
+
+function drawText(alpha, rowOnly = false) {
+  g.globalAlpha = alpha;
+  g.fillStyle = '#F2EEE4';
+  if (!rowOnly) {
+    g.font = '600 60px Bricolage'; g.fillText('The Great Wave', 48, 890 + 40 + 52);
+    g.font = '36px Figtree'; g.fillText('Gemmory · Photo Diamond Art', 48, 890 + 40 + 69 + 8 + 30);
+  }
+  if (!vip) {
+    const rh = 150, y = H - rh;
+    g.fillStyle = 'rgba(20,24,21,0.55)'; g.fillRect(0, y, W, rh);
+    rounded(icon, 48, y + 33, 84, 18);
+    g.fillStyle = '#F2EEE4'; g.font = '600 44px Bricolage'; g.fillText('Gemmory', 154, y + 70);
+    g.globalAlpha = alpha * 0.8; g.font = '28px Figtree'; g.fillText('Your photos in gems', 154, y + 110);
+    g.globalAlpha = alpha;
+    g.drawImage(badge, W - 48 - 336, y + 10, 336, 130);
+  }
+  g.globalAlpha = 1;
+}
+
+function rounded(img, x, y, s, r) {
+  g.save(); g.beginPath(); g.roundRect(x, y, s, s, r); g.clip(); g.drawImage(img, x, y, s, s); g.restore();
+}
+
+function frame(t) {
+  g.drawImage(band, 0, 0);
+  const built = Math.max(0, Math.min(1, (t - T_INTRO) / T_BUILD));
+  const n = Math.floor(built * order.length);
+  const placed = new Uint8Array(order.length); for (let i = 0; i < n; i++) placed[order[i]] = 1;
+  // Sparkle sweep across the hold: a diagonal wave of light.
+  const hold = t - T_INTRO - T_BUILD, sweep = hold > 0 ? hold / 2.0 : -1;
+  g.save();
+  if (layout === 'fill') {
+    // The picture fills the frame above the row; a slow pan crosses it during the build, and it eases out to the
+    // whole picture for the sparkle.
+    const REGION = vip ? H : H - 150, sFill = REGION / CH, wFill = CW * sFill;
+    const ease = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    const panX = -(wFill - W) * ease(Math.max(0, Math.min(1, (t - T_INTRO) / T_BUILD)));
+    // Founder (D2): no zoom, the whole picture all the way through.
+    const out = 1;
+    const s = sFill + (1 - sFill) * out;
+    const x = panX * (1 - out), y = 0 + ((REGION - CH) / 2 - 140) * out;
+    g.beginPath(); g.rect(0, 0, W, REGION); g.clip();
+    g.translate(x, y); g.scale(s, s);
+  } else {
+    g.translate(CX, CY);
+  }
+  for (let r = 0; r < ROWS; r++) for (let q = 0; q < COLS; q++) {
+    const i = r * COLS + q;
+    let glint = 0;
+    if (sweep >= 0 && sweep <= 1.1) { const d = (q / COLS + r / ROWS) / 2 + ((i * 2654435761 >>> 0) % 100) / 2000; glint = Math.max(0, 1 - Math.abs(d - sweep) / 0.045); }
+    drawGem(q * cw, r * ch, colors[i], placed[i], glint);
+  }
+  g.restore();
+  if (layout === 'fill') {
+    const bottom = vip ? H : H - 150;
+    const fade = g.createLinearGradient(0, bottom - 420, 0, bottom);
+    fade.addColorStop(0, 'rgba(20,24,21,0)'); fade.addColorStop(1, 'rgba(20,24,21,0.78)');
+    g.fillStyle = fade; g.fillRect(0, bottom - 420, W, 420);
+    g.fillStyle = '#F2EEE4';
+    g.font = '600 60px Bricolage'; g.fillText('The Great Wave', 48, bottom - 96);
+    g.font = '36px Figtree'; g.fillText('Gemmory · Photo Diamond Art', 48, bottom - 44);
+    drawText(1, true);
+  } else {
+    drawText(1);
+  }
+  // End card.
+  const e = t - (T_INTRO + T_BUILD + T_HOLD);
+  if (e > 0) {
+    const a = Math.min(1, e / T_FADE);
+    g.globalAlpha = a;
+    g.drawImage(band, 0, 0); g.fillStyle = 'rgba(0,0,0,0.33)'; g.fillRect(0, 0, W, H);
+    const tw = 760, th = 570, tx = (W - tw) / 2, ty = 300 + (1 - a) * 30;
+    g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 60; g.shadowOffsetY = 24;
+    g.drawImage(art, tx, ty, tw, th); g.shadowColor = 'transparent';
+    rounded(icon, (W - 180) / 2, ty + th + 90, 180, 40);
+    g.textAlign = 'center'; g.fillStyle = '#F2EEE4';
+    g.font = '600 104px Bricolage'; g.fillText('Gemmory', W / 2, ty + th + 90 + 180 + 34 + 84);
+    g.font = '44px Figtree'; g.fillText('Your photos in gems', W / 2, ty + th + 90 + 180 + 34 + 84 + 70);
+    g.drawImage(badge, (W - 520) / 2, ty + th + 90 + 180 + 34 + 84 + 110, 520, 201);
+    g.textAlign = 'left'; g.globalAlpha = 1;
+  }
+}
+
+function tick(now) {
+  const t = playing ? ((now - t0) / 1000) % TOTAL : paused;
+  if (playing) paused = t;
+  frame(t);
+  document.getElementById('clock').textContent = t.toFixed(1) + ' s';
+  requestAnimationFrame(tick);
+}
+
+(async () => {
+  [art, icon, badge] = await Promise.all([load('ref-15-wave-finished.png'), load('icon-512.png'), load('badge/en_badge_web_generic.png')]);
+  await document.fonts.load('600 60px Bricolage'); await document.fonts.load('36px Figtree');
+  // One color per 16px cell, read at its center.
+  const s = document.createElement('canvas'); s.width = art.width; s.height = art.height;
+  const sg = s.getContext('2d'); sg.drawImage(art, 0, 0);
+  const px = sg.getImageData(0, 0, s.width, s.height).data;
+  colors = [];
+  for (let r = 0; r < ROWS; r++) for (let q = 0; q < COLS; q++) {
+    const o = ((r * CELL + 8) * s.width + q * CELL + 8) * 4; colors.push([px[o], px[o + 1], px[o + 2]]);
+  }
+  // A player's order: color by color (darkest first), roughly in reading order with some wander.
+  const key = col => col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11;
+  order = colors.map((col, i) => i).sort((a, b) => Math.round(key(colors[a]) / 24) - Math.round(key(colors[b]) / 24) || ((a * 2654435761) >>> 0) % 9973 - ((b * 2654435761) >>> 0) % 9973);
+  // The band: the finished picture, cover-scaled, blurred, at 45% brightness.
+  band = document.createElement('canvas'); band.width = W; band.height = H;
+  const bg = band.getContext('2d'); bg.filter = 'blur(40px) brightness(0.45)';
+  const k = Math.max(W / art.width, H / art.height); bg.drawImage(art, (W - art.width * k) / 2 - 60, (H - art.height * k) / 2 - 60, art.width * k + 120, art.height * k + 120);
+  const qs = new URLSearchParams(location.search);
+  if (qs.has('t')) { playing = false; paused = +qs.get('t'); }
+  if (qs.has('raw')) { document.querySelectorAll('.bar, main > small').forEach(n => n.remove()); document.querySelector('main').style.padding = '0'; c.style.cssText = 'height:100vh;border-radius:0;box-shadow:none'; }
+  requestAnimationFrame(tick);
+})();
+document.getElementById('play').onclick = e => { playing = !playing; if (playing) t0 = performance.now() - paused * 1000; e.target.textContent = playing ? 'Pause' : 'Play'; };
+document.getElementById('restart').onclick = () => { t0 = performance.now(); paused = 0; };
+document.getElementById('layout').onclick = e => { layout = layout === 'fill' ? 'today' : 'fill'; e.target.textContent = layout === 'fill' ? 'Layout: fill + pan' : 'Layout: today'; e.target.classList.toggle('on', layout === 'fill'); };
+document.getElementById('vip').onclick = e => { vip = !vip; e.target.classList.toggle('on', vip); };
+</script>
+</body></html>

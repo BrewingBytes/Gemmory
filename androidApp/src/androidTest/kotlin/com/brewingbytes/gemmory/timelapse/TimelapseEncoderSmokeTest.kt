@@ -27,8 +27,8 @@ import kotlin.test.assertTrue
 
 /**
  * The real MediaCodec encoder on a device (eng E1, Section 3 test plan): the chain produces an MP4 that decodes, at
- * the target size or the fallback's, with 450 frames over ~15 s; the 720 target is also forced on its own. Also the
- * before/after picture. Runs on Firebase Test Lab phones from `.github/workflows/testlab.yml` (#11), and with
+ * the target size or the fallback's, with 504 frames over ~16.8 s (the end card, T53), or 450 over ~15 s for VIP; the
+ * 720 target is also forced on its own. Also the before/after picture. Runs on Firebase Test Lab phones from `.github/workflows/testlab.yml` (#11), and with
  * `./gradlew :androidApp:connectedDebugAndroidTest`.
  */
 @RunWith(AndroidJUnit4::class)
@@ -69,7 +69,7 @@ class TimelapseEncoderSmokeTest {
         var frames = 0
         encoder.encode(target, codec, { done, _ -> frames = done }, {})
         Log.i("Gemmory", "smoke $target on $codec: ${(System.nanoTime() - started) / 1_000_000} ms, ${out.length()} bytes")
-        assertEquals(FramePlan.TOTAL_FRAMES, frames)
+        assertEquals(frameCount(request), frames)
         return out
     }
 
@@ -87,11 +87,15 @@ class TimelapseEncoderSmokeTest {
         val target = assertIs<ChainOutcome.Video>(outcome, "no video target worked: $failures").target
         val out = File(dir, "${target.width}.mp4")
         Log.i("Gemmory", "smoke chain $target on ${encoder.probe(target)}: ${(System.nanoTime() - started) / 1_000_000} ms, ${out.length()} bytes")
-        assertEquals(FramePlan.TOTAL_FRAMES, frames)
+        assertEquals(frameCount(request), frames)
         return out to target
     }
 
-    private fun assertPlayable(file: File, target: EncodeTarget) {
+    /** 504 with the end card (a non-VIP player share), else 450. */
+    private fun frameCount(request: EncodeRequest) = FramePlan(request.log.size, photoIntro = false, endCard = request.endCard).frameCount
+
+    private fun assertPlayable(file: File, target: EncodeTarget, frames: Int = FramePlan.TOTAL_FRAMES + FramePlan.END_CARD_FRAMES) {
+        val expectedUs = frames * 1_000_000L / FramePlan.FPS
         val extractor = MediaExtractor()
         try {
             extractor.setDataSource(file.path)
@@ -101,7 +105,7 @@ class TimelapseEncoderSmokeTest {
             assertEquals(target.width, format.getInteger(MediaFormat.KEY_WIDTH))
             assertEquals(target.height, format.getInteger(MediaFormat.KEY_HEIGHT))
             val durationUs = format.getLong(MediaFormat.KEY_DURATION)
-            assertTrue(durationUs in 14_000_000L..16_000_000L, "duration $durationUs")
+            assertTrue(durationUs in expectedUs - 1_000_000L..expectedUs + 1_000_000L, "duration $durationUs")
             extractor.selectTrack(0)
             var samples = 0
             var lastUs = -1L
@@ -111,7 +115,7 @@ class TimelapseEncoderSmokeTest {
                 samples++
                 extractor.advance()
             }
-            assertEquals(FramePlan.TOTAL_FRAMES, samples)
+            assertEquals(frames, samples)
         } finally {
             extractor.release()
         }
@@ -119,7 +123,7 @@ class TimelapseEncoderSmokeTest {
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(file.path)
-            for (us in listOf(500_000L, 7_000_000L, 14_900_000L)) {
+            for (us in listOf(500_000L, 7_000_000L, expectedUs - 100_000L)) {
                 val frame = assertNotNull(retriever.getFrameAtTime(us, MediaMetadataRetriever.OPTION_CLOSEST), "frame at $us")
                 assertEquals(target.width, frame.width)
                 assertEquals(target.height, frame.height)
@@ -134,6 +138,12 @@ class TimelapseEncoderSmokeTest {
     fun starterByChain() {
         val (file, target) = encodeByChain(starter())
         assertPlayable(file, target)
+    }
+
+    @Test
+    fun vipStarterHasNoEndCard() {
+        val (file, target) = encodeByChain(starter().withWatermark(false))
+        assertPlayable(file, target, FramePlan.TOTAL_FRAMES)
     }
 
     @Test

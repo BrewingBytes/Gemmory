@@ -57,7 +57,7 @@ fun ShareSheet(
 ) {
     when (state) {
         is EncodeState.Running -> GemSheet("Making your video", onCancel, returnFocusTo) {
-            Text("About 15 seconds of sparkle. Keep the app open.", style = GemType.body, color = GemColors.Bone)
+            Text("A few seconds of sparkle. Keep the app open.", style = GemType.body, color = GemColors.Bone)
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ProgressBar(state.percent, Modifier.weight(1f))
