@@ -63,6 +63,9 @@ android {
         // The streak celebration (#101, O5): one switch turns it (and #102's nudge) off. Debug builds can try either
         // with `-Pgemmory.streakCelebration=false`.
         buildConfigField("boolean", "STREAK_CELEBRATION", "true")
+        // The install referrer (T46): Play's, unless a debug build sets `-Pgemmory.fakeReferrer=<utm string>`
+        // (`utm_source=share&utm_medium=bundled&utm_content=<id>`, say), which a fresh install reads instead.
+        buildConfigField("String", "FAKE_REFERRER", "\"\"")
     }
 
     signingConfigs {
@@ -95,6 +98,8 @@ android {
             // removes the SDK's init provider, which would start Play Games regardless (#113).
             buildConfigField("boolean", "PLAY_GAMES", providers.gradleProperty("gemmory.playGames").getOrElse("false"))
             buildConfigField("boolean", "STREAK_CELEBRATION", providers.gradleProperty("gemmory.streakCelebration").getOrElse("true"))
+            val fakeReferrer = providers.gradleProperty("gemmory.fakeReferrer").getOrElse("").replace("\\", "").replace("\"", "")
+            buildConfigField("String", "FAKE_REFERRER", "\"$fakeReferrer\"")
         }
         release {
             // R8: the mapping file goes into the App Bundle, so Play Console shows readable stack traces for crashes
@@ -111,7 +116,8 @@ android {
         }
         // Release-like build for the frame-timing check (#117): R8 and not debuggable, like what players run, but signed
         // with the debug key so Test Lab installs it beside its test APK. Nothing leaves the phone: Google's test ad IDs,
-        // no Firebase, no Play Games (the debug manifest drops its init provider, #113), the fake billing backend.
+        // no Firebase, no Play Games, the fake billing backend. `-Pgemmory.firebaseInPerf=true` sends its events to
+        // Firebase for the DebugView check of the launch funnel (T46), still with the test ad IDs.
         create("perf") {
             initWith(getByName("release"))
             proguardFile("proguard-perf.pro")
@@ -121,8 +127,9 @@ android {
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField("String", "ADMOB_REWARDED", "\"ca-app-pub-3940256099942544/5224354917\"")
             buildConfigField("String", "ADMOB_INTERSTITIAL", "\"ca-app-pub-3940256099942544/1033173712\"")
-            buildConfigField("boolean", "FIREBASE", "false")
-            manifestPlaceholders["firebaseEnabled"] = "false"
+            val firebaseInPerf = providers.gradleProperty("gemmory.firebaseInPerf").getOrElse("false")
+            buildConfigField("boolean", "FIREBASE", firebaseInPerf)
+            manifestPlaceholders["firebaseEnabled"] = firebaseInPerf
             buildConfigField("boolean", "PLAY_GAMES", "false")
             buildConfigField("boolean", "FAKE_BILLING", "true")
             configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> { mappingFileUploadEnabled = false }
@@ -178,6 +185,8 @@ dependencies {
     implementation(libs.play.services.games.v2)
     // Play In-App Review (T39): Play's own rating sheet after a finished picture, once features.review is on.
     implementation(libs.play.review)
+    // Play Install Referrer (T46): read once at a fresh install's first launch, on the phone, for T50's shared picture.
+    implementation(libs.installreferrer)
     // The home-screen streak widget (#103): Glance over RemoteViews, so the launcher draws it with no app process.
     implementation(libs.glance.appwidget)
     // Bundled (on-device) model: the face check never sends the photo anywhere (design doc, photo privacy).

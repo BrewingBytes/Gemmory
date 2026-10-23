@@ -18,6 +18,7 @@ iabgpp = "4.0.0"
 play-billing = "9.1.0"
 play-services-games-v2 = "22.1.0"
 play-review = "2.0.2"
+installreferrer = "2.2"
 glance = "1.2.0"
 firebase-bom = "34.19.0"
 google-services = "4.5.0"
@@ -52,6 +53,7 @@ iabgpp-encoder = { module = "com.iabgpp:iabgpp-encoder", version.ref = "iabgpp" 
 play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "play-billing" }
 play-services-games-v2 = { module = "com.google.android.gms:play-services-games-v2", version.ref = "play-services-games-v2" }
 play-review = { module = "com.google.android.play:review", version.ref = "play-review" }
+installreferrer = { module = "com.android.installreferrer:installreferrer", version.ref = "installreferrer" }
 glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 glance-appwidget-testing = { module = "androidx.glance:glance-appwidget-testing", version.ref = "glance" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }

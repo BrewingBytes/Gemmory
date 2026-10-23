@@ -4,6 +4,7 @@ import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.collections.CollectionPrefs
 import com.brewingbytes.gemmory.reminder.ReminderPrefs
 import com.brewingbytes.gemmory.review.ReviewPrefs
+import com.brewingbytes.gemmory.telemetry.FirstRun
 import org.junit.Test
 import org.w3c.dom.Element
 import java.io.File
@@ -33,7 +34,10 @@ class BackupRulesTest {
         "database:com.google.android.datatransport.events",
     )
 
-    private val expected = appData + firebase
+    /** The launch funnel (T46): never restored, so a restored phone logs no first_launch or first_gem. */
+    private val funnel = setOf("sharedpref:${FirstRun.FUNNEL_FILE}.xml")
+
+    private val expected = appData + firebase + funnel
 
     private fun xml(name: String) =
         DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(File("src/main/res/xml/$name")).documentElement
@@ -169,5 +173,16 @@ class BackupRulesTest {
         val app = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }.newDocumentBuilder()
             .parse(File("src/main/AndroidManifest.xml")).getElementsByTagName("application").item(0) as Element
         assertEquals("true", app.getAttributeNS("http://schemas.android.com/apk/res/android", "allowBackup"))
+    }
+
+    /** T46: the new-player marker is backed up, so a restored phone isn't counted as a fresh install. */
+    @Test
+    fun theNewPlayerMarkerIsBackedUp() {
+        val marker = "sharedpref:${FirstRun.MARKER_FILE}.xml"
+        assertTrue(marker !in rules(xml("backup_rules.xml"), "exclude"))
+        val root = xml("data_extraction_rules.xml")
+        for (name in listOf("cloud-backup", "device-transfer")) {
+            assertTrue(marker !in rules(root.getElementsByTagName(name).item(0) as Element, "exclude"), name)
+        }
     }
 }

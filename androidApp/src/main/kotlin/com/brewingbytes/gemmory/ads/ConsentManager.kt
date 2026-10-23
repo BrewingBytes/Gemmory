@@ -46,6 +46,14 @@ class ConsentManager(context: Context, reporter: NonFatalReporter) {
     private val _privacyOptionsRequired = MutableStateFlow(privacyOptionsRequired())
     val privacyOptionsRequired: StateFlow<Boolean> = _privacyOptionsRequired.asStateFlow()
 
+    private val _launchSettled = MutableStateFlow(false)
+
+    /**
+     * This launch's consent update has ended, however it ended (the form answered, not required, offline, an error), so
+     * the saved choice is current: a fresh install's `first_launch` waits for it (T46).
+     */
+    val launchSettled: StateFlow<Boolean> = _launchSettled.asStateFlow()
+
     private val _consentMode = MutableStateFlow(readConsentMode())
 
     /** Consent Mode v2 flags from the UMP result, kept for Firebase Analytics (#12). */
@@ -137,6 +145,7 @@ class ConsentManager(context: Context, reporter: NonFatalReporter) {
         _canRequestAds.value = info.canRequestAds()
         _privacyOptionsRequired.value = privacyOptionsRequired()
         _consentMode.value = readConsentMode()
+        _launchSettled.value = true
         Log.i(TAG, "consent: canRequestAds=${_canRequestAds.value} privacyOptions=${_privacyOptionsRequired.value} mode=${_consentMode.value}")
     }
 

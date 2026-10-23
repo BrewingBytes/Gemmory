@@ -171,6 +171,21 @@ class TelemetryTest {
         assertFalse("mystery" in AnalyticsEvent.canvasStarted(drop, 90, 90).params)
     }
 
+    /** T46: the launch funnel's two events; `first_gem` carries its time, the canvas's source and entry, never an id. */
+    @Test
+    fun launchFunnelEventsCarryTimeSourceAndEntryOnly() {
+        assertEquals(AnalyticsEvent("first_launch"), AnalyticsEvent.firstLaunch)
+        assertEquals(
+            AnalyticsEvent("first_gem", mapOf("ms_since_first_launch" to 41_250L, "source" to "bundled", "entry" to "gallery")),
+            AnalyticsEvent.firstGem(41_250, starter, CanvasEntry.GALLERY),
+        )
+        val fox = CanvasRef(CanvasKind.REMOTE, "fox-in-snow")
+        val params = AnalyticsEvent.firstGem(9, fox, CanvasEntry.TODAY_CARD).params
+        assertEquals(mapOf("ms_since_first_launch" to 9L, "source" to "remote", "entry" to "today_card"), params)
+        assertTrue(params.values.none { it == "fox-in-snow" })
+        assertEquals("photo", AnalyticsEvent.firstGem(0, photo, CanvasEntry.GALLERY).params["source"])
+    }
+
     /**
      * T37: a collection's id is the one id an event may carry (a content id, the documented exception): on the canvas
      * events of its pictures and on `collection_completed`. A picture's own id still never is.

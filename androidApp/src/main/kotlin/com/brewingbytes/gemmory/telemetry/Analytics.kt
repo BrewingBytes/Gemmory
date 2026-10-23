@@ -65,6 +65,21 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         /** The first gem placed on a local day, on any canvas (T36, eng D13): one a day, no ids. */
         fun dayPlayed(entry: CanvasEntry) = AnalyticsEvent("day_played", mapOf(ENTRY to entry.param))
 
+        /**
+         * A fresh install's first launch (T46, CEO O5), logged once consent has settled: the launch funnel's denominator,
+         * not Firebase's own `first_open` (which a restored phone fires again).
+         */
+        val firstLaunch = AnalyticsEvent("first_launch")
+
+        /**
+         * A fresh install's first gem (T46), once: [msSinceFirstLaunch] since its first launch came to the screen, the
+         * canvas's [source][source] and where it was opened from ([entry]). No ids.
+         */
+        fun firstGem(msSinceFirstLaunch: Long, ref: CanvasRef, entry: CanvasEntry) = AnalyticsEvent(
+            "first_gem",
+            mapOf("ms_since_first_launch" to msSinceFirstLaunch, SOURCE to source(ref), ENTRY to entry.param),
+        )
+
         /** The Tomorrow line on the Today card was tapped (T36): "Opens tomorrow", nothing opens. */
         val teaserTapped = AnalyticsEvent("teaser_tapped")
 

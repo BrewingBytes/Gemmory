@@ -26,6 +26,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | [docs/designs/streak-screen.md](docs/designs/streak-screen.md) | Streak screen design doc, its review ledgers and mockup |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, components, navigation, canvas gestures, copy, accessibility |
 | [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, Test Lab CI credentials, the production gate |
+| [docs/reading-first-30-days.md](docs/reading-first-30-days.md) | How to read each success criterion of rounds 1-3 in production: its event or report, the consented-only caveat, the floor of 100 (T46) |
 | [docs/privacy-policy.md](docs/privacy-policy.md) | The published privacy policy |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
 | [tools/remote/PROVENANCE.md](tools/remote/PROVENANCE.md) | The same for every remote picture, with when it was published |
@@ -50,6 +51,8 @@ Debug build switches (`-P…`):
 - `gemmory.firebaseInDebug=true` sends Crashlytics/Analytics from debug builds. By default they only log to Logcat.
 - `gemmory.playGames=true` turns Play Games achievements on in a debug build (#49). By default debug builds keep earned achievements in the ledger and hide the Settings row. It needs the debug key's SHA-1 on a Play Games OAuth client and a tester account (Play Games setup below).
 - `gemmory.umpDebugEea=true` and `gemmory.umpTestDevice=…` show the EEA consent form; `gemmory.umpDebugUsState=true` shows the US-states one (T34). Logcat `GemmoryAds` then prints the consent result, and `adb shell run-as com.brewingbytes.gemmory cat shared_prefs/com.brewingbytes.gemmory_preferences.xml` shows the GPP string UMP stored.
+- `gemmory.fakeReferrer=<utm string>` (T46) makes a fresh install read that string instead of Play's install referrer, e.g. `-Pgemmory.fakeReferrer='utm_source=share&utm_medium=bundled&utm_campaign=timelapse&utm_content=fox-in-snow'` (quote it for the shell). Logcat `Gemmory` prints `install referrer Referrer(…)` once it's parsed. Only a fresh install reads it (`adb shell pm clear com.brewingbytes.gemmory`).
+- `gemmory.firebaseInPerf=true` (T46) makes the `perf` build send to Firebase, for the launch funnel's DebugView check: `./gradlew :androidApp:assemblePerf -Pgemmory.firebaseInPerf=true`, install it on a fresh emulator, `adb shell setprop debug.firebase.analytics.app com.brewingbytes.gemmory`, and watch Firebase console → Analytics → DebugView (or `adb shell setprop log.tag.FA VERBOSE` and logcat `FA`). It keeps Google's test ad IDs. How to read the events afterwards: [docs/reading-first-30-days.md](docs/reading-first-30-days.md).
 - `android.testInstrumentationRunnerArguments.deviceChecks=true` runs the `@DeviceCheck` walkthroughs. `@PerfTest` classes (canvas frame timing, gallery load timing) run only on request via `am instrument -e class …`. The canvas frame-timing test fails past its pass line (Frame timing on Firebase Test Lab below).
 
 ## Encoder smoke on Firebase Test Lab
