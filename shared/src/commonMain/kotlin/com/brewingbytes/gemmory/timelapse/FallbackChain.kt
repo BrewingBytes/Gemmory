@@ -10,8 +10,9 @@ data class EncodeTarget(val width: Int, val height: Int, val fps: Int = FramePla
     val bitrate: Int get() = if (width >= 1080) 8_000_000 else 4_000_000
 
     /**
-     * Free space an attempt needs before it starts: the longest video (16.8 s with the end card) at [bitrate], plus
-     * half again for the muxer.
+     * Free space an attempt needs before it starts: the longest player share (16.8 s with the end card) at [bitrate],
+     * plus half again for the muxer. A founder clip (#144) runs 18 s; the half covers its extra 1.2 s (and still
+     * leaves 40% for the muxer).
      */
     val neededBytes: Long get() = bitrate.toLong() * FramePlan.MAX_DURATION_US / 8_000_000 * 3 / 2
 

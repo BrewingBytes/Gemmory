@@ -505,7 +505,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
      * A founder clip's title in [ClipLayout.titleWidth], each line exactly [ClipLayout.TITLE_LINE] tall whatever the
      * face's own line height (Bulgarian's and Japanese's are taller), so it fills the box [ClipLayout] gives it.
      */
-    private fun clipTitleLayout(title: String): StaticLayout {
+    fun clipTitleLayout(title: String): StaticLayout {
         val paint = titlePaint()
         val fm = paint.fontMetrics
         return StaticLayout.Builder.obtain(title, 0, title.length, paint, ClipLayout.titleWidth(width))
