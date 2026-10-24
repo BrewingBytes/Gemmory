@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The Clips screen's queue (#152): one entry at a time, in order, none left waiting, a failure doesn't stop it. */
 class ClipQueueTest {
@@ -19,25 +20,24 @@ class ClipQueueTest {
 
     @Test
     fun entriesRenderOneAtATimeInOrder() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
+        val main = StandardTestDispatcher(testScheduler)
+        val io = StandardTestDispatcher(testScheduler)
         val rendered = ArrayList<String>()
-        var running = 0
-        var most = 0
-        val queue = ClipQueue(TestScope(dispatcher), dispatcher) { job, onProgress, _ ->
-            running++
-            most = maxOf(most, running)
+        lateinit var queue: ClipQueue
+        queue = ClipQueue(TestScope(main), io) { job, onProgress, _ ->
+            // No other entry renders at the same time.
+            val others = queue.jobs.value.filter { it.key != job.key }
+            assertTrue(others.none { it.status is ClipStatus.Rendering }, "one render at a time: $others")
             onProgress(50, job.languages.last())
             rendered += job.picture.ref.id
-            running--
             ClipResult(job.languages.map { File("${job.picture.ref.id}-$it.mp4") }, null)
         }
         queue.add(picture("wave"), ClipOrder.BY_COLOR, formats, listOf("en", "de"))
         queue.add(picture("starter"), ClipOrder.RIPPLE, formats, listOf("ja"))
         advanceUntilIdle()
         assertEquals(listOf("wave", "starter"), rendered)
-        assertEquals(1, most, "one render at a time")
         assertEquals(listOf(ClipStatus.Done(2, null), ClipStatus.Done(1, null)), queue.jobs.value.map { it.status })
-        assertEquals("starter: saved 1 file", queue.announcement.value)
+        assertEquals("2. starter: saved 1 file", queue.announcement.value)
     }
 
     @Test
@@ -45,7 +45,7 @@ class ClipQueueTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val rendered = ArrayList<String>()
         lateinit var queue: ClipQueue
-        queue = ClipQueue(TestScope(dispatcher), dispatcher) { job, _, _ ->
+        queue = ClipQueue(TestScope(dispatcher), StandardTestDispatcher(testScheduler)) { job, _, _ ->
             if (job.key == 0) queue.add(picture("starter"), ClipOrder.BY_COLOR, formats, listOf("en"))
             rendered += job.picture.ref.id
             ClipResult(emptyList(), null)
@@ -59,7 +59,7 @@ class ClipQueueTest {
     fun anEntryAddedAfterTheQueueWentIdleStillRenders() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val rendered = ArrayList<String>()
-        val queue = ClipQueue(TestScope(dispatcher), dispatcher) { job, _, _ ->
+        val queue = ClipQueue(TestScope(dispatcher), StandardTestDispatcher(testScheduler)) { job, _, _ ->
             rendered += job.picture.ref.id
             ClipResult(emptyList(), null)
         }
@@ -74,7 +74,7 @@ class ClipQueueTest {
     @Test
     fun aFailedEntryDoesntStopTheNext() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        val queue = ClipQueue(TestScope(dispatcher), dispatcher) { job, _, _ ->
+        val queue = ClipQueue(TestScope(dispatcher), StandardTestDispatcher(testScheduler)) { job, _, _ ->
             when (job.key) {
                 0 -> ClipResult(emptyList(), "Couldn't make wave-by-color-en.mp4")
                 1 -> error("encoder gone")
@@ -97,7 +97,7 @@ class ClipQueueTest {
     fun cancellingStopsTheQueue() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         lateinit var queue: ClipQueue
-        queue = ClipQueue(TestScope(dispatcher), dispatcher) { _, _, checkCancelled ->
+        queue = ClipQueue(TestScope(dispatcher), StandardTestDispatcher(testScheduler)) { _, _, checkCancelled ->
             queue.cancel()
             checkCancelled()
             ClipResult(emptyList(), null)

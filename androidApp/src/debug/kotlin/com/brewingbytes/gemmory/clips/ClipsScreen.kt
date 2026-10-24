@@ -110,7 +110,7 @@ fun ClipsScreen(onBack: () -> Unit, model: ClipsViewModel = viewModel()) {
             // TalkBack hears each entry as it finishes, not every percent.
             Box(Modifier.size(1.dp).semantics {
                 liveRegion = LiveRegionMode.Polite
-                contentDescription = ui.announcement.orEmpty()
+                ui.announcement?.let { contentDescription = it }
             })
         }
     }

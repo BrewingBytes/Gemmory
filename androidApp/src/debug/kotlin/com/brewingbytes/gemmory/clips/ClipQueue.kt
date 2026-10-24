@@ -80,7 +80,8 @@ class ClipQueue(
             }
             set(job.key, ClipStatus.Done(result.saved.size, result.error))
             val saved = if (result.saved.size == 1) "saved 1 file" else "saved ${result.saved.size} files"
-            _announcement.value = listOfNotNull("${job.picture.title}: $saved", result.error).joinToString(". ")
+            // Numbered by its place in the queue, so two entries that end alike are both announced.
+            _announcement.value = listOfNotNull("${job.key + 1}. ${job.picture.title}: $saved", result.error).joinToString(". ")
         }
     }
 
