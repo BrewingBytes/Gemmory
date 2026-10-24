@@ -6,7 +6,7 @@ import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Bundle
+import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import com.brewingbytes.gemmory.GemmoryApp
@@ -22,8 +22,8 @@ import java.io.File
 /** The Android share sheet for a time-lapse MP4 or the before/after PNG, with the tracked Play link (eng D14). */
 object ShareIntents {
     /**
-     * [feed]: the feed cut made beside the video (T51). The sheet hands it to TikTok, Instagram and YouTube in place
-     * of [file] (`EXTRA_REPLACEMENT_EXTRAS`, by package); every other app gets [file] and the share text.
+     * [feed]: the feed cut made beside the video (T51). The sheet offers TikTok, Instagram and YouTube with the feed
+     * cut in place of [file] ([feedTargets]); every other app gets [file] and the share text.
      */
     fun chooser(context: Context, file: File, request: EncodeRequest, feed: File? = null): Intent {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
@@ -48,23 +48,34 @@ object ShareIntents {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
         val chooser = Intent.createChooser(send, null, callback.intentSender).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        if (feed != null) feedCut(context, chooser, feed)
+        if (feed != null) {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", feed)
+            val targets = feedTargets(send, uri) { context.packageManager.queryIntentActivities(it, 0).map { r -> r.activityInfo.packageName to r.activityInfo.name } }
+            if (targets.isNotEmpty()) {
+                chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targets.map { it.second }.toTypedArray())
+                chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, targets.map { it.first }.toTypedArray())
+            }
+        }
         return chooser
     }
 
     /**
-     * The feed cut for the feed apps (T51). The ClipData grant covers only the video, so each feed app is granted the
-     * feed cut by name (visible through the manifest's `<queries>`); one that isn't installed is skipped.
+     * The feed apps' own entries in the sheet (T51): for each share screen of an installed feed app ([resolve], seen
+     * through the manifest's `<queries>`), the same share with the feed cut [feedUri] as both its stream and its
+     * ClipData, so the app gets the feed cut whichever it reads and the read grant covers only that file. The sheet
+     * launches them as us, so it can grant it. Paired with the component each one replaces, which the sheet leaves out
+     * of its own list (and with it, that app's direct-share shortcuts, which would carry the video).
      */
-    private fun feedCut(context: Context, chooser: Intent, feed: File) {
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", feed)
-        val replacements = Bundle()
-        for (pkg in FeedTargets.packages) {
-            replacements.putBundle(pkg, Bundle().apply { putParcelable(Intent.EXTRA_STREAM, uri) })
-            runCatching { context.grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    fun feedTargets(send: Intent, feedUri: Uri, resolve: (Intent) -> List<Pair<String, String>>): List<Pair<ComponentName, Intent>> =
+        FeedTargets.packages.flatMap { pkg ->
+            resolve(Intent(send).setPackage(pkg)).filter { it.first == pkg }.map { (p, name) ->
+                val component = ComponentName(p, name)
+                component to Intent(send)
+                    .setComponent(component)
+                    .putExtra(Intent.EXTRA_STREAM, feedUri)
+                    .apply { clipData = ClipData.newRawUri(null, feedUri) }
+            }
         }
-        chooser.putExtra(Intent.EXTRA_REPLACEMENT_EXTRAS, replacements)
-    }
 
     /** The milestone share card (#104): the PNG and the streak card's tracked link; an app picked is `streak_share_completed`. */
     fun streakChooser(context: Context, file: File, milestone: Int): Intent {

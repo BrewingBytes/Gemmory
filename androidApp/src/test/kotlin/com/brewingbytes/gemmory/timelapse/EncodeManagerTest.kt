@@ -646,4 +646,31 @@ class EncodeManagerTest {
         assertEquals(listOf("starter.12.wm.v2.en.mp4"), files(), "the finished video stays cached; the feed partial is gone")
         assertFalse(m.markerOf(ref).exists())
     }
+
+    @Test
+    fun aFailedFeedCutIsNotTriedAgainOnTheNextShare() {
+        feedFailing = EncodeTarget.CHAIN.toSet()
+        val m = manager(feedCuts = true)
+        m.shareAndWait(request())
+        m.acknowledge(ref)
+        val again = assertIs<EncodeState.Video>(m.shareAndWait(request()))
+        assertEquals(null, again.feed)
+        assertEquals(1, feedBackends.get(), "the second share goes straight to the cached video")
+        assertEquals(1, backends.get())
+        // Start over forgets it: a replay gets a fresh try.
+        runBlocking { m.cancelAndClear(ref) }
+        m.shareAndWait(request())
+        assertEquals(2, feedBackends.get())
+    }
+
+    @Test
+    fun theEncodeTimeIsTheVideosOwnWithoutTheFeedCut() {
+        val ticks = AtomicInteger()
+        // Every reading of the clock moves it a second on: started, the video's end, then the feed cut's two readings.
+        clock = { ticks.getAndIncrement() * 1_000_000_000L }
+        val m = manager(feedCuts = true)
+        m.shareAndWait(request())
+        val made = events.single { it.name == "timelapse_made" }
+        assertEquals(1_000L, made.params["wall_ms"], "started to the video's end only")
+    }
 }

@@ -7,7 +7,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- The feed apps that get the feed cut (T51, FeedTargets): visible so they can be granted it by name. -->
+    <!-- The feed apps that get the feed cut (T51, FeedTargets): visible so the share sheet can offer them their own entry. -->
     <queries>
         <package android:name="com.zhiliaoapp.musically" />
         <package android:name="com.ss.android.ugc.trill" />

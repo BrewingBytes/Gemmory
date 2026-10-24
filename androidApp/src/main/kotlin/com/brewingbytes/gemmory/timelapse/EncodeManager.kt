@@ -101,6 +101,12 @@ class EncodeManager(
     private val swept: Job = scope.launch(io) { sweep() }
     private val _encoding = MutableStateFlow(false)
 
+    /**
+     * Feed cuts (by cache name) that couldn't be made in this process (T51): a re-share goes straight to the video
+     * instead of failing the same encode again. Cleared by [cancelAndClear], and with the process.
+     */
+    private val failedFeeds = ConcurrentHashMap.newKeySet<String>()
+
     /** Some encode (a share or a progress share) is running: the music pauses for the export (T42). */
     val encoding: StateFlow<Boolean> = _encoding.asStateFlow()
 
@@ -161,6 +167,7 @@ class EncodeManager(
     override suspend fun cancelAndClear(ref: CanvasRef) {
         val job = synchronized(lock) { jobs.remove(ref).also { _encoding.value = jobs.isNotEmpty() } }
         job?.cancelAndJoin()
+        failedFeeds.removeAll { it.startsWith("${ref.id}.") }
         withContext(io) {
             filesOf(ref).forEach { it.delete() }
             markerOf(ref).delete()
@@ -191,8 +198,9 @@ class EncodeManager(
         val job = context[Job]!!
         val name = "${request.key}.${language()}"
         val video = File(dir, "$name.mp4")
-        val feed = request.takeIf { feedCuts && it.feedCut }?.feed()
-        val feedVideo = feed?.let { File(dir, "${it.key}.${language()}.mp4") }
+        val feedName = request.takeIf { feedCuts && it.feedCut }?.feed()?.let { "${it.key}.${language()}" }
+        val feed = feedName?.takeUnless { it in failedFeeds }?.let { request.feed() }
+        val feedVideo = feed?.let { File(dir, "$feedName.mp4") }
         if (video.isFile && (feedVideo == null || feedVideo.isFile)) {
             post(ref, job, EncodeState.Video(video, feedVideo))
             return
@@ -222,19 +230,23 @@ class EncodeManager(
                     ChainOutcome.DiskFull -> EncodeState.DiskFull
                 }
             }
-            val shared = if (result is EncodeState.Video && feed != null && feedVideo != null) {
-                EncodeState.Video(result.file, feedCut(feed, feedVideo, keep = result.file, job, before = videoFrames, context))
-            } else {
-                result
-            }
-            val wallMs = (nowNanos() - started) / 1_000_000
             if (outcome != null) {
-                log("time-lapse ${ref.id}: $outcome${if (shared is EncodeState.Video && shared.feed != null) " + feed cut" else ""} in $wallMs ms")
-                // Eng finding 16: how long encodes really take, the feed cut included (T51). Analytics measures it
-                // across phones (consented players); the Crashlytics keys only ride along with reports recorded later.
+                val wallMs = (nowNanos() - started) / 1_000_000
+                log("time-lapse ${ref.id}: $outcome in $wallMs ms")
+                // Eng finding 16: how long encodes really take: the video's own, before any feed cut (T51). Analytics
+                // measures it across phones (consented players); the Crashlytics keys only ride along with later reports.
                 analytics.log(AnalyticsEvent.timelapseMade(ref, request.pattern.width, request.pattern.height, outcomeName(outcome), wallMs))
                 reporter.setKey(KEY_WALL_MS, wallMs.toString())
                 reporter.setKey(KEY_OUTCOME, outcomeName(outcome))
+            }
+            val shared = if (result is EncodeState.Video && feed != null && feedVideo != null) {
+                val feedStarted = nowNanos()
+                val cut = feedCut(feed, feedVideo, keep = result.file, job, before = videoFrames, context)
+                if (cut == null && canvasExists(ref)) failedFeeds += feedName
+                log("time-lapse ${ref.id}: feed cut ${if (cut != null) "made" else "failed"} in ${(nowNanos() - feedStarted) / 1_000_000} ms")
+                EncodeState.Video(result.file, cut)
+            } else {
+                result
             }
             marker.delete()
             // Null: the canvas was deleted meanwhile, so there's nothing to show.
