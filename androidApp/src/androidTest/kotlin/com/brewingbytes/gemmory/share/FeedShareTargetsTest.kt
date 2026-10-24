@@ -24,21 +24,33 @@ class FeedShareTargetsTest {
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         .apply { clipData = ClipData.newRawUri(null, video) }
 
-    /** Installed: YouTube with two share screens and Instagram with one; TikTok isn't. */
-    private val installed = mapOf(
+    /** Installed: TikTok, Instagram with three share screens, YouTube with two. */
+    private val everything = mapOf(
+        "com.ss.android.ugc.trill" to listOf("com.ss.android.ugc.aweme.share.SystemShareActivity"),
+        "com.instagram.android" to listOf("com.instagram.share.handleractivity.ShareHandlerActivity", "com.instagram.share.handleractivity.StoryShareHandlerActivity", "com.instagram.direct.share.handler.DirectShareHandlerActivity"),
         "com.google.android.youtube" to listOf("com.google.android.youtube.UploadActivity", "com.google.android.youtube.ShortsActivity"),
-        "com.instagram.android" to listOf("com.instagram.share.ShareHandlerActivity"),
     )
 
-    private fun targets() = ShareIntents.feedTargets(send, feed) { query ->
+    private fun targets(installed: Map<String, List<String>>) = ShareIntents.feedTargets(send, feed) { query ->
         installed[query.`package`].orEmpty().map { query.`package`!! to it }
     }
 
     @Test
-    fun eachFeedScreenGetsTheFeedCutAsStreamAndClipData() {
-        val targets = targets()
-        assertEquals(3, targets.size)
-        for ((component, intent) in targets) {
+    fun atMostTwoEntriesOneScreenPerAppInFeedTargetsOrder() {
+        // Android's sheet shows only the first two initial intents; YouTube, which reads the swapped stream, waits.
+        val targets = targets(everything)
+        assertEquals(ShareIntents.MAX_FEED_ENTRIES, targets.size)
+        assertEquals(
+            listOf("com.ss.android.ugc.aweme.share.SystemShareActivity", "com.instagram.share.handleractivity.ShareHandlerActivity"),
+            targets.map { it.first.className },
+        )
+        // Only YouTube installed: its first screen.
+        assertEquals(listOf("com.google.android.youtube.UploadActivity"), targets(everything.filterKeys { "youtube" in it }).map { it.first.className })
+    }
+
+    @Test
+    fun eachEntryGetsTheFeedCutAsStreamAndClipData() {
+        for ((component, intent) in targets(everything)) {
             assertEquals(component, intent.component)
             @Suppress("DEPRECATION")
             assertEquals(feed, intent.getParcelableExtra(Intent.EXTRA_STREAM))
@@ -49,16 +61,11 @@ class FeedShareTargetsTest {
             assertEquals("Made with Gemmory: link", intent.getStringExtra(Intent.EXTRA_TEXT))
             assertTrue(intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
         }
-        assertEquals(
-            // In FeedTargets' order: TikTok (not installed), Instagram, YouTube.
-            listOf("com.instagram.share.ShareHandlerActivity", "com.google.android.youtube.UploadActivity", "com.google.android.youtube.ShortsActivity"),
-            targets.map { it.first.className },
-        )
     }
 
     @Test
     fun theSharedIntentItselfKeepsTheVideo() {
-        targets()
+        targets(everything)
         @Suppress("DEPRECATION")
         assertEquals(video, send.getParcelableExtra(Intent.EXTRA_STREAM))
         assertEquals(video, send.clipData!!.getItemAt(0).uri)

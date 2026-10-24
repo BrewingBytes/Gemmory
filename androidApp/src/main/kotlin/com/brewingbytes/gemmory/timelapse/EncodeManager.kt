@@ -242,9 +242,10 @@ class EncodeManager(
             val shared = if (result is EncodeState.Video && feed != null && feedVideo != null) {
                 val feedStarted = nowNanos()
                 val cut = feedCut(feed, feedVideo, keep = result.file, job, before = videoFrames, context)
-                if (cut == null && canvasExists(ref)) failedFeeds += feedName
-                log("time-lapse ${ref.id}: feed cut ${if (cut != null) "made" else "failed"} in ${(nowNanos() - feedStarted) / 1_000_000} ms")
-                EncodeState.Video(result.file, cut)
+                // A full disk can be freed, so that one is tried again on the next share.
+                if (cut == FeedCut.FAILED && canvasExists(ref)) failedFeeds += feedName
+                log("time-lapse ${ref.id}: feed cut ${cut.name.lowercase()} in ${(nowNanos() - feedStarted) / 1_000_000} ms")
+                EncodeState.Video(result.file, feedVideo.takeIf { cut == FeedCut.MADE })
             } else {
                 result
             }
@@ -262,13 +263,16 @@ class EncodeManager(
         }
     }
 
+    /** How a feed cut (T51) ended. */
+    private enum class FeedCut { MADE, FAILED, DISK_FULL, GONE }
+
     /**
-     * The feed cut (T51) into [target], after the video [keep]: the 1080 and 720 targets, no picture. Null when it
-     * couldn't be made (each failed attempt is a non-fatal) or the canvas was deleted meanwhile.
+     * The feed cut (T51) into [target], after the video [keep]: the 1080 and 720 targets, no picture. Each failed
+     * attempt is a non-fatal; [FeedCut.GONE]: the canvas was deleted meanwhile.
      */
-    private fun feedCut(request: EncodeRequest, target: File, keep: File, job: Job, before: Int, context: CoroutineContext): File? {
+    private fun feedCut(request: EncodeRequest, target: File, keep: File, job: Job, before: Int, context: CoroutineContext): FeedCut {
         val ref = request.ref
-        if (target.isFile) return target
+        if (target.isFile) return FeedCut.MADE
         return try {
             val chain = FallbackChain(
                 backend = backend(request) { t -> feedPartialOf(ref, t) },
@@ -276,15 +280,16 @@ class EncodeManager(
                 picture = false,
             )
             when (val made = chain.run(onProgress = progress(ref, job, before, after = 0), checkCancelled = { context.ensureActive() })) {
-                is ChainOutcome.Video -> publish(ref, feedPartialOf(ref, made.target), target, keep)
-                else -> null
+                is ChainOutcome.Video -> if (publish(ref, feedPartialOf(ref, made.target), target, keep) != null) FeedCut.MADE else FeedCut.GONE
+                ChainOutcome.DiskFull -> FeedCut.DISK_FULL
+                ChainOutcome.Failed, ChainOutcome.Picture -> FeedCut.FAILED
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             reporter.report(TimelapseException(ref, e))
             partialsOf(ref).forEach { it.delete() }
-            null
+            FeedCut.FAILED
         }
     }
 

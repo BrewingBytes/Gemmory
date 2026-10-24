@@ -673,4 +673,18 @@ class EncodeManagerTest {
         val made = events.single { it.name == "timelapse_made" }
         assertEquals(1_000L, made.params["wall_ms"], "started to the video's end only")
     }
+
+    @Test
+    fun aFeedCutStoppedByAFullDiskIsTriedAgainOnTheNextShare() {
+        feedFailing = EncodeTarget.CHAIN.toSet()
+        diskFull = true
+        val m = manager(feedCuts = true)
+        assertEquals(null, assertIs<EncodeState.Video>(m.shareAndWait(request())).feed, "shared with the video alone")
+        m.acknowledge(ref)
+        feedFailing = emptySet()
+        diskFull = false
+        // Space was freed: the next share makes it.
+        assertEquals("starter.12.feed.v1.en.mp4", assertIs<EncodeState.Video>(m.shareAndWait(request())).feed?.name)
+        assertEquals(2, feedBackends.get())
+    }
 }
