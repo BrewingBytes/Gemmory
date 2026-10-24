@@ -32,8 +32,8 @@ class XmlStrings(folder: String = "values", override val locale: Locale = Locale
     override fun plural(id: Int, count: Int, vararg args: Any): String {
         val name = name(R.plurals::class.java, id)
         val items = plurals[name] ?: error("no plurals $name in $locale")
-        // English rules (the only language until T49): "one" for exactly 1, "other" for everything else.
-        val raw = (if (count == 1) items["one"] else null) ?: items.getValue("other")
+        // The language's own rules (T49), as Android picks them; a missing quantity falls back to "other", as Android's does.
+        val raw = items[PluralRules.quantity(locale.language, count)] ?: items.getValue("other")
         return String.format(locale, raw, *args)
     }
 

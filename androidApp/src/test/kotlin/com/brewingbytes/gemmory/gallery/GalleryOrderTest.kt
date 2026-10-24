@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.gallery
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.VipPlan
@@ -15,7 +16,7 @@ import kotlin.test.assertEquals
 class GalleryOrderTest {
     /** The tiles as the store lists them: catalog order, [started] ones with a gem placed. */
     private fun tiles(started: Set<String> = emptySet()) = BundledPictures.ALL.map {
-        Tile(CanvasRef(CanvasKind.BUNDLED, it.id), it.title, 0.75f, null, 0, done = false, damaged = false, started = it.id in started, lockable = it.locked)
+        Tile(CanvasRef(CanvasKind.BUNDLED, it.id), it.title(XmlStrings.en), 0.75f, null, 0, done = false, damaged = false, started = it.id in started, lockable = it.locked)
     }
 
     private fun order(

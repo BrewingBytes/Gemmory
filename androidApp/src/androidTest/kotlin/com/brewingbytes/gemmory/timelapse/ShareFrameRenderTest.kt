@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.timelapse
 
+import com.brewingbytes.gemmory.copy.strings
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -39,7 +40,7 @@ class ShareFrameRenderTest {
         val bytes = context.assets.open(picture.asset).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         val log = pattern.cells.indices.shuffled(Random(7)).toIntArray()
-        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(logSize ?: log.size), picture.title, source = null, watermark = watermark, frame = frame)
+        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(logSize ?: log.size), picture.title(context.strings), source = null, watermark = watermark, frame = frame)
     }
 
     /** Pixels of the badge's white lettering in [rect] of [bitmap]: nothing else in the frame is pure white. */

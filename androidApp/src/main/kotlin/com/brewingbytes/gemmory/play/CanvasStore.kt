@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.remote.titleIn
 import android.os.SystemClock
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
@@ -324,7 +325,7 @@ class CanvasStore(
                     summarize(ref, size, picture.locked)
                 } else {
                     val grid = (GridCodec.decode(bundledGrid(picture)) as Decoded.Ok).value
-                    CanvasSummary.Playable(ref, picture.title, CanvasState.empty(grid.pattern), 0L, size, picture.locked)
+                    CanvasSummary.Playable(ref, picture.title(strings), CanvasState.empty(grid.pattern), 0L, size, picture.locked)
                 }
             }
             val listed = remote.listed()
@@ -336,7 +337,7 @@ class CanvasStore(
                     summarize(ref, picture.size, picture.locked, picture)
                 } else {
                     val hidden = hiddenName(ref, null, finished = false, picture)
-                    CanvasSummary.Listed(ref, picture.title, picture.width, picture.height, picture.size, picture.locked, hidden)
+                    CanvasSummary.Listed(ref, picture.titleIn(strings.locale.toLanguageTag()), picture.width, picture.height, picture.size, picture.locked, hidden)
                 }
             }
             // Withdrawn from the catalog (or a restored save before the first check): shown only once started, or when
@@ -427,6 +428,20 @@ class CanvasStore(
         val entry = remote.listed().firstOrNull { it.id == ref.id }
         if (!repository.dirOf(ref).isDirectory) return hiddenName(ref, null, finished = false, entry)
         return summarize(ref, null, false, entry).hiddenAs
+    }
+
+    /**
+     * What an open canvas is called in the app's language now (T49): a language switch keeps the canvas's session, whose
+     * [opened] title (or [hidden] mystery name) is the old language's. A photo's title is the player's own, so it stays.
+     */
+    fun titleNow(ref: CanvasRef, opened: String, hidden: String?): String {
+        val entry = if (ref.kind == CanvasKind.REMOTE) remote.listed().firstOrNull { it.id == ref.id } else null
+        if (hidden != null) return hiddenName(ref, null, finished = false, entry) ?: hidden
+        return when (ref.kind) {
+            CanvasKind.PHOTO -> opened
+            CanvasKind.BUNDLED -> titleOf(ref, null)
+            CanvasKind.REMOTE -> entry?.titleIn(strings.locale.toLanguageTag()) ?: opened
+        }
     }
 
     /** The title is drawn into the time-lapse band, so the canvas's cached videos and pictures go with the old one. */
@@ -581,7 +596,8 @@ class CanvasStore(
         repository.writeRecord(ref, current.copy(playMillis = playMillis))
     }
 
-    fun titleOf(ref: CanvasRef, record: CanvasRecord?): String = titleOf(ref, record, strings)
+    fun titleOf(ref: CanvasRef, record: CanvasRecord?): String =
+        titleOf(ref, record, strings, if (ref.kind == CanvasKind.REMOTE) remote.listed().firstOrNull { it.id == ref.id } else null)
 
     companion object {
 
@@ -594,9 +610,13 @@ class CanvasStore(
             return if (CanvasRef.ID.matches(id)) CanvasRef(kind, id) else null
         }
 
-        fun titleOf(ref: CanvasRef, record: CanvasRecord?, strings: Strings): String = when (ref.kind) {
-            CanvasKind.BUNDLED -> BundledPictures.byId(ref.id)?.title ?: ref.id
-            CanvasKind.REMOTE -> record?.title?.takeIf { it.isNotBlank() } ?: ref.id
+        /**
+         * A canvas's shown title, in the app's language (T49 X4): a bundled picture's `title_<id>`; a remote one's from
+         * the catalog ([listed], through the language chain), else its record's English title (a withdrawn picture).
+         */
+        fun titleOf(ref: CanvasRef, record: CanvasRecord?, strings: Strings, listed: RemotePicture? = null): String = when (ref.kind) {
+            CanvasKind.BUNDLED -> BundledPictures.byId(ref.id)?.title(strings) ?: ref.id
+            CanvasKind.REMOTE -> listed?.titleIn(strings.locale.toLanguageTag()) ?: record?.title?.takeIf { it.isNotBlank() } ?: ref.id
             CanvasKind.PHOTO -> record?.title?.takeIf { it.isNotBlank() } ?: strings.text(R.string.photo_default_title)
         }
     }

@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.collections
 
+import com.brewingbytes.gemmory.remote.titleIn
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.copy.Strings
 
@@ -30,7 +31,7 @@ class CollectionCopy(private val s: Strings) {
             }
         }
         return when (status.keepsakeState) {
-            Keepsake.ADDED -> withToken(status, s.text(R.string.collection_keepsake_added, status.keepsake?.title.toString()))
+            Keepsake.ADDED -> withToken(status, s.text(R.string.collection_keepsake_added, status.keepsake?.titleIn(s.locale.toLanguageTag()).toString()))
             Keepsake.PENDING_OFFLINE -> s.text(R.string.collection_keepsake_offline)
             Keepsake.PENDING_SPACE -> s.text(R.string.collection_keepsake_space)
             Keepsake.NONE -> withToken(status, s.text(R.string.collection_complete))
@@ -52,7 +53,7 @@ class CollectionCopy(private val s: Strings) {
             status.keepsakeState == Keepsake.PENDING_OFFLINE -> s.text(R.string.collection_keepsake_offline)
             status.keepsakeState == Keepsake.PENDING_SPACE -> s.text(R.string.collection_keepsake_space)
             status.complete -> withToken(status, s.text(R.string.collection_complete))
-            status.inWindow && status.keepsakeState == Keepsake.ADDED -> s.text(R.string.event_keepsake_earned, status.keepsake?.title.toString())
+            status.inWindow && status.keepsakeState == Keepsake.ADDED -> s.text(R.string.event_keepsake_earned, status.keepsake?.titleIn(s.locale.toLanguageTag()).toString())
             status.inWindow -> s.text(R.string.event_line)
             vip -> s.text(R.string.collection_to_complete, size)
             else -> s.text(R.string.collection_for_token, size)

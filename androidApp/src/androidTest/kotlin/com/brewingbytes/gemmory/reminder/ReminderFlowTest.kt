@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.reminder
 
+import com.brewingbytes.gemmory.copy.strings
 import android.Manifest
 import android.app.Activity
 import android.app.NotificationManager
@@ -189,7 +190,7 @@ class ReminderFlowTest {
         fireAlarm()
         val notification = assertNotNull(posted(), "the evening's reminder")
         val picked = app.todays.freeToday().single()
-        val title = BundledPictures.byId(picked)!!.title
+        val title = BundledPictures.byId(picked)!!.title(context.strings)
         assertEquals("Today's picture: $title", notification.extras.getString(android.app.Notification.EXTRA_TITLE))
         assertEquals(ReminderNotifier.CHANNEL, notification.channelId)
         assertEquals(android.app.Notification.VISIBILITY_PUBLIC, notification.visibility)

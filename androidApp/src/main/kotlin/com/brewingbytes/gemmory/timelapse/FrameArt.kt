@@ -13,12 +13,10 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
-import android.graphics.Typeface
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import androidx.core.graphics.withTranslation
@@ -26,6 +24,8 @@ import com.brewingbytes.gemmory.copy.Messages
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.ui.AppFonts
+import com.brewingbytes.gemmory.ui.wrapFor
 import com.brewingbytes.gemmory.ui.GemRenderer
 import java.io.File
 import kotlin.math.max
@@ -211,10 +211,13 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
 
     /** The frame's words (T48), in the app's language. */
     private val strings = context.strings
-    private val bricolage = ResourcesCompat.getFont(context, R.font.bricolage_grotesque) ?: Typeface.DEFAULT
-    private val figtree = ResourcesCompat.getFont(context, R.font.figtree) ?: Typeface.DEFAULT
+    /** The faces of that language (T49): Bricolage Grotesque and Figtree for Latin scripts, Bulgarian's and Japanese's own. */
+    private val fonts = AppFonts.forLanguage(strings.locale.language)
+    private val display = fonts.display.typeface(context)
+    private val body = fonts.body.typeface(context)
+    private val bodyStrong = fonts.bodyStrong.typeface(context)
     private val icon: Bitmap? by lazy { asset(ICON_ASSET) }
-    private val badge: Bitmap? by lazy { asset(BADGE_ASSET) }
+    private val badge: Bitmap? by lazy { asset(badgeAsset(strings.locale.language)) ?: asset(BADGE_ASSET) }
 
     fun px(at1080: Int): Int = (at1080 * s).roundToInt()
 
@@ -253,8 +256,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         val progressLine = progress?.let { Messages.progress(strings, it) }
         val margin = px(MARGIN).toFloat()
         val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = bricolage
-            fontVariationSettings = "'wght' 600"
+            display()
             textSize = 60 * s
             letterSpacing = -0.01f
             color = FRAME_TEXT
@@ -264,18 +266,19 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setMaxLines(2)
             .setEllipsize(TextUtils.TruncateAt.END)
+            .wrapFor(strings.locale.language)
             .build()
         val top = textTop + px(40).toFloat()
         canvas.withTranslation(margin, top) { titleLayout.draw(this) }
 
         val appPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = figtree
+            body()
             textSize = 36 * s
             color = FRAME_TEXT
         }
         var appTop = top + titleLayout.height + px(8)
         if (progressLine != null) {
-            val progressPaint = TextPaint(appPaint).apply { fontVariationSettings = "'wght' 600" }
+            val progressPaint = TextPaint(appPaint).apply { bodyStrong() }
             canvas.drawText(progressLine, margin, appTop - progressPaint.fontMetrics.ascent, progressPaint)
             appTop += progressPaint.fontSpacing + px(2)
         }
@@ -286,8 +289,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         val scrim = Paint().apply { color = SCRIM; alpha = (255 * 0.25f).roundToInt() }
         canvas.drawRect(0f, (height - rowHeight).toFloat(), width.toFloat(), height.toFloat(), scrim)
         val markPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = figtree
-            fontVariationSettings = "'wght' 600"
+            bodyStrong()
             textSize = 30 * s
             color = FRAME_TEXT
             alpha = (255 * 0.7f).roundToInt()
@@ -315,7 +317,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         canvas.drawRect(0f, layout.fadeTop.toFloat(), width.toFloat(), layout.areaBottom.toFloat(), fade)
         val left = layout.textLeft.toFloat()
         val appPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = figtree
+            body()
             textSize = 36 * s
             color = FRAME_TEXT
         }
@@ -323,7 +325,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         canvas.drawText(strings.text(R.string.frame_app_line), left, baseline, appPaint)
         if (progressLine != null) {
             baseline -= px(LINE_GAP)
-            val progressPaint = TextPaint(appPaint).apply { fontVariationSettings = "'wght' 600" }
+            val progressPaint = TextPaint(appPaint).apply { bodyStrong() }
             canvas.drawText(progressLine, left, baseline, progressPaint)
         }
         baseline -= px(ShareLayout.TITLE_GAP)
@@ -368,8 +370,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
 
     private fun titleLayout(title: String): StaticLayout {
         val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            typeface = bricolage
-            fontVariationSettings = "'wght' 600"
+            display()
             textSize = 60 * s
             letterSpacing = -0.01f
             color = FRAME_TEXT
@@ -379,18 +380,36 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setMaxLines(2)
             .setEllipsize(TextUtils.TruncateAt.END)
+            .wrapFor(strings.locale.language)
             .build()
     }
 
+    /** Titles (Bricolage Grotesque 600 for Latin scripts). */
+    private fun TextPaint.display() {
+        typeface = display
+        fonts.display.variation?.let { fontVariationSettings = it }
+    }
+
+    /** Body text (Figtree): the Latin face draws at its default instance, as before T49. */
+    private fun TextPaint.body() {
+        typeface = body
+        if (fonts != AppFonts.LATIN) fonts.body.variation?.let { fontVariationSettings = it }
+    }
+
+    /** Body text at 600 (Japanese has no 600: its 700 file). */
+    private fun TextPaint.bodyStrong() {
+        typeface = bodyStrong
+        fonts.bodyStrong.variation?.let { fontVariationSettings = it }
+    }
+
     private fun namePaint(size: Int) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = bricolage
-        fontVariationSettings = "'wght' 600"
+        display()
         textSize = size * s
         color = FRAME_TEXT
     }
 
     private fun taglinePaint(size: Int) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = figtree
+        body()
         textSize = size * s
         color = FRAME_TEXT
     }
@@ -412,7 +431,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
     private fun asset(path: String): Bitmap? = runCatching { context.assets.open(path).use(BitmapFactory::decodeStream) }.getOrNull()
 
     fun labelPaint(): TextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = figtree
+        body()
         textSize = 30 * s
         color = FRAME_TEXT
     }
@@ -438,6 +457,12 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
 
         /** Google's official "Get it on Google Play" badge (play.google.com/intl/en_us/badges), the file unchanged. */
         const val BADGE_ASSET = "share/play_badge_en.png"
+
+        /** The languages with Google's badge in their own words (T49), each file unchanged; named by language code. */
+        val BADGE_LANGUAGES = setOf("en", "de", "es", "pt", "fr", "it", "ro", "pl", "tr", "hu", "bg", "ja")
+
+        /** The badge for the app's [language] (`Locale.language`; Brazil's `pt_br` badge is `pt`), English otherwise. */
+        fun badgeAsset(language: String): String = if (language in BADGE_LANGUAGES) "share/play_badge_$language.png" else BADGE_ASSET
         private const val FRAME_TEXT = 0xFFF2EEE4.toInt()
         private const val SCRIM = 0xFF141815.toInt()
 

@@ -1,0 +1,564 @@
+<resources>
+    <!-- Japanese (T49, #136). Drafted by Claude; not yet reviewed by a native speaker (docs/todos.md). Drawn in Zen Kaku Gothic New; plurals have one form. -->
+    <string name="app_name">Gemmory</string>
+    <string name="app_locale">ja</string>
+    <string name="widget_streak_label">連続記録</string>
+    <string name="widget_streak_description">連続記録と、今日の絵が完成したかどうか</string>
+
+    <string name="size_quick">クイック</string>
+    <string name="size_medium">ミディアム</string>
+    <string name="size_big">ビッグ</string>
+    <string name="colors_fewer">少なめ</string>
+    <string name="colors_standard">標準</string>
+    <string name="colors_more">多め</string>
+    <string name="mystery_today">今日のミステリー絵</string>
+    <string name="mystery_tonight">今夜のミステリー絵</string>
+    <string name="mystery_later">ミステリー絵</string>
+    <string name="today_label_picture">今日の絵</string>
+    <string name="today_label_pick">今日のおすすめ</string>
+    <string name="day_yesterday">昨日</string>
+
+    <string name="reminder_mystery_drop_text">新しい絵が届きました。完成するまで中身は秘密です。</string>
+    <string name="reminder_drop_title">今夜：%1$s</string>
+    <string name="reminder_drop_text">新しい絵が届きました。今日は無料で始められます。</string>
+    <string name="reminder_today_title">今日の絵：%1$s</string>
+    <string name="reminder_today_pick_title">今日のおすすめ：%1$s</string>
+    <string name="reminder_today_sized">%1$sサイズの絵</string>
+    <string name="reminder_today_unsized">絵</string>
+    <string name="reminder_today_text">%1$s。今日は無料で始められます。</string>
+    <string name="reminder_today_pick_text">%1$s。いつでも始められます。</string>
+    <string name="reminder_streak_title">%1$d日の連続記録が深夜0時に途切れます</string>
+    <string name="reminder_streak_text">今夜どれか1枚完成させれば続きます。</string>
+    <string name="reminder_streak_text_hint">今夜どれか1枚完成させれば続きます。%1$s。</string>
+    <string name="reminder_almost_title">%2$sが%1$d%%まで進んでいます</string>
+    <string name="reminder_almost_photo">写真キャンバス</string>
+    <string name="reminder_almost_mystery">ミステリー絵</string>
+    <string name="reminder_almost_text">続きから始めましょう。</string>
+
+    <plurals name="nudge_line">
+        <item quantity="other">今日1枚完成させて、%1$d日の連続記録をキープ</item>
+    </plurals>
+    <string name="nudge_broken_hint">連続記録を見る</string>
+    <string name="nudge_hint_quick">%1$sはクイック</string>
+    <string name="nudge_hint_done">%1$sは%2$d%%完成</string>
+    <string name="nudge_name_photo">写真キャンバス</string>
+    <string name="nudge_name_mystery">ミステリー絵</string>
+    <string name="nudge_name_generic">あなたの絵</string>
+    <string name="nudge_awaiting_several">完成させると、抜けた日もカバーされます</string>
+    <string name="nudge_awaiting_one">完成させるとカバーされます：%1$s</string>
+
+    <string name="progress_just_started">始めたばかり</string>
+    <string name="progress_done">%1$d%%完成</string>
+    <string name="share_text">Gemmoryで作りました：%1$s</string>
+
+    <string name="reminder_channel_name">夜のリマインダー</string>
+    <string name="reminder_channel_description">1日1回、新しく遊べる絵や、あと少しで完成する絵をお知らせします。</string>
+
+    <string name="a11y_canvas_progress">キャンバス。%2$s個中%1$s個を配置済み。</string>
+    <string name="a11y_canvas_selected">%1$s色%2$dを選択中、残り%3$s個。</string>
+    <string name="a11y_not_color">色%1$dではありません</string>
+    <string name="a11y_color_done">色%1$dが完成。</string>
+    <string name="a11y_color_done_next">色%1$dが完成。色%2$dを選択中。</string>
+    <string name="a11y_left">残り%1$s個</string>
+    <string name="a11y_batch">%1$s個を配置。%2$s</string>
+    <string name="a11y_join">%1$s。%2$s</string>
+    <string name="a11y_with_milestone">%1$s%2$s。</string>
+    <string name="a11y_tool">ツール：%1$s</string>
+    <plurals name="a11y_tool_fills">
+        <item quantity="other">ツール：%1$s、塗りつぶし%2$d回</item>
+    </plurals>
+    <string name="a11y_fill_color">色%1$dの残りを塗りつぶす</string>
+    <string name="a11y_music_volume">%1$dパーセント</string>
+    <string name="milestone_quarter">4分の1完成</string>
+    <string name="milestone_half">半分まで来ました</string>
+    <string name="milestone_three_quarters">4分の3完成</string>
+    <string name="a11y_peek_shown">完成した絵を表示中</string>
+    <string name="a11y_peek_hidden">キャンバスに戻る</string>
+    <string name="a11y_trough_done">色%1$d、完成</string>
+    <string name="a11y_trough_left">色%1$d、残り%2$s個</string>
+    <string name="a11y_tomorrow">明日の絵、明日公開</string>
+    <string name="a11y_today_mystery">%1$s、完成まで秘密</string>
+    <string name="a11y_today_mystery_drop">%1$s、今日の新作、完成まで秘密</string>
+    <string name="a11y_today_head">%1$s：%2$s</string>
+    <string name="a11y_today_head_drop">%1$s、今日の新作：%2$s</string>
+    <string name="a11y_done">%1$s、完成</string>
+    <string name="a11y_percent_done">%1$s、%2$d%%完成</string>
+    <string name="a11y_today_free">%1$s、%2$s、今日は無料で始められます</string>
+    <string name="a11y_today_sized">%1$s、%2$s</string>
+    <plurals name="a11y_finished_photos">
+        <item quantity="other">完成、写真キャンバス%1$d枚</item>
+    </plurals>
+    <plurals name="a11y_finished_pictures">
+        <item quantity="other">完成、絵%1$d枚</item>
+    </plurals>
+    <string name="a11y_collection">%1$s、%3$d枚中%2$d枚完成</string>
+    <string name="a11y_collection_coming">%1$s、%3$d枚中%2$d枚完成、あと%4$d枚届きます</string>
+    <string name="a11y_collection_complete">%1$sをコンプリート。</string>
+    <string name="a11y_collection_complete_keepsake">%1$sをコンプリート。記念の絵が追加されました。</string>
+    <string name="a11y_event_added">%1$s：記念の絵が追加されました。</string>
+    <string name="a11y_event_earned">%1$s：記念の絵を獲得。</string>
+    <string name="a11y_tile_mystery">%1$s、完成まで秘密</string>
+    <string name="a11y_tile_new">%1$s、新着</string>
+    <string name="a11y_tile_damaged">%1$s、開けません</string>
+    <string name="a11y_tile_locked">%1$s、ロック中、動画を見て解放</string>
+
+    <string name="photo_default_title">マイ写真</string>
+
+    <string name="action_back">戻る</string>
+    <string name="action_share_progress">途中経過をシェア</string>
+    <string name="action_find">探す</string>
+
+    <string name="play_damaged">このキャンバスのファイルが破損しているため、開けません。</string>
+    <string name="play_disk_full">進行状況を保存できません：ストレージがいっぱいです。</string>
+    <string name="play_progress_percent">%1$d%%</string>
+    <string name="play_progress_count">%1$s / %2$s</string>
+    <string name="a11y_action_place_next">次のビーズを置く</string>
+    <string name="a11y_action_fill_region_next">次のビーズの範囲を塗りつぶす</string>
+    <string name="a11y_action_find_next">次のビーズを探す</string>
+    <string name="a11y_action_zoom_in">拡大</string>
+    <string name="a11y_action_zoom_out">縮小</string>
+    <string name="a11y_action_whole_picture">絵の全体</string>
+    <string name="a11y_action_peek">完成図をのぞく</string>
+    <string name="tool_tap">タップ</string>
+    <string name="tool_brush">ブラシ 3×3</string>
+    <string name="tool_region">範囲を塗る</string>
+    <string name="tool_fill_color">色を塗る</string>
+    <string name="tool_no_fills_left">%1$s、塗りつぶしの残りなし</string>
+    <string name="tool_fill_left">塗る %1$d</string>
+
+    <string name="action_peek">のぞく</string>
+    <string name="percent">%1$d%%</string>
+    <string name="hint_zoom_in">ピンチかタップで、数字が見えるまで拡大</string>
+    <string name="hint_pick_color">下で色を選んで、その数字をタップかなぞる</string>
+    <string name="hint_tap_zoomed">数字が見えるように拡大しました</string>
+    <string name="milestone_count">%1$s / %2$s個</string>
+
+    <string name="list_and">%1$sと%2$s</string>
+    <string name="list_separator">、</string>
+    <string name="sentences">%1$s%2$s</string>
+    <string name="day_today">今日</string>
+
+    <plurals name="streak_days">
+        <item quantity="other">%1$d日</item>
+    </plurals>
+    <plurals name="streak_in_a_row">
+        <item quantity="other">%1$d日連続</item>
+    </plurals>
+    <plurals name="streak_in_a_row_sentence">
+        <item quantity="other">%1$d日連続。</item>
+    </plurals>
+    <string name="streak_milestone_7">ビーズの1週間</string>
+    <string name="streak_milestone_30">ビーズの1か月</string>
+    <string name="streak_milestone_50">ビーズの50日</string>
+    <string name="streak_milestone_100">ビーズの100日</string>
+    <string name="streak_milestone_365">ビーズの1年</string>
+    <string name="streak_started_title">連続記録スタート</string>
+    <string name="streak_line_day_one">明日も1枚完成させると2日になります。</string>
+    <string name="streak_line_next">明日も1枚完成させると%1$d日になります。</string>
+    <string name="streak_gift_line">5日連続のプレゼントルーレットが持ち物に届いています。</string>
+    <string name="streak_started_announcement">連続記録スタート。1日。</string>
+    <string name="streak_kept_joined">%1$sで連続記録が続きました。</string>
+    <string name="streak_kept_day_off">お休みの日（%1$s）で連続記録が続きました。</string>
+    <string name="streak_kept_vip_freeze">VIP保護で連続記録が続きました。</string>
+    <string name="streak_kept_freezes">連続保護%1$d個で連続記録が続きました。</string>
+    <string name="streak_kept_freeze">連続保護で連続記録が続きました：%1$s。</string>
+    <string name="streak_kept_going">連続記録は続いています。</string>
+    <string name="streak_none_left">残りはありません。</string>
+    <string name="streak_left">残り%1$d個。</string>
+    <string name="streak_freezes_row">連続保護 %1$d</string>
+    <string name="streak_freezes_sub">抜けた日を1日カバーします。最大%1$d個まで持てます。</string>
+    <string name="streak_by_day_off">お休みの日</string>
+    <string name="streak_by_vip_freeze">VIP保護</string>
+    <string name="streak_by_freeze">連続保護</string>
+    <string name="streak_by_streak">連続記録</string>
+    <string name="streak_done_today">今日はクリア</string>
+    <string name="streak_status_start">どれか1枚完成させると連続記録が始まります。</string>
+    <string name="streak_status_keep">今日1枚完成させてキープ</string>
+    <string name="streak_awaiting_several">今日完成させると、抜けた日もカバーされます。</string>
+    <string name="streak_awaiting_one">今日完成させると、%2$sでこの日がカバーされます：%1$s。</string>
+    <string name="streak_weekly_ready">%1$s：使用可能</string>
+    <string name="streak_weekly_used">%1$s・使用日：%2$s</string>
+    <string name="streak_weekly_again">次に使える日：%1$s</string>
+    <plurals name="streak_repair_title">
+        <item quantity="other">%1$d日の連続記録を取り戻す</item>
+    </plurals>
+    <string name="streak_repair_body_vip">連続記録が途切れました：%1$s。毎週のVIP修復で取り戻せます。</string>
+    <string name="streak_repair_body_video">連続記録が途切れました：%1$s。短い動画を見ると取り戻せます。</string>
+    <string name="streak_repair_until">取り戻せる期限：%1$s。</string>
+    <string name="streak_vip_repair_used">VIP修復の使用日：%1$s・次に使える日：%2$s</string>
+    <plurals name="streak_restored">
+        <item quantity="other">連続記録が復活：%1$d日</item>
+    </plurals>
+    <string name="streak_repaired">修復済み：%1$s</string>
+    <plurals name="streak_days_repaired">
+        <item quantity="other">%1$d日を修復</item>
+    </plurals>
+    <plurals name="streak_still_restorable">
+        <item quantity="other">%1$d日の連続記録はまだ取り戻せます</item>
+    </plurals>
+    <plurals name="streak_chip_done">
+        <item quantity="other">%1$d日連続、今日はクリア、連続記録を開く</item>
+    </plurals>
+    <plurals name="streak_chip_not_done">
+        <item quantity="other">%1$d日連続、今日はまだ、連続記録を開く</item>
+    </plurals>
+    <plurals name="streak_chip_broken">
+        <item quantity="other">0日連続、%1$d日の連続記録はまだ取り戻せます、連続記録を開く</item>
+    </plurals>
+    <string name="streak_week">今週：%1$s</string>
+    <string name="streak_week_today_done">%1$s（今日）、クリア</string>
+    <string name="streak_week_today">%1$s（今日）</string>
+    <string name="streak_week_day">%1$s：%2$s</string>
+    <string name="streak_what_not_counted">カウントなし</string>
+    <string name="streak_what_done">クリア</string>
+    <string name="streak_what_day_off">お休みの日</string>
+    <string name="streak_what_vip_freeze">VIP保護でキープ</string>
+    <string name="streak_what_freeze">連続保護でキープ</string>
+    <string name="streak_what_repaired">修復済み</string>
+    <string name="streak_what_awaiting">今日完成させるとカバー</string>
+    <string name="streak_cell_day">%2$d日（%1$s）</string>
+    <string name="streak_cell_what">%1$s、%2$s</string>
+
+    <string name="action_try_again">もう一度</string>
+    <string name="video_offline">オフラインです。動画を見るにはネットにつないでください。</string>
+    <string name="video_none">今は動画がありません。少ししてからお試しください。</string>
+    <string name="video_grace">今は動画がありません。今日は無料でどうぞ。</string>
+    <string name="video_loading">動画を読み込み中…</string>
+    <string name="video_watch">動画を見る</string>
+    <string name="streak_screen_title">連続記録</string>
+    <string name="streak_day_off">お休みの日</string>
+    <string name="streak_vip_freeze">VIP保護</string>
+    <string name="streak_bring_back">取り戻す</string>
+    <string name="streak_watch_to_end">最後まで見ると取り戻せます。</string>
+    <string name="streak_hero_best">%1$s。最高記録：%2$s</string>
+    <plurals name="streak_hero_words">
+        <item quantity="other">日連続</item>
+    </plurals>
+    <string name="streak_best">最高記録：%1$d</string>
+    <string name="streak_month_title">%2$d年%1$s</string>
+    <string name="streak_previous_month">前の月</string>
+    <string name="streak_next_month">次の月</string>
+    <string name="streak_what_finished">完成：%1$s</string>
+    <string name="streak_what_not_yet">まだ完成していません</string>
+
+    <string name="action_continue">続ける</string>
+    <string name="action_share">シェア</string>
+    <string name="streak_celebration_words">%1$s。%2$s</string>
+    <string name="next_gift">次のプレゼントルーレットは%1$d日連続で</string>
+    <string name="next_gift_description">次のプレゼントルーレットは%1$d日連続で。現在%3$d日中%2$d日。</string>
+
+    <string name="action_delete">削除</string>
+    <string name="action_start_over">最初からやり直す</string>
+    <string name="action_rename">名前を変更</string>
+    <string name="action_save">保存</string>
+    <string name="action_keep">残す</string>
+    <string name="action_open">開く</string>
+    <string name="action_start">始める</string>
+    <string name="a11y_expanded">展開</string>
+    <string name="a11y_collapsed">折りたたみ</string>
+    <string name="a11y_more_options">その他のオプション</string>
+    <string name="a11y_more_for">%1$sのその他のオプション</string>
+    <string name="watch_to_unlock">動画を見て解放</string>
+    <string name="vip_action">VIP</string>
+    <string name="settings_title">設定</string>
+
+    <string name="gallery_photo_failed">この写真は開けませんでした。別の写真をお試しください。</string>
+    <string name="gallery_new_from_photo">写真から作る</string>
+    <string name="gallery_opens_tomorrow">明日公開</string>
+    <string name="gallery_delete_title">この写真キャンバスを削除しますか？</string>
+    <string name="gallery_delete_body">写真、グリッド、進行状況がこのスマホから削除されます。</string>
+    <string name="gallery_start_over_title">この絵を最初からやり直しますか？</string>
+    <string name="gallery_start_over_body">この絵の進行状況は消去されます。</string>
+    <string name="gallery_cant_open">開けません</string>
+    <string name="gallery_damaged_body">このキャンバスのファイルが破損しているため、開けません。削除するか、最初からやり直せます。</string>
+    <string name="gallery_tab_pictures">絵</string>
+    <string name="gallery_tab_photos">マイ写真</string>
+    <string name="gallery_new_today">今日の新作</string>
+    <string name="gallery_tomorrow">明日</string>
+    <string name="gallery_tomorrow_line">深夜0時に新しい絵が公開されます</string>
+    <string name="today_line_done">%1$s・完成</string>
+    <string name="today_line_percent">%1$s・%2$s完成</string>
+    <string name="today_line_free">%1$s・今日は無料</string>
+    <string name="gallery_finished">完成</string>
+    <string name="gallery_new">新着</string>
+    <string name="gallery_mystery">ミステリー</string>
+    <string name="gallery_done">完成</string>
+    <string name="gallery_photos_empty_title">あなたの写真をビーズアートに</string>
+    <string name="gallery_photos_empty_body">自分の写真を、完成させられるキャンバスにしましょう。写真がこのスマホの外に出ることはありません。</string>
+
+    <string name="collections_all">すべてのコレクション</string>
+    <string name="collections_title">コレクション</string>
+    <string name="collection_count">%2$d枚中%1$d枚完成</string>
+    <string name="collection_count_coming">%1$s・%2$s</string>
+    <string name="collection_coming">あと%1$d枚届きます</string>
+    <string name="collection_coming_daily">あと%1$d枚、1日1枚届きます</string>
+    <string name="collection_for_keepsake">%1$d枚すべて完成させると記念の絵がもらえます。</string>
+    <string name="collection_to_complete">%1$d枚すべて完成させるとコンプリートです。</string>
+    <string name="collection_for_token">%1$d枚すべて完成させると解放チケットがもらえます。</string>
+    <string name="collection_keepsake_added">記念の絵を追加：%1$s。</string>
+    <string name="collection_keepsake_offline">記念の絵を獲得。次にオンラインになったときに届きます。</string>
+    <string name="collection_keepsake_space">記念の絵を獲得。スマホに空きができたら届きます。</string>
+    <string name="collection_complete">コンプリート。</string>
+    <string name="collection_token_added">解放チケットを1枚追加しました。</string>
+    <string name="event_keepsake_earned">記念の絵を獲得：%1$s。</string>
+    <string name="event_line">毎日1枚、新しい絵が届きます。今週どれか3枚完成させると記念の絵がもらえます。</string>
+
+    <string name="inventory_title">持ち物</string>
+    <string name="inventory_spin_waiting">持ち物、プレゼントルーレットあり</string>
+    <string name="inventory_fills">塗りつぶし</string>
+    <string name="inventory_fills_body">1回で、範囲・色の残り・ブラシひと塗りのどれかを塗れます。</string>
+    <string name="inventory_canvases">写真キャンバス</string>
+    <string name="inventory_canvases_body">今日の無料分のあとに写真を使うときに。使うまで残ります。</string>
+    <string name="inventory_tokens">解放チケット</string>
+    <string name="inventory_tokens_body">ロック中の絵をどれでもずっと解放します。</string>
+    <string name="inventory_freezes">連続保護</string>
+    <string name="inventory_freezes_body">お休みの日のあとに抜けた日を1日カバーします。最大%1$d個まで持てます。</string>
+    <string name="inventory_watch">動画を見る：塗りつぶし+%1$d回</string>
+    <string name="inventory_spin_several">プレゼントルーレットを回す（%1$d回分）</string>
+    <string name="inventory_spin">%1$d日連続のプレゼントルーレットを回す</string>
+    <string name="inventory_item">%1$s：%2$d。%3$s</string>
+    <plurals name="prize_fills">
+        <item quantity="other">塗りつぶし%1$d回</item>
+    </plurals>
+    <plurals name="prize_photo_canvases">
+        <item quantity="other">写真キャンバス%1$d枚</item>
+    </plurals>
+    <plurals name="prize_unlock_tokens">
+        <item quantity="other">解放チケット%1$d枚</item>
+    </plurals>
+    <string name="prize_streak_freeze">連続保護</string>
+    <string name="prize_added_freeze">連続保護が持ち物に追加されました。</string>
+    <plurals name="prize_added_fills">
+        <item quantity="other">塗りつぶし%1$d回分が持ち物に追加されました。</item>
+    </plurals>
+    <string name="prize_added">持ち物に追加：%1$s。</string>
+    <string name="wheel_title">プレゼント</string>
+    <string name="wheel_description">プレゼントルーレット。%1$s</string>
+    <string name="wheel_odd">%1$s %2$d%%</string>
+    <string name="wheel_spin">回す</string>
+
+    <string name="action_done">完了</string>
+    <string name="completion_title">完成</string>
+    <string name="completion_meta">%1$s・%2$s個・%3$s</string>
+    <string name="play_time_minutes">%1$d分</string>
+    <string name="play_time_hours">%1$d時間%2$d分</string>
+    <string name="completion_killed">アプリが閉じたため動画が止まりました。シェアをタップしてもう一度お試しください。</string>
+    <string name="completion_play_again">もう一度遊ぶ</string>
+    <string name="completion_picture">完成した絵</string>
+
+    <string name="widget_start">連続記録を始めよう</string>
+    <string name="widget_done">今日はクリア</string>
+    <string name="widget_not_yet">今日はまだ</string>
+    <string name="widget_description_start">Gemmoryの連続記録、連続記録を始めよう</string>
+    <plurals name="widget_description_done">
+        <item quantity="other">Gemmoryの連続記録、%1$d日、今日はクリア</item>
+    </plurals>
+    <plurals name="widget_description_not_done">
+        <item quantity="other">Gemmoryの連続記録、%1$d日、今日はまだ</item>
+    </plurals>
+
+    <string name="action_cancel">キャンセル</string>
+    <string name="shared_with_you">シェアされた絵：%1$s</string>
+    <string name="shared_mystery">ミステリー絵</string>
+    <string name="share_making">動画を作成中</string>
+    <string name="share_making_line">きらめきは数秒で完成。アプリを開いたままにしてください。</string>
+    <string name="share_picture_title">代わりに画像をどうぞ</string>
+    <string name="share_picture_progress">このスマホは動画に対応していないため、途中経過の画像をお送りします。</string>
+    <string name="share_picture_before_after">このスマホは動画に対応していないため、ビフォー・アフターの画像をお送りします。</string>
+    <string name="share_picture">画像をシェア</string>
+    <string name="share_failed">動画を作れませんでした。もう一度お試しください。</string>
+    <string name="share_disk_full">このスマホに動画を作る空き容量がありません。</string>
+    <string name="frame_before">ビフォー</string>
+    <string name="frame_so_far">ここまで</string>
+    <string name="frame_after">アフター</string>
+
+    <string name="frame_app_line">Gemmory・写真でダイヤモンドアート</string>
+    <string name="frame_watermark">Gemmoryで作成</string>
+    <string name="frame_tagline">あなたの写真をビーズアートに</string>
+
+    <string name="action_next">次へ</string>
+    <string name="photo_crop">トリミング</string>
+    <string name="photo_choose_size">サイズを選ぶ</string>
+    <string name="photo_preview">プレビュー</string>
+    <string name="photo_default_title_dated">マイ写真・%1$s</string>
+    <string name="photo_summary">%1$s個・%2$d色</string>
+    <string name="photo_size_summary">%1$s・%2$s</string>
+    <string name="photo_more_colors_line">色を増やす：動画を見るか、VIPに。</string>
+    <string name="photo_one_video_more_colors">動画1本で、このキャンバスの色を増やせます。</string>
+    <string name="photo_watch_for_colors">動画を見て色を増やす</string>
+    <string name="photo_colors_trough">%1$s、%2$d色</string>
+    <string name="photo_colors_trough_video">%1$s、%2$d色、動画かVIPが必要</string>
+    <string name="photo_faces_best">顔はミディアムかビッグがきれいです</string>
+    <string name="photo_faces_need_big">顔にはビッグが必要です</string>
+    <string name="photo_faces_unsupported">顔にはまだ対応していません</string>
+    <string name="photo_checking_faces">顔を確認中…</string>
+    <string name="photo_size_preview">%1$sのプレビュー</string>
+    <string name="photo_gem_preview">ビーズのプレビュー</string>
+    <string name="photo_gem_preview_updating">ビーズのプレビューを更新中</string>
+    <string name="photo_setting_gems">ビーズを並べています…</string>
+    <string name="photo_convert_failed">このキャンバスを作れませんでした。ミディアムか別の写真をお試しください。</string>
+    <string name="photo_choose_another">別の写真を選ぶ</string>
+    <string name="photo_save_failed">このキャンバスをスマホに保存できませんでした。もう一度お試しください。</string>
+    <string name="photo_colors">色</string>
+    <string name="allowance_free">今日の無料の写真キャンバスを使います。</string>
+    <string name="allowance_kept">持っている写真キャンバスを使います（残り%1$d枚）。</string>
+    <string name="allowance_bonus">動画でもらったボーナスキャンバスを使います。</string>
+    <string name="allowance_watch">今日の無料分は使用済みです。動画を見るともう1枚もらえます。</string>
+
+    <string name="music_title">音楽</string>
+    <string name="music_volume">音楽の音量</string>
+    <string name="music_chip">音楽を再生中</string>
+    <string name="music_turn_off">オフにする</string>
+    <string name="music_off_line">音楽をオフにしました。設定からまたオンにできます。</string>
+
+    <string name="highlight_title">選択中の色</string>
+    <string name="highlight_tint">濃い色合い</string>
+    <string name="highlight_outline">輪郭</string>
+    <string name="highlight_dim">ほかを暗く</string>
+    <string name="highlight_tint_description">その色のマスが濃くなります</string>
+    <string name="highlight_outline_description">拡大するとその色のマスを輪で囲みます</string>
+    <string name="highlight_dim_description">ほかの色が控えめになります</string>
+
+    <string name="billing_title">Gemmory VIP</string>
+    <string name="billing_perk_pictures">ギャラリーの絵をすべて解放</string>
+    <string name="billing_perk_canvases">写真キャンバスが無制限</string>
+    <string name="billing_perk_ads">広告は一切なし</string>
+    <string name="billing_perk_watermark">動画に透かしなし</string>
+    <string name="billing_perk_tools">ブラシと塗りつぶしツール</string>
+    <string name="billing_start_vip">VIPを始める</string>
+    <string name="billing_fine_print">VIPは解約するまで自動更新されます。Google Playからいつでも解約できます。</string>
+    <string name="billing_prices_failed">価格を読み込めませんでした。ネットにつないでもう一度お試しください。</string>
+    <string name="billing_purchase_failed">Google Playで購入を完了できませんでした。請求は発生していません。</string>
+    <string name="billing_pending_vip">支払い保留中です。Google Playで確認されるとVIPが始まります。</string>
+    <string name="billing_pending_ads">支払い保留中です。Google Playで確認されると広告が消えます。</string>
+    <string name="billing_checking">Google Playを確認中…</string>
+    <string name="billing_restore_none">このアカウントに購入履歴はありません</string>
+    <string name="billing_restore_failed">Google Playに接続できませんでした。もう一度お試しください。</string>
+    <string name="billing_yearly">%1$s / 年（1週間あたり%2$s）</string>
+    <string name="billing_weekly">%1$s / 週</string>
+    <string name="billing_remove_ads">広告だけ削除・%1$s（買い切り）</string>
+    <string name="membership_vip_yearly">VIP・年額</string>
+    <string name="membership_vip_weekly">VIP・週額</string>
+    <string name="membership_vip_unconfirmed">VIP・確認のためGoogle Playに接続してください</string>
+    <string name="membership_ads_removed">広告なし</string>
+    <string name="membership_free">無料</string>
+    <string name="billing_restored_yearly">購入を復元しました：VIP（年額）</string>
+    <string name="billing_restored_weekly">購入を復元しました：VIP（週額）</string>
+    <string name="billing_restored_ads">購入を復元しました：広告なし</string>
+    <string name="billing_notice_vip">VIPになりました。ギャラリーの絵がすべて解放されています。</string>
+    <string name="billing_notice_ads_off">広告はずっとオフです。</string>
+    <string name="billing_notice_lapsed">1週間VIPを確認できませんでした。復元するにはインターネットにつないでください。</string>
+
+    <string name="action_close">閉じる</string>
+    <string name="billing_loading_prices">価格を読み込み中</string>
+    <string name="billing_plan_yearly">年額</string>
+    <string name="billing_plan_weekly">週額</string>
+
+    <string name="settings_sound">効果音</string>
+    <string name="settings_haptics">振動</string>
+    <string name="settings_milestones">進行の節目</string>
+    <string name="settings_language">言語</string>
+    <string name="settings_membership">メンバーシップ</string>
+    <string name="settings_manage_subscription">定期購入を管理</string>
+    <string name="settings_restore">購入を復元</string>
+    <string name="settings_privacy_choices">プライバシーの選択</string>
+    <string name="settings_delete_all">写真キャンバスをすべて削除</string>
+    <string name="settings_privacy_policy">プライバシーポリシー</string>
+    <string name="settings_version">バージョン</string>
+    <string name="settings_delete_all_title">写真キャンバスをすべて削除しますか？</string>
+    <string name="settings_delete_all_body">すべての写真とそのグリッド、進行状況がこのスマホから削除されます。絵と購入は残ります。</string>
+
+    <string name="reminders_title">リマインダー</string>
+    <string name="reminders_time">リマインダーの時刻</string>
+    <string name="reminders_blocked">Gemmoryの通知がオフになっています</string>
+    <string name="reminders_open_settings">設定を開く</string>
+    <string name="reminders_around">%1$sごろ</string>
+    <string name="reminders_sheet_line">%1$sごろにお知らせします。</string>
+    <string name="reminder_ask_title">夜にお知らせしましょうか？</string>
+    <string name="reminder_ask_body">1日1回、%1$sごろにそっとお知らせします。新しい絵、今日の絵、キープしたい連続記録、あと少しで完成する絵があるときだけです。</string>
+    <string name="reminder_ask_settings_line">時刻の変更やオフは設定からできます。</string>
+    <string name="reminder_ask_yes">お知らせを受け取る</string>
+    <string name="reminder_ask_not_now">今はしない</string>
+    <string name="reminder_on_line">リマインダーをオンにしました（%1$sごろ）。設定から変更できます。</string>
+
+    <string name="achievements_title">実績</string>
+    <string name="achievements_value">Play ゲーム</string>
+    <string name="achievements_checking">確認中…</string>
+    <string name="achievements_failed">Play ゲームに接続できませんでした。もう一度お試しください。</string>
+
+    <string name="rewarded_fills_title">塗りつぶしを増やす</string>
+    <string name="rewarded_colors_title">色を増やす</string>
+    <string name="rewarded_canvas_title">写真キャンバスをもう1枚</string>
+    <string name="rewarded_fills_added">塗りつぶし%1$d回分を追加しました</string>
+    <string name="rewarded_colors_unlocked">色を増やしました</string>
+    <string name="rewarded_unlocked">解放しました</string>
+    <string name="rewarded_grace_fills">今は動画がありません。今日は無料でどうぞ。</string>
+    <string name="rewarded_offline">オフラインです。動画を見るにはネットにつないでください</string>
+    <string name="rewarded_picture_body">短い動画を見ると、この絵がずっと解放されます。</string>
+    <string name="rewarded_fills_body">短い動画を見ると塗りつぶし%1$d回分がもらえます。1回で、範囲・色の残り・ブラシひと塗りのどれかを塗れます。</string>
+    <string name="rewarded_colors_body">短い動画を見ると、この写真キャンバスの色を増やせます。</string>
+    <string name="rewarded_canvas_body">短い動画を見ると写真キャンバスがもう1枚もらえます。使うまで残ります。</string>
+    <string name="rewarded_watch_to_end">最後まで見ると解放されます。</string>
+    <string name="rewarded_watch">動画を見る</string>
+    <string name="rewarded_grace_picture">絵を解放</string>
+    <string name="rewarded_grace_fills_button">塗りつぶし%1$d回分をもらう</string>
+    <string name="rewarded_grace_colors">色を増やして使う</string>
+    <string name="rewarded_grace_canvas">キャンバスを始める</string>
+    <string name="rewarded_vip_picture">またはVIPに：ギャラリーの絵をすべて解放</string>
+    <string name="rewarded_vip_fills">またはVIPに：塗りつぶし無制限</string>
+    <string name="rewarded_vip_colors">またはVIPに：どの写真も色を増やせる</string>
+    <string name="rewarded_vip_canvas">またはVIPに：写真キャンバス無制限</string>
+    <string name="rewarded_vip_no_videos">VIPなら動画は不要</string>
+    <string name="rewarded_token">解放チケットを使う・残り%1$d枚</string>
+
+    <string name="a11y_drag_handle">ドラッグハンドル</string>
+    <string name="title_starter">星月夜</string>
+    <string name="title_wave">神奈川沖浪裏</string>
+    <string name="title_sunrise">印象・日の出</string>
+    <string name="title_annecy">アヌシー湖</string>
+    <string name="title_tulip_bouquet">チューリップの花束</string>
+    <string name="title_lemons">青いタイルとレモン</string>
+    <string name="title_coral_mandala">コーラルの曼荼羅</string>
+    <string name="title_beach_huts">ビーチの小屋</string>
+    <string name="title_rowing_boat">赤い手こぎボート</string>
+    <string name="title_balloon">熱気球</string>
+    <string name="title_deco_sunrise">アール・デコの日の出</string>
+    <string name="title_lighthouse">灯台</string>
+    <string name="title_poppies">ひなげしの野原</string>
+    <string name="title_macarons">マカロン</string>
+    <string name="title_lavender">ラベンダーの畝</string>
+    <string name="title_almond_blossom">花咲くアーモンドの木</string>
+    <string name="title_water_lilies">睡蓮</string>
+    <string name="title_mountain_lake">山の湖</string>
+    <string name="title_chamonix">シャモニー</string>
+    <string name="title_santorini">サントリーニのテラス</string>
+    <string name="title_cherry_river">桜の川</string>
+    <string name="title_autumn_road">秋の道</string>
+    <string name="title_tulip_field">チューリップ畑</string>
+    <string name="title_the_kiss">接吻</string>
+    <string name="title_stained_glass_mandala">ステンドグラスの曼荼羅</string>
+    <string name="title_bougainvillea_street">ブーゲンビリアの小道</string>
+    <string name="title_riviera_hotel">リビエラのホテル</string>
+    <string name="title_cherries">さくらんぼとミルク差し</string>
+    <string name="title_tuscan_hills">トスカーナの丘</string>
+    <string name="title_market_stall">市場の屋台</string>
+    <string name="title_puppy">金色の子犬</string>
+    <string name="title_cat">茶トラの猫</string>
+    <string name="title_couple">ゴールデンアワー</string>
+    <string name="title_sunflowers">ひまわり</string>
+    <string name="title_sunset">夕日の帆</string>
+    <string name="title_cottage">草原のコテージ</string>
+    <string name="title_plum_garden">梅の庭</string>
+    <string name="title_birch_forest">白樺の森</string>
+    <string name="title_winter">冬</string>
+    <string name="title_oranges_lemons">オレンジとレモン</string>
+    <string name="title_oia">イアの眺め</string>
+    <string name="title_lavender_hood">ラベンダーとフッド山</string>
+    <string name="title_flower_mandala">花の曼荼羅</string>
+    <string name="title_venice">夕暮れのベネチア</string>
+    <string name="title_peonies">芍薬</string>
+    <string name="title_deco_peacock">アール・デコの孔雀</string>
+    <string name="title_japanese_garden">日本庭園</string>
+    <string name="title_northern_lights">オーロラ</string>
+    <string name="title_misty_pier">霧の桟橋</string>
+</resources>

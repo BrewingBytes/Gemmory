@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.gallery
 
+import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.R
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.semantics.Role
@@ -59,7 +61,9 @@ fun ComposeTestRule.openFinishedTile(ref: CanvasRef) {
     val grid = onNodeWithTag("gallery-grid")
     waitUntil("the Finished heading", 10_000) { runCatching { grid.performScrollToKey(FINISHED_TAG) }.isSuccess }
     val heading = onNodeWithTag(FINISHED_TAG)
-    if (heading.state() == "collapsed") heading.performClick()
+    // The state reads in the app's language (T49): compare with the app's own word for it.
+    val collapsed = InstrumentationRegistry.getInstrumentation().targetContext.strings.text(R.string.a11y_collapsed)
+    if (heading.state() == collapsed) heading.performClick()
     waitUntil("${ref.id} in Finished", 5_000) { runCatching { grid.performScrollToKey("${ref.kind}/${ref.id}") }.isSuccess }
     onNodeWithTag(tileTag(ref)).performClick()
 }

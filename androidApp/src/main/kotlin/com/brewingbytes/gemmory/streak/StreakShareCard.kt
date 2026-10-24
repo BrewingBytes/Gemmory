@@ -17,10 +17,12 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.policy.CardDay
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.ui.AppFonts
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemRenderer
 import com.brewingbytes.gemmory.ui.grainBitmap
@@ -34,8 +36,10 @@ import kotlin.math.min
  */
 class StreakShareCardRenderer(private val context: Context) {
     private val mono = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono) ?: Typeface.MONOSPACE
-    private val bricolage = ResourcesCompat.getFont(context, R.font.bricolage_grotesque) ?: Typeface.DEFAULT
-    private val figtree = ResourcesCompat.getFont(context, R.font.figtree) ?: Typeface.DEFAULT
+    /** The faces of the app's language (T49): Bricolage Grotesque and Figtree for Latin scripts. */
+    private val fonts = AppFonts.forLanguage(context.strings.locale.language)
+    private val display = fonts.display.typeface(context)
+    private val body = fonts.body.typeface(context)
 
     /**
      * The card for a streak of [length] days: [title] is the milestone line, [days] the week's seven days and [letters]
@@ -56,14 +60,22 @@ class StreakShareCardRenderer(private val context: Context) {
             fontFeatureSettings = "tnum"
         }
         centerText(canvas, length.toString(), number, numberTop.toFloat(), NUMBER_SIZE.toFloat())
-        val titlePaint = textPaint(bricolage, TITLE_SIZE, GemColors.Bone).apply { fontVariationSettings = "'wght' 600" }
+        val titlePaint = textPaint(display, TITLE_SIZE, GemColors.Bone).apply {
+            fonts.display.variation?.let { fontVariationSettings = it }
+            // One line at 104px; a longer language's title shrinks to the card's width instead (T49), never below 64px.
+            val room = WIDTH - 2 * SIDE
+            val wide = measureText(title)
+            if (wide > room) textSize = maxOf(TITLE_MIN_SIZE.toFloat(), textSize * room / wide)
+        }
         val titleTop = numberTop + NUMBER_SIZE + TITLE_GAP
         val titleHeight = titlePaint.fontSpacing
         centerText(canvas, title, titlePaint, titleTop.toFloat(), titleHeight)
 
         val weekTop = titleTop + titleHeight + WEEK_GAP
         val cell = (WIDTH - 2 * SIDE - 6 * CELL_GAP) / 7f
-        val letterPaint = textPaint(figtree, LETTER_SIZE, GemColors.TextMuted)
+        val letterPaint = textPaint(body, LETTER_SIZE, GemColors.TextMuted).apply {
+            if (fonts != AppFonts.LATIN) fonts.body.variation?.let { fontVariationSettings = it }
+        }
         val letterHeight = letterPaint.fontSpacing
         val cellTop = weekTop + letterHeight + LETTER_GAP
         for ((i, day) in days.withIndex()) {
@@ -72,8 +84,8 @@ class StreakShareCardRenderer(private val context: Context) {
             drawDay(canvas, day, length, RectF(left, cellTop, left + cell, cellTop + cell), thumbnail)
         }
 
-        val brand = textPaint(bricolage, BRAND_SIZE, GemColors.FrameText).apply { fontVariationSettings = "'wght' 600" }
-        centerText(canvas, context.getString(R.string.app_name), brand, HEIGHT - BOTTOM - brand.fontSpacing, brand.fontSpacing)
+        val brand = textPaint(display, BRAND_SIZE, GemColors.FrameText).apply { fonts.display.variation?.let { fontVariationSettings = it } }
+        centerText(canvas, context.strings.text(R.string.app_name), brand, HEIGHT - BOTTOM - brand.fontSpacing, brand.fontSpacing)
         return out
     }
 
@@ -146,6 +158,7 @@ class StreakShareCardRenderer(private val context: Context) {
         private const val NUMBER_SIZE = 384
         private const val TITLE_GAP = 16
         private const val TITLE_SIZE = 104
+        private const val TITLE_MIN_SIZE = 64
         private const val WEEK_GAP = 88
         private const val LETTER_SIZE = 48
         private const val LETTER_GAP = 24

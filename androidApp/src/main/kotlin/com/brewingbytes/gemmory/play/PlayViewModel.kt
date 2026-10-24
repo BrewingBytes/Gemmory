@@ -46,7 +46,9 @@ class PlayViewModel(application: Application) : AndroidViewModel(application) {
     fun shareProgress(session: PlaySession) {
         // An unfinished mystery (T43, D23) is shared only from its completion screen.
         if (session.hiddenAs != null) return
-        sharing.share(session.ref, session.pattern, session.log(), session.title)
+        // The title in the language the app shows now: the frame draws it (T49).
+        val title = (getApplication<GemmoryApp>()).store.titleNow(session.ref, session.title, null)
+        sharing.share(session.ref, session.pattern, session.log(), title)
     }
 
     /** First-time hints (design D12); kept here so a rotation doesn't lose the one showing. */

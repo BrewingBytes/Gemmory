@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -90,7 +91,7 @@ fun AchievementsRow(achievements: Achievements) {
         ) {
             Text(stringResource(R.string.achievements_title), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(16.dp))
-            Text(stringResource(if (opening) R.string.achievements_checking else R.string.achievements_value), style = GemType.body, color = GemColors.Bone, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text(stringResource(if (opening) R.string.achievements_checking else R.string.achievements_value), style = GemType.body, color = GemColors.Bone, textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         }
         if (failed) {
             // Offline copy on plain felt: bone with a 6dp fault square before it (design system, Colors).

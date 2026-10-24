@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.tools
 
+import com.brewingbytes.gemmory.remote.Titles
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.remote.CatalogCheck
@@ -97,6 +98,60 @@ class PictureBatchTest {
         val bad = assertFailsWith<IllegalArgumentException> { PictureBatch.readCollections("id,title,members\nGardens!,Gardens,garden-1\nok,,garden-1\nok2,Ok,\n") }
         assertEquals(3, bad.message!!.lines().size, bad.message)
         assertFalse(dir.exists(), "nothing published")
+    }
+
+    /**
+     * T49 X4: `title_<lang>` columns become the catalog's translated titles (Romanian normalized to ș / ț),
+     * collections.csv takes them too by header name, and a title our bundled font can't draw is only a warning.
+     */
+    @Test
+    fun titleColumnsBecomeTranslatedTitles() {
+        ImageIO.write(SheetSplitterTest.sheet(1536, 1024, columns = 3, rows = 2), "png", File(batchDir, "sheet-1.png"))
+        val dated = (1..6).joinToString("\n") { t ->
+            val ja = if (t == 1) "庭園" else ""
+            "sheet-1.png,$t,garden-$t,Garden $t,quick-1:1,2026-11-0$t,a quiet garden $t,2026-10-30,yes,Garten $t,Grădină ţ $t,$ja,"
+        }
+        File(batchDir, PictureBatch.CSV).writeText("$header,title_de,title_ro,title_ja,title_pt-BR\n$dated\n")
+        File(batchDir, PictureBatch.COLLECTIONS_CSV).writeText("id,title,members,title_fr\ngardens,Gardens,garden-1;garden-2,Jardins\n")
+        val warnings = ArrayList<String>()
+        val published = PictureBatch.run(PictureBatch.Settings(
+            batchDir = batchDir, dir = dir, sourcesDir = sources, provenanceFile = provenance, signingKey = key,
+            reservedIds = setOf("starter"), today = today, nowSeconds = 1_793_000_000, previewDir = previews, trustedKeys = trusted,
+            fontDir = File("../androidApp/src/main/res/font"), warn = { warnings += it },
+        ))
+        assertEquals(mapOf("de" to "Garten 1", "ro" to "Grădină ț 1", "ja" to "庭園"), published.pictures.first().titles)
+        assertEquals(mapOf("de" to "Garten 2", "ro" to "Grădină ț 2"), published.pictures[1].titles, "blank columns stay on English")
+        val catalog = assertIs<CatalogCheck.Ok>(RemoteCatalogs.check(File(dir, "catalog.json").readBytes(), File(dir, "catalog.json.sig").readBytes(), trusted, Int.MAX_VALUE, null, setOf("starter"))).catalog
+        assertEquals(published.pictures, catalog.pictures)
+        assertEquals(mapOf("fr" to "Jardins"), catalog.collections.single().titles)
+        assertEquals(emptyList(), warnings, "every title draws in its language's faces")
+
+        val glyphs = GlyphCheck(File("../androidApp/src/main/res/font")).warnings(mapOf("garden-9" to mapOf("de" to "Garten 庭")))
+        assertTrue(glyphs.isNotEmpty() && glyphs.all { "garden-9 title_de" in it }, "$glyphs")
+    }
+
+    /** T49: the drafted titles for the live catalog read, cover every published picture and collection, and draw. */
+    @Test
+    fun theLiveCatalogsTitlesFileCoversItAndDraws() {
+        val titles = PictureBatch.readTitles(File("../tools/remote/titles/2026-10-24-live.csv").readText())
+        val catalog = RemoteCatalogs.parse(File("../pictures/v1/catalog.json").readBytes(), Int.MAX_VALUE)
+        val live = assertIs<CatalogCheck.Ok>(catalog).catalog
+        assertEquals((live.pictures.map { it.id } + live.collections.map { it.id }).toSet(), titles.keys)
+        assertTrue(titles.values.all { it.keys == Titles.LANGUAGES.toSet() }, "every language")
+        assertEquals(emptyList(), GlyphCheck(File("../androidApp/src/main/res/font")).warnings(titles))
+    }
+
+    @Test
+    fun aBadTitleColumnIsRefused() {
+        val e = assertFailsWith<IllegalArgumentException> {
+            PictureBatch.read("$header,title_de,title_nl\nsheet-1.png,1,garden-1,Garden,quick-1:1,,a garden,2026-10-30,yes,Garten,Tuin\n")
+        }
+        assertTrue(e.message!!.contains("title_nl"), e.message)
+        val long = "x".repeat(RemoteCatalogs.MAX_TITLE + 1)
+        val e2 = assertFailsWith<IllegalArgumentException> { PictureBatch.read("$header,title_de\nsheet-1.png,1,garden-1,Garden,quick-1:1,,a garden,2026-10-30,yes,$long\n") }
+        assertTrue(e2.message!!.contains("title_de"), e2.message)
+        assertEquals(mapOf("garden-1" to mapOf("ja" to "庭園", "pt-BR" to "Jardim")), PictureBatch.readTitles("id,title_ja,title_pt-BR\ngarden-1,庭園,Jardim\n"))
+        assertFailsWith<IllegalArgumentException> { PictureBatch.readTitles("id,title_xx\ngarden-1,Garden\n") }
     }
 
     /** T43: the optional `mystery` column makes a dated drop a mystery, stamped for the mystery app; undated is refused. */

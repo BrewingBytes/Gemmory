@@ -22,6 +22,7 @@ import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.timelapse.ShareLink
 import org.junit.Test
 import java.io.File
+import java.util.Locale
 import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -172,16 +173,15 @@ class MessagesTest {
 
     /**
      * Every language folder's strings take the same arguments as English (eng E1: "a format argument missing in one
-     * locale" fails the build), and every plural form within a language takes the same ones. Until T49 adds the
-     * languages, English is checked against itself.
+     * locale" fails the build), and every plural form within a language takes the same ones.
      */
     @Test
     fun everyLanguageTakesTheSameArguments() {
         val english = XmlStrings.en
-        val folders = File("src/main/res").listFiles { f -> f.isDirectory && f.name.startsWith("values") && File(f, "strings.xml").isFile }.orEmpty()
         assertTrue(folders.any { it.name == "values" })
         for (folder in folders) {
             val lang = XmlStrings(folder.name)
+            for ((name, text) in lang.strings) assertTrue(UNNUMBERED.find(text.replace("%%", "")) == null, "${folder.name}/$name: use %1\$s, not %s")
             for ((name, text) in lang.strings) {
                 val base = english.strings[name]
                 assertTrue(base != null, "${folder.name}/$name has no English string")
@@ -198,11 +198,54 @@ class MessagesTest {
         for ((name, text) in english.strings) assertTrue(UNNUMBERED.find(text) == null, "$name: use %1\$s, not %s")
     }
 
+    /**
+     * T49: every language has every English string and plural, writes its own language tag in `app_locale`, and gives
+     * exactly the plural quantities its language uses (CLDR), so no form is lost and none is dead.
+     */
+    @Test
+    fun everyLanguageIsCompleteWithItsOwnPluralForms() {
+        val english = XmlStrings.en
+        val languages = folders.filter { it.name != "values" }
+        assertEquals(TAGS.keys, languages.map { it.name }.toSet())
+        for (folder in folders) {
+            val lang = XmlStrings(folder.name)
+            val tag = TAGS[folder.name] ?: "en"
+            assertEquals(emptySet(), english.strings.keys - lang.strings.keys, "${folder.name}: missing strings")
+            assertEquals(emptySet(), english.plurals.keys - lang.plurals.keys, "${folder.name}: missing plurals")
+            assertEquals(tag, lang.strings["app_locale"], "${folder.name}/app_locale")
+            val quantities = PluralRules.QUANTITIES.getValue(tag.substringBefore('-'))
+            for ((name, items) in lang.plurals) assertEquals(quantities, items.keys, "${folder.name}/$name quantities")
+        }
+    }
+
+    @Test
+    fun pluralsArePickedByTheLanguagesRules() {
+        val ro = XmlStrings("values-ro", Locale.forLanguageTag("ro"))
+        assertEquals("1 zi", ro.plural(R.plurals.streak_days, 1, 1))
+        assertEquals("5 zile", ro.plural(R.plurals.streak_days, 5, 5))
+        assertEquals("20 de zile", ro.plural(R.plurals.streak_days, 20, 20))
+        val pl = XmlStrings("values-pl", Locale.forLanguageTag("pl"))
+        assertEquals("1 dzień", pl.plural(R.plurals.streak_days, 1, 1))
+        assertEquals("3 dni", pl.plural(R.plurals.streak_days, 3, 3))
+        assertEquals("12 dni", pl.plural(R.plurals.streak_days, 12, 12))
+        val ja = XmlStrings("values-ja", Locale.JAPANESE)
+        assertEquals("1日", ja.plural(R.plurals.streak_days, 1, 1))
+    }
+
+    private val folders: List<File>
+        get() = File("src/main/res").listFiles { f -> f.isDirectory && f.name.startsWith("values") && File(f, "strings.xml").isFile }.orEmpty().toList()
+
     private fun args(text: String): List<String> = ARG.findAll(text).map { it.value }.sorted().toList()
 
     companion object {
         private val ARG = Regex("""%\d+\$[sd]""")
         private val UNNUMBERED = Regex("""%[sd]""")
+
+        /** The eleven language folders (T49) and the tag each writes in `app_locale`. */
+        private val TAGS = mapOf(
+            "values-de" to "de", "values-es" to "es", "values-pt-rBR" to "pt-BR", "values-fr" to "fr", "values-it" to "it",
+            "values-ro" to "ro", "values-pl" to "pl", "values-tr" to "tr", "values-hu" to "hu", "values-bg" to "bg", "values-ja" to "ja",
+        )
 
         private val sources: List<String> by lazy {
             listOf("src/main/kotlin", "src/debug/kotlin", "src/release/kotlin").flatMap { dir ->

@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
 import android.app.Application
+import android.content.res.Resources
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -195,9 +196,12 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
     }
 }
 
-/** The locale's first day of the week (G12), for the week row and the calendar. */
+/**
+ * The phone region's first day of the week (G12), for the week row and the calendar. It reads the phone's own locale,
+ * not the app's (T49): a per-app pick of Japanese on a phone set to German still starts the week on Monday.
+ */
 fun firstDayOfWeek(): kotlinx.datetime.DayOfWeek =
-    kotlinx.datetime.DayOfWeek.entries[WeekFields.of(Locale.getDefault()).firstDayOfWeek.ordinal]
+    kotlinx.datetime.DayOfWeek.entries[WeekFields.of(Resources.getSystem().configuration.locales[0]).firstDayOfWeek.ordinal]
 
 const val CELEBRATION_TAG = "streak-celebration"
 const val CELEBRATION_CONTINUE_TAG = "streak-celebration-continue"

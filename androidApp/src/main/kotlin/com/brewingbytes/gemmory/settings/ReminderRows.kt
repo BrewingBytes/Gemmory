@@ -37,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -141,7 +142,7 @@ internal fun ReminderRows(app: GemmoryApp) {
         ) {
             Text(stringResource(R.string.reminders_time), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(16.dp))
-            Text(time, style = GemType.body, color = GemColors.Bone, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text(time, style = GemType.body, color = GemColors.Bone, textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         }
     }
     if (pickTime) {

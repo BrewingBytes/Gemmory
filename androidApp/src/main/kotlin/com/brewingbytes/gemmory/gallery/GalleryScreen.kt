@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -690,23 +692,26 @@ private fun Tabs(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        listOf(stringResource(R.string.gallery_tab_pictures), stringResource(R.string.gallery_tab_photos)).forEachIndexed { index, label ->
-            val isSelected = index == selected
-            Box(
-                Modifier
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .then(if (isSelected) Modifier.background(LocalFelt.current.deep) else Modifier)
-                    .semantics {
-                        this.selected = isSelected
-                        role = Role.Tab
-                    }
-                    .clickable { onTab(index) }
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                // Bone on both: text-muted fails 4.5:1 on the grained felt (valid grounds, #14).
-                Text(label, style = GemType.button, color = GemColors.Bone)
+        // The two tabs stay on one line and scroll sideways when a long language at 200% doesn't fit (T49 DR6).
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(stringResource(R.string.gallery_tab_pictures), stringResource(R.string.gallery_tab_photos)).forEachIndexed { index, label ->
+                val isSelected = index == selected
+                Box(
+                    Modifier
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .then(if (isSelected) Modifier.background(LocalFelt.current.deep) else Modifier)
+                        .semantics {
+                            this.selected = isSelected
+                            role = Role.Tab
+                        }
+                        .clickable { onTab(index) }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Bone on both: text-muted fails 4.5:1 on the grained felt (valid grounds, #14).
+                    Text(label, style = GemType.button, color = GemColors.Bone, maxLines = 1)
+                }
             }
         }
         // From day 1 now that it opens the streak screen (#101, G18); hidden while there's no streak, except for a grey
@@ -1171,8 +1176,12 @@ private fun TileView(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Image(GemIcons.Play, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.watch_to_unlock), style = GemType.label, color = GemColors.Bone)
+                    // Up to 2 lines in a long language; above 1.5× font the play icon alone (T49 DR6). TalkBack reads
+                    // the tile's own description, which says it's locked.
+                    if (LocalDensity.current.fontScale <= LARGE_FONT_SCALE) {
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.watch_to_unlock), style = GemType.label, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
             if (tile.isNew && !tile.damaged) {

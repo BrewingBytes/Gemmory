@@ -4,8 +4,11 @@
     percent sign is %%. Read in code through copy/Strings.kt, which formats in app_locale's language (eng O-E4).
     -->
     <string name="app_name">Gemmory</string>
-    <!-- The language these resources are written in: numbers, percents and dates are formatted in it. -->
-    <string name="app_locale" translatable="false">en</string>
+    <!--
+    The language tag these resources are written in (T49): numbers, percents and dates are formatted in it, and plurals
+    follow its rules. Every values-xx folder sets its own ("de", "pt-BR", "ja"); not copy, never reworded.
+    -->
+    <string name="app_locale">en</string>
     <!-- The streak widget (#103): its name and description in the widget picker. -->
     <string name="widget_streak_label">Streak</string>
     <string name="widget_streak_description">Your streak and whether today\'s picture is done</string>
@@ -552,6 +555,8 @@
     <string name="settings_sound">Sound</string>
     <string name="settings_haptics">Haptics</string>
     <string name="settings_milestones">Milestones</string>
+    <!-- Android 13+ only (T49 DR5): opens the system's language page for the app; the row ends with the language's own name. -->
+    <string name="settings_language">Language</string>
     <string name="settings_membership">Membership</string>
     <string name="settings_manage_subscription">Manage subscription</string>
     <string name="settings_restore">Restore purchases</string>
@@ -610,4 +615,54 @@
     <string name="rewarded_token">Use an unlock token · %1$d left</string>
 
     <string name="a11y_drag_handle">Drag handle</string>
+    <!-- Bundled picture titles (T49 X4): title_<id>, the id with - as _. Classic paintings keep their customary names in each language. -->
+    <string name="title_starter">The Starry Night</string>
+    <string name="title_wave">The Great Wave</string>
+    <string name="title_sunrise">Impression, Sunrise</string>
+    <string name="title_annecy">Lac d\'Annecy</string>
+    <string name="title_tulip_bouquet">Tulip Bouquet</string>
+    <string name="title_lemons">Lemons on Blue Tiles</string>
+    <string name="title_coral_mandala">Coral Mandala</string>
+    <string name="title_beach_huts">Beach Huts</string>
+    <string name="title_rowing_boat">Red Rowing Boat</string>
+    <string name="title_balloon">Hot Air Balloon</string>
+    <string name="title_deco_sunrise">Art Deco Sunrise</string>
+    <string name="title_lighthouse">Lighthouse</string>
+    <string name="title_poppies">Poppy Field</string>
+    <string name="title_macarons">Macarons</string>
+    <string name="title_lavender">Lavender Rows</string>
+    <string name="title_almond_blossom">Almond Blossom</string>
+    <string name="title_water_lilies">Water Lilies</string>
+    <string name="title_mountain_lake">Mountain Lake</string>
+    <string name="title_chamonix">Chamonix</string>
+    <string name="title_santorini">Santorini Terrace</string>
+    <string name="title_cherry_river">Cherry River</string>
+    <string name="title_autumn_road">Autumn Road</string>
+    <string name="title_tulip_field">Tulip Field</string>
+    <string name="title_the_kiss">The Kiss</string>
+    <string name="title_stained_glass_mandala">Stained Glass Mandala</string>
+    <string name="title_bougainvillea_street">Bougainvillea Street</string>
+    <string name="title_riviera_hotel">Riviera Hotel</string>
+    <string name="title_cherries">Cherries and Milk Jug</string>
+    <string name="title_tuscan_hills">Tuscan Hills</string>
+    <string name="title_market_stall">Market Stall</string>
+    <string name="title_puppy">Golden Puppy</string>
+    <string name="title_cat">Ginger Cat</string>
+    <string name="title_couple">Golden Hour</string>
+    <string name="title_sunflowers">Sunflowers</string>
+    <string name="title_sunset">Sail at Sunset</string>
+    <string name="title_cottage">Meadow Cottage</string>
+    <string name="title_plum_garden">Plum Garden</string>
+    <string name="title_birch_forest">Birch Forest</string>
+    <string name="title_winter">Winter</string>
+    <string name="title_oranges_lemons">Oranges and Lemons</string>
+    <string name="title_oia">Oia View</string>
+    <string name="title_lavender_hood">Lavender and Mt Hood</string>
+    <string name="title_flower_mandala">Flower Mandala</string>
+    <string name="title_venice">Venice at Sunset</string>
+    <string name="title_peonies">Peonies</string>
+    <string name="title_deco_peacock">Art Deco Peacock</string>
+    <string name="title_japanese_garden">Japanese Garden</string>
+    <string name="title_northern_lights">Northern Lights</string>
+    <string name="title_misty_pier">Misty Pier</string>
 </resources>

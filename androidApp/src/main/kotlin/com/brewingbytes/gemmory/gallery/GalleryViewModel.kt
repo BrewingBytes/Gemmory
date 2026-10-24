@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.gallery
 
+import com.brewingbytes.gemmory.remote.titleIn
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -392,7 +393,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 listOfNotNull(status.keepsake?.takeIf { status.keepsakeState == Keepsake.ADDED }?.let { byId[it.id] })
             status.id to CollectionRow(
                 id = status.id,
-                title = status.collection.title,
+                title = status.collection.titleIn(app.strings.locale.toLanguageTag()),
                 members = members,
                 finished = status.progress.finished,
                 size = status.progress.size,
@@ -400,7 +401,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 line = CollectionCopy(app.strings).line(status, vip),
                 complete = status.complete,
                 glint = status.glintPending,
-                keepsakeTitle = status.keepsake?.title?.takeIf { status.keepsakeState == Keepsake.ADDED },
+                keepsakeTitle = status.keepsake?.titleIn(app.strings.locale.toLanguageTag())?.takeIf { status.keepsakeState == Keepsake.ADDED },
                 inWindow = status.inWindow,
                 earned = status.earned,
             )

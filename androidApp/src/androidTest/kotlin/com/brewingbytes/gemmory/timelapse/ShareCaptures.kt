@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.timelapse
 
+import com.brewingbytes.gemmory.copy.strings
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,7 +41,7 @@ class ShareCaptures {
         val bytes = context.assets.open(picture.asset).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         val log = pattern.cells.indices.shuffled(Random(7)).toIntArray()
-        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(log.size * percent / 100), picture.title, null, watermark, frame)
+        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(log.size * percent / 100), picture.title(context.strings), null, watermark, frame)
     }
 
     private fun encode(name: String, request: EncodeRequest) {

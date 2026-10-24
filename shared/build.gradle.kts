@@ -79,6 +79,12 @@ tasks.named<Test>("jvmTest") {
     inputs.dir("src/jvmTest/goldens").withPathSensitivity(PathSensitivity.RELATIVE)
     // BundledGridToolTest pins the shipped starter grid's CRC.
     inputs.dir("../androidApp/src/main/assets/pictures").withPathSensitivity(PathSensitivity.RELATIVE)
+    // GlyphCheckTest (T49, eng O-E6): every language's strings against the fonts that draw them, and the store listings.
+    inputs.dir("../androidApp/src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("../tools/store/listing").withPathSensitivity(PathSensitivity.RELATIVE)
+    // The drafted translated titles for the live catalog (T49 X4) against pictures/v1.
+    inputs.dir("../tools/remote/titles").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file("../pictures/v1/catalog.json").withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 /** Regenerates the 27 converter goldens (+ review PNGs). Only after an intended converter change (eng D19). */
@@ -133,6 +139,9 @@ fun remoteToolArgs(mode: String): List<String> {
         "bundled=${root.dir("androidApp/src/main/assets/pictures").asFile.path}",
         "provenanceFile=${root.file("tools/remote/PROVENANCE.md").asFile.path}",
         "reviewDir=${root.dir("tools/remote").asFile.path}",
+        // T49: translated titles the bundled fonts can't draw are warned about (they still show, in the phone's font).
+        "fonts=${root.dir("androidApp/src/main/res/font").asFile.path}",
+        "titles=${p("titles")?.let { root.file(it).asFile.path }.orEmpty()}",
         "signingKey=${p("signingKey") ?: local.getProperty("remotePictures.signingKey").orEmpty()}",
         // Left out, the tool stamps the lowest app that reads the picture right (D14, T44).
         "minAppVersion=${p("minAppVersion").orEmpty()}",
@@ -151,12 +160,18 @@ fun remoteToolArgs(mode: String): List<String> {
     )
 }
 
-listOf("publishRemotePicture" to "publish", "withdrawRemotePicture" to "withdraw", "setRemoteFeature" to "feature").forEach { (taskName, mode) ->
+listOf(
+    "publishRemotePicture" to "publish",
+    "withdrawRemotePicture" to "withdraw",
+    "setRemoteFeature" to "feature",
+    "setRemoteTitles" to "titles",
+).forEach { (taskName, mode) ->
     tasks.register<JavaExec>(taskName) {
         group = "build"
         description = when (mode) {
             "publish" -> "Freezes, signs and adds a remote picture to pictures/v1 (#43)."
             "withdraw" -> "Removes a remote picture from pictures/v1 and re-signs the catalog (#43)."
+            "titles" -> "Sets translated titles (-Ptitles=<titles.csv>) of published pictures and collections, and re-signs the catalog (T49)."
             else -> "Turns a catalog switch (-Pfeature=review) on or off (-Pon=true|false) and re-signs the catalog (T39)."
         }
         val jvmMain = kotlin.jvm().compilations.getByName("main")
@@ -201,6 +216,28 @@ tasks.register<JavaExec>("publishPictureBatch") {
             "batch=${batch?.let { root.dir(it).asFile.path }.orEmpty()}",
             "previewDir=${layout.buildDirectory.dir("picture-batch/${batch?.trimEnd('/')?.substringAfterLast('/').orEmpty()}").get().asFile.path}",
         ),
+    )
+}
+
+/**
+ * Store listings (T49 X2): the five phone screenshots `StoreScreenshots` captured in a language, captioned per listing
+ * locale from `tools/store/listing/<locale>/captions.txt`. `-Pshots=<folder of store-*.png>` (default
+ * `build/store-shots`), `-Plocale=de-DE` for one locale (default every locale whose shots are there). README → Store listings.
+ */
+tasks.register<JavaExec>("frameStoreShots") {
+    group = "build"
+    description = "Captions the Play listing screenshots per locale (T49)."
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    dependsOn(jvmMain.compileTaskProvider)
+    classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("com.brewingbytes.gemmory.tools.StoreFrames")
+    val root = rootProject.layout.projectDirectory
+    args(
+        "shots=${root.dir(providers.gradleProperty("shots").getOrElse("build/store-shots")).asFile.path}",
+        "listing=${root.dir("tools/store/listing").asFile.path}",
+        "fonts=${root.dir("androidApp/src/main/res/font").asFile.path}",
+        "out=${root.dir("build/store-frames").asFile.path}",
+        "locale=${providers.gradleProperty("locale").getOrElse("")}",
     )
 }
 

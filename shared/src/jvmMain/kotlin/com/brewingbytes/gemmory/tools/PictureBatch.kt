@@ -9,6 +9,8 @@ import com.brewingbytes.gemmory.remote.RemoteCatalogs
 import com.brewingbytes.gemmory.remote.RemoteCollection
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePicture
+import com.brewingbytes.gemmory.remote.Romanian
+import com.brewingbytes.gemmory.remote.Titles
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -44,6 +46,16 @@ object PictureBatch {
      */
     val OPTIONAL = listOf("colors", "availableFrom", "locked", "focus", "prompt", "model", "rewardOf", "mystery")
 
+    /**
+     * Optional (T49 X4): a translated title per app language, `title_de` … `title_pt-BR` … `title_ja`, in `batch.csv`,
+     * `collections.csv` and a titles file. Blank leaves that language on the English title. Romanian is normalized to
+     * ș / ț; each gets the English title's checks.
+     */
+    val TITLE_COLUMNS = Titles.LANGUAGES.map { "title_$it" }
+
+    /** A titles file (T49, `setRemoteTitles`): `id` (a published picture or collection), then [TITLE_COLUMNS]. */
+    const val TITLES_CSV = "titles.csv"
+
     const val DEFAULT_PROMPT = "prompts/sheet-2x3.md"
 
     const val DEFAULT_MODEL = "ChatGPT image generation (OpenAI)"
@@ -73,6 +85,8 @@ object PictureBatch {
         val rewardOf: String? = null,
         /** A mystery picture (T43): a dated drop whose title and art stay hidden until it's finished. */
         val mystery: Boolean = false,
+        /** Translated titles (T49 X4), from the `title_<lang>` columns. */
+        val titles: Map<String, String> = emptyMap(),
     )
 
     class Settings(
@@ -90,6 +104,9 @@ object PictureBatch {
         /** Where the review PNGs go while the content check isn't done (outside the repo's tracked files). */
         val previewDir: File,
         val trustedKeys: List<ByteArray> = RemoteKeys.PRODUCTION,
+        /** The app's `res/font`: a translated title one of its language's faces can't draw is a warning (T49). */
+        val fontDir: File? = null,
+        val warn: (String) -> Unit = { System.err.println("warning: $it") },
     )
 
     class Published(val pictures: List<RemotePicture>, val calendar: DropCalendar.Result)
@@ -147,7 +164,11 @@ object PictureBatch {
                 sourceImage = tiles.getValue(row.sheet)[row.tile - 1],
                 rewardOf = row.rewardOf,
                 mystery = row.mystery,
+                titles = row.titles,
             )
+        }
+        s.fontDir?.let { fonts ->
+            GlyphCheck(fonts).warnings(rows.associate { it.id to it.titles } + collections.associate { it.id to it.titles }).forEach(s.warn)
         }
         val pictures = RemotePictureTool.publish(requests, collections)
         val catalog = RemoteCatalogs.check(
@@ -182,7 +203,7 @@ object PictureBatch {
         require(lines.isNotEmpty()) { "$CSV is empty" }
         val header = lines.first().map { it.trim() }
         (REQUIRED - header.toSet()).takeIf { it.isNotEmpty() }?.let { throw IllegalArgumentException("$CSV is missing columns $it") }
-        (header - (REQUIRED + OPTIONAL).toSet()).takeIf { it.isNotEmpty() }?.let { throw IllegalArgumentException("$CSV has unknown columns $it") }
+        (header - (REQUIRED + OPTIONAL + TITLE_COLUMNS).toSet()).takeIf { it.isNotEmpty() }?.let { throw IllegalArgumentException("$CSV has unknown columns $it") }
         val problems = ArrayList<String>()
         val rows = lines.drop(1).withIndex().filter { (_, f) -> f.any { it.isNotBlank() } }.mapNotNull { (i, fields) ->
             val line = i + 2
@@ -194,33 +215,73 @@ object PictureBatch {
     }
 
     /**
-     * Parses `collections.csv` (T37): a header `id,title,members` (or `id,title,members,event`, T38), then one
-     * collection per row, members split by `;`.
+     * Parses `collections.csv` (T37): a header `id,title,members` (plus an optional `event`, T38, and optional
+     * [TITLE_COLUMNS], T49, in any order), then one collection per row, members split by `;`.
      */
     fun readCollections(text: String): List<RemoteCollection> {
         val lines = csv(text)
         require(lines.isNotEmpty()) { "$COLLECTIONS_CSV is empty" }
         val header = lines.first().map { it.trim() }
-        require(header == COLLECTION_COLUMNS || header == EVENT_COLUMNS) {
-            "$COLLECTIONS_CSV columns must be ${EVENT_COLUMNS.joinToString(",")} (event optional), were ${header.joinToString(",")}"
+        require(header.take(3) == COLLECTION_COLUMNS && (header.drop(3) - (listOf("event") + TITLE_COLUMNS).toSet()).isEmpty()) {
+            "$COLLECTIONS_CSV columns must be ${COLLECTION_COLUMNS.joinToString(",")}, then optional event and title_<lang>, were ${header.joinToString(",")}"
         }
         val problems = ArrayList<String>()
         val out = lines.drop(1).withIndex().filter { (_, f) -> f.any { it.isNotBlank() } }.mapNotNull { (i, fields) ->
             val line = i + 2
-            val (id, title, members, eventField) = (fields.map { it.trim() } + listOf("", "", "", "")).take(4)
-            val list = members.split(';').map { it.trim() }.filter { it.isNotEmpty() }
+            val v = header.zip(fields.map { it.trim() } + List((header.size - fields.size).coerceAtLeast(0)) { "" }).toMap()
+            val id = v.getValue("id")
+            val title = v.getValue("title")
+            val eventField = v["event"].orEmpty()
+            val list = v.getValue("members").split(';').map { it.trim() }.filter { it.isNotEmpty() }
             when {
                 !RemoteCatalogs.ID.matches(id) -> problems += "line $line: id must match ${RemoteCatalogs.ID.pattern}"
                 title.isBlank() -> problems += "line $line: title is empty"
                 list.isEmpty() -> problems += "line $line: members is empty"
                 eventField.lowercase() !in setOf("", "yes") -> problems += "line $line: event must be yes or empty"
-                else -> return@mapNotNull RemoteCollection(id, title, list, event = eventField.equals("yes", ignoreCase = true))
+                else -> return@mapNotNull runCatching {
+                    RemoteCollection(id, title, list, event = eventField.equals("yes", ignoreCase = true), titles = titles(v))
+                }.onFailure { problems += "line $line: ${it.message}" }.getOrNull()
             }
             null
         }
         require(problems.isEmpty()) { problems.joinToString("\n") }
         return out
     }
+
+    /**
+     * Parses a titles file (T49, `setRemoteTitles`): a header `id` then any [TITLE_COLUMNS], one published picture or
+     * collection per row; returns id → its translated titles.
+     */
+    fun readTitles(text: String): Map<String, Map<String, String>> {
+        val lines = csv(text)
+        require(lines.isNotEmpty()) { "$TITLES_CSV is empty" }
+        val header = lines.first().map { it.trim() }
+        require(header.firstOrNull() == "id" && (header.drop(1) - TITLE_COLUMNS.toSet()).isEmpty()) {
+            "$TITLES_CSV columns must be id, then title_<lang> for ${Titles.LANGUAGES}, were ${header.joinToString(",")}"
+        }
+        val problems = ArrayList<String>()
+        val out = LinkedHashMap<String, Map<String, String>>()
+        lines.drop(1).withIndex().filter { (_, f) -> f.any { it.isNotBlank() } }.forEach { (i, fields) ->
+            val line = i + 2
+            val v = header.zip(fields.map { it.trim() } + List((header.size - fields.size).coerceAtLeast(0)) { "" }).toMap()
+            val id = v.getValue("id")
+            when {
+                !RemoteCatalogs.ID.matches(id) -> problems += "line $line: id must match ${RemoteCatalogs.ID.pattern}"
+                id in out -> problems += "line $line: $id is on two rows"
+                else -> runCatching { out[id] = titles(v) }.onFailure { problems += "line $line: ${it.message}" }
+            }
+        }
+        require(problems.isEmpty()) { problems.joinToString("\n") }
+        return out
+    }
+
+    /** A row's `title_<lang>` columns: blank ones skipped, Romanian normalized, each checked like the English title. */
+    private fun titles(v: Map<String, String>): Map<String, String> = Titles.LANGUAGES.mapNotNull { tag ->
+        val raw = v["title_$tag"]?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        val title = if (tag == "ro") Romanian.normalize(raw) else raw
+        require(Titles.valid(title)) { "title_$tag must be 1-${RemoteCatalogs.MAX_TITLE} characters, no control characters" }
+        tag to title
+    }.toMap()
 
     private fun row(line: Int, v: Map<String, String>): Row {
         fun need(name: String) = v[name]?.takeIf { it.isNotEmpty() } ?: throw IllegalArgumentException("$name is empty")
@@ -260,6 +321,7 @@ object PictureBatch {
                 "" -> false
                 else -> throw IllegalArgumentException("mystery must be yes or empty")
             },
+            titles = titles(v),
         )
     }
 
@@ -304,6 +366,7 @@ object PictureBatch {
             today = LocalDate.parse(java.time.LocalDate.now().toString()),
             nowSeconds = System.currentTimeMillis() / 1000,
             previewDir = File(arg("previewDir")),
+            fontDir = a["fonts"]?.takeIf { it.isNotBlank() }?.let(::File),
         )
         val published = try {
             run(settings)

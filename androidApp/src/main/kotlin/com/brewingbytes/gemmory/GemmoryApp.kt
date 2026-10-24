@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory
 
 import android.app.Activity
 import android.app.Application
+import android.content.res.Configuration
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -422,8 +423,7 @@ class GemmoryApp : Application() {
     /** What the landing's toasts call [ref]: its title, or "a mystery picture" while it's an unfinished mystery (T43). */
     private fun sharedTitle(ref: CanvasRef): String {
         if (store.hiddenAs(ref) != null) return strings.text(R.string.shared_mystery)
-        return BundledPictures.byId(ref.id)?.title ?: remote.listed().firstOrNull { it.id == ref.id }?.title
-            ?: store.titleOf(ref, store.repository.readRecord(ref))
+        return store.titleOf(ref, store.repository.readRecord(ref))
     }
 
     /** A picture's canvas by id: ids are unique across bundled and remote pictures (the catalog check refuses a clash). */
@@ -511,12 +511,12 @@ class GemmoryApp : Application() {
     private fun reminderPicture(id: String): ReminderPicture? {
         val ref = openableRef(id) ?: return null
         BundledPictures.byId(id)?.let { picture ->
-            return ReminderPicture(picture.title, BundledPictures.canvasSizeOf(id)) {
+            return ReminderPicture(picture.title(strings), BundledPictures.canvasSizeOf(id)) {
                 (GridCodec.decode(assets.open(picture.asset).use { it.readBytes() }) as? Decoded.Ok)?.value?.pattern
             }
         }
         val listed = remote.listed().firstOrNull { it.id == id }
-        val title = listed?.title ?: store.titleOf(ref, store.repository.readRecord(ref))
+        val title = store.titleOf(ref, store.repository.readRecord(ref))
         // An unfinished mystery (T43) is never named or drawn in the reminder.
         val mystery = store.hiddenAs(ref) != null
         return ReminderPicture(title, listed?.size, mystery) {
@@ -700,6 +700,21 @@ class GemmoryApp : Application() {
         Achievement.A_MONTH_OF_GEMS -> R.string.achievement_a_month_of_gems
     }
 
+    /** The language the app last showed (T49), so a configuration change only relabels when it really changed. */
+    private var shownLanguage: String? = null
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (::reminders.isInitialized && strings.locale.toLanguageTag() != shownLanguage) relabel()
+    }
+
+    /** Words outside the activity follow the app's language: the reminder channel's name and the streak widget. */
+    private fun relabel() {
+        shownLanguage = strings.locale.toLanguageTag()
+        reminders.relabel()
+        streakWidgets.relabel()
+    }
+
     override fun onCreate() {
         super.onCreate()
         reporter = NonFatalReporter.forBuild(BuildConfig.FIREBASE) {
@@ -824,6 +839,8 @@ class GemmoryApp : Application() {
             if (firstRun.launchDue()) analytics.log(AnalyticsEvent.firstLaunch)
         }
         monetization.onProcessStart()
+        // A per-app language picked while the app was closed (T49): the reminder channel and the widget take it now.
+        relabel()
         // Past the first finish, Play Games starts with the app (T45, founder: as early as allowed); before it, a fresh
         // install sees nothing of it until a gallery visit after that finish.
         if (PlayGamesTurn.startAtLaunch(playGamesReady())) startPlayGames()

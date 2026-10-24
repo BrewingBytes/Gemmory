@@ -33,6 +33,8 @@ data class RemotePicture(
     val availableFrom: LocalDate? = null,
     val rewardOf: String? = null,
     val mystery: Boolean = false,
+    /** Translated titles (T49 X4): language tag → title; empty when the catalog has none. Never raises minAppVersion. */
+    val titles: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -40,7 +42,14 @@ data class RemotePicture(
  * carry no collection field. [event] marks T38's weekly event. Collection and event ids share one namespace, apart from
  * picture ids.
  */
-data class RemoteCollection(val id: String, val title: String, val members: List<String>, val event: Boolean = false)
+data class RemoteCollection(
+    val id: String,
+    val title: String,
+    val members: List<String>,
+    val event: Boolean = false,
+    /** Translated titles (T49 X4), as [RemotePicture.titles]. */
+    val titles: Map<String, String> = emptyMap(),
+)
 
 /**
  * Switches the founder flips without an app release, inside the signed bytes. [review]: the in-app review prompt
@@ -115,8 +124,9 @@ sealed interface GridCheck {
  *
  * Format v1 (`catalog.json`, UTF-8): `{"version": 1, "issuedAt": <epoch s>, "pictures": [{"id", "title", "ratio"
  * ("1:1" | "3:4" | "4:3"), "size" ("quick" | "medium" | "big"), "width", "height", "colors", "grid"
- * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD"), optional "availableFrom" ("YYYY-MM-DD", T36), optional "rewardOf" (a collection id, T37), optional "mystery" (true, on a dated drop, T43)}],
- * optional "collections": [{"id", "title", "members" ([picture ids]), optional "event" (true, T38)}]}`. A member the
+ * ("grids/<id>.gmrg"), "sha256" (hex), "crc32" (8 hex digits), "locked", "minAppVersion", "addedAt" ("YYYY-MM-DD"), optional "availableFrom" ("YYYY-MM-DD", T36), optional "rewardOf" (a collection id, T37), optional "mystery" (true, on a dated drop, T43), optional "titles" ({"de": "…", "pt-BR": "…"}, T49)}],
+ * optional "collections": [{"id", "title", "members" ([picture ids]), optional "event" (true, T38), optional "titles"}]}`.
+ * A `titles` map that isn't an object of valid titles is ignored (the English title shows), never refused. A member the
  * catalog doesn't list is allowed (it may need a newer app, or be withdrawn). Unknown fields are ignored. `catalog.json.sig` is the Ed25519 signature of the exact catalog bytes, in base64.
  */
 object RemoteCatalogs {
@@ -262,7 +272,7 @@ object RemoteCatalogs {
 
     private fun picture(o: Json.Obj): RemotePicture? {
         val id = o.string("id")?.takeIf { ID.matches(it) } ?: return null
-        val title = o.string("title")?.takeIf { t -> t.isNotBlank() && t.length <= MAX_TITLE && t.none { it < ' ' } } ?: return null
+        val title = o.string("title")?.takeIf(Titles::valid) ?: return null
         val ratio = o.string("ratio")?.let { r -> AspectRatio.entries.firstOrNull { it.label == r } } ?: return null
         val size = o.string("size")?.let { s -> CanvasSize.entries.firstOrNull { it.name.lowercase() == s } } ?: return null
         val spec = GridSpec.of(size, ratio)
@@ -284,18 +294,37 @@ object RemoteCatalogs {
         val mystery = if ("mystery" in o.fields) (o.fields["mystery"] as? Json.Bool)?.value?.takeIf { it } ?: return null else false
         if (mystery && (from == null || minApp < MYSTERY_MIN_APP)) return null
         val crc32 = crc.fold(0) { acc, b -> (acc shl 8) or (b.toInt() and 0xFF) }
-        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added, from, reward, mystery)
+        return RemotePicture(id, title, ratio, size, width.toInt(), height.toInt(), colors.toInt(), grid, sha, crc32, locked, minApp.toInt(), added, from, reward, mystery, titles(o))
     }
 
     private fun collection(o: Json.Obj): RemoteCollection? {
         val id = o.string("id")?.takeIf { ID.matches(it) } ?: return null
-        val title = o.string("title")?.takeIf { t -> t.isNotBlank() && t.length <= MAX_TITLE && t.none { it < ' ' } } ?: return null
+        val title = o.string("title")?.takeIf(Titles::valid) ?: return null
         val list = (o.fields["members"] as? Json.Arr)?.items?.takeIf { it.isNotEmpty() } ?: return null
         val members = list.map { m -> (m as? Json.Str)?.value?.takeIf { ID.matches(it) } ?: return null }
         if (members.toSet().size != members.size) return null
         val event = if ("event" in o.fields) (o.fields["event"] as? Json.Bool)?.value ?: return null else false
-        return RemoteCollection(id, title, members, event)
+        return RemoteCollection(id, title, members, event, titles(o))
     }
+
+    /**
+     * An entry's `titles` (T49 X4): every key a language tag, every value a valid title (O-E10). Anything else and the
+     * whole map is ignored, so the English title shows; a title map never makes an entry malformed.
+     */
+    private fun titles(o: Json.Obj): Map<String, String> {
+        val map = o.fields["titles"] as? Json.Obj ?: return emptyMap()
+        val titles = LinkedHashMap<String, String>()
+        for ((tag, value) in map.fields) {
+            val title = (value as? Json.Str)?.value
+            if (!Titles.TAG.matches(tag) || title == null || !Titles.valid(title)) return emptyMap()
+            titles[tag] = title
+        }
+        return titles
+    }
+
+    /** The `titles` object the publishing tool writes, or null when there are none (so the entry is as before T49). */
+    private fun titlesEntry(titles: Map<String, String>): Json.Obj? =
+        if (titles.isEmpty()) null else Json.Obj(LinkedHashMap<String, Json>().apply { titles.forEach { (k, v) -> put(k, Json.Str(v)) } })
 
     /** The publishing tool's collection entry (T37), fields in the documented order. */
     fun collectionEntry(c: RemoteCollection): Json.Obj = Json.Obj(
@@ -303,7 +332,10 @@ object RemoteCatalogs {
             "id" to Json.Str(c.id),
             "title" to Json.Str(c.title),
             "members" to Json.Arr(c.members.map { Json.Str(it) }),
-        ).apply { if (c.event) put("event", Json.Bool(true)) },
+        ).apply {
+            if (c.event) put("event", Json.Bool(true))
+            titlesEntry(c.titles)?.let { put("titles", it) }
+        },
     )
 
     /** The publishing tool's `features` object (T39): only the switches that are on, or null when none is. */
@@ -330,6 +362,7 @@ object RemoteCatalogs {
             p.availableFrom?.let { put("availableFrom", Json.Str(it.toString())) }
             p.rewardOf?.let { put("rewardOf", Json.Str(it)) }
             if (p.mystery) put("mystery", Json.Bool(true))
+            titlesEntry(p.titles)?.let { put("titles", it) }
         },
     )
 

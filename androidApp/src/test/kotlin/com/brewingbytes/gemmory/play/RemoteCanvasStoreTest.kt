@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.play
 
+import java.util.Locale
+import com.brewingbytes.gemmory.copy.Strings
 import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
@@ -39,13 +41,22 @@ class RemoteCanvasStoreTest {
     private val bundledGrid = TestCatalog.grid(CanvasSize.QUICK, 1)
     private val gridReads = java.util.Collections.synchronizedList(mutableListOf<String>())
 
+    /** The app's language; a test switches it as Settings → Language would (T49). */
+    private var language: XmlStrings = XmlStrings.en
+
     private val store by lazy {
         CanvasStore(
             filesDir = tmp.root,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             writer = Dispatchers.IO.limitedParallelism(1),
             nowMillis = { 0L },
-            strings = XmlStrings.en,
+            strings = object : Strings {
+                override val locale get() = language.locale
+
+                override fun text(id: Int, vararg args: Any) = language.text(id, *args)
+
+                override fun plural(id: Int, count: Int, vararg args: Any) = language.plural(id, count, *args)
+            },
             bundledGrid = { _: BundledPicture -> bundledGrid },
             encodes = object : EncodeCanceller {
                 override suspend fun cancelAndClear(ref: CanvasRef) = Unit
@@ -71,6 +82,33 @@ class RemoteCanvasStoreTest {
     }
 
     private fun ref(id: String) = CanvasRef(CanvasKind.REMOTE, id)
+
+    /**
+     * T49 X4: titles show in the app's language. A bundled picture's comes from `title_<id>`; a remote one's from the
+     * catalog's `titles` through the chain (pt-BR → pt), English where the language is missing; a withdrawn picture
+     * keeps its record's English title. An open canvas follows a language switch ([CanvasStore.titleNow]).
+     */
+    @Test
+    fun titlesFollowTheAppsLanguage() = runBlocking<Unit> {
+        val fox = catalog.add("fox", CanvasSize.BIG).copy(titles = mapOf("de" to "Fuchs", "pt" to "Raposa"))
+        listed = listOf(fox)
+        assertEquals("Fox", store.titleOf(ref("fox"), null))
+        language = XmlStrings("values-de", Locale.GERMAN)
+        assertEquals("Fuchs", store.titleOf(ref("fox"), null))
+        assertEquals("Die Sternennacht", store.titleOf(CanvasRef(CanvasKind.BUNDLED, "starter"), null))
+        assertEquals("Fuchs", store.summaries().first.single { it.ref == ref("fox") }.title)
+        language = XmlStrings("values-pt-rBR", Locale.forLanguageTag("pt-BR"))
+        assertEquals("Raposa", store.titleOf(ref("fox"), null), "pt-BR falls back to pt")
+        language = XmlStrings("values-ja", Locale.JAPANESE)
+        assertEquals("Fox", store.titleOf(ref("fox"), null), "no Japanese title: English")
+        assertEquals("Fox", store.titleNow(ref("fox"), "Fuchs", null), "an open canvas follows the switch")
+        assertEquals("My trip", store.titleNow(CanvasRef(CanvasKind.PHOTO, "p"), "My trip", null), "a photo keeps its own name")
+
+        assertIs<CanvasStore.Opened.Ready>(store.open(ref("fox")))
+        listed = emptyList()
+        language = XmlStrings("values-de", Locale.GERMAN)
+        assertEquals("Fox", store.titleOf(ref("fox"), store.repository.readRecord(ref("fox"))), "withdrawn: the record's English")
+    }
 
     /** T37: an earned keepsake is copied into its canvas, then stays after the catalog withdraws it, never started. */
     @Test
