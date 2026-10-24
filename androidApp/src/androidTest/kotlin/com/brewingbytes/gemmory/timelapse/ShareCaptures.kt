@@ -23,9 +23,9 @@ import java.io.File
 import kotlin.random.Random
 
 /**
- * The share videos for a PR's before/after (T53): today's frame ([ShareFrame.CLIP], the frame the player's share had
- * before T53, unchanged for the founder clips) and the new one, for a wide and a tall picture, a progress share and
- * VIP, plus both PNG fallbacks, into `getExternalFilesDir(null)/share-captures/` for `adb pull`. A device check.
+ * The share videos for a PR's before/after: the player's share ([ShareFrame.PLAYER], "player-…") and a founder clip's
+ * 9:16 ([ShareFrame.CLIP], #144, "clip-…"), for a wide and a tall picture, a progress share and VIP, plus both PNG
+ * fallbacks, into `getExternalFilesDir(null)/share-captures/` for `adb pull`. A device check.
  */
 @DeviceCheck
 @RunWith(AndroidJUnit4::class)
@@ -77,8 +77,8 @@ class ShareCaptures {
     fun captures() {
         val wave = BundledPictures.ALL.first { it.id == "wave" }
         val starter = BundledPictures.STARTER
-        // In another language only the player's share matters (the founder clips stay English, T47).
-        val frames = if (TestLanguage.requested == null) listOf("today" to ShareFrame.CLIP, "new" to ShareFrame.PLAYER) else listOf("new" to ShareFrame.PLAYER)
+        // In another language only the player's share is captured; a clip's other languages come from the Clips screen.
+        val frames = if (TestLanguage.requested == null) listOf("clip" to ShareFrame.CLIP, "player" to ShareFrame.PLAYER) else listOf("player" to ShareFrame.PLAYER)
         for ((tag, frame) in frames) {
             encode("$tag-wave", request(wave, frame = frame))
             encode("$tag-starter", request(starter, frame = frame))

@@ -2,6 +2,9 @@ package com.brewingbytes.gemmory.timelapse
 
 /** What one frame of the time-lapse shows (design D26). */
 sealed interface Frame {
+    /** A founder clip's 0.5 s hook (#144, H1): the finished canvas, then a hard cut to the intro. */
+    data object Hook : Frame
+
     /**
      * The 1 s intro: the empty tint grid, with the cropped source photo over it at [photoAlpha] (photo canvases
      * only; always 0 for bundled pictures).
@@ -16,9 +19,22 @@ sealed interface Frame {
 
     /**
      * The 1.8 s Gemmory end card after the hold (T53): it fades in over its first 0.3 s ([alpha] 1/9 → 1) over the
-     * held canvas, then holds. Non-VIP player shares only.
+     * held canvas, then holds. Non-VIP player shares, and a founder clip's end card (#144: 0.3 s crossfade, 2.2 s).
      */
     data class EndCard(val alpha: Float) : Frame
+}
+
+/** The frames of one video, in order: [FramePlan] for the player's share, [ClipFramePlan] for a founder clip. */
+interface VideoPlan {
+    val frameCount: Int
+
+    /** The video's length in microseconds. */
+    val durationUs: Long get() = frameCount * 1_000_000L / FramePlan.FPS
+
+    fun frame(index: Int): Frame
+
+    /** Presentation time of frame [index] in microseconds. */
+    fun presentationTimeUs(index: Int): Long = index * 1_000_000L / FramePlan.FPS
 }
 
 /**
@@ -34,17 +50,14 @@ sealed interface Frame {
  *
  * With [endCard] (T53: a non-VIP player share) 54 end-card frames follow the hold, 504 in all (16.8 s).
  */
-class FramePlan(val logSize: Int, val photoIntro: Boolean, val endCard: Boolean = false) {
+class FramePlan(val logSize: Int, val photoIntro: Boolean, val endCard: Boolean = false) : VideoPlan {
     init {
         require(logSize >= 0) { "logSize must not be negative" }
     }
 
-    val frameCount: Int get() = if (endCard) TOTAL_FRAMES + END_CARD_FRAMES else TOTAL_FRAMES
+    override val frameCount: Int get() = if (endCard) TOTAL_FRAMES + END_CARD_FRAMES else TOTAL_FRAMES
 
-    /** The video's length in microseconds. */
-    val durationUs: Long get() = frameCount * 1_000_000L / FPS
-
-    fun frame(index: Int): Frame {
+    override fun frame(index: Int): Frame {
         require(index in 0 until frameCount) { "frame $index out of 0 until $frameCount" }
         return when {
             index < INTRO_FRAMES -> Frame.Intro(if (photoIntro) photoAlpha(index) else 0f)
@@ -61,11 +74,8 @@ class FramePlan(val logSize: Int, val photoIntro: Boolean, val endCard: Boolean 
     fun placedAt(index: Int): Int = when (val frame = frame(index)) {
         is Frame.Intro -> 0
         is Frame.Build -> frame.placed
-        Frame.Hold, is Frame.EndCard -> logSize
+        Frame.Hook, Frame.Hold, is Frame.EndCard -> logSize
     }
-
-    /** Presentation time of frame [index] in microseconds. */
-    fun presentationTimeUs(index: Int): Long = index * 1_000_000L / FPS
 
     private fun photoAlpha(index: Int): Float {
         if (index < PHOTO_HOLD_FRAMES) return 1f
@@ -93,5 +103,42 @@ class FramePlan(val logSize: Int, val photoIntro: Boolean, val endCard: Boolean 
 
         /** The longest video, with the end card: what the free-space check plans for. */
         const val MAX_DURATION_US = (TOTAL_FRAMES + END_CARD_FRAMES) * 1_000_000L / FPS
+    }
+}
+
+/**
+ * A founder clip (#144, H1), 18 s at 30 fps: 15 hook frames of the finished canvas, a hard cut to the player's plan
+ * (30 intro, 360 build, 60 hold; tint grid only), then the end card: a 0.3 s crossfade ([Frame.EndCard] alpha 1/9 → 1)
+ * and 2.2 s held. 540 frames in all.
+ */
+class ClipFramePlan(val logSize: Int) : VideoPlan {
+    private val player = FramePlan(logSize, photoIntro = false)
+
+    override val frameCount: Int get() = FRAMES
+
+    override fun frame(index: Int): Frame {
+        require(index in 0 until FRAMES) { "frame $index out of 0 until $FRAMES" }
+        return when {
+            index < HOOK_FRAMES -> Frame.Hook
+            index < CARD_START -> player.frame(index - HOOK_FRAMES)
+            else -> Frame.EndCard(minOf(1f, (index - CARD_START + 1).toFloat() / CARD_FADE_FRAMES))
+        }
+    }
+
+    /** Gems on the canvas in frame [index]: all of them in the hook and on the card, the player's plan in between. */
+    fun placedAt(index: Int): Int = when (val frame = frame(index)) {
+        is Frame.Intro -> 0
+        is Frame.Build -> frame.placed
+        Frame.Hook, Frame.Hold, is Frame.EndCard -> logSize
+    }
+
+    companion object {
+        const val HOOK_FRAMES = 15
+        const val CARD_FADE_FRAMES = 9
+        const val CARD_FRAMES = 75
+
+        /** The first end-card frame: after the hook and the player's 450. */
+        const val CARD_START = HOOK_FRAMES + FramePlan.TOTAL_FRAMES
+        const val FRAMES = CARD_START + CARD_FRAMES
     }
 }

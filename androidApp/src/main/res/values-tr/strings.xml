@@ -396,6 +396,9 @@
     <string name="frame_app_line">Gemmory · Fotoğraftan elmas boyama</string>
     <string name="frame_watermark">Gemmory ile yapıldı</string>
     <string name="frame_tagline">Fotoğrafların taşlarla</string>
+    <string name="frame_clip_free">%1$s\'de ücretsiz</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Her fotoğrafı taş sanatına dönüştür</string>
 
     <string name="action_next">İleri</string>
     <string name="photo_crop">Kırp</string>

@@ -9,8 +9,8 @@ data class BoardRect(val left: Int, val top: Int, val right: Int, val bottom: In
 }
 
 /**
- * The canvas's place in a founder clip's frame (T47): the 9:16 frame the player's share had before T53, which the
- * clips keep until #144 gives them their own; the player's share is laid out by [ShareLayout]. Sizes are given at
+ * T47's founder clip frame: the 9:16 frame the player's share had before T53. The clips' videos use [ClipLayout] since
+ * #144 and the player's share [ShareLayout]; the clip stills keep T47's look and size their text with [TEXT_RESERVE]. Sizes are given at
  * 1080 wide and scaled by the frame's width. The canvas runs the full width under the [BOARD_TOP] margin while [TEXT_RESERVE] still
  * fits under it for the title, app line and watermark row: every 9:16 frame, whatever the picture's ratio. A shorter
  * frame (the founder clip tool's 4:5, T47) fits the canvas's height into what's left and centers it.

@@ -375,6 +375,9 @@
     <string name="frame_app_line">Gemmory・写真でダイヤモンドアート</string>
     <string name="frame_watermark">Gemmoryで作成</string>
     <string name="frame_tagline">あなたの写真をビーズアートに</string>
+    <string name="frame_clip_free">%1$sで無料</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">どんな写真もビーズアートに</string>
 
     <string name="action_next">次へ</string>
     <string name="photo_crop">トリミング</string>

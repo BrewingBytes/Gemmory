@@ -463,6 +463,10 @@
     <string name="frame_watermark">Made with Gemmory</string>
     <!-- The Gemmory row and end card (T53). -->
     <string name="frame_tagline">Your photos in gems</string>
+    <!-- A founder clip's store lockup and end card (#144). "Google Play" is the store's name. -->
+    <string name="frame_clip_free">Free on %1$s</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Turn any photo into gem art</string>
 
     <string name="action_next">Next</string>
     <!-- Photo flow: crop, size, preview (design system, Photo flow) -->

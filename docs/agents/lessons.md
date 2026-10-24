@@ -57,6 +57,8 @@ Gotchas learned while working on Gemmory, newest last. Add a dated line when a c
 - 2026-10-24 (#136): a font's coverage can miss one letter of a language it "supports": Onest has Cyrillic but no "ѝ" (U+045D, Bulgarian). `GlyphCheckTest` names the string and the character; reword rather than swap fonts.
 - 2026-10-24 (#136): lint's `ImpliedQuantity` is an error for a French or Portuguese `<item quantity="one">` without `%d` (their "one" is 0 and 1). When the words are right for both, put `tools:ignore="ImpliedQuantity"` on that `<plurals>`; lint's `Typos` also flags correct German "in Folge" as "infolge".
 - 2026-10-24 (#136): a connected test sets Gemmory's own language with `LocaleManager.applicationLocales` (`TestLanguage`, Android 13+): the activity is recreated in place, the process and the activity-scoped view models stay, so a test can switch mid-canvas and keep the session. Reset it in `@After`, or every later class runs in that language.
+- 2026-10-24 (#144): `FrameTextFitTest` (shared jvmTest) is the check for any new frame copy in every language: a one-line English promise at 46px fit 800px, while six of the first translations (bg, es, fr, pl, pt-BR, ro) ran 2-37% over. Add the new line to its list before writing the translations, and reword rather than shrink.
+- 2026-10-24 (#144): `ShareCaptures` names its files `player-…` and `clip-…` (they were `new-…` and `today-…`). For R1 across a frame change, compare a main build's `new-*` with the branch's `player-*`.
 
 ## CI
 

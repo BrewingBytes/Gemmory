@@ -6,11 +6,11 @@ import android.os.StatFs
 import android.util.Log
 import com.brewingbytes.gemmory.timelapse.ChainOutcome
 import com.brewingbytes.gemmory.timelapse.ClipOrder
+import com.brewingbytes.gemmory.timelapse.ClipFramePlan
 import com.brewingbytes.gemmory.timelapse.ClipOrders
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.EncodeTarget
 import com.brewingbytes.gemmory.timelapse.FallbackChain
-import com.brewingbytes.gemmory.timelapse.FramePlan
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
 import com.brewingbytes.gemmory.timelapse.ShareFrame
 import kotlinx.coroutines.CancellationException
@@ -28,7 +28,8 @@ class ClipResult(val saved: List<File>, val error: String?)
 
 /**
  * The founder clip tool's renderer (T47): a synthetic log from [ClipOrders] through the player's encoder
- * ([MediaCodecEncoder], [FramePlan], [FallbackChain]), watermark and app name on, into [dir]
+ * ([MediaCodecEncoder], [FallbackChain]) in the clips' own frame (#144: [ClipFramePlan], the store lockup, the
+ * finished-picture hook and the end card), into [dir]
  * (`getExternalFilesDir(DIRECTORY_MOVIES)/clips/`, where `adb pull` reaches it). It bypasses `EncodeManager`: no cache,
  * no Analytics, and the picture needn't have a canvas.
  */
@@ -46,7 +47,7 @@ class ClipRenderer(private val context: Context, val dir: File) {
         val log = ClipOrders.of(order, pattern, ClipOrders.seedOf(id))
         val request = EncodeRequest(picture.ref, pattern, log, picture.title, source = null, watermark = true, frame = ShareFrame.CLIP)
         val videos = listOf(ClipFormat.NINE_SIXTEEN, ClipFormat.FOUR_FIVE).filter { it in formats }
-        val units = videos.size * FramePlan.TOTAL_FRAMES + if (ClipFormat.STILLS in formats) STILLS_UNITS else 0
+        val units = videos.size * ClipFramePlan.FRAMES + if (ClipFormat.STILLS in formats) STILLS_UNITS else 0
         var done = 0
         var percent = -1
         fun progress(at: Int) {
@@ -64,7 +65,7 @@ class ClipRenderer(private val context: Context, val dir: File) {
             }
             if (error != null) return ClipResult(saved, error)
             saved += File(dir, name)
-            done += FramePlan.TOTAL_FRAMES
+            done += ClipFramePlan.FRAMES
         }
         if (ClipFormat.STILLS in formats) {
             val stills = listOf<Pair<String, () -> Bitmap>>(

@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemmory clip CTA</title>
+<style>
+@font-face { font-family: "Bricolage"; src: url("bricolage_grotesque.ttf"); }
+@font-face { font-family: "Figtree"; src: url("figtree.ttf"); }
+:root {
+  --felt:#4F5A52; --felt-deep:#3E4741; --felt-deep-dark:#2E3530;
+  --bone:#E9E4D8; --on-bone:#2B322D; --muted:#CDD3C9; --lamp:#F4E3B1;
+  --ground:#262c28; --frame-text:#F2EEE4; --scrim:#141815;
+}
+* { box-sizing: border-box; }
+body { margin:0; padding:28px 32px 80px; background:var(--ground); color:var(--bone); font-family:Figtree, sans-serif; }
+h1 { font-family:Bricolage; font-weight:600; font-size:30px; margin:0 0 6px; }
+h2 { font-family:Bricolage; font-weight:600; font-size:22px; margin:48px 0 4px; }
+p.lead, .note { color:var(--muted); max-width:1100px; line-height:1.5; font-size:14px; margin:4px 0 12px; }
+.note b, .lead b { color:var(--bone); }
+.row { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+.col { width:270px; }
+.cap { font-size:13px; color:var(--muted); line-height:1.45; margin-top:8px; }
+.cap b { color:var(--bone); }
+.tag { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:10px; background:var(--felt); color:var(--bone); margin-bottom:6px; }
+.tag.rec { background:var(--lamp); color:var(--on-bone); }
+
+/* A frame is drawn at 1080 px wide and scaled down. */
+.wrap { width:270px; overflow:hidden; border-radius:10px; position:relative; box-shadow:0 6px 18px rgba(0,0,0,.35); }
+.wrap.s916 { height:480px; } .wrap.s45 { height:337.5px; }
+.f { position:absolute; left:0; top:0; width:1080px; transform:scale(.25); transform-origin:0 0; overflow:hidden; background:#000; }
+.f.s916 { height:1920px; } .f.s45 { height:1350px; }
+.band { position:absolute; inset:-80px; background-size:cover; background-position:center; filter:blur(40px) brightness(.45); }
+.canvas { position:absolute; display:block; image-rendering:auto; }
+.title { position:absolute; left:64px; right:160px; font-family:Bricolage; font-weight:600; font-size:60px; letter-spacing:-.6px; color:var(--frame-text); line-height:1.15; }
+.app { position:absolute; left:64px; font-size:36px; color:var(--frame-text); }
+.mark { position:absolute; left:0; right:0; bottom:0; height:78px; background:rgba(20,24,21,.25); color:rgba(242,238,228,.7); font-weight:600; font-size:30px; text-align:right; padding:20px 48px 0 0; }
+
+/* CTA variants */
+.pill { position:absolute; left:64px; height:104px; padding:0 44px 0 36px; border-radius:52px; background:var(--bone); color:var(--on-bone); font-weight:700; font-size:44px; display:flex; align-items:center; gap:22px; }
+.pill .tri { width:0; height:0; border-left:34px solid var(--on-bone); border-top:21px solid transparent; border-bottom:21px solid transparent; }
+.badge { position:absolute; white-space:nowrap; background:#000; border:3px solid #A6A6A6; border-radius:22px; color:#fff; display:flex; align-items:center; gap:24px; padding:0 40px 0 32px; }
+.badge .logo { width:74px; height:82px; position:relative; flex:none; }
+.badge .logo i { position:absolute; inset:0; clip-path:polygon(0 0, 100% 50%, 0 100%); background:conic-gradient(from 200deg at 30% 50%, #00D7FE, #00F076 30%, #FFD400 55%, #FF3A44 80%, #00D7FE); }
+.badge .t1 { font-size:24px; letter-spacing:1.5px; font-weight:600; }
+.badge .t2 { font-size:56px; font-weight:600; line-height:1; letter-spacing:-.5px; }
+.lockup { position:absolute; left:64px; display:flex; align-items:center; gap:28px; }
+.lockup img { width:132px; height:132px; border-radius:30px; box-shadow:0 4px 14px rgba(0,0,0,.35); }
+.lockup .n { font-family:Bricolage; font-weight:600; font-size:56px; color:var(--frame-text); line-height:1.05; }
+.lockup .s { font-size:38px; color:var(--frame-text); opacity:.92; margin-top:6px; }
+.lockup .s b { font-weight:700; }
+
+/* End cards */
+.center { position:absolute; left:0; right:0; display:flex; flex-direction:column; align-items:center; text-align:center; }
+.grain { position:absolute; inset:0; background:var(--felt-deep); }
+.grain::after { content:""; position:absolute; inset:0; opacity:.09; background-image:radial-gradient(rgba(255,255,255,.6) 1px, transparent 1.4px); background-size:7px 7px; }
+
+/* Feed overlay, approximate, not any app's real UI */
+.ov { position:absolute; inset:0; pointer-events:none; }
+.ov .top { position:absolute; top:96px; left:0; right:0; text-align:center; font-size:40px; font-weight:700; color:rgba(255,255,255,.85); }
+.ov .rail { position:absolute; right:28px; bottom:420px; width:96px; display:flex; flex-direction:column; gap:52px; align-items:center; }
+.ov .rail i { width:92px; height:92px; border-radius:50%; background:rgba(255,255,255,.55); }
+.ov .cap1, .ov .cap2, .ov .cap3 { position:absolute; left:40px; height:34px; border-radius:17px; background:rgba(255,255,255,.6); }
+.ov .cap1 { bottom:300px; width:320px; } .ov .cap2 { bottom:240px; width:760px; } .ov .cap3 { bottom:180px; width:540px; }
+.ov .nav { position:absolute; left:0; right:0; bottom:0; height:140px; background:rgba(0,0,0,.75); }
+.ov .safe { position:absolute; left:60px; right:140px; top:250px; bottom:480px; border:5px dashed #FF5A5A; }
+.ov .lbl { position:absolute; left:70px; top:256px; font-size:30px; color:#FF8A8A; font-weight:700; }
+.toggle { margin:8px 0 0; font-size:13px; color:var(--muted); }
+.toggle input { vertical-align:middle; }
+.hide-ov .ov { display:none; }
+</style>
+</head>
+<body>
+<h1>Clip store CTA (#144)</h1>
+<p class="lead">Founder clips from the debug Clips screen (T47), for TikTok, Reels and Shorts. Frames are drawn at 1080 px and shown at ¼. Art: The Great Wave (4:3, wide) and The Starry Night, the starter (3:4, tall: the hard case). The grey shapes are an <b>approximate</b> feed overlay (top tabs, the right-hand button rail, caption lines, the nav bar); the red box is the <b>safe area</b> used below: x 60-940, y 250-1440 at 1080×1920, the overlap of TikTok, Reels and Shorts guidance. Before it's final, check it against one private draft post on each app.</p>
+<label class="toggle"><input type="checkbox" id="ov" checked> Show the feed overlay</label>
+
+<h2>Round 2: the picks, reworked (founder, 2026-10-23)</h2>
+<p class="note"><b>C2</b>: the icon lockup's bottom sits on the safe area's bottom (y 1440); the title is 28 px above it; the picture's bottom is 48 px above the title, its top no higher than y 130, so everything moved down. <b>E2b</b>: E2 on the same blurred band as the clip (no felt), the finished picture, the lockup and “Turn any photo into gem art”, all centered as one group in the safe area. <b>H1</b>: the clip opens on the finished picture for 0.5 s.</p>
+<div class="row" id="r2"></div>
+
+<h2>1. Today: what the feed covers</h2>
+<p class="note">Today's 9:16 frame on the hold. The canvas runs full width from 36 px. On a wide picture, the title and app line sit just under it and the lower 40% is an empty blurred band. "Made with Gemmory", the only branding, is in the bottom row that the captions and nav bar cover. On the tall starter, the title lands at y≈1520, already under the captions.</p>
+<div class="row" id="s1"></div>
+
+<h2>2. The store line during the clip</h2>
+<p class="note">Every variant uses the same clip layout. The text block (title, app line, store line) ends at the safe area's bottom (y 1440), and the canvas fits above it, full width from 36 px when it fits, else narrowed and centered (the 4:5 rule T47 already has). No watermark row: the store line replaces it, and in a clip that row only sat under the captions. Margins become 64 px (the overlays reach 60).</p>
+<div class="row" id="s2"></div>
+
+<h2>3. End card (after the hold)</h2>
+<p class="note">A beat the loop comes back from. Proposed timing: the 2 s hold stays, then a 0.3 s crossfade to the card, which holds 2.2 s. The clip goes from 15 s to 17.5 s. Everything sits inside the safe area.</p>
+<div class="row" id="s3"></div>
+
+<h2>4. 4:5 cut</h2>
+<p class="note">A 4:5 post in a feed has its caption under the video, not over it, so the store line can sit near the bottom. When it plays full-screen as a Reel, the 4:5 is centered in 9:16, so its bottom 120 px still sits clear of the captions.</p>
+<div class="row" id="s4"></div>
+
+<h2>5. The first second (hook)</h2>
+<p class="note">Today the first second is the pale tint grid, the least striking frame of the clip. Feeds decide in about a second. H1 flashes the finished picture first (0.5 s), then cuts to the tint grid and builds: the viewer sees the payoff, then watches it get made. The player's own share keeps today's intro (R1).</p>
+<div class="row" id="s5"></div>
+
+<h2>6. From the approved T53 share frame (founder, 2026-10-23)</h2>
+<p class="note">T53 (<code>~/.gstack/projects/Gemmory/designs/t50-share-frame-20261023/</code>): a Gemmory row on every frame (the icon, “Gemmory”, “Your photos in gems”, and Google's official badge on a 150 px <code>scrim</code> band at 55%), the picture fitted and centered above it with the title over a dark fade, and an end card. It was approved for the player's share and says T47's clips follow it. <b>T6a</b> is T53 as approved: on TikTok and Reels the row lands under the nav bar and captions, and the badge under the button rail. <b>T6b</b> is the same design lifted for feeds: the row's bottom at y 1440 and the badge ending at x 940, the picture and fade above it, and below the row only the blurred band the feed covers anyway. <b>T6c</b> is T53's end card scaled to fit the safe area (picture 640 wide, badge bottom at y≈1370).</p>
+<div class="row" id="s6"></div>
+
+<script>
+const WAVE = { src:"15-wave-finished.png", w:4, h:3, title:"The Great Wave" };
+const START = { src:"14-starter-finished.png", w:3, h:4, title:"The Starry Night" };
+
+function band(art) { return `<div class="band" style="background-image:url(${art.src})"></div>`; }
+function overlay() { return `<div class="ov"><div class="top">Following &nbsp; For You</div><div class="rail"><i></i><i></i><i></i><i></i></div><div class="cap1"></div><div class="cap2"></div><div class="cap3"></div><div class="nav"></div><div class="safe"></div><div class="lbl">safe area</div></div>`; }
+function img(art, left, top, w, h) { return `<img class="canvas" src="${art.src}" style="left:${left}px;top:${top}px;width:${w}px;height:${h}px">`; }
+function wrap(size, inner, ov) { return `<div class="wrap ${size}"><div class="f ${size}">${inner}${ov ? overlay() : ""}</div></div>`; }
+function col(tag, rec, frame, cap) { return `<div class="col"><span class="tag${rec ? " rec" : ""}">${tag}</span>${frame}<div class="cap">${cap}</div></div>`; }
+
+// Today's layout.
+function today(art) {
+  const h = Math.round(1080 * art.h / art.w);
+  const t = 36 + h + 40;
+  return band(art) + img(art, 0, 36, 1080, h)
+    + `<div class="title" style="top:${t}px;left:48px">${art.title}</div><div class="app" style="top:${t + 80}px;left:48px">Gemmory · Photo Diamond Art</div>`
+    + `<div class="mark">Made with Gemmory</div>`;
+}
+
+// The clip layout: the text block ends at 1440, the canvas fits above it.
+function clip(art, cta, blockH) {
+  const bottom = 1440, textTop = bottom - blockH, room = textTop - 40 - 36;
+  let w = 1080, h = Math.round(1080 * art.h / art.w);
+  if (h > room) { h = room; w = Math.round(h * art.w / art.h); }
+  const left = (1080 - w) / 2;
+  const t = 36 + h + 40;
+  return { html: band(art) + img(art, left, 36, w, h)
+    + `<div class="title" style="top:${t}px">${art.title}</div><div class="app" style="top:${t + 80}px">Gemmory · Photo Diamond Art</div>` + cta(t + 160), top: t };
+}
+const pill = y => `<div class="pill" style="top:${y + 28}px"><span class="tri"></span>Get it on Google Play</div>`;
+const badge = (y, x = 64, scale = 1) => `<div class="badge" style="top:${y}px;left:${x}px;height:${150 * scale}px;transform-origin:0 0"><div class="logo"><i></i></div><div><div class="t1">GET IT ON</div><div class="t2">Google Play</div></div></div>`;
+const lockup = y => `<div class="lockup" style="top:${y + 20}px"><img src="icon.png" alt=""><div><div class="n">Gemmory</div><div class="s">Free on <b>Google Play</b></div></div></div>`;
+// The lockup replaces the app line, so the text block is title + lockup.
+function clipLockup(art) {
+  const bottom = 1440, blockH = 360, textTop = bottom - blockH, room = textTop - 40 - 36;
+  let w = 1080, h = Math.round(1080 * art.h / art.w);
+  if (h > room) { h = room; w = Math.round(h * art.w / art.h); }
+  const left = (1080 - w) / 2, t = 36 + h + 40;
+  return band(art) + img(art, left, 36, w, h) + `<div class="title" style="top:${t}px">${art.title}</div>` + lockup(t + 96);
+}
+
+const ov = true;
+document.getElementById("s1").innerHTML =
+  col("Today · wide", false, wrap("s916", today(WAVE), ov), "The lower band is empty; the watermark sits under the captions.") +
+  col("Today · tall", false, wrap("s916", today(START), ov), "The title is already under the captions.");
+
+document.getElementById("s2").innerHTML =
+  col("A · Pill", false, wrap("s916", clip(WAVE, pill, 330).html, ov), "<b>“Get it on Google Play”</b> in a <code>bone</code> pill (the app's primary button look), Figtree 700 44 px. Reads as a button, but nothing in a video can be tapped.") +
+  col("B · Official badge", false, wrap("s916", clip(WAVE, y => badge(y + 20), 350).html, ov), "<b>Google's badge</b>, unchanged artwork, 150 px tall (well over its minimum). Instantly recognized; it has to be the downloaded file, not redrawn, and nothing may overlap its clear space.") +
+  col("C · Icon lockup", true, wrap("s916", clipLockup(WAVE), ov), "<b>The app icon</b> (132 px) + “Gemmory” + “Free on Google Play”. Replaces the app line. Viewers can't tap, they search, and the icon is what they'll see in the search results. No Google artwork to license.") +
+  col("C · tall picture", true, wrap("s916", clipLockup(START), ov), "The tall starter: the canvas narrows and centers so the text block still ends at y 1440.");
+
+function endE1(art) {
+  return band(art) + `<div style="position:absolute;inset:0;background:rgba(20,24,21,.35)"></div>`
+    + `<div class="center" style="top:330px"><img src="icon.png" style="width:240px;height:240px;border-radius:54px;box-shadow:0 8px 24px rgba(0,0,0,.4)">`
+    + `<div style="font-family:Bricolage;font-weight:600;font-size:110px;color:var(--frame-text);margin-top:44px">Gemmory</div>`
+    + `<div style="font-size:46px;color:var(--frame-text);margin-top:8px">Turn any photo into gem art</div>`
+    + `<div style="position:relative;height:150px;width:470px;margin-top:70px">${badge(0, 0)}</div>`
+    + `<div style="font-size:34px;color:rgba(242,238,228,.8);margin-top:34px">Free on Google Play</div></div>`;
+}
+function endE2(art) {
+  return `<div class="grain"></div>` + img(art, 190, 300, 700, Math.round(700 * art.h / art.w))
+    + `<div class="center" style="top:${300 + Math.round(700 * art.h / art.w) + 70}px"><div class="lockup" style="position:relative;left:0"><img src="icon.png"><div style="text-align:left"><div class="n">Gemmory</div><div class="s">Free on <b>Google Play</b></div></div></div>`
+    + `<div style="font-size:44px;color:var(--frame-text);margin-top:40px">Make one from your photo</div></div>`;
+}
+function endE3(art) {
+  return band(art) + img(art, 0, 36, 1080, Math.round(1080 * art.h / art.w))
+    + `<div style="position:absolute;left:0;right:0;top:${36 + Math.round(1080 * art.h / art.w)}px;bottom:0;background:linear-gradient(rgba(20,24,21,.0),rgba(20,24,21,.55) 30%)"></div>`
+    + `<div class="center" style="top:${36 + Math.round(1080 * art.h / art.w) + 70}px"><div style="font-family:Bricolage;font-weight:600;font-size:76px;color:var(--frame-text)">Make one from your photo</div>`
+    + `<div class="lockup" style="position:relative;left:0;margin-top:44px"><img src="icon.png"><div style="text-align:left"><div class="n">Gemmory</div><div class="s">Free on <b>Google Play</b></div></div></div></div>`;
+}
+document.getElementById("s3").innerHTML =
+  col("E1 · Brand card on the band", false, wrap("s916", endE1(WAVE), ov), "The canvas fades out; a big icon, name, promise and the badge over the blurred band. Strongest ad, but it drops the picture just as the clip pays off.") +
+  col("E2 · Felt card", false, wrap("s916", endE2(WAVE), ov), "<code>felt-deep</code> with grain (the streak card's ground), the finished picture smaller, the lockup and “Make one from your photo”. Calm, on-brand, but darker than the clip around it.") +
+  col("E3 · Picture stays", true, wrap("s916", endE3(WAVE), ov), "The finished canvas stays where it was, the band darkens under it and the promise plus lockup rise in (300 ms). There's no jump in the loop, and the payoff stays on screen while the store line is read.");
+
+function s45(art, cta) {
+  const blockH = 300, textTop = 1350 - 40 - blockH, room = textTop - 40 - 36;
+  let w = 1080, h = Math.round(1080 * art.h / art.w);
+  if (h > room) { h = room; w = Math.round(h * art.w / art.h); }
+  const left = (1080 - w) / 2, t = 36 + h + 40;
+  return band(art) + img(art, left, 36, w, h) + `<div class="title" style="top:${t}px">${art.title}</div>` + lockup(t + 96);
+}
+document.getElementById("s4").innerHTML =
+  col("4:5 · wide", true, wrap("s45", s45(WAVE), false), "Same lockup as C, the text block ending 40 px above the bottom.") +
+  col("4:5 · tall", true, wrap("s45", s45(START), false), "The tall picture narrows to fit, as T47's 4:5 already does.");
+
+function tint(art) { return band(art) + `<img class="canvas" src="${art.src}" style="left:0;top:36px;width:1080px;height:${Math.round(1080 * art.h / art.w)}px;filter:saturate(.35) brightness(1.5) contrast(.55)">`; }
+function withLock(art, inner) { return inner + `<div class="title" style="top:${36 + Math.round(1080 * art.h / art.w) + 40}px">${art.title}</div>` + lockup(36 + Math.round(1080 * art.h / art.w) + 136); }
+document.getElementById("s5").innerHTML =
+  col("H0 · Today, 0.0-1.0 s", false, wrap("s916", withLock(WAVE, tint(WAVE)), false), "The pale tint grid: the clip's weakest frame comes first.") +
+  col("H1 · 0.0-0.5 s", true, wrap("s916", withLock(WAVE, band(WAVE) + img(WAVE, 0, 36, 1080, 810)), false), "The finished picture first…") +
+  col("H1 · 0.5-1.0 s", true, wrap("s916", withLock(WAVE, tint(WAVE)), false), "…a hard cut to the tint grid, then the build runs as today. Total +0.5 s.");
+
+// T53: the row's bottom at rowBottom, the badge's right edge at 1080 - right; the picture fitted and centered above.
+function t53(art, rowBottom, right, left, H = 1920) {
+  const rowTop = rowBottom - 150, title = 230;
+  let w = 1080, h = Math.round(1080 * art.h / art.w);
+  const maxH = rowTop - 36 - title;
+  if (h > maxH) { h = maxH; w = Math.round(h * art.w / art.h); }
+  const y = Math.max(36, Math.round((rowTop - title - h) / 2));
+  return band(art) + img(art, (1080 - w) / 2, y, w, h)
+    + `<div style="position:absolute;left:0;right:0;top:${rowTop - 420}px;height:420px;background:linear-gradient(rgba(20,24,21,0),rgba(20,24,21,.78))"></div>`
+    + `<div class="title" style="top:${rowTop - 166}px;left:${left}px">${art.title}</div><div class="app" style="top:${rowTop - 82}px;left:${left}px">Gemmory · Photo Diamond Art</div>`
+    + `<div style="position:absolute;left:0;right:0;top:${rowTop}px;height:150px;background:rgba(20,24,21,.55)"></div>`
+    + `<img src="icon.png" style="position:absolute;left:${left}px;top:${rowTop + 33}px;width:84px;height:84px;border-radius:18px">`
+    + `<div style="position:absolute;left:${left + 106}px;top:${rowTop + 30}px;font-family:Bricolage;font-weight:600;font-size:44px;color:var(--frame-text)">Gemmory</div>`
+    + `<div style="position:absolute;left:${left + 106}px;top:${rowTop + 84}px;font-size:28px;color:rgba(242,238,228,.8)">Your photos in gems</div>`
+    + `<img src="play-badge.png" style="position:absolute;left:${1080 - right - 336}px;top:${rowTop + 10}px;width:336px;height:130px">`;
+}
+function t53End(art, tw, ty) {
+  const th = Math.round(tw * art.h / art.w);
+  const iconTop = ty + th + 60;
+  return band(art) + `<div style="position:absolute;inset:0;background:rgba(0,0,0,.33)"></div>`
+    + `<img src="${art.src}" style="position:absolute;left:${(1080 - tw) / 2}px;top:${ty}px;width:${tw}px;height:${th}px;box-shadow:0 24px 60px rgba(0,0,0,.5)">`
+    + `<div class="center" style="top:${iconTop}px"><img src="icon.png" style="width:160px;height:160px;border-radius:36px">`
+    + `<div style="font-family:Bricolage;font-weight:600;font-size:96px;color:var(--frame-text);margin-top:18px;line-height:1.1">Gemmory</div>`
+    + `<div style="font-size:42px;color:var(--frame-text)">Your photos in gems</div>`
+    + `<img src="play-badge.png" style="width:500px;height:193px;margin-top:10px"></div>`;
+}
+document.getElementById("s6").innerHTML =
+  col("T6a · T53 as approved", false, wrap("s916", t53(WAVE, 1920, 48, 48), ov), "The row at the very bottom: on TikTok and Reels the nav bar and captions cover it, and the rail covers the badge.") +
+  col("T6b · T53 lifted for feeds", true, wrap("s916", t53(WAVE, 1440, 140, 64), ov), "Same row, picture and fade, but the row ends at y 1440 and the badge at x 940. Everything readable sits clear of the overlays.") +
+  col("T6b · tall picture", true, wrap("s916", t53(START, 1440, 140, 64), ov), "The tall Starry Night narrows to fit above the title, still centered.") +
+  col("T6c · T53 end card, in the safe area", true, wrap("s916", t53End(WAVE, 640, 250), ov), "T53's card (picture, icon, “Gemmory”, “Your photos in gems”, the badge), a little smaller so the badge ends at y≈1370.") +
+  col("T6 · 4:5", true, wrap("s45", t53(WAVE, 1350, 48, 48, 1350), false), "The 4:5 post keeps T53's row at the bottom: a feed post's caption sits under the video, not over it.");
+
+// C2: lockup bottom at `bottom`, title 28 px above it, picture bottom 48 px above the title, top >= minTop.
+function c2(art, bottom = 1440, minTop = 130) {
+  const lockTop = bottom - 132, titleTop = lockTop - 28 - 70, picBottom = titleTop - 48;
+  let w = 1080, h = Math.round(1080 * art.h / art.w);
+  if (h > picBottom - minTop) { h = picBottom - minTop; w = Math.round(h * art.w / art.h); }
+  return band(art) + img(art, (1080 - w) / 2, picBottom - h, w, h)
+    + `<div class="title" style="top:${titleTop}px">${art.title}</div>` + lockup(lockTop - 20);
+}
+// E2b: blurred band, the picture, the lockup and the promise centered as one group in the safe area.
+function e2b(art, top = 250, bottom = 1440) {
+  const rest = 72 + 132 + 44 + 56;
+  let pw = 760, ph = Math.round(pw * art.h / art.w);
+  if (ph > bottom - top - rest) { ph = bottom - top - rest; pw = Math.round(ph * art.w / art.h); }
+  const groupH = ph + rest;
+  const y = Math.round((top + bottom - groupH) / 2);
+  return band(art) + `<div style="position:absolute;inset:0;background:rgba(0,0,0,.2)"></div>`
+    + `<img src="${art.src}" style="position:absolute;left:${(1080 - pw) / 2}px;top:${y}px;width:${pw}px;height:${ph}px;box-shadow:0 24px 60px rgba(0,0,0,.5)">`
+    + `<div class="center" style="top:${y + ph + 72}px"><div class="lockup" style="position:relative;left:0"><img src="icon.png"><div style="text-align:left"><div class="n">Gemmory</div><div class="s">Free on <b>Google Play</b></div></div></div>`
+    + `<div style="font-size:46px;color:var(--frame-text);margin-top:44px">Turn any photo into gem art</div></div>`;
+}
+document.getElementById("r2").innerHTML =
+  col("C2 · wide", true, wrap("s916", c2(WAVE), ov), "The lockup ends on the safe area's bottom; the picture sits right above the title.") +
+  col("C2 · tall", true, wrap("s916", c2(START), ov), "The tall picture narrows so its top stays at y 130 or lower.") +
+  col("E2b · end card", true, wrap("s916", e2b(WAVE), ov), "Blurred band, picture, lockup and promise, centered in the safe area.") +
+  col("E2b · tall", true, wrap("s916", e2b(START), ov), "Tall pictures: the same group, centered.") +
+  col("C2 · 4:5", true, wrap("s45", c2(WAVE, 1310, 60), false), "4:5: the lockup 40 px above the bottom.") +
+  col("H1 · first 0.5 s", true, wrap("s916", c2(WAVE), false), "The finished picture first, then the tint grid and the build.");
+
+const box = document.getElementById("ov");
+box.addEventListener("change", () => document.body.classList.toggle("hide-ov", !box.checked));
+</script>
+</body>
+</html>

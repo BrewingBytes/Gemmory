@@ -418,6 +418,9 @@
     <string name="frame_app_line">Gemmory · Pintura de diamante com fotos</string>
     <string name="frame_watermark">Feito com Gemmory</string>
     <string name="frame_tagline">Suas fotos em gemas</string>
+    <string name="frame_clip_free">Grátis no %1$s</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Transforme fotos em arte de gemas</string>
 
     <string name="action_next">Avançar</string>
     <string name="photo_crop">Cortar</string>

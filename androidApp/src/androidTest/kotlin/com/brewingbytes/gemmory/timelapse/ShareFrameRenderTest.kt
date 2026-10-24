@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.timelapse
 import com.brewingbytes.gemmory.copy.strings
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.res.Configuration
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.bundled.BundledPicture
@@ -15,6 +16,8 @@ import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.Locale
+import kotlin.math.abs
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -125,16 +128,49 @@ class ShareFrameRenderTest {
         }
     }
 
+    /** A founder clip (#144): its own layout, the lockup over the canvas, the finished canvas as the hook, the E2b card. */
     @Test
-    fun aFounderClipKeepsItsOldFrame() {
+    fun aFounderClipHasItsOwnFrame() {
         val r = request(frame = ShareFrame.CLIP)
-        val art = FrameArt(context, r, 1080, 1920)
-        try {
-            assertNull(art.overlay)
-            assertNull(art.card)
-            assertEquals(FrameLayout.board(1080, 1920, r.pattern.width, r.pattern.height).top, art.boardRect.top)
-        } finally {
-            art.release()
+        for ((w, h) in listOf(1080 to 1920, 1080 to 1350)) {
+            val art = FrameArt(context, r, w, h)
+            try {
+                val layout = ClipLayout.of(w, h, r.pattern.width, r.pattern.height, titleLines = 1, lockupTextWidth = 0)
+                assertEquals(layout.board.bottom, art.boardRect.bottom, "${w}x$h board above the title")
+                assertEquals(layout.board.width, art.boardRect.width(), "${w}x$h")
+                assertNotNull(art.overlay)
+                assertNotNull(art.card)
+                // The hook: the finished canvas, at full opacity in the hook only.
+                assertEquals(false to 1f, art.apply(Frame.Hook))
+                assertEquals(false to 0f, art.apply(Frame.Intro(0f)))
+                val card = assertNotNull(art.endCard(0.5f))
+                assertEquals(FrameStyle.CLIP_END_CARD_DIM, card.dim)
+                assertEquals(art.endCard(1f)!!.picture, card.picture, "a crossfade, no slide")
+            } finally {
+                art.release()
+            }
+        }
+    }
+
+    /** #144 review: a clip title's lines are exactly 70px apart in every face, Bulgarian's and Japanese's taller ones too. */
+    @Test
+    fun aClipTitlesLinesAre70pxInEveryFace() {
+        val titles = mapOf(
+            "en" to "The Great Wave off Kanagawa, a woodblock print by Hokusai",
+            "bg" to "Голямата вълна край Канагава, дърворез от Хокусай",
+            "ja" to "神奈川沖浪裏、葛飾北斎の木版画、富士山を望む",
+        )
+        for ((tag, title) in titles) {
+            val localized = context.createConfigurationContext(
+                Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(tag)) },
+            )
+            for (width in listOf(1080, 720)) {
+                val style = FrameStyle(localized, width)
+                val layout = style.clipTitleLayout(title)
+                assertEquals(2, layout.lineCount, "$tag at $width wraps to 2 lines")
+                assertEquals(0, layout.getLineTop(0), tag)
+                assertTrue(abs(layout.getLineTop(1) - style.px(ClipLayout.TITLE_LINE)) <= 1, "$tag at $width: line 2 at ${layout.getLineTop(1)}")
+            }
         }
     }
 

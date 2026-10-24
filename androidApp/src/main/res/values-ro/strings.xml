@@ -417,6 +417,9 @@
     <string name="frame_app_line">Gemmory · Pictură cu diamante din poze</string>
     <string name="frame_watermark">Făcut cu Gemmory</string>
     <string name="frame_tagline">Pozele tale din pietre</string>
+    <string name="frame_clip_free">Gratuit pe %1$s</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Fă din orice poză artă din pietre</string>
 
     <string name="action_next">Înainte</string>
     <string name="photo_crop">Decupează</string>

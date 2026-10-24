@@ -10,14 +10,14 @@ enum class ShareFrame {
     /** The player's share (T53): the picture fitted above the Gemmory row, and the end card. */
     PLAYER,
 
-    /** The founder clips (T47): the frame the player's share had before T53, until #144 gives them their own. */
+    /** The founder clips (T47): their own feed-safe frame (#144), with the store lockup, the hook and the end card. */
     CLIP,
 }
 
 /**
  * What one time-lapse is made from: the canvas's grid, its placement log in order, the band title, and for a photo
  * canvas its cropped source photo for the 1 s intro (design D26). [watermark]: for everyone but VIP (tier table), the
- * Gemmory row on every frame and the end card (T53); in a founder clip ([ShareFrame.CLIP]), "Made with Gemmory". A
+ * Gemmory row on every frame and the end card (T53); a founder clip ([ShareFrame.CLIP], #144) has its own lockup. A
  * log shorter than the grid is a progress share (#36): it ends on the canvas as it stands.
  */
 class EncodeRequest(

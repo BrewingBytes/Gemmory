@@ -438,6 +438,9 @@
     <string name="frame_app_line">Gemmory · Diamentowa mozaika ze zdjęć</string>
     <string name="frame_watermark">Zrobione w Gemmory</string>
     <string name="frame_tagline">Twoje zdjęcia z kryształków</string>
+    <string name="frame_clip_free">Za darmo w %1$s</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Zrób mozaikę z dowolnego zdjęcia</string>
 
     <string name="action_next">Dalej</string>
     <string name="photo_crop">Przytnij</string>

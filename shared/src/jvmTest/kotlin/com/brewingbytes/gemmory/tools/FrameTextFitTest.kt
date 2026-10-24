@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.tools
 
+import com.brewingbytes.gemmory.timelapse.ClipLayout
 import com.brewingbytes.gemmory.timelapse.ShareLayout
 import java.awt.Font
 import java.awt.font.FontRenderContext
@@ -12,7 +13,9 @@ import kotlin.test.assertEquals
  * beside the Play badge, the end card's tagline, the app line, the progress line, the milestone title). Every
  * language's words must fit their room, measured with the faces that draw them at the weight they're drawn in,
  * plus 3% for the difference between AWT's and Android's text metrics. Sizes are at 1080 wide (design system → 9:16 time-lapse frame, milestone share card).
- * The milestone title shrinks from 104px to fit (`StreakShareCard`), so it must fit at its 64px floor.
+ * The milestone title shrinks from 104px to fit (`StreakShareCard`), so it must fit at its 64px floor. A founder clip's
+ * lockup (#144) shrinks too, but every language fits it at full size (measured at 600 with [BOLD_SLACK] for its
+ * "Google Play" at 700: there's no static 700 face here), and its promise fits one line.
  */
 class FrameTextFitTest {
     private val fonts = HashMap<String, Font>()
@@ -43,7 +46,7 @@ class FrameTextFitTest {
     }
 
     /** One line: [name] in [role] ("display" or "body") at [px] must fit [room] pixels, in every language. */
-    private class Line(val name: String, val role: String, val px: Float, val room: Int)
+    private class Line(val name: String, val role: String, val px: Float, val room: Int, val arg: String? = null)
 
     @Test
     fun everyOneLineTextFitsItsRoom() {
@@ -57,10 +60,13 @@ class FrameTextFitTest {
             Line("frame_before", "body", 30f, 1080 / 2 - ShareLayout.MARGIN),
             Line("frame_so_far", "body", 30f, 1080 / 2 - ShareLayout.MARGIN),
             Line("frame_after", "body", 30f, 1080 / 2 - ShareLayout.MARGIN),
+            // The store line is measured all in the strong face: "Google Play" in it is bold.
+            Line("frame_clip_free", "strong", 38f, (ClipLayout.LOCKUP_TEXT_MAX / BOLD_SLACK).toInt(), arg = "Google Play"),
+            Line("frame_clip_promise", "body", 46f, ClipLayout.PROMISE_WIDTH),
         ) + listOf(7, 30, 50, 100, 365).map { Line("streak_milestone_$it", "display", MILESTONE_MIN, 1080 - 2 * 80) }
         val problems = AndroidStringsFile.all().flatMap { file ->
             lines.mapNotNull { line ->
-                val text = file.texts.getValue(line.name)
+                val text = file.texts.getValue(line.name).let { t -> line.arg?.let { t.replace("%1\$s", it) } ?: t }
                 val w = width(text, face(line.role, file.language), line.px)
                 if (w > line.room) "${file.folder.name}/${line.name} at ${line.px.toInt()}px: ${w.toInt()} > ${line.room} (\"$text\")" else null
             }
@@ -70,6 +76,9 @@ class FrameTextFitTest {
 
     private companion object {
         const val SLACK = 1.03
+
+        /** A line drawn partly at 700, measured at 600. */
+        const val BOLD_SLACK = 1.04
         const val MILESTONE_MIN = 64f
     }
 }
