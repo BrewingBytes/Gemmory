@@ -204,7 +204,8 @@ object RemotePictureTool {
     private fun mergeCollections(published: List<RemoteCollection>, added: List<RemoteCollection>): List<RemoteCollection> {
         added.map { it.id }.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let { error("collection $it is twice in the batch") }
         val byId = added.associateBy { it.id }
-        return published.map { byId[it.id] ?: it } + added.filter { a -> published.none { it.id == a.id } }
+        // A re-listed collection keeps its published translations; the batch's own title columns win (T49).
+        return published.map { p -> byId[p.id]?.let { it.copy(titles = p.titles + it.titles) } ?: p } + added.filter { a -> published.none { it.id == a.id } }
     }
 
     /**

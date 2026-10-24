@@ -489,7 +489,7 @@
     <string name="billing_perk_watermark">Bez znaku wodnego na filmach</string>
     <string name="billing_perk_tools">Narzędzia pędzla i wypełniania</string>
     <string name="billing_start_vip">Zacznij VIP</string>
-    <string name="billing_fine_print">VIP odnawia się automatycznie, dopóki nie zrezygnujesz. Zrezygnujesz w każdej chwili w Google Play.</string>
+    <string name="billing_fine_print">VIP odnawia się automatycznie, dopóki nie zrezygnujesz. Możesz zrezygnować w każdej chwili w Google Play.</string>
     <string name="billing_prices_failed">Nie udało się wczytać cen. Połącz się i spróbuj ponownie.</string>
     <string name="billing_purchase_failed">Google Play nie mógł dokończyć zakupu. Nic nie zostało pobrane.</string>
     <string name="billing_pending_vip">Płatność w toku. VIP zacznie się, gdy Google Play ją potwierdzi.</string>

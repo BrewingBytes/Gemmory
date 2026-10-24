@@ -113,6 +113,7 @@ import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.AppTopBar
 import com.brewingbytes.gemmory.ui.ConfirmSheet
+import com.brewingbytes.gemmory.ui.AppFonts
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
 import com.brewingbytes.gemmory.ui.GemSheet
@@ -1235,9 +1236,17 @@ private fun TileView(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(top = 6.dp)) {
-                Text(tile.title, style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Two lines, then an ellipsis: translated titles run longer (T49 DR6).
+                Text(tile.title, style = GemType.label, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (!tile.damaged) {
-                    Text(if (tile.done) stringResource(R.string.gallery_done) else strings.text(R.string.percent, tile.percent), style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.Bone)
+                    // "Done" is a word: mono (Atkinson) draws it only in Latin scripts, so Bulgarian and Japanese use
+                    // their label face (T49); the percent stays mono in every language.
+                    val word = tile.done && AppFonts.forLanguage(strings.locale.language) != AppFonts.LATIN
+                    Text(
+                        if (tile.done) stringResource(R.string.gallery_done) else strings.text(R.string.percent, tile.percent),
+                        style = if (word) GemType.label.copy(fontSize = 12.sp) else GemType.mono.copy(fontSize = 12.sp),
+                        color = GemColors.Bone,
+                    )
                 }
             }
             // A locked picture has nothing to start over.

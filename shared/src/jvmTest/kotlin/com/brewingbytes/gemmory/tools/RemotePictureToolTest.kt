@@ -322,6 +322,21 @@ class RemotePictureToolTest {
         assertFailsWith<IllegalStateException> { RemotePictureTool.setTitles(dir, mapOf("night-one" to mapOf("nl" to "x")), 1_792_000_500, keyFile(pair), setOf("starter"), trusted) }
     }
 
+    /** T49: a collection listed again in a batch without title columns keeps the translations it was published with. */
+    @Test
+    fun aRelistedCollectionKeepsItsTitles() {
+        RemotePictureTool.publish(request("night-one"))
+        RemotePictureTool.publish(listOf(request("night-two", now = 1_792_000_050)), listOf(RemoteCollection("nights", "Nights", listOf("night-one"))))
+        RemotePictureTool.setTitles(dir, mapOf("nights" to mapOf("de" to "Nächte", "fr" to "Nuits")), 1_792_000_100, keyFile(pair), setOf("starter"), trusted)
+        RemotePictureTool.publish(
+            listOf(request("night-three", now = 1_792_000_200)),
+            listOf(RemoteCollection("nights", "Nights", listOf("night-one", "night-two"), titles = mapOf("fr" to "Les nuits"))),
+        )
+        val nights = assertIs<CatalogCheck.Ok>(check()).catalog.collections.single()
+        assertEquals(listOf("night-one", "night-two"), nights.members)
+        assertEquals(mapOf("de" to "Nächte", "fr" to "Les nuits"), nights.titles)
+    }
+
     @Test
     fun withdrawRemovesTheEntryAndItsGrid() {
         RemotePictureTool.publish(request("night-one"))

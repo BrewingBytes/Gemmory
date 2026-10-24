@@ -26,6 +26,15 @@ class GlyphCheckTest {
         assertEquals(emptyList(), problems)
     }
 
+    /** Words drawn in mono (Atkinson Hyperlegible Mono) in Latin-script languages: the tile's "Done" (T49). */
+    @Test
+    fun monoWordsDrawInAtkinsonWhereTheyUseIt() {
+        val problems = AndroidStringsFile.all().filter { it.language !in setOf("bg", "ja") }.mapNotNull { file ->
+            glyphs.missingIn(file.texts.getValue("gallery_done"), "atkinson_hyperlegible_mono.ttf").takeIf { it.isNotEmpty() }?.let { "${file.folder.name}: $it" }
+        }
+        assertEquals(emptyList(), problems)
+    }
+
     @Test
     fun romanianUsesTheCommaBelowLetters() {
         val ro = AndroidStringsFile.all().single { it.tag == "ro" }
