@@ -78,6 +78,8 @@ object StoreFrames {
         val lines = ArrayList<TextLayout>()
         while (measurer.position < caption.length) lines += measurer.nextLayout((WIDTH - 2 * CAPTION_SIDE).toFloat())
         require(lines.size <= 2) { "\"$caption\" takes ${lines.size} lines; keep a caption to two" }
+        // AWT breaks Japanese at any character, so a Japanese caption stays on one line.
+        require(language != "ja" || lines.size == 1) { "\"$caption\" wraps; keep a Japanese caption to one line" }
         val lineHeight = CAPTION_PX * if (language == "ja") 1.4f else 1.2f
         var baseline = (CAPTION_BAND - lineHeight * lines.size) / 2 + lineHeight * 0.8f
         g.color = BONE

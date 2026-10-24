@@ -35,6 +35,13 @@ class ListingTest {
             captions.forEach { c -> glyphs.missing(c, language).takeIf { it.isNotEmpty() }?.let { problems += "$locale caption \"$c\": $it" } }
         }
         assertEquals(emptyList(), problems)
+        // Every caption fits its frame (two lines; Japanese one), drawn as the frame tool draws it.
+        val shot = java.awt.image.BufferedImage(1080, 1920, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        for ((locale, language) in StoreFrames.LOCALES) {
+            for (caption in StoreFrames.captions(root, locale)) {
+                StoreFrames.frame(shot, caption, language, File(AndroidStringsFile.RES, "font"), File("../tools/store/fonts"))
+            }
+        }
         assertTrue(File(root, "es-419/full.txt").readText() == File(root, "es-ES/full.txt").readText(), "one Spanish (C3)")
     }
 

@@ -1,18 +1,21 @@
 package com.brewingbytes.gemmory.timelapse
 
-import com.brewingbytes.gemmory.copy.strings
 import android.graphics.Bitmap
+import android.os.SystemClock
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
+import com.brewingbytes.gemmory.app.TestLanguage
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,25 +38,37 @@ class ShareCaptures {
         assumeDeviceChecks()
         out.deleteRecursively()
         out.mkdirs()
+        // `-e appLocale <tag>` (T49): the frames in that language; the app's resources follow within a moment.
+        TestLanguage.requested?.let { tag ->
+            TestLanguage.set(context, tag)
+            val deadline = SystemClock.uptimeMillis() + 5_000
+            while (context.applicationContext.strings.locale.toLanguageTag() != tag && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(100)
+            check(context.applicationContext.strings.locale.toLanguageTag() == tag) { "the app didn't switch to $tag" }
+        }
+    }
+
+    @After
+    fun tearDown() {
+        TestLanguage.set(context, null)
     }
 
     private fun request(picture: BundledPicture, percent: Int = 100, watermark: Boolean = true, frame: ShareFrame): EncodeRequest {
         val bytes = context.assets.open(picture.asset).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         val log = pattern.cells.indices.shuffled(Random(7)).toIntArray()
-        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(log.size * percent / 100), picture.title(context.strings), null, watermark, frame)
+        return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(log.size * percent / 100), picture.title(context.applicationContext.strings), null, watermark, frame)
     }
 
     private fun encode(name: String, request: EncodeRequest) {
         val file = File(out, "$name.mp4")
-        val encoder = MediaCodecEncoder(context, request, { t -> if (t == null) File(out, "$name.png") else file })
+        val encoder = MediaCodecEncoder(context.applicationContext, request, { t -> if (t == null) File(out, "$name.png") else file })
         val codec = checkNotNull(encoder.probe(EncodeTarget.FULL_HD))
         encoder.encode(EncodeTarget.FULL_HD, codec, { _, _ -> }, {})
         Log.i("Gemmory", "capture $name: ${file.length()} bytes")
     }
 
     private fun png(name: String, request: EncodeRequest) {
-        val bitmap = FrameArt.beforeAfter(context, request)
+        val bitmap = FrameArt.beforeAfter(context.applicationContext, request)
         File(out, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
@@ -62,7 +77,9 @@ class ShareCaptures {
     fun captures() {
         val wave = BundledPictures.ALL.first { it.id == "wave" }
         val starter = BundledPictures.STARTER
-        for ((tag, frame) in listOf("today" to ShareFrame.CLIP, "new" to ShareFrame.PLAYER)) {
+        // In another language only the player's share matters (the founder clips stay English, T47).
+        val frames = if (TestLanguage.requested == null) listOf("today" to ShareFrame.CLIP, "new" to ShareFrame.PLAYER) else listOf("new" to ShareFrame.PLAYER)
+        for ((tag, frame) in frames) {
             encode("$tag-wave", request(wave, frame = frame))
             encode("$tag-starter", request(starter, frame = frame))
             encode("$tag-progress", request(wave, percent = 47, frame = frame))
