@@ -122,6 +122,16 @@ class FallbackChainTest {
     }
 
     @Test
+    fun withoutThePictureNoVideoIsFailedAndNoPictureIsMade() {
+        // The feed cut (T51) is a video or nothing.
+        val backend = FakeBackend(encodeErrors = mapOf(EncodeTarget.FULL_HD to RuntimeException("a"), EncodeTarget.HD to RuntimeException("b")))
+        assertEquals(ChainOutcome.Failed, FallbackChain(backend, { reports += it }, picture = false).run({ _, _ -> }, {}))
+        assertEquals(listOf("probe 1080x1920@30", "encode 1080x1920@30", "probe 720x1280@30", "encode 720x1280@30"), backend.calls)
+        assertTrue(backend.partials.isEmpty())
+        assertEquals(2, reports.size)
+    }
+
+    @Test
     fun everythingFailingIsFailedWithNoFileLeft() {
         val backend = FakeBackend(supported = emptySet(), pictureError = IllegalStateException("png"))
         assertEquals(ChainOutcome.Failed, run(backend))

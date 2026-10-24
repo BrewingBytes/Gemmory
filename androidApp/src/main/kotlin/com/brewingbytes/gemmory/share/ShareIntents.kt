@@ -3,21 +3,32 @@ package com.brewingbytes.gemmory.share
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ClipData
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.copy.Messages
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
+import com.brewingbytes.gemmory.timelapse.FeedTargets
 import com.brewingbytes.gemmory.timelapse.ShareLink
 import java.io.File
 
 /** The Android share sheet for a time-lapse MP4 or the before/after PNG, with the tracked Play link (eng D14). */
 object ShareIntents {
-    fun chooser(context: Context, file: File, request: EncodeRequest): Intent {
+    /**
+     * [feed]: the feed cut made beside the video (T51), for TikTok, Instagram and YouTube in place of [file]; every
+     * other app gets [file] and the share text. Up to two feed apps get an entry of their own ([feedTargets]), whose
+     * stream and ClipData both carry the cut; every other share screen of a feed app gets the cut as its stream
+     * (`EXTRA_REPLACEMENT_EXTRAS`, by package), granted to the feed apps by name.
+     */
+    fun chooser(context: Context, file: File, request: EncodeRequest, feed: File? = null): Intent {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
         val send = Intent(Intent.ACTION_SEND)
             .setType(if (file.name.endsWith(".png")) "image/png" else "video/mp4")
@@ -32,14 +43,55 @@ object ShareIntents {
             .putExtra(AnalyticsEvent.SOURCE, AnalyticsEvent.source(request.ref))
             .putExtra(AnalyticsEvent.SIZE, AnalyticsEvent.size(request.ref, request.pattern.width, request.pattern.height))
             .putExtra(AnalyticsEvent.KIND, AnalyticsEvent.kind(request.inProgress))
+            .putExtra(ShareCompletedReceiver.FEED_CUT, feed != null)
         val callback = PendingIntent.getBroadcast(
             context,
             0,
             picked,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
-        return Intent.createChooser(send, null, callback.intentSender).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val chooser = Intent.createChooser(send, null, callback.intentSender).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (feed != null) {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", feed)
+            val targets = feedTargets(send, uri) { context.packageManager.queryIntentActivities(it, 0).map { r -> r.activityInfo.packageName to r.activityInfo.name } }
+            if (targets.isNotEmpty()) {
+                chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, targets.map { it.second }.toTypedArray())
+                // Exactly the entries shown in their place, so no feed app ever drops out of the sheet.
+                chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, targets.map { it.first }.toTypedArray())
+            }
+            val replacements = Bundle()
+            for (pkg in FeedTargets.packages) {
+                replacements.putBundle(pkg, Bundle().apply { putParcelable(Intent.EXTRA_STREAM, uri) })
+                // A swapped stream's ClipData still names the video, so the grant on the cut is given by name.
+                runCatching { context.grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            }
+            chooser.putExtra(Intent.EXTRA_REPLACEMENT_EXTRAS, replacements)
+        }
+        return chooser
     }
+
+    /**
+     * The feed apps' own entries in the sheet (T51): the first share screen ([resolve], seen through the manifest's
+     * `<queries>`) of each installed feed app in [FeedTargets] order, at most [MAX_FEED_ENTRIES], as the same share with
+     * the feed cut [feedUri] as both its stream and its ClipData, so the app gets the cut whichever it reads. The sheet
+     * launches them as us, so it can grant it. Paired with the component each one stands in for, which the sheet then
+     * leaves out of its own list.
+     */
+    fun feedTargets(send: Intent, feedUri: Uri, resolve: (Intent) -> List<Pair<String, String>>): List<Pair<ComponentName, Intent>> =
+        FeedTargets.packages.asSequence()
+            .mapNotNull { pkg -> resolve(Intent(send).setPackage(pkg)).firstOrNull { it.first == pkg } }
+            .take(MAX_FEED_ENTRIES)
+            .map { (p, name) ->
+                val component = ComponentName(p, name)
+                component to Intent(send)
+                    .setComponent(component)
+                    .putExtra(Intent.EXTRA_STREAM, feedUri)
+                    .apply { clipData = ClipData.newRawUri(null, feedUri) }
+            }
+            .toList()
+
+    /** Android's share sheet shows only the first two `EXTRA_INITIAL_INTENTS` (AOSP's `MAX_EXTRA_INITIAL_INTENTS`). */
+    const val MAX_FEED_ENTRIES = 2
 
     /** The milestone share card (#104): the PNG and the streak card's tracked link; an app picked is `streak_share_completed`. */
     fun streakChooser(context: Context, file: File, milestone: Int): Intent {
@@ -61,16 +113,26 @@ object ShareIntents {
     }
 }
 
-/** Logs share_completed (and counts the share for achievements, #49) with the canvas's source, size and share kind (#36); which app was picked isn't recorded. */
+/**
+ * Logs share_completed (and counts the share for achievements, #49) with the canvas's source, size, share kind (#36)
+ * and whether a feed app got the feed cut (T51); which app was picked isn't recorded.
+ */
 class ShareCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val source = intent.getStringExtra(AnalyticsEvent.SOURCE) ?: return
         val size = intent.getStringExtra(AnalyticsEvent.SIZE) ?: return
         val kind = intent.getStringExtra(AnalyticsEvent.KIND) ?: AnalyticsEvent.kind(progress = false)
+        val chosen = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_CHOSEN_COMPONENT, ComponentName::class.java)
+        val feed = intent.getBooleanExtra(FEED_CUT, false) && FeedTargets.isFeed(chosen?.packageName)
         val app = context.applicationContext as GemmoryApp
-        app.analytics.log(AnalyticsEvent.shareCompleted(source, size, kind))
+        app.analytics.log(AnalyticsEvent.shareCompleted(source, size, kind, AnalyticsEvent.cut(feed)))
         // Show and Tell / Work in Progress (#49): counted now, sent once the Gallery shows.
         app.achievements.record(GameEvent.Shared(progress = kind == AnalyticsEvent.kind(progress = true)))
+    }
+
+    companion object {
+        /** The share had a feed cut (T51). */
+        const val FEED_CUT = "feed_cut"
     }
 }
 

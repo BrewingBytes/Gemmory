@@ -25,7 +25,8 @@ import kotlin.random.Random
 /**
  * The share videos for a PR's before/after: the player's share ([ShareFrame.PLAYER], "player-…") and a founder clip's
  * 9:16 ([ShareFrame.CLIP], #144, "clip-…"), for a wide and a tall picture, a progress share and VIP, plus both PNG
- * fallbacks, into `getExternalFilesDir(null)/share-captures/` for `adb pull`. A device check.
+ * fallbacks and the feed cut of each picture ([ShareFrame.FEED], T51, "feed-…"), into
+ * `getExternalFilesDir(null)/share-captures/` for `adb pull`. A device check.
  */
 @DeviceCheck
 @RunWith(AndroidJUnit4::class)
@@ -86,5 +87,8 @@ class ShareCaptures {
             encode("$tag-vip", request(wave, watermark = false, frame = frame))
             png("$tag-fallback", request(wave, frame = frame))
         }
+        // T51: the feed cut beside a finished non-VIP share, in whichever language runs.
+        encode("feed-wave", request(wave, frame = ShareFrame.FEED))
+        encode("feed-starter", request(starter, frame = ShareFrame.FEED))
     }
 }

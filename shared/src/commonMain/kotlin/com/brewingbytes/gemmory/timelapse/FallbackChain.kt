@@ -87,11 +87,15 @@ sealed interface ChainOutcome {
  *
  * Cancellation (a [CancellationException] from `checkCancelled`) deletes the partial file and propagates: no
  * fallback, no report.
+ *
+ * Without [picture] (the feed cut, T51, which is a video or nothing) the chain ends [ChainOutcome.Failed] after the
+ * last video target instead of rendering the picture.
  */
 class FallbackChain(
     private val backend: EncodeBackend,
     private val report: (AttemptFailure) -> Unit,
     private val targets: List<EncodeTarget> = EncodeTarget.CHAIN,
+    private val picture: Boolean = true,
 ) {
     /** [onProgress] gets the current attempt's frame count; a fallback starts again from 0. */
     fun run(onProgress: (done: Int, total: Int) -> Unit, checkCancelled: () -> Unit): ChainOutcome {
@@ -124,6 +128,7 @@ class FallbackChain(
             }
         }
         checkCancelled()
+        if (!picture) return ChainOutcome.Failed
         return try {
             backend.renderPicture()
             ChainOutcome.Picture

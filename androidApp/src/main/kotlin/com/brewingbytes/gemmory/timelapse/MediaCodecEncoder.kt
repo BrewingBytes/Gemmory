@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * [EncodeBackend] on MediaCodec (eng E1): AVC with Surface input. [FrameArt] keeps the canvas in one bitmap and adds
  * each frame's new gems to it; [GlFrameWriter] puts each frame on the input surface with its [FramePlan] time (a
- * founder clip's: [ClipFramePlan]), and
+ * founder clip's: [ClipFramePlan]; the feed cut's: [FeedFramePlan]), and
  * the encoder's output goes to MediaMuxer on a callback thread. B-frames are off ([MediaFormat.KEY_MAX_B_FRAMES]),
  * so samples come out in frame order.
  */
@@ -34,10 +34,10 @@ class MediaCodecEncoder(
     // context.cacheDir re-creates the directory if the system cleared it.
     private val free: () -> Long = { StatFs(context.cacheDir.path).availableBytes },
 ) : EncodeBackend {
-    private val plan: VideoPlan = if (request.frame == ShareFrame.CLIP) {
-        ClipFramePlan(request.log.size)
-    } else {
-        FramePlan(request.log.size, photoIntro = request.source?.isFile == true, endCard = request.endCard)
+    private val plan: VideoPlan = when (request.frame) {
+        ShareFrame.CLIP -> ClipFramePlan(request.log.size)
+        ShareFrame.FEED -> FeedFramePlan(request.log.size, photoHook = request.source?.isFile == true)
+        ShareFrame.PLAYER -> FramePlan(request.log.size, photoIntro = request.source?.isFile == true, endCard = request.endCard)
     }
 
     override fun probe(target: EncodeTarget): String? {

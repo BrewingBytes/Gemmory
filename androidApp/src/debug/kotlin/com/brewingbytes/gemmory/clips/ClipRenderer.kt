@@ -11,6 +11,7 @@ import com.brewingbytes.gemmory.timelapse.ClipOrders
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.EncodeTarget
 import com.brewingbytes.gemmory.timelapse.FallbackChain
+import com.brewingbytes.gemmory.timelapse.FeedFramePlan
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
 import com.brewingbytes.gemmory.timelapse.ShareFrame
 import com.brewingbytes.gemmory.copy.strings
@@ -21,6 +22,9 @@ import java.io.File
 enum class ClipFormat(val label: String) {
     NINE_SIXTEEN("9:16"),
     FOUR_FIVE("4:5"),
+
+    /** The players' 7 s feed cut (T51), in the same words, from the clip's synthetic log. */
+    FEED("7 s feed"),
     STILLS("Stills"),
 }
 
@@ -30,14 +34,15 @@ class ClipResult(val saved: List<File>, val error: String?)
 /**
  * The founder clip tool's renderer (T47): a synthetic log from [ClipOrders] through the player's encoder
  * ([MediaCodecEncoder], [FallbackChain]) in the clips' own frame (#144: [ClipFramePlan], the store lockup, the
- * finished-picture hook and the end card), into [dir]
+ * finished-picture hook and the end card), and the players' feed cut (T51: [FeedFramePlan]), into [dir]
  * (`getExternalFilesDir(DIRECTORY_MOVIES)/clips/`, where `adb pull` reaches it). It bypasses `EncodeManager`: no cache,
  * no Analytics, and the picture needn't have a canvas.
  */
 class ClipRenderer(private val context: Context, val dir: File) {
     /**
      * Blocking. For each of [languages] (tags, [ClipLanguages]), in that language: `<id>-<order>-<lang>.mp4`,
-     * `<id>-<order>-4x5-<lang>.mp4` and `<id>-before-after-<lang>.png` for [formats]; then `<id>-finished.png` once (it
+     * `<id>-<order>-4x5-<lang>.mp4`, `<id>-<order>-feed-<lang>.mp4` and `<id>-before-after-<lang>.png` for [formats];
+     * then `<id>-finished.png` once (it
      * has no words). Stops at the first failure. [onProgress] gets a whole percent over all of them and the language
      * being drawn; [checkCancelled] throws to stop, and the file being written is deleted.
      */
@@ -54,9 +59,9 @@ class ClipRenderer(private val context: Context, val dir: File) {
         dir.mkdirs()
         val id = picture.ref.id
         val log = ClipOrders.of(order, pattern, ClipOrders.seedOf(id))
-        val videos = listOf(ClipFormat.NINE_SIXTEEN, ClipFormat.FOUR_FIVE).filter { it in formats }
+        val videos = listOf(ClipFormat.NINE_SIXTEEN, ClipFormat.FOUR_FIVE, ClipFormat.FEED).filter { it in formats }
         val stills = ClipFormat.STILLS in formats
-        val perLanguage = videos.size * ClipFramePlan.FRAMES + if (stills) STILLS_UNITS else 0
+        val perLanguage = videos.sumOf(::frames) + if (stills) STILLS_UNITS else 0
         val units = languages.size * perLanguage + if (stills) STILLS_UNITS else 0
         var done = 0
         var percent = -1
@@ -76,12 +81,13 @@ class ClipRenderer(private val context: Context, val dir: File) {
             val request = EncodeRequest(picture.ref, pattern, log, title, source = null, watermark = true, frame = ShareFrame.CLIP)
             for (format in videos) {
                 val file = File(dir, fileName(id, order, format, tag))
-                val error = video(localized, request, file, if (format == ClipFormat.NINE_SIXTEEN) EncodeTarget.CHAIN else FOUR_FIVE, checkCancelled) {
+                val made = if (format == ClipFormat.FEED) request.feed() else request
+                val error = video(localized, made, file, if (format == ClipFormat.FOUR_FIVE) FOUR_FIVE else EncodeTarget.CHAIN, checkCancelled) {
                     progress(done + it)
                 }
                 if (error != null) return ClipResult(saved, error)
                 saved += file
-                done += ClipFramePlan.FRAMES
+                done += frames(format)
             }
             if (stills) {
                 checkCancelled()
@@ -164,8 +170,12 @@ class ClipRenderer(private val context: Context, val dir: File) {
         fun fileName(id: String, order: ClipOrder, format: ClipFormat, language: String): String = when (format) {
             ClipFormat.NINE_SIXTEEN -> "$id-${order.fileName}-$language.mp4"
             ClipFormat.FOUR_FIVE -> "$id-${order.fileName}-4x5-$language.mp4"
+            ClipFormat.FEED -> "$id-${order.fileName}-feed-$language.mp4"
             ClipFormat.STILLS -> "$id-before-after-$language.png"
         }
+
+        /** A video format's frames: the feed cut's 210, a founder clip's 540. */
+        private fun frames(format: ClipFormat): Int = if (format == ClipFormat.FEED) FeedFramePlan.FRAMES else ClipFramePlan.FRAMES
 
         /** 4:5 for feed posts: 1080×1350, then 864×1080. */
         val FOUR_FIVE = listOf(EncodeTarget(1080, 1350), EncodeTarget(864, 1080))
