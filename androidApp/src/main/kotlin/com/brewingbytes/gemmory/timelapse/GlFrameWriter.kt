@@ -25,8 +25,9 @@ import java.nio.FloatBuffer
  *
  * The layers are textures: the static background, the canvas (re-uploaded only on frames that placed gems), for the
  * photo intro the source photo drawn over the canvas with its opacity, and for the player's share (T53) the overlay
- * (fade, title and Gemmory row) over all of them. On end-card frames the band, a black dim, the card layer and the
- * canvas at the card's picture rect fade in over that. Bitmaps upload premultiplied, so blending is premultiplied.
+ * (fade, title and Gemmory row; a founder clip's title and lockup) over all of them. On end-card frames the band, a
+ * black dim, the card layer and the canvas at the card's picture rect fade in over that. A founder clip's hook (#144)
+ * is the finished canvas in the photo's slot. Bitmaps upload premultiplied, so blending is premultiplied.
  */
 class GlFrameWriter(surface: Surface, private val width: Int, private val height: Int) {
     private var display: EGLDisplay = EGL14.EGL_NO_DISPLAY
@@ -120,7 +121,7 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
             val a = endCard.alpha
             GLES20.glEnable(GLES20.GL_BLEND)
             drawQuad(BACKGROUND, Rect(0, 0, width, height), a)
-            drawQuad(BLACK, Rect(0, 0, width, height), FrameStyle.END_CARD_DIM * a)
+            drawQuad(BLACK, Rect(0, 0, width, height), endCard.dim * a)
             // The card layer holds the picture's shadow, so the canvas goes over it.
             drawQuad(CARD, endCard.content, a)
             drawQuad(CANVAS, endCard.picture, a)

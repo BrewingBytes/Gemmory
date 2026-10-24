@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * picture, the icon, the name, the tagline and the badge, centered as one block. VIP has neither ([branded] false):
  * the picture area is then the whole frame.
  *
- * The founder clips (T47) keep [FrameLayout] until #144 gives them their own frame.
+ * The founder clips (T47) have their own feed-safe frame, [ClipLayout] (#144).
  */
 data class ShareLayout(
     val board: BoardRect,

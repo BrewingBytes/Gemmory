@@ -396,6 +396,9 @@
     <string name="frame_app_line">Gemmory · Gyémántfestés fotóidból</string>
     <string name="frame_watermark">Gemmoryval készült</string>
     <string name="frame_tagline">A fotóid kövekből</string>
+    <string name="frame_clip_free">Ingyenes a %1$s áruházban</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Varázsolj bármely fotóból kőképet</string>
 
     <string name="action_next">Tovább</string>
     <string name="photo_crop">Vágás</string>

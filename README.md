@@ -137,14 +137,16 @@ How it behaves (T45, first run clear): nothing of Play Games before the player's
 
 Debug builds have a Clips screen for posting time-lapses without finishing a picture by hand: Settings → Clips (the last row before Version; release builds don't have it, and `bundleRelease` fails if the release manifest ever names it). It lists every bundled picture and every remote one the catalog check has downloaded and verified, future drops and unearned keepsakes included (only the date and earn gates are bypassed, never the signature). Never a photo canvas.
 
-Each row has an order (By color: palette order, reading order within a color; Ripple: rings out from the center; Random: a shuffle seeded by the picture's id, so it's the same every time) and formats (any of 9:16, 4:5, Stills; all on by default). Render makes, through the player's own encoder from a synthetic log, watermark and app name on:
+Each row has an order (By color: palette order, reading order within a color; Ripple: rings out from the center; Random: a shuffle seeded by the picture's id, so it's the same every time) and formats (any of 9:16, 4:5, Stills; all on by default). Render makes, through the player's own encoder from a synthetic log:
 
 | File | What |
 |---|---|
-| `<id>-<order>.mp4` | the 15 s 9:16 time-lapse, 1080×1920 (720×1280 if the phone can't) |
-| `<id>-<order>-4x5.mp4` | the same at 4:5, 1080×1350 (864×1080 fallback), the canvas fitted above the title |
+| `<id>-<order>.mp4` | the 18 s 9:16 time-lapse, 1080×1920 (720×1280 if the phone can't) |
+| `<id>-<order>-4x5.mp4` | the same at 4:5, 1080×1350 (864×1080 fallback) |
 | `<id>-before-after.png` | 1080×1350: the picture as flat pixel art beside the finished gem canvas, with the title and watermark |
 | `<id>-finished.png` | the finished gem canvas alone, about 1080 wide |
+
+The videos have their own feed-safe frame (#144, design system → Founder clip frame): the finished picture for 0.5 s, the build with the "Gemmory / Free on Google Play" lockup inside the feeds' safe area, and an end card. They're drawn in the app's language: switch it in Settings → Language and render again for another language's clip (pull the files first; the names don't change).
 
 One render at a time; leaving the screen stops it. To pull them:
 

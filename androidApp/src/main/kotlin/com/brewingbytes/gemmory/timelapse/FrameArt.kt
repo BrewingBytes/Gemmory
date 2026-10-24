@@ -39,8 +39,8 @@ import kotlin.math.roundToInt
  * The player's share ([ShareFrame.PLAYER], T53, [ShareLayout]): the whole picture at full width, centered above the
  * Gemmory row, with the title and app line over a dark fade ([overlay], drawn over the canvas), the row on every
  * non-VIP frame, and the non-VIP end card ([card] plus the canvas itself at [cardPicture]). A founder clip
- * ([ShareFrame.CLIP], T47) keeps the frame from before T53: the canvas under a 36px top margin ([FrameLayout]; the
- * 4:5 fits it above the text), with the title, app line and "Made with Gemmory" in the [background].
+ * ([ShareFrame.CLIP], #144, [ClipLayout]): the canvas above the title and the store lockup, all inside the feeds' safe
+ * area ([overlay]), the finished canvas as the hook ([source]), and the E2b end card ([card]).
  *
  * Built once per attempt. The canvas lives in one bitmap that starts as the empty tint grid and gets each frame's
  * new gems drawn onto it, so a whole video costs O(gems + frames) draws (eng finding 12).
@@ -50,44 +50,68 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     private val pattern = request.pattern
     private val share: ShareLayout? =
         if (request.frame == ShareFrame.PLAYER) ShareLayout.of(width, height, pattern.width, pattern.height, request.watermark) else null
-    private val layout = share?.board ?: FrameLayout.board(width, height, pattern.width, pattern.height)
+    private val clip: ClipLayout? = if (request.frame == ShareFrame.CLIP) style.clipLayout(height, pattern, request.title) else null
+    private val layout = share?.board ?: clip!!.board
     private val painter = GemRenderer.GemPainter(pattern, layout.width, layout.height)
     private val board: Bitmap = createBitmap(layout.width, layout.height)
     private val boardCanvas = Canvas(board)
     private val chrome: Bitmap = createBitmap(width, height)
     private val photo: Bitmap? = request.source?.let { decodeSource(it, layout.width, layout.height) }
-    private val overlayTop = share?.fadeTop ?: 0
-    private val overlayBitmap: Bitmap? = share?.let { createBitmap(width, height - it.fadeTop) }
+
+    /** A founder clip's hook (#144, H1): the finished canvas, shown in the photo's slot over the tint grid. */
+    private val hook: Bitmap? = clip?.let {
+        createBitmap(layout.width, layout.height).also { b ->
+            val c = Canvas(b)
+            for (cell in pattern.cells.indices) painter.drawCell(c, cell, isPlaced = true)
+        }
+    }
+    private val overlayTop = share?.fadeTop ?: clip?.let { it.title.top - style.px(FrameStyle.CLIP_TEXT_ROOM) } ?: 0
+    private val overlayBitmap: Bitmap? = if (share != null || clip != null) createBitmap(width, height - overlayTop) else null
     private val cardArea: Rect? = share?.card?.let { Rect(0, it.top - style.px(FrameStyle.CARD_SHADOW_ROOM), width, it.bottom) }
+        ?: clip?.card?.area?.let { Rect(0, it.top, width, it.bottom) }
     private val cardBitmap: Bitmap? = cardArea?.let { createBitmap(it.width(), it.height()) }
     private var drawn = 0
 
-    /** The canvas's place in the frame ([ShareLayout] for the player's share, [FrameLayout] for a founder clip). */
+    /** The canvas's place in the frame ([ShareLayout] for the player's share, [ClipLayout] for a founder clip). */
     val boardRect = Rect(layout.left, layout.top, layout.right, layout.bottom)
 
-    /** The static frame behind the canvas: the band, plus a founder clip's title, app line and watermark row. */
+    /** The static frame behind the canvas: the band. */
     val background: Bitmap get() = chrome
 
     /** The canvas as of the last [apply]: the tint grid plus every gem placed so far. */
     val canvas: Bitmap get() = board
 
-    /** The cropped source photo at the canvas's size, for the photo intro; null for bundled pictures. */
-    val source: Bitmap? get() = photo
+    /**
+     * Drawn over the canvas at the photo's opacity: the cropped source photo for a photo canvas's intro, or a founder
+     * clip's finished canvas for its hook (#144); null otherwise.
+     */
+    val source: Bitmap? get() = photo ?: hook
 
-    /** The player's share: fade, title, app line and (non-VIP) the Gemmory row, drawn over the canvas at [overlayRect]. */
+    /**
+     * Drawn over the canvas at [overlayRect]: the player's share's fade, title, app line and (non-VIP) Gemmory row, or a
+     * founder clip's title and store lockup (#144).
+     */
     val overlay: Bitmap? get() = overlayBitmap
     val overlayRect: Rect? = overlayBitmap?.let { Rect(0, overlayTop, width, height) }
 
-    /** The end card's shadow, icon, name, tagline and badge (non-VIP player share); null without an end card. */
+    /**
+     * The end card's layer: the shadow, icon, name, tagline and badge (non-VIP player share), or the shadow, lockup and
+     * promise (founder clip, #144); null without an end card.
+     */
     val card: Bitmap? get() = cardBitmap
 
     init {
         for (cell in pattern.cells.indices) painter.drawCell(boardCanvas, cell, isPlaced = false)
         val c = Canvas(chrome)
         style.drawBand(c, pattern, height)
-        if (share == null) {
-            style.drawText(c, request.title, layout.bottom, height, request.watermark, request.progressLine)
-        } else {
+        if (clip != null) {
+            val o = Canvas(overlayBitmap!!)
+            o.translate(0f, -overlayTop.toFloat())
+            style.drawClipText(o, clip, request.title)
+            val k = Canvas(cardBitmap!!)
+            k.translate(0f, -cardArea!!.top.toFloat())
+            style.drawClipCard(k, clip.card)
+        } else if (share != null) {
             val o = Canvas(overlayBitmap!!)
             o.translate(0f, -overlayTop.toFloat())
             style.drawShareText(o, share, request.title, request.progressLine)
@@ -105,6 +129,11 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
      * down by the part of the 30px slide still to go. Null without an end card.
      */
     fun endCard(alpha: Float): EndCardRects? {
+        clip?.let {
+            // A founder clip's card crossfades in place, over the band darkened a further 20% (#144, E2b).
+            val p = it.card.picture
+            return EndCardRects(alpha, Rect(p.left, p.top, p.right, p.bottom), Rect(cardArea!!), FrameStyle.CLIP_END_CARD_DIM)
+        }
         val card = share?.card ?: return null
         val dy = ((1f - alpha) * card.slide).roundToInt()
         val p = card.picture
@@ -112,21 +141,26 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             alpha = alpha,
             picture = Rect(p.left, p.top + dy, p.right, p.bottom + dy),
             content = Rect(cardArea!!).apply { offset(0, dy) },
+            dim = FrameStyle.END_CARD_DIM,
         )
     }
 
     /**
      * Brings [canvas] up to [frame] by drawing only the gems placed since the last call. Returns whether it changed
-     * (so it needs uploading again) and the photo's opacity over it.
+     * (so it needs uploading again) and the opacity of [source] over it: 1 in a founder clip's hook.
      */
     fun apply(frame: Frame): Pair<Boolean, Float> {
         val before = drawn
         when (frame) {
             is Frame.Build -> advanceTo(frame.placed)
             Frame.Hold, is Frame.EndCard -> advanceTo(request.log.size)
-            is Frame.Intro -> Unit
+            is Frame.Intro, Frame.Hook -> Unit
         }
-        val alpha = if (frame is Frame.Intro && photo != null) frame.photoAlpha else 0f
+        val alpha = when {
+            frame is Frame.Intro && photo != null -> frame.photoAlpha
+            frame == Frame.Hook && hook != null -> 1f
+            else -> 0f
+        }
         return (drawn != before) to alpha
     }
 
@@ -134,6 +168,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         board.recycle()
         chrome.recycle()
         photo?.recycle()
+        hook?.recycle()
         overlayBitmap?.recycle()
         cardBitmap?.recycle()
     }
@@ -202,8 +237,8 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     }
 }
 
-/** Where the end card draws in one frame ([FrameArt.endCard]): both layers at [alpha]. */
-class EndCardRects(val alpha: Float, val picture: Rect, val content: Rect)
+/** Where the end card draws in one frame ([FrameArt.endCard]): both layers at [alpha], over the band dimmed by [dim]. */
+class EndCardRects(val alpha: Float, val picture: Rect, val content: Rect, val dim: Float)
 
 /** Band, type, Gemmory row, end card and watermark of the 9:16 frame. Sizes are given at 1080 wide and scaled by [width]. */
 internal class FrameStyle(private val context: Context, private val width: Int) {
@@ -368,14 +403,109 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         drawBadge(canvas, card.badge)
     }
 
-    private fun titleLayout(title: String): StaticLayout {
+    /**
+     * A founder clip's frame (#144) for this [width] and [height]: the title measured at [ClipLayout.titleWidth], the
+     * lockup's text and the promise measured in the app's language.
+     */
+    fun clipLayout(height: Int, pattern: Pattern, title: String): ClipLayout = ClipLayout.of(
+        width, height, pattern.width, pattern.height,
+        titleLines = titleLayout(title, ClipLayout.titleWidth(width)).lineCount,
+        lockupTextWidth = lockupText().width.roundToInt(),
+        promiseLines = promiseLayout().lineCount,
+    )
+
+    /** A founder clip's title (as the player's, at most 2 lines) and the store lockup under it (#144, C2). */
+    fun drawClipText(canvas: Canvas, layout: ClipLayout, title: String) {
+        val titleLayout = titleLayout(title, ClipLayout.titleWidth(width))
+        canvas.withTranslation(layout.title.left.toFloat(), layout.title.top.toFloat()) { titleLayout.draw(this) }
+        drawLockup(canvas, layout.lockup)
+    }
+
+    /**
+     * A founder clip's end card layer (#144, E2b): the picture's shadow (0 24px, 60px blur, 50% black; the picture is
+     * the canvas, drawn over it), the lockup, and "Turn any photo into gem art" (Figtree 46px), centered.
+     */
+    fun drawClipCard(canvas: Canvas, card: ClipLayout.Card) {
+        val p = card.picture
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x80000000.toInt()
+            maskFilter = BlurMaskFilter(px(CLIP_SHADOW_BLUR).toFloat(), BlurMaskFilter.Blur.NORMAL)
+        }
+        val dy = px(CARD_SHADOW_Y).toFloat()
+        canvas.drawRect(p.left.toFloat(), p.top + dy, p.right.toFloat(), p.bottom + dy, shadow)
+        drawLockup(canvas, card.lockup)
+        val promise = promiseLayout()
+        canvas.withTranslation((width - promise.width) / 2f, card.promise.top.toFloat()) { promise.draw(this) }
+    }
+
+    /** The lockup's two lines: "Gemmory" over "Free on Google Play", both drawn smaller when a translation is too wide. */
+    private class LockupText(val name: String, val namePaint: TextPaint, val line: String, val storeAt: Int, val store: String, val linePaint: TextPaint, val storePaint: TextPaint) {
+        val width: Float get() = max(namePaint.measureText(name), lineWidth)
+        val lineWidth: Float get() = linePaint.measureText(line, 0, storeAt) + storePaint.measureText(store) + linePaint.measureText(line, storeAt + store.length, line.length)
+    }
+
+    private fun lockupText(): LockupText {
+        val store = strings.text(R.string.frame_clip_store)
+        val line = strings.text(R.string.frame_clip_free, store)
+        val storeAt = line.indexOf(store).coerceAtLeast(0)
+        fun build(scale: Float) = LockupText(
+            name = strings.text(R.string.app_name),
+            namePaint = namePaint(56).apply { textSize *= scale },
+            line = line,
+            storeAt = storeAt,
+            store = if (line.indexOf(store) >= 0) store else "",
+            linePaint = taglinePaint(38).apply { textSize *= scale },
+            storePaint = taglinePaint(38).apply {
+                textSize *= scale
+                typeface = bodyStrong
+                fontVariationSettings = fonts.bodyStrong.variation?.let { "'wght' $LOCKUP_STORE_WEIGHT" }
+            },
+        )
+        val full = build(1f)
+        val max = px(ClipLayout.LOCKUP_TEXT_MAX)
+        return if (full.width <= max) full else build(max / full.width)
+    }
+
+    private fun drawLockup(canvas: Canvas, lockup: ClipLayout.Lockup) {
+        drawIcon(canvas, lockup.icon, lockup.iconRadius)
+        val t = lockupText()
+        val nameFm = t.namePaint.fontMetrics
+        val lineFm = t.linePaint.fontMetrics
+        val gap = px(LOCKUP_LINE_GAP) * (t.linePaint.textSize / (38 * s))
+        val block = (nameFm.descent - nameFm.ascent) + gap + (lineFm.descent - lineFm.ascent)
+        val nameBaseline = (lockup.icon.top + lockup.icon.bottom) / 2f - block / 2f - nameFm.ascent
+        val lineBaseline = nameBaseline + nameFm.descent + gap - lineFm.ascent
+        val x = lockup.textLeft.toFloat()
+        canvas.drawText(t.name, x, nameBaseline, t.namePaint)
+        var at = x
+        canvas.drawText(t.line, 0, t.storeAt, at, lineBaseline, t.linePaint)
+        at += t.linePaint.measureText(t.line, 0, t.storeAt)
+        canvas.drawText(t.store, at, lineBaseline, t.storePaint)
+        at += t.storePaint.measureText(t.store)
+        canvas.drawText(t.line, t.storeAt + t.store.length, t.line.length, at, lineBaseline, t.linePaint)
+    }
+
+    /** "Turn any photo into gem art" (Figtree 46px, centered), wrapped to at most 2 lines in [ClipLayout.PROMISE_WIDTH]. */
+    private fun promiseLayout(): StaticLayout {
+        val text = strings.text(R.string.frame_clip_promise)
+        val paint = taglinePaint(46)
+        val box = px(ClipLayout.PROMISE_WIDTH)
+        val width = min(box, paint.measureText(text).roundToInt() + 1)
+        return StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
+            .setAlignment(Layout.Alignment.ALIGN_CENTER)
+            .setMaxLines(2)
+            .setEllipsize(TextUtils.TruncateAt.END)
+            .wrapFor(strings.locale.language)
+            .build()
+    }
+
+    private fun titleLayout(title: String, textWidth: Int = width - 2 * px(MARGIN)): StaticLayout {
         val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             display()
             textSize = 60 * s
             letterSpacing = -0.01f
             color = FRAME_TEXT
         }
-        val textWidth = (width - 2 * px(MARGIN))
         return StaticLayout.Builder.obtain(title, 0, title.length, titlePaint, textWidth)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setMaxLines(2)
@@ -453,6 +583,17 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
 
         /** Black over the band behind the end card: 45% brightness × 0.67 ≈ 30%. */
         const val END_CARD_DIM = 0.33f
+
+        /** A founder clip's end card (#144, E2b): the band darkened a further 20%. */
+        const val CLIP_END_CARD_DIM = 0.2f
+        const val CLIP_SHADOW_BLUR = 60
+
+        /** The overlay layer starts this far above a founder clip's title, for the glyphs above its line box. */
+        const val CLIP_TEXT_ROOM = 40
+        const val LOCKUP_LINE_GAP = 6
+
+        /** "Google Play" in the lockup's store line (Figtree 700; a static face draws as is). */
+        const val LOCKUP_STORE_WEIGHT = 700
         const val ICON_ASSET = "share/app_icon.png"
 
         /** Google's official "Get it on Google Play" badge (play.google.com/intl/en_us/badges), the file unchanged. */

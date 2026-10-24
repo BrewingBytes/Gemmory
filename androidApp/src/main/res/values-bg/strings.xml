@@ -396,6 +396,9 @@
     <string name="frame_app_line">Gemmory · Диамантен гоблен от снимки</string>
     <string name="frame_watermark">Направено с Gemmory</string>
     <string name="frame_tagline">Твоите снимки от камъчета</string>
+    <string name="frame_clip_free">Безплатно в %1$s</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Всяка снимка – от камъчета</string>
 
     <string name="action_next">Напред</string>
     <string name="photo_crop">Изрежи</string>

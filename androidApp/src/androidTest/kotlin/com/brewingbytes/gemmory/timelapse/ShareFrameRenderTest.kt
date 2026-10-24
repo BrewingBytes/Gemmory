@@ -125,16 +125,27 @@ class ShareFrameRenderTest {
         }
     }
 
+    /** A founder clip (#144): its own layout, the lockup over the canvas, the finished canvas as the hook, the E2b card. */
     @Test
-    fun aFounderClipKeepsItsOldFrame() {
+    fun aFounderClipHasItsOwnFrame() {
         val r = request(frame = ShareFrame.CLIP)
-        val art = FrameArt(context, r, 1080, 1920)
-        try {
-            assertNull(art.overlay)
-            assertNull(art.card)
-            assertEquals(FrameLayout.board(1080, 1920, r.pattern.width, r.pattern.height).top, art.boardRect.top)
-        } finally {
-            art.release()
+        for ((w, h) in listOf(1080 to 1920, 1080 to 1350)) {
+            val art = FrameArt(context, r, w, h)
+            try {
+                val layout = ClipLayout.of(w, h, r.pattern.width, r.pattern.height, titleLines = 1, lockupTextWidth = 0)
+                assertEquals(layout.board.bottom, art.boardRect.bottom, "${w}x$h board above the title")
+                assertEquals(layout.board.width, art.boardRect.width(), "${w}x$h")
+                assertNotNull(art.overlay)
+                assertNotNull(art.card)
+                // The hook: the finished canvas, at full opacity in the hook only.
+                assertEquals(false to 1f, art.apply(Frame.Hook))
+                assertEquals(false to 0f, art.apply(Frame.Intro(0f)))
+                val card = assertNotNull(art.endCard(0.5f))
+                assertEquals(FrameStyle.CLIP_END_CARD_DIM, card.dim)
+                assertEquals(art.endCard(1f)!!.picture, card.picture, "a crossfade, no slide")
+            } finally {
+                art.release()
+            }
         }
     }
 

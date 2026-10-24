@@ -396,6 +396,9 @@
     <string name="frame_app_line">Gemmory · Diamond Painting mit Fotos</string>
     <string name="frame_watermark">Gemacht mit Gemmory</string>
     <string name="frame_tagline">Deine Fotos aus Steinchen</string>
+    <string name="frame_clip_free">Kostenlos bei %1$s</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Mach aus jedem Foto Steinchenkunst</string>
 
     <string name="action_next">Weiter</string>
     <string name="photo_crop">Zuschneiden</string>

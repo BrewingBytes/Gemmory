@@ -418,6 +418,9 @@
     <string name="frame_app_line">Gemmory · Broderie diamant de tes photos</string>
     <string name="frame_watermark">Fait avec Gemmory</string>
     <string name="frame_tagline">Tes photos en gemmes</string>
+    <string name="frame_clip_free">Gratuit sur %1$s</string>
+    <string name="frame_clip_store">Google Play</string>
+    <string name="frame_clip_promise">Transforme tes photos en gemmes</string>
 
     <string name="action_next">Suivant</string>
     <string name="photo_crop">Recadrer</string>

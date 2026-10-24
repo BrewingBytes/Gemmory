@@ -1319,3 +1319,5 @@ Labels: P2, timelapse, ui. No T-number (founder request after T47, 2026-10-23).
 **Done when:** a founder clip opens on the finished picture, shows the lockup through the build inside the safe area, and ends on the E2b card; the player's share is unchanged.
 
 Depends on: T47 (#134, merged). Related: T51 (#138), T53 (#145).
+
+**Built** (2026-10-24, branch `feat/144-clip-store-cta`): `ClipLayout` and `ClipFramePlan` in commonMain, the copy translated into all eleven languages (founder pick); the player's share byte-identical (framemd5).
