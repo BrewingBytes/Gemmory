@@ -135,20 +135,20 @@ How it behaves (T45, first run clear): nothing of Play Games before the player's
 
 ## Making clips (founder clip tool, T47)
 
-Debug builds have a Clips screen for posting time-lapses without finishing a picture by hand: Settings → Clips (the last row before Version; release builds don't have it, and `bundleRelease` fails if the release manifest ever names it). It lists every bundled picture and every remote one the catalog check has downloaded and verified, future drops and unearned keepsakes included (only the date and earn gates are bypassed, never the signature). Never a photo canvas.
+Debug builds have a Clips screen for posting time-lapses without finishing a picture by hand: Settings → Clips (the last row before Version; release builds don't have it, and `bundleRelease` fails if the release manifest ever names it). Its picture dropdown (#152) lists every bundled picture and every remote one the catalog check has downloaded and verified, future drops and unearned keepsakes included (only the date and earn gates are bypassed, never the signature). Never a photo canvas.
 
-Each row has an order (By color: palette order, reading order within a color; Ripple: rings out from the center; Random: a shuffle seeded by the picture's id, so it's the same every time) and formats (any of 9:16, 4:5, Stills; all on by default). Render makes, through the player's own encoder from a synthetic log:
+Pick a picture (type in the menu's search line to filter), an order (By color: palette order, reading order within a color; Ripple: rings out from the center; Random: a shuffle seeded by the picture's id, so it's the same every time), formats (any of 9:16, 4:5, Stills; all on by default) and languages (any of the twelve, the app's on; "All" for every one), then Add to queue. The queue renders one entry at a time, in order, each through the player's own encoder from a synthetic log, in each of its languages without changing the app's:
 
 | File | What |
 |---|---|
-| `<id>-<order>.mp4` | the 18 s 9:16 time-lapse, 1080×1920 (720×1280 if the phone can't) |
-| `<id>-<order>-4x5.mp4` | the same at 4:5, 1080×1350 (864×1080 fallback) |
-| `<id>-before-after.png` | 1080×1350: the picture as flat pixel art beside the finished gem canvas, with the title and watermark |
-| `<id>-finished.png` | the finished gem canvas alone, about 1080 wide |
+| `<id>-<order>-<lang>.mp4` | the 18 s 9:16 time-lapse, 1080×1920 (720×1280 if the phone can't) |
+| `<id>-<order>-4x5-<lang>.mp4` | the same at 4:5, 1080×1350 (864×1080 fallback) |
+| `<id>-before-after-<lang>.png` | 1080×1350: the picture as flat pixel art beside the finished gem canvas, with the title and watermark |
+| `<id>-finished.png` | the finished gem canvas alone, about 1080 wide (once: it has no words) |
 
-The videos have their own feed-safe frame (#144, design system → Founder clip frame): the finished picture for 0.5 s, the build with the "Gemmory / Free on Google Play" lockup inside the feeds' safe area, and an end card. They're drawn in the app's language: switch it in Settings → Language and render again for another language's clip (pull the files first; the names don't change).
+The videos have their own feed-safe frame (#144, design system → Founder clip frame): the finished picture for 0.5 s, the build with the "Gemmory / Free on Google Play" lockup inside the feeds' safe area, and an end card. `<lang>` is the language's tag (`en`, `de`, `pt-BR`, …): the title, lockup, end card and before/after are in it.
 
-One render at a time; leaving the screen stops it. To pull them:
+Leaving the screen stops the queue (the file being written is deleted). To pull them:
 
 ```sh
 ./gradlew :androidApp:installDebug
