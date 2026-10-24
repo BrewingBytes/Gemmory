@@ -14,7 +14,8 @@ import kotlin.test.assertEquals
  * language's words must fit their room, measured with the faces that draw them at the weight they're drawn in,
  * plus 3% for the difference between AWT's and Android's text metrics. Sizes are at 1080 wide (design system → 9:16 time-lapse frame, milestone share card).
  * The milestone title shrinks from 104px to fit (`StreakShareCard`), so it must fit at its 64px floor. A founder clip's
- * lockup (#144) shrinks too, but every language fits it at full size, and its promise fits one line.
+ * lockup (#144) shrinks too, but every language fits it at full size (measured at 600 with [BOLD_SLACK] for its
+ * "Google Play" at 700: there's no static 700 face here), and its promise fits one line.
  */
 class FrameTextFitTest {
     private val fonts = HashMap<String, Font>()
@@ -60,7 +61,7 @@ class FrameTextFitTest {
             Line("frame_so_far", "body", 30f, 1080 / 2 - ShareLayout.MARGIN),
             Line("frame_after", "body", 30f, 1080 / 2 - ShareLayout.MARGIN),
             // The store line is measured all in the strong face: "Google Play" in it is bold.
-            Line("frame_clip_free", "strong", 38f, ClipLayout.LOCKUP_TEXT_MAX, arg = "Google Play"),
+            Line("frame_clip_free", "strong", 38f, (ClipLayout.LOCKUP_TEXT_MAX / BOLD_SLACK).toInt(), arg = "Google Play"),
             Line("frame_clip_promise", "body", 46f, ClipLayout.PROMISE_WIDTH),
         ) + listOf(7, 30, 50, 100, 365).map { Line("streak_milestone_$it", "display", MILESTONE_MIN, 1080 - 2 * 80) }
         val problems = AndroidStringsFile.all().flatMap { file ->
@@ -75,6 +76,9 @@ class FrameTextFitTest {
 
     private companion object {
         const val SLACK = 1.03
+
+        /** A line drawn partly at 700, measured at 600. */
+        const val BOLD_SLACK = 1.04
         const val MILESTONE_MIN = 64f
     }
 }

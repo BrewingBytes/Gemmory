@@ -77,7 +77,7 @@ class ShareCaptures {
     fun captures() {
         val wave = BundledPictures.ALL.first { it.id == "wave" }
         val starter = BundledPictures.STARTER
-        // In another language only the player's share matters (the founder clips are posted in English, T47).
+        // In another language only the player's share is captured; a clip's other languages come from the Clips screen.
         val frames = if (TestLanguage.requested == null) listOf("clip" to ShareFrame.CLIP, "player" to ShareFrame.PLAYER) else listOf("player" to ShareFrame.PLAYER)
         for ((tag, frame) in frames) {
             encode("$tag-wave", request(wave, frame = frame))

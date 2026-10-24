@@ -409,14 +409,14 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
      */
     fun clipLayout(height: Int, pattern: Pattern, title: String): ClipLayout = ClipLayout.of(
         width, height, pattern.width, pattern.height,
-        titleLines = titleLayout(title, ClipLayout.titleWidth(width)).lineCount,
+        titleLines = clipTitleLayout(title).lineCount,
         lockupTextWidth = lockupText().width.roundToInt(),
         promiseLines = promiseLayout().lineCount,
     )
 
     /** A founder clip's title (as the player's, at most 2 lines) and the store lockup under it (#144, C2). */
     fun drawClipText(canvas: Canvas, layout: ClipLayout, title: String) {
-        val titleLayout = titleLayout(title, ClipLayout.titleWidth(width))
+        val titleLayout = clipTitleLayout(title)
         canvas.withTranslation(layout.title.left.toFloat(), layout.title.top.toFloat()) { titleLayout.draw(this) }
         drawLockup(canvas, layout.lockup)
     }
@@ -473,7 +473,9 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         val lineFm = t.linePaint.fontMetrics
         val gap = px(LOCKUP_LINE_GAP) * (t.linePaint.textSize / (38 * s))
         val block = (nameFm.descent - nameFm.ascent) + gap + (lineFm.descent - lineFm.ascent)
-        val nameBaseline = (lockup.icon.top + lockup.icon.bottom) / 2f - block / 2f - nameFm.ascent
+        // Centered on the icon; a block taller than it (Japanese's tall face) ends on its bottom, the safe area's.
+        val blockTop = min((lockup.icon.top + lockup.icon.bottom) / 2f - block / 2f, lockup.icon.bottom - block)
+        val nameBaseline = blockTop - nameFm.ascent
         val lineBaseline = nameBaseline + nameFm.descent + gap - lineFm.ascent
         val x = lockup.textLeft.toFloat()
         canvas.drawText(t.name, x, nameBaseline, t.namePaint)
@@ -497,6 +499,30 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
             .setEllipsize(TextUtils.TruncateAt.END)
             .wrapFor(strings.locale.language)
             .build()
+    }
+
+    /**
+     * A founder clip's title in [ClipLayout.titleWidth], each line exactly [ClipLayout.TITLE_LINE] tall whatever the
+     * face's own line height (Bulgarian's and Japanese's are taller), so it fills the box [ClipLayout] gives it.
+     */
+    private fun clipTitleLayout(title: String): StaticLayout {
+        val paint = titlePaint()
+        val fm = paint.fontMetrics
+        return StaticLayout.Builder.obtain(title, 0, title.length, paint, ClipLayout.titleWidth(width))
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setMaxLines(2)
+            .setEllipsize(TextUtils.TruncateAt.END)
+            .setIncludePad(false)
+            .setLineSpacing(px(ClipLayout.TITLE_LINE) - (fm.descent - fm.ascent), 1f)
+            .wrapFor(strings.locale.language)
+            .build()
+    }
+
+    private fun titlePaint() = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        display()
+        textSize = 60 * s
+        letterSpacing = -0.01f
+        color = FRAME_TEXT
     }
 
     private fun titleLayout(title: String, textWidth: Int = width - 2 * px(MARGIN)): StaticLayout {
