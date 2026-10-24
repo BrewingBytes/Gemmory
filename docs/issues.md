@@ -1321,3 +1321,14 @@ Labels: P2, timelapse, ui. No T-number (founder request after T47, 2026-10-23).
 Depends on: T47 (#134, merged). Related: T51 (#138), T53 (#145).
 
 **Built** (2026-10-24, branch `feat/144-clip-store-cta`): `ClipLayout` and `ClipFramePlan` in commonMain, the copy translated into all eleven languages (founder pick); the player's share byte-identical (framemd5).
+
+## #152: Clips screen: picture dropdown, languages in one render, and a render queue
+Labels: P2, ui. No T-number (founder request after #144, 2026-10-24).
+
+**Why:** one founder ad per language, without switching the app's language, and no scrolling through one row per picture.
+
+**Design** (founder pick B, 2026-10-24, mockup `~/.gstack/projects/Gemmory/designs/clips-screen-20261024/`): one panel with a picture dropdown (thumbnail, title, size; searchable menu), order and format chips as today, language checkbox chips in their own names (the app's language on, plus "All"), and "Add to queue": a queue under the panel renders entries one after another (✓ done, ▸ rendering, · waiting). Each language renders through a context set to it; files carry the language (`<id>-<order>-<lang>.mp4`); `<id>-finished.png` once.
+
+**Done when:** a picture picked from the dropdown can be queued in several languages, with more pictures after it, giving one clip per language without changing the app's language.
+
+Depends on: #144 (PR #151).
