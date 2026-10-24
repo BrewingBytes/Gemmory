@@ -155,6 +155,16 @@ adb pull /sdcard/Android/data/com.brewingbytes.gemmory/files/Movies/clips/ clips
 
 Uninstalling the app deletes the folder. For a remote picture that isn't on the phone yet, open the gallery once online (or run `app.remote.check(force = true)` from a test) so the catalog check downloads it.
 
+## Copy and strings (T48)
+
+Every word the app shows is in `androidApp/src/main/res/values/strings.xml`, grouped by screen; no user-facing English is written in Kotlin. To add or change copy:
+
+- Add a `<string>` (or a `<plurals>` where a count shows, with `one` and `other`) and read it with `stringResource(R.string.x)` in a composable, or through `copy/Strings.kt` (`strings()` in Compose, `context.strings` elsewhere) when it takes arguments. Arguments are positional (`%1$s`, `%1$d`) so a translation can reorder them; a percent sign is `%%`.
+- Numbers, percents and dates are formatted in the app's language (`app_locale`, English until T49), never the phone's raw locale: pass `strings.number(n)` for a grouped count, and format dates with `strings.locale`.
+- `shared/commonMain` builds no English: it returns a message (`ReminderMsg`, `NudgeHint`, `Awaiting`, `ProgressLine`, `MysteryName`, `CanvasSize`), and `copy/Messages.kt` turns it into words with an exhaustive `when`, so a new message without words doesn't compile.
+- `NoHardcodedCopyTest` (in `testDebugUnitTest`, so CI) fails on a string literal in `src/main/kotlin` or `commonMain` that reads like words; a literal that's never shown goes in its `ALLOWED` list with why. `MessagesTest` checks that every string the code names exists, every string is used, and every language's arguments match English. The copy tests read the real `strings.xml` through `XmlStrings`, so they pin the English word for word.
+- Not translated by us: the bundled picture titles (T49 moves them, `title_<id>`), the Play badge image (one English asset until T49), the debug-only Clips screen, and the system's own screens (consent, ads, billing, review, Play Games, the share sheet).
+
 ## Adding a bundled picture
 
 Grids are frozen once and never re-converted. Re-freezing a shipped picture changes its CRC and orphans saves made on it.

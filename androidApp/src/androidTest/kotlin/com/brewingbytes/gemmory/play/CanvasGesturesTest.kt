@@ -289,11 +289,11 @@ class CanvasGesturesTest {
     fun theFirstHintShowsOnAFarOutCanvasAndPickAColorFollowsATapZoom() {
         hintsShown(false)
         val s = open()
-        compose.onNode(hasText(CoachHint.ZOOM_IN.text)).assertExists()
+        compose.onNode(hasText(context.getString(CoachHint.ZOOM_IN.text))).assertExists()
         canvas { click(s.centerOf(65 * 100 + 50)) }
-        compose.onNode(hasText(CoachHint.TAP_ZOOMED.text)).assertExists()
+        compose.onNode(hasText(context.getString(CoachHint.TAP_ZOOMED.text))).assertExists()
         compose.mainClock.advanceTimeBy(6_500)
         compose.waitForIdle()
-        compose.onNode(hasText(CoachHint.PICK_COLOR.text)).assertExists()
+        compose.onNode(hasText(context.getString(CoachHint.PICK_COLOR.text))).assertExists()
     }
 }

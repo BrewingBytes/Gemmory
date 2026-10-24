@@ -116,7 +116,7 @@ private fun ClipRowView(
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (order in ClipOrder.entries) Chip(order.label, selected = row.order == order, onClick = { onOrder(order) })
+            for (order in ClipOrder.entries) Chip(order.label(), selected = row.order == order, onClick = { onOrder(order) })
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (format in ClipFormat.entries) FormatChip(format.label, checked = format in row.formats, onChange = { onFormat(format) })
@@ -171,3 +171,10 @@ const val ROW_TAG = "clips-row-"
 const val RENDER_TAG = "clips-render-"
 const val STATUS_TAG = "clips-status-"
 const val ERROR_TAG = "clips-error-"
+
+/** The order chips' names: a debug-only founder tool, English only (T48 leaves `src/debug` as is). */
+private fun ClipOrder.label(): String = when (this) {
+    ClipOrder.BY_COLOR -> "By color"
+    ClipOrder.RIPPLE -> "Ripple"
+    ClipOrder.RANDOM -> "Random"
+}

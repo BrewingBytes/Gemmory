@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -62,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.brewingbytes.gemmory.R
 import kotlinx.coroutines.delay
 
 object GemIcons {
@@ -380,7 +382,7 @@ fun AppTopBar(title: String, onBack: (() -> Unit)?, modifier: Modifier = Modifie
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            IconAction(GemIcons.Back, "Back", onBack)
+            IconAction(GemIcons.Back, stringResource(R.string.action_back), onBack)
             Spacer(Modifier.width(4.dp))
         }
         Text(
@@ -502,7 +504,8 @@ fun GemSheet(title: String, onDismiss: () -> Unit, returnFocusTo: String? = null
  */
 @Composable
 private fun GrabHandle() {
-    Box(Modifier.size(48.dp).semantics { contentDescription = "Drag handle" }, contentAlignment = Alignment.Center) {
+    val label = stringResource(R.string.a11y_drag_handle)
+    Box(Modifier.size(48.dp).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         Box(Modifier.size(width = 32.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(GemColors.TextMuted))
     }
 }
@@ -529,7 +532,7 @@ fun ConfirmSheet(
         Spacer(Modifier.height(20.dp))
         PrimaryButton(confirm, onConfirm, Modifier.fillMaxWidth())
         Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { GemTextButton("Keep", onDismiss) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { GemTextButton(stringResource(R.string.action_keep), onDismiss) }
     }
 }
 

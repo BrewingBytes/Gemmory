@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.clips
 
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.Pattern
@@ -20,13 +22,14 @@ class ClipPicture(val ref: CanvasRef, val title: String, val size: String?, priv
  * the signature: [com.brewingbytes.gemmory.remote.RemotePictures.storedGrid] re-checks it).
  */
 fun clipPictures(app: GemmoryApp): List<ClipPicture> {
+    val strings = app.strings
     val bundled = BundledPictures.ALL.map { picture ->
-        ClipPicture(CanvasRef(CanvasKind.BUNDLED, picture.id), picture.title, BundledPictures.sizeOf(picture.id)) {
+        ClipPicture(CanvasRef(CanvasKind.BUNDLED, picture.id), picture.title, BundledPictures.canvasSizeOf(picture.id)?.let { Messages.size(strings, it) }) {
             app.assets.open(picture.asset).use { it.readBytes() }
         }
     }
     val remote = app.remote.storedPictures().map { picture ->
-        ClipPicture(CanvasRef(CanvasKind.REMOTE, picture.id), picture.title, picture.size.label) { app.remote.storedGrid(picture.id) }
+        ClipPicture(CanvasRef(CanvasKind.REMOTE, picture.id), picture.title, Messages.size(strings, picture.size)) { app.remote.storedGrid(picture.id) }
     }
     return bundled + remote
 }

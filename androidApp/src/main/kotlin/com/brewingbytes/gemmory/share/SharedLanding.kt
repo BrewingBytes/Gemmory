@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.share
 
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
 import com.brewingbytes.gemmory.policy.LandingAction
 import com.brewingbytes.gemmory.policy.LandingInput
 import com.brewingbytes.gemmory.policy.ReferrerParse
@@ -19,14 +21,6 @@ sealed interface LandingUi {
 
     /** It became ready after the gallery drew: "Shared with you: <title> · Open" (DR2). */
     data class Offer(val ref: CanvasRef, val title: String) : LandingUi
-}
-
-/** The landing's copy (T50, design review DR1/DR2). */
-object SharedLandingCopy {
-    fun shared(title: String) = "Shared with you: $title"
-
-    const val MYSTERY = "a mystery picture"
-    const val OPEN = "Open"
 }
 
 /** What the landing reads from the app: the install's funnel and the pictures this phone can open now. */
@@ -58,6 +52,8 @@ class SharedLanding(
     private val source: LandingSource,
     private val scope: CoroutineScope,
     private val serial: CoroutineDispatcher,
+    /** The toast's words (T50 DR1, T48): "Shared with you: <title>". */
+    private val strings: Strings,
 ) {
     private val rule = ShareLanding().also { if (!active) it.left() }
     private var inView = false
@@ -97,7 +93,7 @@ class SharedLanding(
      * [LandingUi.Open]. The grant is saved before this returns, so the canvas opening next already counts its first gem.
      */
     fun offerTaken(offer: LandingUi.Offer) {
-        toast = offer.ref to SharedLandingCopy.shared(offer.title)
+        toast = offer.ref to strings.text(R.string.shared_with_you, offer.title)
         source.ended(offer.ref.id)
         _ui.value = LandingUi.Open(offer.ref)
     }
@@ -128,7 +124,7 @@ class SharedLanding(
         when (rule.look(LandingInput(inView, source.referrerRead, id, ref != null, checkEnded))) {
             LandingAction.OPEN -> {
                 ref!!
-                toast = ref to SharedLandingCopy.shared(source.title(ref))
+                toast = ref to strings.text(R.string.shared_with_you, source.title(ref))
                 source.ended(ref.id)
                 _ui.value = LandingUi.Open(ref)
             }

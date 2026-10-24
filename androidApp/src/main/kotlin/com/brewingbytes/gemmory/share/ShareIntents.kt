@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
@@ -20,7 +22,7 @@ object ShareIntents {
         val send = Intent(Intent.ACTION_SEND)
             .setType(if (file.name.endsWith(".png")) "image/png" else "video/mp4")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, ShareLink.text(request.medium, request.pictureId))
+            .putExtra(Intent.EXTRA_TEXT, Messages.shareText(context.strings, ShareLink.url(request.medium, pictureId = request.pictureId)))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         // ClipData carries the read grant through the chooser to the app the player picks.
         send.clipData = ClipData.newRawUri(null, uri)
@@ -45,7 +47,7 @@ object ShareIntents {
         val send = Intent(Intent.ACTION_SEND)
             .setType("image/png")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, ShareLink.streakText())
+            .putExtra(Intent.EXTRA_TEXT, Messages.shareText(context.strings, ShareLink.streakUrl()))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         send.clipData = ClipData.newRawUri(null, uri)
         val picked = Intent(context, StreakShareCompletedReceiver::class.java).putExtra(StreakShareCompletedReceiver.MILESTONE, milestone)

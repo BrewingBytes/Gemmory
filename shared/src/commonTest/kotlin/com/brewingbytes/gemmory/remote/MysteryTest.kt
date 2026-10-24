@@ -36,9 +36,8 @@ class MysteryTest {
 
     @Test
     fun itsNamedForItsDateThenPlainly() {
-        assertEquals("Today's mystery picture", Mystery.name(drop, drop))
-        assertEquals("Mystery picture", Mystery.name(drop, LocalDate(2026, 11, 4)))
-        assertEquals("Mystery picture", Mystery.name(null, drop), "withdrawn: its date is gone with its entry")
-        assertEquals("Tonight's mystery picture", Mystery.TONIGHT)
+        assertEquals(MysteryName.TODAY, Mystery.name(drop, drop))
+        assertEquals(MysteryName.LATER, Mystery.name(drop, LocalDate(2026, 11, 4)))
+        assertEquals(MysteryName.LATER, Mystery.name(null, drop), "withdrawn: its date is gone with its entry")
     }
 }

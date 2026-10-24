@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -37,6 +38,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
@@ -101,6 +103,7 @@ class Peek(private val scope: CoroutineScope) {
 /** The top bar's 48dp eye, labelled "Peek": hold to see the finished picture, or tap for 1.5s. */
 @Composable
 internal fun PeekButton(peek: Peek, modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.action_peek)
     Box(
         modifier
             .size(48.dp)
@@ -115,7 +118,7 @@ internal fun PeekButton(peek: Peek, modifier: Modifier = Modifier) {
                 )
             }
             .semantics {
-                contentDescription = "Peek"
+                contentDescription = label
                 role = Role.Button
                 onClick {
                     peek.tap()

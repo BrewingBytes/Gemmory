@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.ads.FakePrefs
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -13,9 +14,9 @@ class CoachHintsTest {
 
     @Test
     fun theExactCopy() {
-        assertEquals("Pinch or tap to zoom in until numbers appear", CoachHint.ZOOM_IN.text)
-        assertEquals("Pick a color below, then tap or drag its numbers", CoachHint.PICK_COLOR.text)
-        assertEquals("Zoomed in so you can see the numbers", CoachHint.TAP_ZOOMED.text)
+        assertEquals("Pinch or tap to zoom in until numbers appear", XmlStrings.en.text(CoachHint.ZOOM_IN.text))
+        assertEquals("Pick a color below, then tap or drag its numbers", XmlStrings.en.text(CoachHint.PICK_COLOR.text))
+        assertEquals("Zoomed in so you can see the numbers", XmlStrings.en.text(CoachHint.TAP_ZOOMED.text))
     }
 
     @Test

@@ -56,16 +56,16 @@ class ProgressShareTest {
 
     @Test
     fun thePercentageLineRoundsDownAndNeverSaysDoneEarly() {
-        assertEquals("47% done", ProgressShare.line(564, 1_200))
-        assertEquals("1% done", ProgressShare.line(12, 1_200))
-        assertEquals("99% done", ProgressShare.line(14_883, 14_884))
+        assertEquals(ProgressLine.Done(47), ProgressShare.line(564, 1_200))
+        assertEquals(ProgressLine.Done(1), ProgressShare.line(12, 1_200))
+        assertEquals(ProgressLine.Done(99), ProgressShare.line(14_883, 14_884))
     }
 
     @Test
     fun underOnePercentItJustStarted() {
-        assertEquals("Just started", ProgressShare.line(1, 1_200), "one gem, not \"0% done\"")
-        assertEquals("Just started", ProgressShare.line(11, 1_200))
-        assertEquals("Just started", ProgressShare.line(148, 14_884), "a Big canvas under 1%")
+        assertEquals(ProgressLine.JustStarted, ProgressShare.line(1, 1_200), "one gem, not \"0% done\"")
+        assertEquals(ProgressLine.JustStarted, ProgressShare.line(11, 1_200))
+        assertEquals(ProgressLine.JustStarted, ProgressShare.line(148, 14_884), "a Big canvas under 1%")
     }
 
     @Test

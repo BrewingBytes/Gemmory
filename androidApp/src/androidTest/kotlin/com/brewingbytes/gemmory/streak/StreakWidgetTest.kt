@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
+import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.copy.strings
 import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.testing.unit.runGlanceAppWidgetUnitTest
 import androidx.glance.testing.unit.hasContentDescription
@@ -18,14 +20,18 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class StreakWidgetTest {
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
     private fun renders(state: StreakWidgetState, number: String) = runGlanceAppWidgetUnitTest {
+        // The widget resolves its words with its own context (T48).
+        setContext(context)
         provideComposable {
             // Glance's Text in place of the TextViews, which need a device.
             StreakWidgetContent(state, actionStartActivity<MainActivity>()) { _, value, _ -> Text(value) }
         }
         onNode(hasText(number)).assertExists()
-        onNode(hasText(state.line)).assertExists()
-        onNode(hasContentDescription(state.description)).assertExists()
+        onNode(hasText(state.line(context.strings))).assertExists()
+        onNode(hasContentDescription(state.description(context.strings))).assertExists()
     }
 
     @Test

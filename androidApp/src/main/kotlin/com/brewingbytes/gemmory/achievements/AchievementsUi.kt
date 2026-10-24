@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -33,17 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemType
 import kotlinx.coroutines.launch
-
-/** The Settings row's copy (design system, Settings → Achievements, #49). */
-object AchievementsCopy {
-    const val TITLE = "Achievements"
-    const val VALUE = "Play Games"
-    const val CHECKING = "Checking…"
-    const val FAILED = "Couldn't reach Play Games. Try again."
-}
 
 const val ACHIEVEMENTS_TAG = "settings-achievements"
 
@@ -94,9 +88,9 @@ fun AchievementsRow(achievements: Achievements) {
                 .testTag(ACHIEVEMENTS_TAG),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(AchievementsCopy.TITLE, style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.achievements_title), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(16.dp))
-            Text(if (opening) AchievementsCopy.CHECKING else AchievementsCopy.VALUE, style = GemType.body, color = GemColors.Bone, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+            Text(stringResource(if (opening) R.string.achievements_checking else R.string.achievements_value), style = GemType.body, color = GemColors.Bone, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
         }
         if (failed) {
             // Offline copy on plain felt: bone with a 6dp fault square before it (design system, Colors).
@@ -106,7 +100,7 @@ fun AchievementsRow(achievements: Achievements) {
             ) {
                 Spacer(Modifier.size(6.dp).background(GemColors.Fault).clearAndSetSemantics {})
                 Spacer(Modifier.width(8.dp))
-                Text(AchievementsCopy.FAILED, style = GemType.body, color = GemColors.Bone)
+                Text(stringResource(R.string.achievements_failed), style = GemType.body, color = GemColors.Bone)
             }
         }
     }

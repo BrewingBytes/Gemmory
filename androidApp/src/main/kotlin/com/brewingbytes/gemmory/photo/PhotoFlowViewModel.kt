@@ -9,6 +9,9 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.converter.CanvasSize
@@ -39,7 +42,6 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -208,7 +210,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
             val ref = CanvasRef(CanvasKind.PHOTO, id)
             val now = System.currentTimeMillis()
             val jpeg = withContext(Dispatchers.Default) { photo.toJpeg() }
-            val record = CanvasRecord(PhotoTitles.default(now, Locale.getDefault()), now, 0L)
+            val record = CanvasRecord(PhotoTitles.default(app.strings, now), now, 0L)
             val result = app.store.createPhoto(ref, ready.pattern, record, jpeg, s.choice)
             if (result == WriteResult.Written) {
                 clearDraft()
@@ -368,9 +370,9 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
 
 /** Photo canvas titles (design D26). */
 object PhotoTitles {
-    /** "My photo · 13 Oct". */
-    fun default(createdAtMillis: Long, locale: Locale): String =
-        "My photo · " + SimpleDateFormat("d MMM", locale).format(Date(createdAtMillis))
+    /** "My photo · 13 Oct", the date in the app's language (eng O-E4). */
+    fun default(s: Strings, createdAtMillis: Long): String =
+        s.text(R.string.photo_default_title_dated, SimpleDateFormat("d MMM", s.locale).format(Date(createdAtMillis)))
 
     /** A rename that's blank keeps the old title; long ones are cut to the record's limit. */
     fun cleaned(input: String): String? =

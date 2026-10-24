@@ -46,6 +46,7 @@ import androidx.glance.unit.ColorProvider
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.ui.GemColors
 
 /**
@@ -102,6 +103,9 @@ fun StreakWidgetContent(
     text: @Composable (WidgetText, String, Boolean) -> Unit = { kind, value, compact -> WidgetTextView(kind, value, compact) },
 ) {
     val compact = LocalSize.current.width < StreakWidget.FULL.width
+    // Resolved with the widget's own context (T48): the launcher's process draws it.
+    val strings = LocalContext.current.strings
+    val description = state.description(strings)
     Column(
         GlanceModifier
             .fillMaxSize()
@@ -109,7 +113,7 @@ fun StreakWidgetContent(
             .background(ImageProvider(R.drawable.widget_felt))
             .cornerRadius(R.dimen.widget_radius)
             .padding(padding(compact))
-            .semantics { contentDescription = state.description }
+            .semantics { contentDescription = description }
             .clickable(onTap),
     ) {
         Row(GlanceModifier.fillMaxWidth().defaultWeight()) {
@@ -120,7 +124,7 @@ fun StreakWidgetContent(
                 modifier = GlanceModifier.size(flameSize(compact)),
             )
         }
-        Box(GlanceModifier.fillMaxWidth()) { text(WidgetText.LINE, state.line, compact) }
+        Box(GlanceModifier.fillMaxWidth()) { text(WidgetText.LINE, state.line(strings), compact) }
     }
 }
 

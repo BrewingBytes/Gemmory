@@ -43,7 +43,7 @@ class EncodeRequest(
     val endCard: Boolean get() = frame == ShareFrame.PLAYER && watermark
 
     /** The band's "47% done" line for a progress share; null for a finished picture. */
-    val progressLine: String? get() = if (inProgress) ProgressShare.line(log.size, pattern.cells.size) else null
+    val progressLine: ProgressLine? get() = if (inProgress) ProgressShare.line(log.size, pattern.cells.size) else null
 
     /**
      * The MP4 cache key (eng D2): canvas id + log length + watermark flag + frame version. A progress video's key says

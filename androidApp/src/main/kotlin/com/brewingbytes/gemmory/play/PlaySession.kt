@@ -33,6 +33,8 @@ class PlaySession internal constructor(
     val title: String,
     /** An unfinished mystery picture's neutral name (T43): shown for [title], with no tints, Peek or Share. */
     val hiddenAs: String? = null,
+    /** What TalkBack announces (T48: the app's words). */
+    private val a11y: A11yText,
     val pattern: Pattern,
     private val state: CanvasState,
     view: ViewState?,
@@ -167,7 +169,7 @@ class PlaySession internal constructor(
     private val toolsUsed = HashSet<PlacementTool>()
 
     /** The peek (#35) was turned on or off from its TalkBack canvas action. */
-    fun announcePeek(shown: Boolean) = announce(A11yText.peek(shown))
+    fun announcePeek(shown: Boolean) = announce(a11y.peek(shown))
 
     val cellCount: Int get() = state.cellCount
     val isFinished: Boolean get() = state.isFinished
@@ -206,7 +208,7 @@ class PlaySession internal constructor(
         // A finished color already announced "Color 7 done. Color 8 selected." (and any milestone after it).
         if (result is PlaceResult.Placed && result.events.none { it is GameEvent.ColorFinished }) {
             val crossed = crossedMilestone(before)
-            announce(listOfNotNull(A11yText.left(remaining(selectedSlot)), crossed?.let(A11yText::milestone)).joinToString(". "))
+            announce(a11y.leftWithMilestone(remaining(selectedSlot), crossed))
         }
         return result
     }
@@ -275,11 +277,16 @@ class PlaySession internal constructor(
                 selectedSlot = it
                 findCursor = -1
             }
-            val line = A11yText.colorDone(done.slot + 1, done.next?.plus(1))
-            announce(if (crossed == null) line else "$line ${A11yText.milestone(crossed)}.")
+            val line = a11y.colorDone(done.slot + 1, done.next?.plus(1))
+            announce(if (crossed == null) line else a11y.withMilestone(line, crossed))
         } else {
-            val count = if (announceCount) A11yText.batch(batch.placed.size, remaining(selectedSlot)) else null
-            val line = listOfNotNull(count, crossed?.let(A11yText::milestone)).joinToString(". ")
+            val count = if (announceCount) a11y.batch(batch.placed.size, remaining(selectedSlot)) else null
+            val line = when {
+                count != null && crossed != null -> a11y.batchWithMilestone(count, crossed)
+                count != null -> count
+                crossed != null -> a11y.milestone(crossed)
+                else -> ""
+            }
             if (line.isNotEmpty()) announce(line)
         }
         if (batch.pictureFinished) {
@@ -326,7 +333,7 @@ class PlaySession internal constructor(
             is PlaceResult.Rejected -> if (result.reason == Rejection.WRONG_COLOR) {
                 wrongTaps++
                 // An announcement only: nothing else changes (eng D4).
-                announce(A11yText.notColor(selectedSlot + 1))
+                announce(a11y.notColor(selectedSlot + 1))
             }
             is PlaceResult.Placed -> {
                 saver.onPlacement(cell)
@@ -342,9 +349,9 @@ class PlaySession internal constructor(
                                 selectedSlot = it
                                 findCursor = -1
                             }
-                            val done = A11yText.colorDone(event.slot + 1, event.next?.plus(1))
+                            val done = a11y.colorDone(event.slot + 1, event.next?.plus(1))
                             // One line when the same gem finishes a color and crosses a milestone.
-                            announce(if (crossed == null) done else "$done ${A11yText.milestone(crossed)}.")
+                            announce(if (crossed == null) done else a11y.withMilestone(done, crossed))
                         }
                         GameEvent.PictureFinished -> {
                             saver.writeNow()
@@ -353,7 +360,7 @@ class PlaySession internal constructor(
                         is GameEvent.GemPlaced -> Unit
                     }
                 }
-                if (crossed != null && result.events.none { it is GameEvent.ColorFinished }) announce(A11yText.milestone(crossed))
+                if (crossed != null && result.events.none { it is GameEvent.ColorFinished }) announce(a11y.milestone(crossed))
             }
         }
         return result

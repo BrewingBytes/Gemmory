@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.R
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -84,7 +85,7 @@ class AccessibilityScreensTest {
 
         compose.onNodeWithText("My Photos").performClick()
         compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-photo-a11y-tile")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("tile-photo-a11y-tile").assertContentDescriptionEquals("${CanvasStore.DEFAULT_PHOTO_TITLE}, 0% done")
+        compose.onNodeWithTag("tile-photo-a11y-tile").assertContentDescriptionEquals("${context.getString(R.string.photo_default_title)}, 0% done")
         assertEquals(listOf("Rename", "Delete"), actionLabels("tile-photo-a11y-tile"))
         compose.onNodeWithTag("tile-photo-a11y-tile").performCustomAccessibilityActionWithLabel("Rename")
         compose.onNodeWithTag(SHEET_TITLE_TAG).assertExists()

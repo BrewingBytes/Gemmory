@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.collections.CollectionCopy
 import com.brewingbytes.gemmory.collections.Keepsake
@@ -26,7 +27,10 @@ import com.brewingbytes.gemmory.photo.PhotoTitles
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.Awaiting
+import com.brewingbytes.gemmory.policy.NudgeHint
 import com.brewingbytes.gemmory.policy.NudgeTarget
+import com.brewingbytes.gemmory.policy.TodayLabel
 import com.brewingbytes.gemmory.policy.StreakNudge
 import com.brewingbytes.gemmory.remote.CollectionRules
 import com.brewingbytes.gemmory.share.ProgressSharing
@@ -83,8 +87,6 @@ data class Tile(
      */
     val mystery: Boolean = false,
 ) {
-    /** Mono "42%" or "Done"; never "100%" before the last gem. */
-    val progressLabel: String get() = if (done) "Done" else "$percent%"
 }
 
 /**
@@ -111,7 +113,7 @@ internal fun finishedInOrder(tiles: List<Tile>): List<Tile> =
  * then the tile's real progress. [free]: a free player's pick not started yet ("free today"); [vip]: "Today's pick".
  * [drop]: it's today's drop (T36), which the card shows once it's here, with the "New today" chip.
  */
-data class TodayCard(val tile: Tile, val preview: ImageBitmap?, val size: String, val vip: Boolean, val free: Boolean, val drop: Boolean = false)
+data class TodayCard(val tile: Tile, val preview: ImageBitmap?, val size: CanvasSize, val vip: Boolean, val free: Boolean, val drop: Boolean = false)
 
 /**
  * The keep-it-alive nudge (#102, G2-G4): "Finish a picture today to keep your [days] days", its [hint] naming [target]
@@ -122,8 +124,9 @@ data class Nudge(
     val days: Int,
     val target: NudgeTarget? = null,
     val tile: Tile? = null,
-    val hint: String? = null,
-    val awaiting: String? = null,
+    val hint: NudgeHint? = null,
+    val awaiting: Awaiting? = null,
+    /** The broken variant (G4): its hint is "See your streak". */
     val broken: Int? = null,
 ) {
     /** `streak_nudge_tapped`'s target. */
@@ -134,7 +137,7 @@ data class Nudge(
  * Where the nudge points this visit (#102), read while the nudge can show; [todayLabel]: the Today card's label when it
  * shows the target ("Today's picture is Quick").
  */
-private data class NudgeAt(val target: NudgeTarget?, val tile: Tile?, val todayLabel: String? = null)
+private data class NudgeAt(val target: NudgeTarget?, val tile: Tile?, val todayLabel: TodayLabel? = null)
 
 /**
  * One collection row (T37, design system "Collection and event rows"): [members] are the strip's tiles in the
@@ -252,14 +255,14 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     /** The nudge for [snapshot] (#102): the broken variant while a repair is offered, else the line while [StreakNudge.show]. */
     private fun nudgeOf(snapshot: StreakSnapshot, at: NudgeAt?): Nudge? {
         if (!app.nudgeOn) return null
-        snapshot.repairOffer?.let { return Nudge(days = 0, hint = StreakNudge.BROKEN_HINT, broken = it.length) }
+        snapshot.repairOffer?.let { return Nudge(days = 0, broken = it.length) }
         if (at == null || !StreakNudge.show(snapshot.state, snapshot.today, snapshot.cover)) return null
         return Nudge(
             days = snapshot.shown,
             target = at.target,
             tile = at.tile,
             hint = StreakNudge.hint(at.target, at.tile?.title, at.tile?.mystery == true, at.todayLabel),
-            awaiting = StreakNudge.awaiting(snapshot.awaiting, snapshot.today, StreakText::weekday),
+            awaiting = StreakNudge.awaiting(snapshot.awaiting, snapshot.today),
         )
     }
 
@@ -284,7 +287,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             is NudgeTarget.Quick -> pictures.firstOrNull { it.ref.id == target.pictureId }
         }?.takeIf { !it.damaged } ?: return NudgeAt(null, null)
         // "Today's picture is Quick" only beside a card showing it; a drop on the card leaves the pick named.
-        val label = (if (vip) "Today's pick" else "Today's picture").takeIf { target is NudgeTarget.Today && today?.tile?.ref == tile.ref }
+        val label = (if (vip) TodayLabel.PICK else TodayLabel.PICTURE).takeIf { target is NudgeTarget.Today && today?.tile?.ref == tile.ref }
         return NudgeAt(target, tile, label)
     }
 
@@ -394,7 +397,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 finished = status.progress.finished,
                 size = status.progress.size,
                 coming = status.progress.coming,
-                line = CollectionCopy.line(status, vip),
+                line = CollectionCopy(app.strings).line(status, vip),
                 complete = status.complete,
                 glint = status.glintPending,
                 keepsakeTitle = status.keepsake?.title?.takeIf { status.keepsakeState == Keepsake.ADDED },
@@ -480,7 +483,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         val todays = withContext(Dispatchers.IO) { app.remote.todaysDrops() }
         val drop = tiles.firstOrNull { it.ref.kind == CanvasKind.REMOTE && it.ref.id in todays && !it.damaged }
         val tile = drop ?: tiles.firstOrNull { it.ref.id == picked && !it.damaged } ?: return null
-        val size = tile.size?.label ?: return null
+        val size = tile.size ?: return null
         val preview = if (tile.started) {
             tile.image
         } else {

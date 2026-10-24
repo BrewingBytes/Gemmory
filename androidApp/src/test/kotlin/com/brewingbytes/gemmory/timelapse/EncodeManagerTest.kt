@@ -157,9 +157,9 @@ class EncodeManagerTest {
     fun shareEncodesIntoTheCacheUnderItsKey() {
         val m = manager()
         val video = assertIs<EncodeState.Video>(m.shareAndWait(request()))
-        assertEquals("starter.12.wm.v2.mp4", video.file.name)
+        assertEquals("starter.12.wm.v2.en.mp4", video.file.name)
         assertEquals("mp4 1080x1920@30", video.file.readText())
-        assertEquals(listOf("starter.12.wm.v2.mp4"), files(), "no partial left")
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files(), "no partial left")
         assertFalse(m.markerOf(ref).exists(), "marker removed on success")
         assertTrue(reports.isEmpty())
     }
@@ -178,11 +178,11 @@ class EncodeManagerTest {
         val m = manager()
         m.shareAndWait(request())
         m.acknowledge(ref)
-        assertEquals("starter.12.clean.v2.mp4", (m.shareAndWait(request(watermark = false)) as EncodeState.Video).file.name)
+        assertEquals("starter.12.clean.v2.en.mp4", (m.shareAndWait(request(watermark = false)) as EncodeState.Video).file.name)
         m.acknowledge(ref)
-        assertEquals("starter.progress.11.wm.v2.mp4", (m.shareAndWait(request(logSize = 11)) as EncodeState.Video).file.name)
+        assertEquals("starter.progress.11.wm.v2.en.mp4", (m.shareAndWait(request(logSize = 11)) as EncodeState.Video).file.name)
         assertEquals(3, backends.get())
-        assertEquals(listOf("starter.progress.11.wm.v2.mp4"), files(), "a new result replaces the canvas's older ones")
+        assertEquals(listOf("starter.progress.11.wm.v2.en.mp4"), files(), "a new result replaces the canvas's older ones")
     }
 
     @Test
@@ -190,9 +190,9 @@ class EncodeManagerTest {
         dir.mkdirs()
         File(dir, "starter.12.wm.mp4").writeText("old frame")
         val m = manager()
-        assertEquals("starter.12.wm.v2.mp4", (m.shareAndWait(request()) as EncodeState.Video).file.name)
+        assertEquals("starter.12.wm.v2.en.mp4", (m.shareAndWait(request()) as EncodeState.Video).file.name)
         assertEquals(1, backends.get(), "encoded again in the new frame")
-        assertEquals(listOf("starter.12.wm.v2.mp4"), files(), "the old one is dropped")
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files(), "the old one is dropped")
     }
 
     @Test
@@ -226,7 +226,7 @@ class EncodeManagerTest {
         m.share(request(photo))
         assertIs<EncodeState.Video>(m.await(ref) { it is EncodeState.Video })
         assertIs<EncodeState.Video>(m.await(photo) { it is EncodeState.Video })
-        assertEquals(listOf("photo-1.12.wm.v2.mp4", "starter.12.wm.v2.mp4"), files())
+        assertEquals(listOf("photo-1.12.wm.v2.en.mp4", "starter.12.wm.v2.en.mp4"), files())
     }
 
     @Test
@@ -270,7 +270,7 @@ class EncodeManagerTest {
         gate = null
         assertIs<EncodeState.Video>(m.shareAndWait(request()))
         assertEquals(2, backends.get())
-        assertEquals(listOf("starter.12.wm.v2.mp4"), files())
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files())
     }
 
     @Test
@@ -319,7 +319,7 @@ class EncodeManagerTest {
         val m = manager()
         val video = assertIs<EncodeState.Video>(m.shareAndWait(request()))
         assertEquals("mp4 720x1280@30", video.file.readText())
-        assertEquals(listOf("starter.12.wm.v2.mp4"), files())
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files())
         assertIs<TimelapseAttemptException>(reports.single())
         assertTrue("target=1080x1920@30" in reports.single().message!!)
     }
@@ -406,8 +406,8 @@ class EncodeManagerTest {
         supported = emptySet()
         val m = manager()
         val picture = assertIs<EncodeState.Picture>(m.shareAndWait(request()))
-        assertEquals("starter.12.wm.v2.png", picture.file.name)
-        assertEquals(listOf("starter.12.wm.v2.png"), files())
+        assertEquals("starter.12.wm.v2.en.png", picture.file.name)
+        assertEquals(listOf("starter.12.wm.v2.en.png"), files())
         assertFalse(m.markerOf(ref).exists())
     }
 
@@ -419,7 +419,7 @@ class EncodeManagerTest {
         m.acknowledge(ref)
         supported = EncodeTarget.CHAIN.toSet()
         assertIs<EncodeState.Video>(m.shareAndWait(request()))
-        assertEquals(listOf("starter.12.wm.v2.mp4"), files())
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files())
     }
 
     @Test
@@ -448,11 +448,11 @@ class EncodeManagerTest {
         dir.mkdirs()
         File(dir, "starter.1080x1920.mp4.partial").writeText("half")
         File(dir, "photo-1.png.partial").writeText("half")
-        File(dir, "photo-1.12.wm.v2.mp4").writeText("done")
+        File(dir, "photo-1.12.wm.v2.en.mp4").writeText("done")
         File(tmp.root, "encode-starter.pending").createNewFile()
         val m = manager()
         runBlocking { m.takeKilledNotice(photo) }
-        assertEquals(listOf("photo-1.12.wm.v2.mp4"), files())
+        assertEquals(listOf("photo-1.12.wm.v2.en.mp4"), files())
         assertTrue(m.markerOf(ref).exists())
     }
 
@@ -469,7 +469,7 @@ class EncodeManagerTest {
     @Test
     fun aMarkerNextToAFinishedVideoShowsNoNotice() {
         dir.mkdirs()
-        File(dir, "starter.12.wm.v2.mp4").writeText("done")
+        File(dir, "starter.12.wm.v2.en.mp4").writeText("done")
         File(tmp.root, "encode-starter.pending").createNewFile()
         val m = manager()
         assertFalse(runBlocking { m.takeKilledNotice(ref) })
@@ -503,13 +503,13 @@ class EncodeManagerTest {
     fun aProgressVideoIsKeyedApartFromTheFinishedOne() {
         val m = manager()
         val progress = assertIs<EncodeState.Video>(m.shareAndWait(request(logSize = 6)))
-        assertEquals("starter.progress.6.wm.v2.mp4", progress.file.name)
+        assertEquals("starter.progress.6.wm.v2.en.mp4", progress.file.name)
         m.acknowledge(ref)
-        assertEquals("starter.progress.7.wm.v2.mp4", (m.shareAndWait(request(logSize = 7)) as EncodeState.Video).file.name, "one more gem, a new video")
+        assertEquals("starter.progress.7.wm.v2.en.mp4", (m.shareAndWait(request(logSize = 7)) as EncodeState.Video).file.name, "one more gem, a new video")
         m.acknowledge(ref)
-        assertEquals("starter.12.wm.v2.mp4", (m.shareAndWait(request()) as EncodeState.Video).file.name, "the finished one is never the progress one")
+        assertEquals("starter.12.wm.v2.en.mp4", (m.shareAndWait(request()) as EncodeState.Video).file.name, "the finished one is never the progress one")
         assertEquals(3, backends.get())
-        assertEquals(listOf("starter.12.wm.v2.mp4"), files(), "finishing drops the progress video")
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files(), "finishing drops the progress video")
     }
 
     @Test
@@ -547,7 +547,7 @@ class EncodeManagerTest {
     @Test
     fun aLeftoverProgressVideoDoesNotHideAKilledFinishedEncode() {
         dir.mkdirs()
-        File(dir, "starter.progress.6.wm.v2.mp4").writeText("progress")
+        File(dir, "starter.progress.6.wm.v2.en.mp4").writeText("progress")
         File(tmp.root, "encode-starter.pending").createNewFile()
         val m = manager()
         assertTrue(runBlocking { m.takeKilledNotice(ref) })

@@ -62,29 +62,29 @@ class StreakNudgeTest {
         assertNull(StreakNudge.broken(broken.copy(length = 1), today, Cover.NONE), "too short to repair")
     }
 
+    /** The words are string resources (T48); the app's MessagesTest pins their English. */
     @Test
     fun copyStatesTrueFactsOnly() {
-        assertEquals("Finish a picture today to keep your 6 days", StreakNudge.line(6))
-        assertEquals("Today's picture is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse", todayLabel = "Today's picture"))
-        assertEquals("Today's pick is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse", todayLabel = "Today's pick"))
+        assertEquals(NudgeHint.Quick(NudgeName.TodayCard(TodayLabel.PICTURE)), StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse", todayCard = TodayLabel.PICTURE))
+        assertEquals(NudgeHint.Quick(NudgeName.TodayCard(TodayLabel.PICK)), StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse", todayCard = TodayLabel.PICK))
         // In the reminder, or when the Today card shows a drop instead: named.
-        assertEquals("Lighthouse is Quick", StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse"))
-        assertEquals("Beach Huts is Quick", StreakNudge.hint(NudgeTarget.Quick("huts"), "Beach Huts"))
-        assertEquals("Harbour is 82% done", StreakNudge.hint(NudgeTarget.Canvas(canvas("harbour", placed = 829, total = 1000)), "Harbour"))
-        assertEquals("Your photo canvas is 82% done", StreakNudge.hint(NudgeTarget.Canvas(canvas("photo/x", placed = 82, photo = true)), "Grandma"))
-        assertEquals("Your mystery picture is 40% done", StreakNudge.hint(NudgeTarget.Canvas(canvas("lantern", placed = 40)), "Lantern", mystery = true))
+        assertEquals(NudgeHint.Quick(NudgeName.Titled("Lighthouse")), StreakNudge.hint(NudgeTarget.Today("lighthouse"), "Lighthouse"))
+        assertEquals(NudgeHint.Quick(NudgeName.Titled("Beach Huts")), StreakNudge.hint(NudgeTarget.Quick("huts"), "Beach Huts"))
+        assertEquals(NudgeHint.Quick(NudgeName.Generic), StreakNudge.hint(NudgeTarget.Quick("huts"), null))
+        assertEquals(NudgeHint.Done(NudgeName.Titled("Harbour"), 82), StreakNudge.hint(NudgeTarget.Canvas(canvas("harbour", placed = 829, total = 1000)), "Harbour"))
+        assertEquals(NudgeHint.Done(NudgeName.Photo, 82), StreakNudge.hint(NudgeTarget.Canvas(canvas("photo/x", placed = 82, photo = true)), "Grandma"))
+        assertEquals(NudgeHint.Done(NudgeName.Mystery, 40), StreakNudge.hint(NudgeTarget.Canvas(canvas("lantern", placed = 40)), "Lantern", mystery = true))
         assertNull(StreakNudge.hint(null, null))
     }
 
     @Test
     fun theAwaitingLineNamesTheDay() {
-        val weekday = { _: Long -> "Tuesday" }
-        assertEquals("Yesterday is covered when you finish", StreakNudge.awaiting(listOf(CoveredDay(today - 1, DayKind.DAY_OFF)), today, weekday))
-        assertEquals("Tuesday is covered when you finish", StreakNudge.awaiting(listOf(CoveredDay(today - 2, DayKind.FREEZE)), today, weekday))
+        assertEquals(Awaiting.Yesterday, StreakNudge.awaiting(listOf(CoveredDay(today - 1, DayKind.DAY_OFF)), today))
+        assertEquals(Awaiting.Weekday(today - 2), StreakNudge.awaiting(listOf(CoveredDay(today - 2, DayKind.FREEZE)), today))
         assertEquals(
-            "Your missed days are covered when you finish",
-            StreakNudge.awaiting(listOf(CoveredDay(today - 2, DayKind.DAY_OFF), CoveredDay(today - 1, DayKind.FREEZE)), today, weekday),
+            Awaiting.Several,
+            StreakNudge.awaiting(listOf(CoveredDay(today - 2, DayKind.DAY_OFF), CoveredDay(today - 1, DayKind.FREEZE)), today),
         )
-        assertNull(StreakNudge.awaiting(emptyList(), today, weekday))
+        assertNull(StreakNudge.awaiting(emptyList(), today))
     }
 }

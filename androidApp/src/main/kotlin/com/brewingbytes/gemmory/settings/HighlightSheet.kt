@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -21,26 +22,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.play.HighlightStyle
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.GemType
 
-/** Selected color copy (design system, Settings → Selected color, #19). */
+/** Selected color copy (design system, Settings → Selected color, #19): the string resources of each style. */
 object HighlightCopy {
-    const val TITLE = "Selected color"
-
-    fun name(style: HighlightStyle): String = when (style) {
-        HighlightStyle.TINT -> "Stronger tint"
-        HighlightStyle.OUTLINE -> "Outline"
-        HighlightStyle.DIM -> "Dim the rest"
+    @StringRes
+    fun name(style: HighlightStyle): Int = when (style) {
+        HighlightStyle.TINT -> R.string.highlight_tint
+        HighlightStyle.OUTLINE -> R.string.highlight_outline
+        HighlightStyle.DIM -> R.string.highlight_dim
     }
 
-    fun description(style: HighlightStyle): String = when (style) {
-        HighlightStyle.TINT -> "Its cells turn a deeper shade"
-        HighlightStyle.OUTLINE -> "A ring around its cells when zoomed in"
-        HighlightStyle.DIM -> "Every other color steps back"
+    @StringRes
+    fun description(style: HighlightStyle): Int = when (style) {
+        HighlightStyle.TINT -> R.string.highlight_tint_description
+        HighlightStyle.OUTLINE -> R.string.highlight_outline_description
+        HighlightStyle.DIM -> R.string.highlight_dim_description
     }
 }
 
@@ -50,7 +53,7 @@ object HighlightCopy {
  */
 @Composable
 fun HighlightSheet(current: HighlightStyle, onPick: (HighlightStyle) -> Unit, onDismiss: () -> Unit, returnFocusTo: String) {
-    GemSheet(HighlightCopy.TITLE, onDismiss, returnFocusTo) {
+    GemSheet(stringResource(R.string.highlight_title), onDismiss, returnFocusTo) {
         Column(Modifier.fillMaxWidth().selectableGroup()) {
             for (style in HighlightStyle.entries) {
                 val selected = style == current
@@ -67,8 +70,8 @@ fun HighlightSheet(current: HighlightStyle, onPick: (HighlightStyle) -> Unit, on
                     RadioMark(selected)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                        Text(HighlightCopy.name(style), style = GemType.body, color = GemColors.Bone)
-                        Text(HighlightCopy.description(style), style = GemType.label, color = GemColors.TextMuted)
+                        Text(stringResource(HighlightCopy.name(style)), style = GemType.body, color = GemColors.Bone)
+                        Text(stringResource(HighlightCopy.description(style)), style = GemType.label, color = GemColors.TextMuted)
                     }
                 }
             }

@@ -96,6 +96,9 @@ class ScreenSizesWalkthrough {
         app.resetStreakForTest(celebrations = false)
         assumeDeviceChecks()
         app.resetMonetizationForTest(NoAds)
+        // A fixed day, no Today card, no remote catalog and a demo-mode status bar (T48's R1 pixel diff).
+        PixelPins.pin(app)
+        app.resetTodaysForTest(enabled = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
@@ -115,6 +118,8 @@ class ScreenSizesWalkthrough {
         app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
         app.resetMonetizationForTest()
+        PixelPins.unpin(app)
+        app.resetTodaysForTest()
         A11yTestSupport.shell("wm size reset")
         A11yTestSupport.shell("wm density reset")
         A11yTestSupport.shell("settings put system font_scale 1.0")

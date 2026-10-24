@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.collections
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.ads.FakePrefs
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
@@ -27,6 +28,9 @@ import kotlin.test.assertTrue
  * events (T38): 3 finishes in the window earn the exclusive, for VIP too; all 7 earn the token only.
  */
 class CollectionsTest {
+    /** The real English resources (T48): these lines are the copy, word for word. */
+    private val copy = CollectionCopy(XmlStrings.en)
+
     private val pattern = Pattern(1, 2, listOf(PaletteColor(1, 0xFF336699.toInt(), Lab(40.0, 0.0, 0.0))), intArrayOf(0, 0))
     private val prefsStore = FakePrefs()
     private var catalog: RemoteCatalog? = null
@@ -208,7 +212,7 @@ class CollectionsTest {
         assertEquals(Keepsake.NONE, status.keepsakeState)
         assertTrue(status.glintPending)
         assertEquals(setOf("collection-seaside"), tokens)
-        assertEquals("Complete. 1 unlock token added.", CollectionCopy.line(status, vip = false))
+        assertEquals("Complete. 1 unlock token added.", copy.line(status, vip = false))
     }
 
     @Test
@@ -217,11 +221,11 @@ class CollectionsTest {
         // b isn't on the gallery yet (its grid isn't stored): it's coming, and counts.
         val open = collections().settle(listOf(summary("a", true), summary("lemons", false))).statuses.single()
         assertEquals(Triple(1, 3, 1), Triple(open.progress.finished, open.progress.size, open.progress.coming))
-        assertEquals("Finish all 3 for a keepsake picture.", CollectionCopy.line(open, vip = false))
+        assertEquals("Finish all 3 for a keepsake picture.", copy.line(open, vip = false))
         val done = collections().settle(all()).statuses.single()
-        assertEquals("Keepsake added: harbour-lights. 1 unlock token added.", CollectionCopy.line(done, vip = false))
-        assertEquals("1 of 7 finished · 2 more coming", CollectionCopy.count(1, 7, 2, largeFont = true))
-        assertEquals("1 of 7 finished", CollectionCopy.count(1, 7, 2, largeFont = false))
+        assertEquals("Keepsake added: harbour-lights. 1 unlock token added.", copy.line(done, vip = false))
+        assertEquals("1 of 7 finished · 2 more coming", copy.count(1, 7, 2, largeFont = true))
+        assertEquals("1 of 7 finished", copy.count(1, 7, 2, largeFont = false))
         assertEquals("+2", CollectionCopy.comingShort(2))
     }
 
@@ -245,7 +249,7 @@ class CollectionsTest {
         assertTrue(two.event && two.inWindow && !two.earned)
         assertEquals(Keepsake.NONE, two.keepsakeState)
         assertTrue(unlocked.isEmpty())
-        assertEquals("One new picture a day. Finish any 3 this week for a keepsake picture.", CollectionCopy.line(two, vip = false))
+        assertEquals("One new picture a day. Finish any 3 this week for a keepsake picture.", copy.line(two, vip = false))
 
         val three = c.settle(weekPlayed(START, START + 1, START + 2)).statuses.single()
         assertTrue(three.earned)
@@ -255,7 +259,7 @@ class CollectionsTest {
         assertEquals(setOf("golden-field"), unlocked)
         assertEquals(listOf("golden-field"), kept)
         assertTrue(tokens.isEmpty(), "the token is for all 7")
-        assertEquals("Keepsake earned: golden-field.", CollectionCopy.line(three, vip = false))
+        assertEquals("Keepsake earned: golden-field.", copy.line(three, vip = false))
         val logged = events.single { it.name == "event_reward_unlocked" }
         assertEquals(mapOf<String, Any>("event_id" to "golden-week", "finished_in_window" to 3L), logged.params)
         // D7: the return from the 3rd finish is a reward return, read once.
@@ -281,7 +285,7 @@ class CollectionsTest {
         val all = collections().settle(weekPlayed(START, START + 1, START + 6, START + 8, START + 8, START + 9, START + 10)).statuses.single()
         assertTrue(all.complete)
         assertTrue(tokens.isEmpty())
-        assertEquals("Complete.", CollectionCopy.line(all, vip = true))
+        assertEquals("Complete.", copy.line(all, vip = true))
     }
 
     /** The window ends on its 7th day: finishes after it don't count, and all 7 then earn the token only. */
@@ -292,14 +296,14 @@ class CollectionsTest {
         val after = collections().settle(weekPlayed(START, START + 1, START + 7)).statuses.single()
         assertFalse(after.inWindow || after.earned)
         assertNull(after.keepsake)
-        assertEquals("Finish all 7 for an unlock token.", CollectionCopy.line(after, vip = false))
-        assertEquals("Finish all 7 to complete it.", CollectionCopy.line(after, vip = true))
+        assertEquals("Finish all 7 for an unlock token.", copy.line(after, vip = false))
+        assertEquals("Finish all 7 to complete it.", copy.line(after, vip = true))
         val all = collections().settle(weekPlayed(START, START + 1, START + 7, START + 7, START + 7, START + 7, START + 7)).statuses.single()
         assertTrue(all.complete)
         assertTrue(all.glintPending, "completion plays the glint when no keepsake came")
         assertEquals(setOf("collection-golden-week"), tokens)
         assertTrue(unlocked.isEmpty(), "completing never grants the exclusive")
-        assertEquals("Complete. 1 unlock token added.", CollectionCopy.line(all, vip = false))
+        assertEquals("Complete. 1 unlock token added.", copy.line(all, vip = false))
         assertEquals(0, events.count { it.name == "event_reward_unlocked" })
     }
 
@@ -316,7 +320,7 @@ class CollectionsTest {
         assertEquals(setOf("collection-golden-week"), tokens)
         assertEquals(listOf("golden-field"), kept)
         assertEquals(1, events.count { it.name == "collection_completed" })
-        assertEquals("Complete. 1 unlock token added.", CollectionCopy.line(all, vip = false))
+        assertEquals("Complete. 1 unlock token added.", copy.line(all, vip = false))
     }
 
     /** Eng outside voice #15: a finish with no `play` date (before T35) doesn't count for an event. */
@@ -334,9 +338,9 @@ class CollectionsTest {
         val pending = collections().settle(weekPlayed(START, START + 1, START + 2)).statuses.single()
         assertEquals(Keepsake.PENDING_OFFLINE, pending.keepsakeState)
         assertFalse(pending.glintPending, "the glint waits for the picture")
-        assertEquals("Keepsake earned. It arrives next time you're online.", CollectionCopy.line(pending, vip = false))
-        assertEquals("4 more coming, one a day", CollectionCopy.coming(4, oneADay = true))
-        assertEquals("3 of 7 finished · 4 more coming, one a day", CollectionCopy.count(3, 7, 4, largeFont = true, oneADay = true))
+        assertEquals("Keepsake earned. It arrives next time you're online.", copy.line(pending, vip = false))
+        assertEquals("4 more coming, one a day", copy.coming(4, oneADay = true))
+        assertEquals("3 of 7 finished · 4 more coming, one a day", copy.count(3, 7, 4, largeFont = true, oneADay = true))
     }
 
     private companion object {

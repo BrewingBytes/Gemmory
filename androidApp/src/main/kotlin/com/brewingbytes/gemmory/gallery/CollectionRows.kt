@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -51,12 +52,14 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.ui.withFigures
 import com.brewingbytes.gemmory.collections.CollectionCopy
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.ui.A11yText
@@ -143,10 +146,12 @@ internal fun CollectionRowView(
         // Large screens (plan-design-review D19): the text column at most 480dp; the strip spans the row.
         Column(Modifier.widthIn(max = 480.dp)) {
             // TalkBack: the name is a heading that folds in the count and the well; the line is read after it.
-            val heading = A11yText.collection(row.title, row.finished, row.size, row.coming)
+            val strings = strings()
+            val a11y = A11yText(strings)
+            val heading = a11y.collection(row.title, row.finished, row.size, row.coming)
             Column(Modifier.clearAndSetSemantics { contentDescription = heading; heading() }) {
                 Text(row.title, style = GemType.button, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(countLine(row, largeFont), style = GemType.label, color = GemColors.Bone)
+                Text(countLine(strings, row, largeFont), style = GemType.label, color = GemColors.Bone)
             }
             Text(
                 row.line,
@@ -157,9 +162,9 @@ internal fun CollectionRowView(
             if (glint && (row.complete || row.earned)) {
                 // A polite announcement as the completed (or event-earned, T38) row first shows; invisible, read once.
                 val announcement = if (row.earned && !row.complete) {
-                    A11yText.eventEarned(row.title, row.keepsakeTitle != null)
+                    a11y.eventEarned(row.title, row.keepsakeTitle != null)
                 } else {
-                    A11yText.collectionComplete(row.title, row.keepsakeTitle != null)
+                    a11y.collectionComplete(row.title, row.keepsakeTitle != null)
                 }
                 Box(Modifier.size(1.dp).semantics { contentDescription = announcement; liveRegion = LiveRegionMode.Polite })
             }
@@ -175,14 +180,11 @@ internal fun CollectionRowView(
  * "3 of 7 finished" ([CollectionCopy.count]) with its numbers in mono 13sp, as every number is; above 1.5× font
  * " · 2 more coming" joins it (D18).
  */
-private fun countLine(row: CollectionRow, largeFont: Boolean) = buildAnnotatedString {
-    val mono = GemType.mono.copy(fontSize = 13.sp).toSpanStyle()
-    withStyle(mono) { append("${row.finished}") }
-    append(" of ")
-    withStyle(mono) { append("${row.size}") }
-    append(" finished")
-    if (largeFont && row.coming > 0) append(" · ${CollectionCopy.coming(row.coming, oneADay = row.inWindow)}")
-}
+private fun countLine(strings: Strings, row: CollectionRow, largeFont: Boolean) = withFigures(
+    CollectionCopy(strings).count(row.finished, row.size, row.coming, largeFont, oneADay = row.inWindow),
+    listOf("${row.finished}", "${row.size}"),
+    GemType.mono.copy(fontSize = 13.sp).toSpanStyle(),
+)
 
 /**
  * A member thumbnail: 64dp, center-cropped, `sm` radius, real progress like its tile. Its labels shrink to the corner
@@ -190,7 +192,7 @@ private fun countLine(row: CollectionRow, largeFont: Boolean) = buildAnnotatedSt
  */
 @Composable
 private fun MemberThumb(tile: Tile, locked: Boolean, onOpen: (Tile) -> Unit, thumbnail: suspend (Tile) -> ImageBitmap?) {
-    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
+    val description = A11yText(strings()).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
     Box(
         Modifier
             .size(THUMB)
@@ -259,7 +261,7 @@ private fun ComingWell(coming: Int, largeFont: Boolean, oneADay: Boolean) {
             Text(CollectionCopy.comingShort(coming), style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.Bone)
         } else {
             BasicText(
-                CollectionCopy.coming(coming, oneADay),
+                CollectionCopy(strings()).coming(coming, oneADay),
                 style = GemType.label.copy(color = GemColors.Bone, textAlign = TextAlign.Center),
                 modifier = Modifier.padding(4.dp),
             )
@@ -270,7 +272,7 @@ private fun ComingWell(coming: Int, largeFont: Boolean, oneADay: Boolean) {
 /** "All collections" (D3): a text button right after the rows, before the grid. */
 @Composable
 internal fun AllCollectionsLink(onClick: () -> Unit) {
-    GemTextButton("All collections", onClick, Modifier.testTag(ALL_COLLECTIONS_TAG))
+    GemTextButton(stringResource(R.string.collections_all), onClick, Modifier.testTag(ALL_COLLECTIONS_TAG))
 }
 
 /**
@@ -286,7 +288,7 @@ internal fun AllCollectionsSheet(
     thumbnail: suspend (Tile) -> ImageBitmap?,
     onDismiss: () -> Unit,
 ) {
-    GemSheet("Collections", onDismiss, returnFocusTo = ALL_COLLECTIONS_TAG) {
+    GemSheet(stringResource(R.string.collections_title), onDismiss, returnFocusTo = ALL_COLLECTIONS_TAG) {
         rows.forEach { row ->
             CollectionRowView(row, isLocked, { onOpen(it, row.entry) }, thumbnail, glint = false, onGlintDone = {})
         }

@@ -85,7 +85,7 @@ class TodayCandidatesTest {
 
     @Test
     fun everyCatalogPictureHasASize() {
-        for (p in BundledPictures.ALL - BundledPictures.STARTER) assertTrue(BundledPictures.sizeOf(p.id) != null, p.id)
-        assertEquals(null, BundledPictures.sizeOf(BundledPictures.STARTER.id))
+        for (p in BundledPictures.ALL - BundledPictures.STARTER) assertTrue(BundledPictures.canvasSizeOf(p.id) != null, p.id)
+        assertEquals(null, BundledPictures.canvasSizeOf(BundledPictures.STARTER.id))
     }
 }

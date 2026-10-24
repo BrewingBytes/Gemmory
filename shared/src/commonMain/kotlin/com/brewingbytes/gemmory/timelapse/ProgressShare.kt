@@ -6,13 +6,20 @@ package com.brewingbytes.gemmory.timelapse
  * so it never reads 100% before the last gem; under 1% the band says "Just started" rather than "0% done".
  */
 object ProgressShare {
-    const val JUST_STARTED = "Just started"
-
     fun percent(placed: Int, total: Int): Int = if (total <= 0) 0 else (placed.toLong() * 100 / total).toInt()
 
     /** Share progress shows on the canvas and the gallery tile: at least one gem placed, and not finished. */
     fun isOffered(placed: Int, total: Int): Boolean = placed in 1 until total
 
     /** The band's line under the title: "47% done", or "Just started" under 1%. */
-    fun line(placed: Int, total: Int): String = percent(placed, total).let { if (it < 1) JUST_STARTED else "$it% done" }
+    fun line(placed: Int, total: Int): ProgressLine = percent(placed, total).let { if (it < 1) ProgressLine.JustStarted else ProgressLine.Done(it) }
+}
+
+/** The progress share's band line (T48: words in string resources). */
+sealed interface ProgressLine {
+    /** "Just started". */
+    data object JustStarted : ProgressLine
+
+    /** "47% done". */
+    data class Done(val percent: Int) : ProgressLine
 }

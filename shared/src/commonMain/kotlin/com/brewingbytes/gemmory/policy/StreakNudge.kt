@@ -47,41 +47,71 @@ object StreakNudge {
     /** The broken variant (G4): a repair is offered, and it wins over a new streak's line. */
     fun broken(state: StreakState, today: Long, cover: Cover): BrokenStreak? = DailyStreak.repairOffer(state, today, cover)
 
-    /** "Finish a picture today to keep your 6 days". */
-    fun line(days: Int): String = "Finish a picture today to keep your $days days"
-
-    /** The broken variant's hint (G4); its line is the celebration's "Your 12 days can still be restored". */
-    const val BROKEN_HINT = "See your streak"
-
     /**
-     * The target as a fact: "Today's picture is Quick" ([todayLabel], when the Today card next to it shows that
+     * The target as a fact: "Today's picture is Quick" ([todayCard], when the Today card next to it shows that
      * picture under that label: "Today's picture" or VIP's "Today's pick"; else, and in the reminder, it's named),
      * "Harbour is 82% done", "Your photo canvas is 82% done", "Your mystery picture is 82% done", "Beach Huts is
      * Quick". [title] is the picture's; [mystery] an unfinished mystery picture (T43), never named. Null without one.
      */
-    fun hint(target: NudgeTarget?, title: String?, mystery: Boolean = false, todayLabel: String? = null): String? = when (target) {
+    fun hint(target: NudgeTarget?, title: String?, mystery: Boolean = false, todayCard: TodayLabel? = null): NudgeHint? = when (target) {
         null -> null
-        is NudgeTarget.Today -> "${todayLabel ?: name(title, mystery)} is Quick"
-        is NudgeTarget.Quick -> "${name(title, mystery)} is Quick"
-        is NudgeTarget.Canvas -> {
-            val what = when {
-                target.canvas.photo -> "Your photo canvas"
-                else -> name(title, mystery)
-            }
-            "$what is ${target.canvas.percent}% done"
-        }
+        is NudgeTarget.Today -> NudgeHint.Quick(todayCard?.let { NudgeName.TodayCard(it) } ?: name(title, mystery))
+        is NudgeTarget.Quick -> NudgeHint.Quick(name(title, mystery))
+        is NudgeTarget.Canvas -> NudgeHint.Done(if (target.canvas.photo) NudgeName.Photo else name(title, mystery), target.canvas.percent)
     }
 
-    private fun name(title: String?, mystery: Boolean): String = if (mystery) "Your mystery picture" else title ?: "Your picture"
+    private fun name(title: String?, mystery: Boolean): NudgeName = when {
+        mystery -> NudgeName.Mystery
+        title != null -> NudgeName.Titled(title)
+        else -> NudgeName.Generic
+    }
 
     /**
      * The muted line under the nudge when a finish today covers missed days (G13), short form: "Yesterday is covered
-     * when you finish", "Tuesday is covered when you finish" ([weekday] names it), or for several days "Your missed days
-     * are covered when you finish". Null when none is awaiting.
+     * when you finish", "Tuesday is covered when you finish", or for several days "Your missed days are covered when
+     * you finish". Null when none is awaiting.
      */
-    fun awaiting(days: List<CoveredDay>, today: Long, weekday: (Long) -> String): String? {
-        val day = days.singleOrNull() ?: return "Your missed days are covered when you finish".takeIf { days.isNotEmpty() }
-        val name = if (day.day == today - 1) "Yesterday" else weekday(day.day)
-        return "$name is covered when you finish"
+    fun awaiting(days: List<CoveredDay>, today: Long): Awaiting? {
+        val day = days.singleOrNull() ?: return Awaiting.Several.takeIf { days.isNotEmpty() }
+        return if (day.day == today - 1) Awaiting.Yesterday else Awaiting.Weekday(day.day)
     }
+}
+
+/** The Today card's label: "Today's picture", or VIP's "Today's pick". */
+enum class TodayLabel { PICTURE, PICK }
+
+/** What the nudge and the streak reminder name (T48: the words are string resources). */
+sealed interface NudgeName {
+    /** "Your photo canvas". */
+    data object Photo : NudgeName
+
+    /** "Your mystery picture". */
+    data object Mystery : NudgeName
+
+    /** "Your picture": a target without a title. */
+    data object Generic : NudgeName
+
+    data class Titled(val title: String) : NudgeName
+
+    /** The Today card's own label beside the nudge. */
+    data class TodayCard(val label: TodayLabel) : NudgeName
+}
+
+/** The nudge's hint: "[name] is Quick" or "[name] is 82% done". */
+sealed interface NudgeHint {
+    data class Quick(val name: NudgeName) : NudgeHint
+
+    data class Done(val name: NudgeName, val percent: Int) : NudgeHint
+}
+
+/** The muted "covered when you finish" line (G13). */
+sealed interface Awaiting {
+    /** "Your missed days are covered when you finish". */
+    data object Several : Awaiting
+
+    /** "Yesterday is covered when you finish". */
+    data object Yesterday : Awaiting
+
+    /** "Tuesday is covered when you finish": [day] is the epoch day, named in the app's language. */
+    data class Weekday(val day: Long) : Awaiting
 }

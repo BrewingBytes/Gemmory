@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.streak
 
+import com.brewingbytes.gemmory.copy.strings
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -104,10 +105,10 @@ class StreakWidgetFlowTest {
     fun aFinishLightsIt() {
         seed(6, today - 1)
         waitPushed(StreakWidgetState(6, lit = false))
-        assertEquals("Not yet today", app.streakWidgets.state.value.line)
+        assertEquals("Not yet today", app.streakWidgets.state.value.line(context.strings))
         runBlocking { app.streak.played(CanvasStore.reminderKey(photo)).await() }
         waitPushed(StreakWidgetState(7, lit = true))
-        assertEquals("Done today", app.streakWidgets.state.value.line)
+        assertEquals("Done today", app.streakWidgets.state.value.line(context.strings))
     }
 
     @Test
@@ -120,7 +121,7 @@ class StreakWidgetFlowTest {
         app.testNowMillis = { tomorrow }
         context.sendBroadcast(Intent(context, StreakWidgetMidnightReceiver::class.java).setAction(StreakWidgetMidnightReceiver.ACTION_MIDNIGHT))
         waitPushed(StreakWidgetState(6, lit = false))
-        assertEquals("Not yet today", app.streakWidgets.state.value.line)
+        assertEquals("Not yet today", app.streakWidgets.state.value.line(context.strings))
     }
 
     @Test
@@ -128,7 +129,7 @@ class StreakWidgetFlowTest {
         // In its repair window: the repair is on the streak screen, never on the widget.
         seed(6, today - 3, restDay = today - 6)
         waitPushed(StreakWidgetState(0, lit = false))
-        assertEquals("Start a streak", app.streakWidgets.state.value.line)
+        assertEquals("Start a streak", app.streakWidgets.state.value.line(context.strings))
     }
 
     @Test

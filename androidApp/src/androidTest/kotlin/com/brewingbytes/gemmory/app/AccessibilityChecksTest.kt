@@ -31,13 +31,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.streak.CELEBRATION_CONTINUE_TAG
 import com.brewingbytes.gemmory.streak.CELEBRATION_TAG
 import com.brewingbytes.gemmory.streak.STREAK_SCREEN_TAG
 import com.brewingbytes.gemmory.achievements.ACHIEVEMENTS_TAG
-import com.brewingbytes.gemmory.achievements.AchievementsCopy
 import com.brewingbytes.gemmory.achievements.FakeGames
 import com.brewingbytes.gemmory.ads.RewardPhase
 import com.brewingbytes.gemmory.ads.RewardTarget
@@ -297,7 +297,7 @@ class AccessibilityChecksTest {
             waitForTag(ACHIEVEMENTS_TAG)
             scan()
             compose.onNodeWithTag(ACHIEVEMENTS_TAG).performClick()
-            waitForText(AchievementsCopy.FAILED)
+            waitForText(context.getString(R.string.achievements_failed))
             scan()
         } finally {
             app.resetAchievementsForTest()

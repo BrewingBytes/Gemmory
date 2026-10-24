@@ -35,8 +35,38 @@ object ReminderAsk {
         if (state == ReminderAskState.NOT_ASKED) ReminderAskState.NOT_NOW_ONCE else ReminderAskState.DONE
 }
 
-/** A reminder's title and text (design system, Evening reminder, notification table; founder approved, Phase 5 D21). */
-data class ReminderText(val title: String, val text: String)
+/**
+ * A reminder's title and text (design system, Evening reminder, notification table; founder approved, Phase 5 D21), as
+ * a message the app turns into its words (T48): "Tonight: Lighthouse" / "A new picture, free to start today.".
+ */
+sealed interface ReminderMsg {
+    /** "Tonight's mystery picture" / "A new picture, hidden until you finish it.". */
+    data object MysteryDrop : ReminderMsg
+
+    /** "Tonight: [title]" / "A new picture, free to start today.". */
+    data class Drop(val title: String?) : ReminderMsg
+
+    /**
+     * "Today's picture: [title]" / "A Quick picture, free to start today."; VIP: "Today's pick: [title]" / "…, ready
+     * when you are.". [mystery]: an unfinished mystery picture, named "Mystery picture" instead of [title].
+     */
+    data class Today(val title: String?, val mystery: Boolean, val size: CanvasSize?, val vip: Boolean) : ReminderMsg
+
+    /** "Your 6-day streak ends at midnight" / "Finish any picture tonight to keep it. Harbour is 82% done.". */
+    data class Streak(val days: Int, val hint: NudgeHint?) : ReminderMsg
+
+    /** "You're 82% through Harbour" / "Pick up where you left off.". */
+    data class AlmostFinished(val percent: Int, val subject: Subject) : ReminderMsg
+
+    /** What an almost-finished reminder names: "your photo canvas", "your mystery picture" or the title. */
+    sealed interface Subject {
+        data object Photo : Subject
+
+        data object Mystery : Subject
+
+        data class Titled(val title: String?) : Subject
+    }
+}
 
 /**
  * The notification copy for each reason. Names the picture and states only true facts: never "don't lose", "last
@@ -47,21 +77,9 @@ object ReminderCopy {
      * [title]: the picture's title; [size]: Today's picture's size; [vip]: Today's pick wording. [mystery]: an
      * unfinished mystery picture (T43), never named: "Tonight's mystery picture" on its date, "Mystery picture" after.
      */
-    fun of(post: ReminderOutcome.Post, title: String?, size: CanvasSize?, vip: Boolean, mystery: Boolean = false): ReminderText {
-        if (mystery && post.reason == ReminderReason.DROP) return ReminderText(Mystery.TONIGHT, "A new picture, hidden until you finish it.")
-        return named(post, if (mystery) Mystery.LATER else title, size, vip, mystery)
-    }
-
-    private fun named(post: ReminderOutcome.Post, title: String?, size: CanvasSize?, vip: Boolean, mystery: Boolean): ReminderText = when (post.reason) {
-        ReminderReason.DROP -> ReminderText("Tonight: $title", "A new picture, free to start today.")
-        ReminderReason.TODAY -> {
-            val sized = size?.let { "A ${it.label} picture" } ?: "A picture"
-            if (vip) {
-                ReminderText("Today's pick: $title", "$sized, ready when you are.")
-            } else {
-                ReminderText("Today's picture: $title", "$sized, free to start today.")
-            }
-        }
+    fun of(post: ReminderOutcome.Post, title: String?, size: CanvasSize?, vip: Boolean, mystery: Boolean = false): ReminderMsg = when (post.reason) {
+        ReminderReason.DROP -> if (mystery) ReminderMsg.MysteryDrop else ReminderMsg.Drop(title)
+        ReminderReason.TODAY -> ReminderMsg.Today(title, mystery, size, vip)
         ReminderReason.STREAK -> {
             // The nudge's target (#102, G5), named like the gallery does it; none without one.
             val target = when {
@@ -69,18 +87,16 @@ object ReminderCopy {
                 post.pictureId != null -> NudgeTarget.Quick(post.pictureId)
                 else -> null
             }
-            val hint = StreakNudge.hint(target, title, mystery)?.let { " $it." }.orEmpty()
-            ReminderText("Your ${post.streak}-day streak ends at midnight", "Finish any picture tonight to keep it.$hint")
+            ReminderMsg.Streak(post.streak, StreakNudge.hint(target, title, mystery))
         }
         ReminderReason.ALMOST_FINISHED -> {
             val canvas = post.canvas
-            val percent = canvas?.percent ?: 0
-            val what = when {
-                canvas?.photo != false -> "your photo canvas"
-                mystery -> "your mystery picture"
-                else -> title
+            val subject = when {
+                canvas?.photo != false -> ReminderMsg.Subject.Photo
+                mystery -> ReminderMsg.Subject.Mystery
+                else -> ReminderMsg.Subject.Titled(title)
             }
-            ReminderText("You're $percent% through $what", "Pick up where you left off.")
+            ReminderMsg.AlmostFinished(canvas?.percent ?: 0, subject)
         }
     }
 }

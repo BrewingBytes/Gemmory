@@ -65,6 +65,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -77,6 +78,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -87,6 +89,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.ads.isLocked
 import com.brewingbytes.gemmory.game.Frost
 import com.brewingbytes.gemmory.photo.allowanceLine
@@ -96,7 +102,6 @@ import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.NudgeTarget
 import com.brewingbytes.gemmory.policy.Spin
-import com.brewingbytes.gemmory.policy.StreakNudge
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -112,7 +117,6 @@ import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.GemTextButton
 import com.brewingbytes.gemmory.ui.withFullMotion
 import com.brewingbytes.gemmory.game.MusicRules
-import com.brewingbytes.gemmory.settings.MusicCopy
 import com.brewingbytes.gemmory.ui.GemToast
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
@@ -128,7 +132,6 @@ import kotlinx.coroutines.delay
 import android.view.accessibility.AccessibilityManager
 import com.brewingbytes.gemmory.policy.ShareLanding
 import com.brewingbytes.gemmory.share.LandingUi
-import com.brewingbytes.gemmory.share.SharedLandingCopy
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.graphics.graphicsLayer
@@ -193,7 +196,6 @@ const val FINISHED_TAG = "gallery-finished"
 
 /** The "Opens tomorrow" toast (T36). */
 const val TOAST_TAG = "gallery-toast"
-private const val SHARE_PROGRESS = "Share progress"
 
 /** The tile's test tag, also where TalkBack focus returns when its sheet closes. */
 fun tileTag(ref: CanvasRef): String = "tile-${ref.kind.name.lowercase()}-${ref.id}"
@@ -308,11 +310,11 @@ fun GalleryScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         Column(Modifier.fillMaxSize()) {
-            AppTopBar("Gemmory", onBack = null) {
+            AppTopBar(stringResource(R.string.app_name), onBack = null) {
                 // Quiet, from the 2nd session on (design D3): never on the first launch.
                 if (inventory != null) InventoryButton(inventory.spinsWaiting > 0) { inventorySheet = 1 }
-                if (showVip) GemTextButton("VIP", onVip, Modifier.testTag(VIP_ACTION_TAG))
-                IconAction(GemIcons.Settings, "Settings", onSettings)
+                if (showVip) GemTextButton(stringResource(R.string.vip_action), onVip, Modifier.testTag(VIP_ACTION_TAG))
+                IconAction(GemIcons.Settings, stringResource(R.string.settings_title), onSettings)
             }
             Tabs(tab, onTab = vm::selectTab, streak = state.streak, streakDone = state.streakDone, repairable = state.repairable, ignite = vm.streakIgnite, onIgnited = vm::streakIgnited) { onStreak("chip") }
             if (notice != null) {
@@ -329,7 +331,7 @@ fun GalleryScreen(
             }
             if (decodeFailed) {
                 Text(
-                    "This photo couldn't be opened. Try another one.",
+                    stringResource(R.string.gallery_photo_failed),
                     style = GemType.body,
                     color = GemColors.Bone,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -430,7 +432,7 @@ fun GalleryScreen(
         }
         if (!(tab == 1 && state.loaded && state.photos.isEmpty() && state.finishedPhotos.isEmpty())) {
             // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
-            val note = allowanceLine(allowance, inventory?.canvases ?: 0).takeIf { allowance != Allowance.Free }
+            val note = allowanceLine(strings(), allowance, inventory?.canvases ?: 0).takeIf { allowance != Allowance.Free }
             Column(
                 Modifier
                     .align(Alignment.BottomEnd)
@@ -449,11 +451,11 @@ fun GalleryScreen(
                     })
                 }
                 if (musicOffLine) {
-                    GemToast(MusicCopy.OFF_LINE, key = Unit, onGone = { musicOffLine = false }, modifier = Modifier.testTag(MUSIC_OFF_TAG))
+                    GemToast(stringResource(R.string.music_off_line), key = Unit, onGone = { musicOffLine = false }, modifier = Modifier.testTag(MUSIC_OFF_TAG))
                 }
                 NoteAndButton(
                     note = note?.let { { AllowanceChip(it) } },
-                    button = { PrimaryButton("New from photo", onNewFromPhoto) },
+                    button = { PrimaryButton(stringResource(R.string.gallery_new_from_photo), onNewFromPhoto) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -461,7 +463,7 @@ fun GalleryScreen(
         if (toast > 0) {
             // Centred 16dp above New from photo (plan-design-review D8); the overlay's own 16dp padding is below it.
             GemToast(
-                "Opens tomorrow",
+                stringResource(R.string.gallery_opens_tomorrow),
                 key = toast,
                 onGone = { toast = 0 },
                 modifier = Modifier
@@ -473,7 +475,7 @@ fun GalleryScreen(
         if (sharedOffer != null) {
             // In the "Opens tomorrow" spot (plan-design-review D8), centred 16dp above New from photo (T50, DR2).
             SharedOfferChip(
-                SharedLandingCopy.shared(sharedOffer.title),
+                stringResource(R.string.shared_with_you, sharedOffer.title),
                 onOpen = { onSharedOpen(sharedOffer) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -525,17 +527,17 @@ fun GalleryScreen(
             returnFocusTo = tileTag(s.ref),
         )
         is GallerySheet.Delete -> ConfirmSheet(
-            title = "Delete this photo canvas?",
-            body = "The photo, grid and progress are removed from this phone.",
-            confirm = "Delete",
+            title = stringResource(R.string.gallery_delete_title),
+            body = stringResource(R.string.gallery_delete_body),
+            confirm = stringResource(R.string.action_delete),
             onConfirm = { vm.delete(s.ref); sheet = null },
             onDismiss = { sheet = null },
             returnFocusTo = tileTag(s.ref),
         )
         is GallerySheet.StartOver -> ConfirmSheet(
-            title = "Start this picture over?",
-            body = "Your progress on it is cleared.",
-            confirm = "Start over",
+            title = stringResource(R.string.gallery_start_over_title),
+            body = stringResource(R.string.gallery_start_over_body),
+            confirm = stringResource(R.string.action_start_over),
             onConfirm = { vm.startOver(s.ref); sheet = null },
             onDismiss = { sheet = null },
             returnFocusTo = tileTag(s.ref),
@@ -543,9 +545,9 @@ fun GalleryScreen(
         is GallerySheet.Damaged -> {
             val photo = s.ref.kind == CanvasKind.PHOTO
             ConfirmSheet(
-                title = "Can't open",
-                body = "This canvas's file is damaged, so it can't be opened. You can delete it, or start the picture over.",
-                confirm = if (photo) "Delete" else "Start over",
+                title = stringResource(R.string.gallery_cant_open),
+                body = stringResource(R.string.gallery_damaged_body),
+                confirm = stringResource(if (photo) R.string.action_delete else R.string.action_start_over),
                 onConfirm = {
                     if (photo) vm.delete(s.ref) else vm.startOver(s.ref)
                     sheet = null
@@ -574,8 +576,8 @@ private fun MusicChip(onTurnOff: () -> Unit) {
             .testTag(MUSIC_CHIP_TAG),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(MusicCopy.CHIP, style = GemType.body, color = GemColors.Bone)
-        GemTextButton(MusicCopy.TURN_OFF, onTurnOff, Modifier.testTag("gallery-music-off-button"))
+        Text(stringResource(R.string.music_chip), style = GemType.body, color = GemColors.Bone)
+        GemTextButton(stringResource(R.string.music_turn_off), onTurnOff, Modifier.testTag("gallery-music-off-button"))
     }
 }
 
@@ -607,7 +609,7 @@ private fun SharedOfferChip(text: String, onOpen: () -> Unit, modifier: Modifier
             color = GemColors.Bone,
             modifier = Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
         )
-        GemTextButton(SharedLandingCopy.OPEN, onOpen, Modifier.testTag("gallery-shared-open"))
+        GemTextButton(stringResource(R.string.action_open), onOpen, Modifier.testTag("gallery-shared-open"))
     }
 }
 
@@ -688,7 +690,7 @@ private fun Tabs(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        listOf("Pictures", "My Photos").forEachIndexed { index, label ->
+        listOf(stringResource(R.string.gallery_tab_pictures), stringResource(R.string.gallery_tab_photos)).forEachIndexed { index, label ->
             val isSelected = index == selected
             Box(
                 Modifier
@@ -726,12 +728,16 @@ private fun Tabs(
 @Composable
 private fun TodayCardView(card: TodayCard, nudge: Nudge?, onNudge: () -> Unit, tomorrow: ImageBitmap?, onTomorrow: () -> Unit, onOpen: () -> Unit) {
     val tile = card.tile
-    val action = when {
-        tile.done -> "Open"
-        tile.started -> "Continue"
-        else -> "Start"
-    }
-    val description = A11yText.today(tile.title, card.size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop, tile.mystery)
+    val action = stringResource(
+        when {
+            tile.done -> R.string.action_open
+            tile.started -> R.string.action_continue
+            else -> R.string.action_start
+        },
+    )
+    val strings = strings()
+    val size = Messages.size(strings, card.size)
+    val description = A11yText(strings).today(tile.title, size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop, tile.mystery)
     Column(
         Modifier
             .fillMaxWidth()
@@ -768,10 +774,10 @@ private fun TodayCardView(card: TodayCard, nudge: Nudge?, onNudge: () -> Unit, t
                 if (card.drop) {
                     NewTodayChip()
                 } else {
-                    Text(if (card.vip) "Today's pick" else "Today's picture", style = GemType.label, color = GemColors.TextMuted)
+                    Text(stringResource(if (card.vip) R.string.today_label_pick else R.string.today_label_picture), style = GemType.label, color = GemColors.TextMuted)
                 }
                 Text(tile.title, style = GemType.button, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(todayLine(card), style = GemType.label, color = GemColors.TextMuted)
+                Text(todayLine(strings, card, size), style = GemType.label, color = GemColors.TextMuted)
                 if (!tile.done) {
                     Spacer(Modifier.height(6.dp))
                     QuietButton(action, onOpen)
@@ -803,8 +809,11 @@ private fun Hairline() {
  */
 @Composable
 private fun NudgeLine(nudge: Nudge, onTap: () -> Unit) {
-    val line = nudge.broken?.let(StreakText::stillRestorable) ?: StreakNudge.line(nudge.days)
-    val description = listOfNotNull(line, nudge.hint, nudge.awaiting).joinToString(". ")
+    val strings = strings()
+    val line = nudge.broken?.let(StreakText(strings)::stillRestorable) ?: Messages.nudgeLine(strings, nudge.days)
+    val hint = if (nudge.broken != null) strings.text(R.string.nudge_broken_hint) else nudge.hint?.let { Messages.hint(strings, it) }
+    val awaiting = nudge.awaiting?.let { Messages.awaiting(strings, it) }
+    val description = listOfNotNull(line, hint, awaiting).reduce { a, b -> strings.text(R.string.a11y_join, a, b) }
     val figure = (nudge.broken ?: nudge.days).toString()
     Row(
         Modifier
@@ -824,9 +833,9 @@ private fun NudgeLine(nudge: Nudge, onTap: () -> Unit) {
         Flame(lit = false, length = nudge.broken ?: nudge.days, size = 20.dp, still = true)
         Column(Modifier.weight(1f)) {
             Text(withFigure(line, figure, 15), style = GemType.body, color = GemColors.Bone, modifier = Modifier.widthIn(max = 480.dp))
-            val percent = (nudge.target as? NudgeTarget.Canvas)?.canvas?.percent?.let { "$it%" }
-            nudge.hint?.let { Text(withFigure(it, percent, 13), style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.widthIn(max = 480.dp)) }
-            nudge.awaiting?.let { Text(it, style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.widthIn(max = 480.dp)) }
+            val percent = (nudge.target as? NudgeTarget.Canvas)?.canvas?.percent?.let { strings.text(R.string.percent, it) }
+            hint?.let { Text(withFigure(it, percent, 13), style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.widthIn(max = 480.dp)) }
+            awaiting?.let { Text(it, style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.widthIn(max = 480.dp)) }
         }
         Text("›", style = GemType.button, color = GemColors.Bone)
     }
@@ -878,7 +887,7 @@ private fun NewTodayChip() {
     ) {
         Image(GemIcons.Spark, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(4.dp))
-        Text("New today", style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(stringResource(R.string.gallery_new_today), style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -889,6 +898,7 @@ private fun NewTodayChip() {
  */
 @Composable
 private fun TomorrowLine(frost: ImageBitmap, onTap: () -> Unit) {
+    val description = A11yText(strings()).tomorrow
     Row(
         Modifier
             .fillMaxWidth()
@@ -896,7 +906,7 @@ private fun TomorrowLine(frost: ImageBitmap, onTap: () -> Unit) {
             .testTag(TOMORROW_TAG)
             .clickable(onClick = onTap)
             .clearAndSetSemantics {
-                contentDescription = A11yText.TOMORROW
+                contentDescription = description
                 role = Role.Button
                 onClick { onTap(); true }
             }
@@ -909,8 +919,8 @@ private fun TomorrowLine(frost: ImageBitmap, onTap: () -> Unit) {
             FrostCover()
         }
         Column(Modifier.widthIn(max = 480.dp)) {
-            Text("Tomorrow", style = GemType.label, color = GemColors.TextMuted)
-            Text("A new picture opens at midnight", style = GemType.label, color = GemColors.Bone)
+            Text(stringResource(R.string.gallery_tomorrow), style = GemType.label, color = GemColors.TextMuted)
+            Text(stringResource(R.string.gallery_tomorrow_line), style = GemType.label, color = GemColors.Bone)
         }
     }
 }
@@ -922,17 +932,16 @@ internal fun BoxScope.FrostCover() {
 }
 
 /** "Medium · free today" / "Medium · 12% done" / "Medium · done" / "Medium"; the percent in mono, like every figure. */
-private fun todayLine(card: TodayCard) = buildAnnotatedString {
-    append(card.size)
+private fun todayLine(strings: Strings, card: TodayCard, size: String): AnnotatedString {
     val tile = card.tile
-    when {
-        tile.done -> append(" · done")
+    return when {
+        tile.done -> AnnotatedString(strings.text(R.string.today_line_done, size))
         tile.started -> {
-            append(" · ")
-            withStyle(GemType.mono.copy(fontSize = 13.sp).toSpanStyle()) { append("${tile.percent}%") }
-            append(" done")
+            val percent = strings.text(R.string.percent, tile.percent)
+            withFigure(strings.text(R.string.today_line_percent, size, percent), percent, 13)
         }
-        card.free -> append(" · free today")
+        card.free -> AnnotatedString(strings.text(R.string.today_line_free, size))
+        else -> AnnotatedString(size)
     }
 }
 
@@ -945,7 +954,8 @@ private val TODAY_THUMB = 72.dp
  */
 @Composable
 private fun StreakChip(days: Int, done: Boolean, broken: Int?, ignite: Boolean, onIgnited: () -> Unit, onClick: () -> Unit) {
-    val description = broken?.let(StreakText::chipBroken) ?: StreakText.chip(days, done)
+    val text = StreakText(strings())
+    val description = broken?.let(text::chipBroken) ?: text.chip(days, done)
     Row(
         Modifier
             .heightIn(min = 48.dp)
@@ -1034,7 +1044,8 @@ private fun FinishedHeading(count: Int, open: Boolean, photos: Boolean, onTap: (
         label = "finished-chevron",
     )
     val wrap = LocalDensity.current.fontScale > LARGE_FONT_SCALE
-    val description = A11yText.finished(count, photos)
+    val description = A11yText(strings()).finished(count, photos)
+    val state = stringResource(if (open) R.string.a11y_expanded else R.string.a11y_collapsed)
     Row(
         Modifier
             .fillMaxWidth()
@@ -1044,7 +1055,7 @@ private fun FinishedHeading(count: Int, open: Boolean, photos: Boolean, onTap: (
             .clickable(onClick = onTap)
             .clearAndSetSemantics {
                 contentDescription = description
-                stateDescription = if (open) "expanded" else "collapsed"
+                stateDescription = state
                 role = Role.Button
                 onClick { onTap(); true }
             }
@@ -1053,7 +1064,7 @@ private fun FinishedHeading(count: Int, open: Boolean, photos: Boolean, onTap: (
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Large screens (plan-design-review D19): the text column at most 480dp wide.
-        val label: @Composable () -> Unit = { Text("Finished", style = GemType.label, color = GemColors.TextMuted) }
+        val label: @Composable () -> Unit = { Text(stringResource(R.string.gallery_finished), style = GemType.label, color = GemColors.TextMuted) }
         val number: @Composable () -> Unit = { Text("$count", style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.TextMuted) }
         if (wrap) {
             Column(Modifier.widthIn(max = 480.dp)) {
@@ -1096,24 +1107,25 @@ private fun TileView(
 ) {
     var menu by remember { mutableStateOf(false) }
     val photo = tile.ref.kind == CanvasKind.PHOTO
-    val description = A11yText.tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
+    val strings = strings()
+    val description = A11yText(strings).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
     // TalkBack (design D19): one node per tile that reads exactly its state, with the ⋮ menu's items as its custom
     // actions (the ⋮ button itself is folded into them).
     val share = !locked && tile.shareable
     val actions = when {
         locked -> emptyList()
         photo -> listOf(
-            CustomAccessibilityAction("Rename") { onRename(tile); true },
-            CustomAccessibilityAction("Delete") { onDelete(tile); true },
+            CustomAccessibilityAction(strings.text(R.string.action_rename)) { onRename(tile); true },
+            CustomAccessibilityAction(strings.text(R.string.action_delete)) { onDelete(tile); true },
         )
-        else -> listOf(CustomAccessibilityAction("Start over") { onStartOver(tile); true })
-    }.let { if (share) listOf(CustomAccessibilityAction(SHARE_PROGRESS) { onShareProgress(tile); true }) + it else it }
+        else -> listOf(CustomAccessibilityAction(strings.text(R.string.action_start_over)) { onStartOver(tile); true })
+    }.let { if (share) listOf(CustomAccessibilityAction(strings.text(R.string.action_share_progress)) { onShareProgress(tile); true }) + it else it }
     Column(
         Modifier
             .testTag(tileTag(tile.ref))
             .combinedClickable(
                 onClick = { onOpen(tile) },
-                onLongClickLabel = if (locked) null else "More options",
+                onLongClickLabel = if (locked) null else strings.text(R.string.a11y_more_options),
                 onLongClick = if (locked) null else ({ menu = true }),
             )
             // After the clickable: semantics set further in replace what follows, and the click must stay.
@@ -1160,7 +1172,7 @@ private fun TileView(
                 ) {
                     Image(GemIcons.Play, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Watch to unlock", style = GemType.label, color = GemColors.Bone)
+                    Text(stringResource(R.string.watch_to_unlock), style = GemType.label, color = GemColors.Bone)
                 }
             }
             if (tile.isNew && !tile.damaged) {
@@ -1178,7 +1190,7 @@ private fun TileView(
                 ) {
                     Image(GemIcons.Spark, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("New", style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.gallery_new), style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (tile.mystery && !tile.damaged) {
@@ -1195,12 +1207,12 @@ private fun TileView(
                 ) {
                     Image(GemIcons.GemOutline, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone), modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Mystery", style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.gallery_mystery), style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (tile.damaged) {
                 Text(
-                    "Can't open",
+                    stringResource(R.string.gallery_cant_open),
                     style = GemType.label,
                     color = GemColors.Bone,
                     modifier = Modifier
@@ -1216,12 +1228,12 @@ private fun TileView(
             Column(Modifier.weight(1f).padding(top = 6.dp)) {
                 Text(tile.title, style = GemType.label, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (!tile.damaged) {
-                    Text(tile.progressLabel, style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.Bone)
+                    Text(if (tile.done) stringResource(R.string.gallery_done) else strings.text(R.string.percent, tile.percent), style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.Bone)
                 }
             }
             // A locked picture has nothing to start over.
             if (!locked) Box {
-                IconAction(GemIcons.More, "More for ${tile.title}", onClick = { menu = true })
+                IconAction(GemIcons.More, strings.text(R.string.a11y_more_for, tile.title), onClick = { menu = true })
                 TileMenu(
                     expanded = menu,
                     photo = photo,
@@ -1261,17 +1273,17 @@ private fun TileMenu(
         val colors = MenuDefaults.itemColors(textColor = GemColors.Bone)
         if (share) {
             DropdownMenuItem(
-                text = { Text(SHARE_PROGRESS, style = GemType.body) },
+                text = { Text(stringResource(R.string.action_share_progress), style = GemType.body) },
                 onClick = onShareProgress,
                 colors = colors,
                 modifier = Modifier.testTag("tile-share-progress"),
             )
         }
         if (photo) {
-            DropdownMenuItem(text = { Text("Rename", style = GemType.body) }, onClick = onRename, colors = colors)
-            DropdownMenuItem(text = { Text("Delete", style = GemType.body) }, onClick = onDelete, colors = colors)
+            DropdownMenuItem(text = { Text(stringResource(R.string.action_rename), style = GemType.body) }, onClick = onRename, colors = colors)
+            DropdownMenuItem(text = { Text(stringResource(R.string.action_delete), style = GemType.body) }, onClick = onDelete, colors = colors)
         } else {
-            DropdownMenuItem(text = { Text("Start over", style = GemType.body) }, onClick = onStartOver, colors = colors)
+            DropdownMenuItem(text = { Text(stringResource(R.string.action_start_over), style = GemType.body) }, onClick = onStartOver, colors = colors)
         }
     }
 }
@@ -1280,15 +1292,15 @@ private fun TileMenu(
 @Composable
 private fun MyPhotosEmpty(onNewFromPhoto: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.Center) {
-        Text("Your photos, in gems", style = GemType.display, color = GemColors.Bone)
+        Text(stringResource(R.string.gallery_photos_empty_title), style = GemType.display, color = GemColors.Bone)
         Spacer(Modifier.height(12.dp))
         Text(
-            "Turn a photo of your own into a canvas you can finish. It never leaves this phone.",
+            stringResource(R.string.gallery_photos_empty_body),
             style = GemType.body,
             color = GemColors.Bone,
         )
         Spacer(Modifier.height(24.dp))
-        PrimaryButton("New from photo", onNewFromPhoto)
+        PrimaryButton(stringResource(R.string.gallery_new_from_photo), onNewFromPhoto)
     }
 }
 
@@ -1296,7 +1308,7 @@ private fun MyPhotosEmpty(onNewFromPhoto: () -> Unit) {
 @Composable
 private fun RenameSheet(current: String, onSave: (String) -> Unit, onDismiss: () -> Unit, returnFocusTo: String) {
     var text by rememberSaveable { mutableStateOf(current) }
-    GemSheet("Rename", onDismiss, returnFocusTo) {
+    GemSheet(stringResource(R.string.action_rename), onDismiss, returnFocusTo) {
         OutlinedTextField(
             value = text,
             onValueChange = { text = com.brewingbytes.gemmory.photo.PhotoTitles.capped(it) },
@@ -1312,8 +1324,8 @@ private fun RenameSheet(current: String, onSave: (String) -> Unit, onDismiss: ()
             ),
         )
         Spacer(Modifier.height(20.dp))
-        PrimaryButton("Save", { onSave(text) }, Modifier.fillMaxWidth(), enabled = text.isNotBlank())
+        PrimaryButton(stringResource(R.string.action_save), { onSave(text) }, Modifier.fillMaxWidth(), enabled = text.isNotBlank())
         Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { GemTextButton("Keep", onDismiss) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { GemTextButton(stringResource(R.string.action_keep), onDismiss) }
     }
 }

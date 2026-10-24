@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.copy.strings
 import android.content.Context
 import android.os.SystemClock
 import androidx.compose.ui.geometry.Offset
@@ -118,7 +119,7 @@ class PlacementToolsTest {
         val noEncodes = object : EncodeCanceller {
             override suspend fun cancelAndClear(ref: CanvasRef) = Unit
         }
-        return CanvasStore(root, scope, Dispatchers.IO.limitedParallelism(1), encodes = noEncodes) to scope
+        return CanvasStore(root, scope, Dispatchers.IO.limitedParallelism(1), encodes = noEncodes, strings = context.strings) to scope
     }
 
     private fun open(store: CanvasStore): PlaySession = runBlocking {

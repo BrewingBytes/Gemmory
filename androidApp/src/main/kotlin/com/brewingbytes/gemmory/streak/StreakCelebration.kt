@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -59,6 +60,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.GemmoryApp
@@ -122,7 +125,7 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
         val start = StreakCalendar.weekStart(snapshot.today, firstDayOfWeek())
         val week = StreakCalendar.cells(start..start + 6, app.streak.history(), snapshot.state, snapshot.cover, snapshot.today)
         val vip = snapshot.cover.vip
-        val text = StreakText.celebration(celebration.length, celebration.covered, vip, snapshot.cover.freezes)
+        val text = StreakText(app.strings).celebration(celebration.length, celebration.covered, vip, snapshot.cover.freezes)
         // A new streak's first day while the old one can still come back (#102, "Restart with repair open").
         val repairable = app.streak.repairOffer(snapshot.cover)?.takeIf { celebration.length == 1 }
         return StreakDayData(celebration, week, vip, text, repairable).also { data = it }
@@ -171,14 +174,15 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
     private suspend fun shareCard(): File? {
         val data = data ?: return null
         val c = data.celebration
-        val title = StreakText.milestone(c.length) ?: return null
+        val streakText = StreakText(app.strings)
+        val title = streakText.milestone(c.length) ?: return null
         val (pictures, photos) = app.store.summaries()
         val playable = (pictures + photos).filterIsInstance<CanvasSummary.Playable>()
         val finishes = playable.mapNotNull { s -> s.firstFinishedDay?.let { it to CanvasStore.reminderKey(s.ref) } }.groupBy({ it.first }, { it.second })
         // Bundled and remote pictures only: a photo canvas's grid is never handed to the renderer.
         val patterns = playable.filter { it.ref.kind != CanvasKind.PHOTO }.associate { CanvasStore.reminderKey(it.ref) to it.state.pattern }
         val days = StreakShareCard.days(data.week, c.day, finishes, CardPictures::isPicture)
-        val letters = data.week.map { StreakText.weekday(it.day).take(1) }
+        val letters = data.week.map { streakText.weekday(it.day).take(1) }
         return withContext(Dispatchers.Default) {
             val card = StreakShareCardRenderer(app).render(c.length, title, days, letters) { ref ->
                 patterns[CanvasStore.reminderKey(ref)]?.let { CardPictures.art(ref, it) }
@@ -217,6 +221,7 @@ fun StreakCelebration(
 ) {
     val c = data.celebration
     val milestone = StreakText.isMilestone(c.length)
+    val description = stringResource(R.string.streak_celebration_words, data.text.title, data.text.line)
     val reduced = rememberReducedMotion()
     val context = LocalContext.current
     val view = LocalView.current
@@ -267,7 +272,7 @@ fun StreakCelebration(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(
-                    Modifier.widthIn(max = 480.dp).fillMaxWidth().clearAndSetSemantics { contentDescription = "${data.text.title}. ${data.text.line}" },
+                    Modifier.widthIn(max = 480.dp).fillMaxWidth().clearAndSetSemantics { contentDescription = description },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(Modifier.height(112.dp), contentAlignment = Alignment.BottomCenter) {
@@ -289,7 +294,7 @@ fun StreakCelebration(
                 }
                 Spacer(Modifier.height(16.dp))
             }
-            PrimaryButton("Continue", onContinue, Modifier.padding(top = 8.dp).widthIn(max = 480.dp).fillMaxWidth().testTag(CELEBRATION_CONTINUE_TAG))
+            PrimaryButton(stringResource(R.string.action_continue), onContinue, Modifier.padding(top = 8.dp).widthIn(max = 480.dp).fillMaxWidth().testTag(CELEBRATION_CONTINUE_TAG))
             // Milestones share the card (#104, G10); other days open the streak screen. With a repair open (#102), it
             // says the old streak can still come back.
             val repairable = data.repairable
@@ -304,13 +309,13 @@ fun StreakCelebration(
                     vm.shared()
                 }
                 GemTextButton(
-                    "Share",
+                    stringResource(R.string.action_share),
                     vm::share,
                     Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SHARE_TAG),
                 )
             } else {
                 GemTextButton(
-                    repairable?.let { StreakText.stillRestorable(it.length) } ?: "See your streak",
+                    repairable?.let { StreakText(strings()).stillRestorable(it.length) } ?: stringResource(R.string.nudge_broken_hint),
                     { onSeeStreak(repairable != null) },
                     Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SEE_TAG),
                 )
@@ -336,11 +341,13 @@ private fun RollingNumber(length: Int, progress: Float, sizeSp: Int) {
 /** This week, Monday-Sunday or the locale's (G12): the day's flame or cover mark; today outlined in lamp. One node. */
 @Composable
 fun WeekRow(week: List<CalendarCell>, length: Int, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = StreakText.week(week) }) {
+    val text = StreakText(strings())
+    val description = text.week(week)
+    Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description }) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (cell in week) {
                 Text(
-                    StreakText.weekday(cell.day).take(1),
+                    text.weekday(cell.day).take(1),
                     style = GemType.label.copy(fontSize = 12.sp),
                     color = GemColors.TextMuted,
                     textAlign = TextAlign.Center,

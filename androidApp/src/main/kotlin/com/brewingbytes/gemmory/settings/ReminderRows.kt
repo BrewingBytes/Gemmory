@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.policy.ReminderSchedule
 import com.brewingbytes.gemmory.reminder.NotificationPermission
@@ -49,18 +51,6 @@ import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.GemSwitch
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.QuietButton
-
-/** Reminder copy for Settings (design system, Settings → Reminders, T35). */
-object ReminderSettingsCopy {
-    const val TITLE = "Reminders"
-    const val TIME = "Reminder time"
-    const val BLOCKED = "Notifications are off for Gemmory"
-    const val OPEN_SETTINGS = "Open settings"
-
-    fun around(time: String) = "Around $time"
-
-    fun sheetLine(time: String) = "We'll remind you around $time."
-}
 
 const val REMINDERS_TAG = "settings-reminders"
 const val REMINDER_TIME_TAG = "settings-reminder-time"
@@ -118,14 +108,14 @@ internal fun ReminderRows(app: GemmoryApp) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(ReminderSettingsCopy.TITLE, style = GemType.body, color = GemColors.Bone)
-            if (checked) Text(ReminderSettingsCopy.around(time), style = GemType.label, color = GemColors.Bone)
+            Text(stringResource(R.string.reminders_title), style = GemType.body, color = GemColors.Bone)
+            if (checked) Text(stringResource(R.string.reminders_around, time), style = GemType.label, color = GemColors.Bone)
             if (blocked) {
                 // Offline copy on plain felt: bone with a 6dp fault square before it (design system, Colors).
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.size(6.dp).background(GemColors.Fault).clearAndSetSemantics {})
                     Spacer(Modifier.width(8.dp))
-                    Text(ReminderSettingsCopy.BLOCKED, style = GemType.body, color = GemColors.Bone)
+                    Text(stringResource(R.string.reminders_blocked), style = GemType.body, color = GemColors.Bone)
                 }
             }
         }
@@ -134,7 +124,7 @@ internal fun ReminderRows(app: GemmoryApp) {
     }
     if (blocked) {
         QuietButton(
-            ReminderSettingsCopy.OPEN_SETTINGS,
+            stringResource(R.string.reminders_open_settings),
             onClick = { NotificationPermission.openSettings(context) },
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).testTag("settings-reminders-open"),
         )
@@ -149,7 +139,7 @@ internal fun ReminderRows(app: GemmoryApp) {
                 .testTag(REMINDER_TIME_TAG),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(ReminderSettingsCopy.TIME, style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.reminders_time), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(16.dp))
             Text(time, style = GemType.body, color = GemColors.Bone, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
         }
@@ -174,8 +164,8 @@ internal fun ReminderRows(app: GemmoryApp) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReminderTimeSheet(current: Int, label: (Int) -> String, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
-    GemSheet(ReminderSettingsCopy.TIME, onDismiss, returnFocusTo = REMINDER_TIME_TAG) {
-        Text(ReminderSettingsCopy.sheetLine(label(current)), style = GemType.body, color = GemColors.TextMuted)
+    GemSheet(stringResource(R.string.reminders_time), onDismiss, returnFocusTo = REMINDER_TIME_TAG) {
+        Text(stringResource(R.string.reminders_sheet_line, label(current)), style = GemType.body, color = GemColors.TextMuted)
         Spacer(Modifier.size(8.dp))
         val currentRow = remember { BringIntoViewRequester() }
         LaunchedEffect(Unit) { currentRow.bringIntoView() }

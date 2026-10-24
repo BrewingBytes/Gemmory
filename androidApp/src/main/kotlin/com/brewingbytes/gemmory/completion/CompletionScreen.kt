@@ -55,12 +55,16 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.game.FinishCelebration
 import com.brewingbytes.gemmory.nav.Route
@@ -92,7 +96,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 
 /**
  * Canvases whose lights-down moment already ran in this process, so a rotation mid-sequence doesn't replay it.
@@ -213,8 +216,8 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
         val source = store.repository.sourceFile(ref).takeIf { ref.kind == CanvasKind.PHOTO && it.isFile }
         val before = source?.let { FrameArt.decodeSource(it, bitmap.width, bitmap.height) }
             ?: GemRenderer.render(pattern, cellPx) { false }
-        val gems = NumberFormat.getIntegerInstance().format(pattern.cells.size)
-        val meta = "${opened.title} · $gems gems · ${playTime(opened.record?.playMillis ?: 0L)}"
+        val strings = getApplication<GemmoryApp>().strings
+        val meta = strings.text(R.string.completion_meta, opened.title, strings.number(pattern.cells.size), playTime(strings, opened.record?.playMillis ?: 0L))
         val request = EncodeRequest(ref, pattern, opened.state.log(), opened.title, source, watermark = true)
         return Finished(ref, bitmap.asImageBitmap(), before.asImageBitmap(), pattern.width / pattern.height.toFloat(), meta, request)
     }
@@ -247,9 +250,9 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
 
     companion object {
         /** "5 min", "1 h 12 min"; under a minute rounds up to "1 min". */
-        fun playTime(millis: Long): String {
+        fun playTime(s: Strings, millis: Long): String {
             val minutes = ((millis + 59_999) / 60_000).coerceAtLeast(1)
-            return if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min"
+            return if (minutes < 60) s.text(R.string.play_time_minutes, minutes) else s.text(R.string.play_time_hours, minutes / 60, minutes % 60)
         }
     }
 }
@@ -345,7 +348,7 @@ fun CompletionScreen(
                             },
                         )
                         vm.damaged -> Text(
-                            "This canvas's file is damaged, so it can't be opened.",
+                            stringResource(R.string.play_damaged),
                             style = GemType.body,
                             color = GemColors.Bone,
                         )
@@ -353,11 +356,11 @@ fun CompletionScreen(
                 }
                 Box(Modifier.fillMaxWidth().heightIn(max = textMax)) {
                     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).alpha(text.value).padding(top = 16.dp)) {
-                        Text("Finished", style = GemType.displayLarge, color = GemColors.Bone)
+                        Text(stringResource(R.string.completion_title), style = GemType.displayLarge, color = GemColors.Bone)
                         Text(finished?.meta.orEmpty(), style = GemType.label, color = GemColors.TextMuted)
                         Spacer(Modifier.height(16.dp))
                         PrimaryButton(
-                            "Share",
+                            stringResource(R.string.action_share),
                             onClick = { vm.share(ref) },
                             enabled = finished != null,
                             held = encode is EncodeState.Running,
@@ -365,17 +368,17 @@ fun CompletionScreen(
                         )
                         if (vm.killedNotice) {
                             Text(
-                                "The video stopped when the app closed. Tap Share to try again.",
+                                stringResource(R.string.completion_killed),
                                 style = GemType.label,
                                 color = GemColors.TextMuted,
                                 modifier = Modifier.padding(top = 4.dp).testTag("share-killed"),
                             )
                         }
                         Spacer(Modifier.height(8.dp))
-                        QuietButton("Done", onDone, Modifier.fillMaxWidth().testTag("completion-done"))
+                        QuietButton(stringResource(R.string.action_done), onDone, Modifier.fillMaxWidth().testTag("completion-done"))
                         if (!fresh) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                                GemTextButton("Play again", { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
+                                GemTextButton(stringResource(R.string.completion_play_again), { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
                             }
                         }
                     }
@@ -414,9 +417,9 @@ fun CompletionScreen(
     )
     if (confirmPlayAgain) {
         ConfirmSheet(
-            title = "Start this picture over?",
-            body = "Your progress on it is cleared.",
-            confirm = "Start over",
+            title = stringResource(R.string.gallery_start_over_title),
+            body = stringResource(R.string.gallery_start_over_body),
+            confirm = stringResource(R.string.action_start_over),
             onConfirm = {
                 confirmPlayAgain = false
                 vm.playAgain(ref, onPlayAgain)
@@ -437,7 +440,7 @@ private fun Picture(finished: Finished, sweep: Float, modifier: Modifier = Modif
     Box(Modifier.wrapContentSize().aspectRatio(finished.aspect).clipToBounds().then(modifier)) {
         Image(
             finished.image,
-            contentDescription = "Finished picture",
+            contentDescription = stringResource(R.string.completion_picture),
             contentScale = ContentScale.Fit,
             filterQuality = FilterQuality.Low,
             modifier = Modifier.fillMaxSize(),

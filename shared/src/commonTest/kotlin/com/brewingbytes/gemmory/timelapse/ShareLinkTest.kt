@@ -6,44 +6,44 @@ import kotlin.test.assertEquals
 
 class ShareLinkTest {
     @Test
-    fun photoShareText() {
+    fun photoShareLink() {
         assertEquals(
-            "Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
+            "https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
                 "&referrer=utm_source%3Dshare%26utm_medium%3Dphoto%26utm_campaign%3Dtimelapse",
-            ShareLink.text(ShareLink.Medium.PHOTO),
+            ShareLink.url(ShareLink.Medium.PHOTO),
         )
     }
 
     @Test
-    fun bundledShareText() {
+    fun bundledShareLink() {
         assertEquals(
-            "Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
+            "https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
                 "&referrer=utm_source%3Dshare%26utm_medium%3Dbundled%26utm_campaign%3Dtimelapse",
-            ShareLink.text(ShareLink.Medium.BUNDLED),
+            ShareLink.url(ShareLink.Medium.BUNDLED),
         )
     }
 
     @Test
-    fun streakCardShareText() {
+    fun streakCardShareLink() {
         assertEquals(
-            "Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
+            "https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
                 "&referrer=utm_source%3Dshare%26utm_medium%3Dstreak%26utm_campaign%3Dstreak_card",
-            ShareLink.streakText(),
+            ShareLink.streakUrl(),
         )
     }
 
     @Test
     fun aPictureShareCarriesItsId() {
         assertEquals(
-            "Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
+            "https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
                 "&referrer=utm_source%3Dshare%26utm_medium%3Dbundled%26utm_campaign%3Dtimelapse%26utm_content%3Dfox-in-snow",
-            ShareLink.text(ShareLink.Medium.BUNDLED, "fox-in-snow"),
+            ShareLink.url(ShareLink.Medium.BUNDLED, pictureId = "fox-in-snow"),
         )
     }
 
     @Test
     fun aPhotoShareNeverCarriesAnId() {
-        assertEquals(ShareLink.text(ShareLink.Medium.PHOTO), ShareLink.text(ShareLink.Medium.PHOTO, "photo-123"))
+        assertEquals(ShareLink.url(ShareLink.Medium.PHOTO), ShareLink.url(ShareLink.Medium.PHOTO, pictureId = "photo-123"))
     }
 
     @Test

@@ -20,10 +20,8 @@ object ShareLink {
         return "$PLAY_URL&referrer=utm_source%3Dshare%26utm_medium%3D${medium.value}%26utm_campaign%3D$campaign$content"
     }
 
-    fun text(medium: Medium, pictureId: String? = null): String = "Made with Gemmory: ${url(medium, pictureId = pictureId)}"
-
-    /** The milestone share card's text (#104). */
-    fun streakText(): String = "Made with Gemmory: ${url(Medium.STREAK, STREAK_CARD)}"
+    /** The milestone share card's link (#104). The share text around a link is a string resource (T48). */
+    fun streakUrl(): String = url(Medium.STREAK, STREAK_CARD)
 
     private const val TIMELAPSE = "timelapse"
     private const val STREAK_CARD = "streak_card"

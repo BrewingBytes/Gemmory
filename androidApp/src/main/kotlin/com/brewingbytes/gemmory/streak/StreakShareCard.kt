@@ -73,7 +73,7 @@ class StreakShareCardRenderer(private val context: Context) {
         }
 
         val brand = textPaint(bricolage, BRAND_SIZE, GemColors.FrameText).apply { fontVariationSettings = "'wght' 600" }
-        centerText(canvas, BRAND, brand, HEIGHT - BOTTOM - brand.fontSpacing, brand.fontSpacing)
+        centerText(canvas, context.getString(R.string.app_name), brand, HEIGHT - BOTTOM - brand.fontSpacing, brand.fontSpacing)
         return out
     }
 
@@ -136,7 +136,6 @@ class StreakShareCardRenderer(private val context: Context) {
     companion object {
         const val WIDTH = 1080
         const val HEIGHT = 1920
-        const val BRAND = "Gemmory"
 
         // The mockup's card (270×480) at ×4.
         private const val TOP = 224

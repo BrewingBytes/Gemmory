@@ -11,10 +11,10 @@ enum class AspectRatio(val width: Int, val height: Int, val label: String) {
  * The color-count choice on Preview (#29). [STANDARD] is the size's original cap; [MORE] is VIP, or one rewarded
  * video per photo canvas.
  */
-enum class ColorChoice(val label: String) {
-    FEWER("Fewer"),
-    STANDARD("Standard"),
-    MORE("More"),
+enum class ColorChoice {
+    FEWER,
+    STANDARD,
+    MORE,
     ;
 
     /** The analytics value (`fewer` | `standard` | `more`). */
@@ -24,12 +24,12 @@ enum class ColorChoice(val label: String) {
 /**
  * Canvas sizes shown in the size picker (design doc R3-11). [paletteCap] is the Standard cap, the only one before
  * #29, which bundled pictures and every app before versionCode 12 use; [fewerCap] and [moreCap] are the other two
- * color choices.
+ * color choices. Their names on screen are string resources (T48).
  */
-enum class CanvasSize(val label: String, val fewerCap: Int, val paletteCap: Int, val moreCap: Int) {
-    QUICK("Quick", 12, 16, 24),
-    MEDIUM("Medium", 16, 24, 40),
-    BIG("Big", 24, 36, 60),
+enum class CanvasSize(val fewerCap: Int, val paletteCap: Int, val moreCap: Int) {
+    QUICK(12, 16, 24),
+    MEDIUM(16, 24, 40),
+    BIG(24, 36, 60),
     ;
 
     fun cap(choice: ColorChoice): Int = when (choice) {

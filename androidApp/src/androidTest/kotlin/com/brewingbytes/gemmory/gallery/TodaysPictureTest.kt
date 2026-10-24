@@ -15,6 +15,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.copy.Messages
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
@@ -143,7 +145,7 @@ class TodaysPictureTest {
         val id = card.tile.ref.id
         val picture = assertNotNull(BundledPictures.byId(id))
         assertTrue(picture.locked && id !in BundledPictures.FREE, "today's picture is a locked one: $id")
-        val size = assertNotNull(BundledPictures.sizeOf(id))
+        val size = Messages.size(context.strings, assertNotNull(BundledPictures.canvasSizeOf(id)))
 
         // The card: one TalkBack node with its copy, a quiet Start, and the finished picture.
         waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture: ${picture.title}, $size, free to start today"))
@@ -186,7 +188,7 @@ class TodaysPictureTest {
         launch()
         val card = card()
         val picture = assertNotNull(BundledPictures.byId(card.tile.ref.id))
-        val size = assertNotNull(BundledPictures.sizeOf(picture.id))
+        val size = Messages.size(context.strings, assertNotNull(BundledPictures.canvasSizeOf(picture.id)))
         assertTrue(card.vip && !card.free)
         waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's pick: ${picture.title}, $size"))
         compose.onNode(hasTestTag(TODAY_TAG) and hasAnyDescendant(hasText("Today's pick")), useUnmergedTree = true).assertExists()
