@@ -239,6 +239,6 @@ The **Drop calendar** workflow (`.github/workflows/calendar.yml`) runs `./gradle
 
 To withdraw a picture, run `./gradlew :shared:withdrawRemotePicture -Pid=<id>`, mark its provenance row withdrawn, and open a PR. The picture leaves every phone that hasn't started it. Never edit `catalog.json` by hand (the signature would no longer match and every phone would refuse it), and never re-freeze a published grid. A fix is a new id.
 
-The catalog also carries switches the founder flips without an app release. Today there is one: `review`, the in-app review prompt (T39). Turn it on with `./gradlew :shared:setRemoteFeature -Pfeature=review -Pon=true` (`-Pon=false` turns it off), then open a PR with `pictures/v1/`. The tool re-signs the catalog with a later `issuedAt` and keeps every picture and collection. Later publishes and withdraws keep the switch. When to flip it is in `docs/play-compliance.md` → In-app review.
+The catalog carries no switches. It had one, `review` for the in-app review prompt (T39); T52 (review prompt always on) removed it with `:shared:setRemoteFeature`, so the prompt follows its finish rules in every build from 0.8.4 (20) and no flip is needed (`docs/play-compliance.md` → In-app review). An old catalog with a `features` key still verifies: the app ignores the key, and the next publish, withdraw or titles run writes none.
 
 Debug builds can read another catalog folder with `-Pgemmory.remotePicturesUrl=<url ending in />`.

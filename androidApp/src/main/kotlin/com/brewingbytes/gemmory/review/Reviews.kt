@@ -45,14 +45,12 @@ private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont 
 
 /**
  * The in-app review prompt (T39) as the gallery sees it: whether an attempt is due on this return from a fresh finish
- * ([ReviewPrompt]), and making it. [flagOn] is `features.review` from the verified catalog, [finishes] every finish
- * counted on this phone, [today] the local epoch day.
+ * ([ReviewPrompt]), and making it. [finishes] is every finish counted on this phone, [today] the local epoch day.
  */
 class Reviews(
     private val prefs: ReviewPrefs,
     private val gateway: ReviewGateway,
     private val analytics: Analytics,
-    private val flagOn: () -> Boolean,
     private val finishes: () -> Int,
     private val today: () -> Long,
 ) {
@@ -66,7 +64,7 @@ class Reviews(
 
     /** The attempt (1-3) due now, or null. */
     fun due(): Int? =
-        ReviewPrompt.attemptDue(prefs.made, finishes(), flagOn(), today(), prefs.lastAttemptDay, prefs.firstFinishDay)
+        ReviewPrompt.attemptDue(prefs.made, finishes(), today(), prefs.lastAttemptDay, prefs.firstFinishDay)
 
     /**
      * Makes [attempt]: it's counted before Play is asked, so an error, a sheet Play didn't show or a process killed

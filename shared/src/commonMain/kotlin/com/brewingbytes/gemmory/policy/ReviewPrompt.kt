@@ -3,10 +3,10 @@ package com.brewingbytes.gemmory.policy
 /**
  * When the gallery asks Play for its in-app review sheet (T39). Play rate-limits the sheet and never says whether it
  * showed, so the app calls at most [THRESHOLDS].size times per install. Attempt *n* is made at the first fresh finish
- * where all hold: the finish count is at or past the *n*th threshold, `features.review` is on in the signed catalog,
- * at least [GAP_DAYS] days have passed since the previous attempt, and it isn't the day of the player's first finish.
- * One attempt at a time: a player already past 10 finishes when the flag flips gets attempt 1, then attempt 2 at least
- * [GAP_DAYS] days later. A deferred attempt waits for the next eligible finish.
+ * where all hold: the finish count is at or past the *n*th threshold, at least [GAP_DAYS] days have passed since the
+ * previous attempt, and it isn't the day of the player's first finish. No catalog switch (T52, review prompt always
+ * on). One attempt at a time: a player already past 10 finishes when this release arrives gets attempt 1, then
+ * attempt 2 at least [GAP_DAYS] days later. A deferred attempt waits for the next eligible finish.
  */
 object ReviewPrompt {
     val THRESHOLDS = listOf(3, 10, 25)
@@ -33,8 +33,7 @@ object ReviewPrompt {
      * [firstFinishDay], [BEFORE_T35] or null never being today). A clock moved back before the last attempt waits until
      * the gap has really passed.
      */
-    fun attemptDue(made: Int, finishes: Int, flagOn: Boolean, today: Long, lastAttemptDay: Long?, firstFinishDay: Long?): Int? {
-        if (!flagOn) return null
+    fun attemptDue(made: Int, finishes: Int, today: Long, lastAttemptDay: Long?, firstFinishDay: Long?): Int? {
         val threshold = THRESHOLDS.getOrNull(made) ?: return null
         if (finishes < threshold) return null
         if (lastAttemptDay != null && today - lastAttemptDay < GAP_DAYS) return null

@@ -26,7 +26,6 @@ import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
 import com.brewingbytes.gemmory.policy.ReminderAskState
-import com.brewingbytes.gemmory.remote.RemoteFeatures
 import com.brewingbytes.gemmory.reminder.REMINDER_ASK_NOT_NOW_TAG
 import com.brewingbytes.gemmory.reminder.REMINDER_ASK_YES_TAG
 import com.brewingbytes.gemmory.reminder.ReminderPrefs
@@ -43,12 +42,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * The in-app review prompt (T39) through the real app, with Play replaced by a counting gateway: with
- * `features.review` off nothing is asked (R1); with it on, a due attempt asks Play once instead of the interstitial;
- * a reminder ask due on the same return comes first (D22). The player's first finish is made "yesterday" on the test
+ * The in-app review prompt (T39) through the real app, with Play replaced by a counting gateway. There is no catalog
+ * switch (T52, review prompt always on): a due attempt asks Play once instead of the interstitial, even when the
+ * catalog still carries an old `features.review: false` (R1); a reminder ask due on the same return comes first (D22). The player's first finish is made "yesterday" on the test
  * clock, since the first-finish day never asks.
  */
 @RunWith(AndroidJUnit4::class)
@@ -140,9 +140,9 @@ class ReviewFlowTest {
         throw e
     }
 
-    /** Publishes the catalog with the review switch [review], seeds a photo canvas, checks the catalog and opens the app. */
-    private fun launch(review: Boolean) {
-        catalog.features = RemoteFeatures(review = review)
+    /** Publishes the catalog, with [legacyFeatures] as 0.8.1's tool wrote them, seeds a photo canvas, checks it and opens the app. */
+    private fun launch(legacyFeatures: String? = null) {
+        catalog.legacyFeatures = legacyFeatures
         catalog.add("shell", locked = false)
         runBlocking { app.store.create(CanvasRef(CanvasKind.PHOTO, "warm-up"), A11yTestSupport.pattern(8, 6, 3)) }
         runBlocking { app.remote.check(force = true) }
@@ -190,20 +190,23 @@ class ReviewFlowTest {
         placeAllAndDone()
     }
 
-    /** R1: with the switch off, a return that would be due asks Play nothing and keeps the counter at zero. */
+    /** R1 (T52): a catalog that still says `features.review: false` is ignored; a due return asks Play once. */
     @Test
-    fun theSwitchOffAsksNothing() {
-        launch(review = false)
+    fun anOldCatalogWithTheSwitchOffStillAsks() {
+        launch(legacyFeatures = """{"review": false}""")
+        assertNotNull(app.remote.catalog(), "the catalog with an old features key verified")
         finishFirstYesterday()
+        val before = ads.interstitials
         finish(CanvasRef(CanvasKind.BUNDLED, "lemons"))
-        assertEquals(0, asked)
-        assertEquals(0, reviewPrefs().made)
+        waitFor("Play asked") { asked == 1 }
+        assertEquals(before, ads.interstitials, "no interstitial on the review's return")
+        assertEquals(1, reviewPrefs().made)
     }
 
     /** A due attempt asks Play once instead of the interstitial; the next return, inside 14 days, asks nothing. */
     @Test
     fun aDueAttemptAsksPlayOnceInsteadOfTheInterstitial() {
-        launch(review = true)
+        launch()
         finishFirstYesterday()
         val before = ads.interstitials
         finish(CanvasRef(CanvasKind.BUNDLED, "lemons"))
@@ -224,7 +227,7 @@ class ReviewFlowTest {
     /** D22: a reminder ask due on the same return comes first; the review waits for the next eligible finish. */
     @Test
     fun theReminderAskComesFirst() {
-        launch(review = true)
+        launch()
         finishFirstYesterday()
         // The ask's second attempt is due at the next counted finish (ReminderAsk.SECOND_AT).
         reminderPrefs().apply {

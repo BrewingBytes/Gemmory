@@ -19,8 +19,11 @@ class TestCatalog(private val seed: ByteArray = SEED) {
     val collections = mutableListOf<RemoteCollection>()
     var issuedAt = 1_792_000_000L
 
-    /** The catalog's switches (T39); [publish] writes the ones that are on. */
-    var features = RemoteFeatures()
+    /**
+     * A raw `features` object as the publishing tool wrote it before T52 (review prompt always on), e.g.
+     * `{"review": false}`; this app ignores it. Null writes none.
+     */
+    var legacyFeatures: String? = null
 
     /** [availableFrom] makes it a dated drop (T36), for an app that knows drops. */
     fun add(
@@ -78,7 +81,7 @@ class TestCatalog(private val seed: ByteArray = SEED) {
                     "pictures" to Json.Arr(pictures.map { RemoteCatalogs.entry(it) }),
                 ).apply {
                     if (collections.isNotEmpty()) put("collections", Json.Arr(collections.map { RemoteCatalogs.collectionEntry(it) }))
-                    RemoteCatalogs.featuresEntry(features)?.let { put("features", it) }
+                    legacyFeatures?.let { put("features", Json.parse(it)!!) }
                 },
             ),
         ).encodeToByteArray()

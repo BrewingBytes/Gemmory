@@ -177,9 +177,7 @@ Record each check (date, version, both numbers) in the PR or release notes that 
 
 ## In-app review (T39)
 
-The app asks Play for its in-app review sheet only while `features.review` is on in the signed remote catalog. The same AAB goes from the closed track to production, so a build flag can't tell the tracks apart, and reviews from a closed track are private anyway. The switch ships off.
-
-**When:** once the production release is live (the D18 gate passed, beside #74). **How:** `./gradlew :shared:setRemoteFeature -Pfeature=review -Pon=true`, then a PR with `pictures/v1/` (README → Publishing remote pictures). Phones pick it up at their next catalog check, at most a day later. Turning it off is the same command with `-Pon=false`.
+The prompt is on in every build from 0.8.4 (20) (T52, review prompt always on; CEO C8): there is no catalog switch and nothing to flip. Testers on the closed track get Play's private-feedback sheet, since reviews from a closed track are private anyway. Phones on 0.8.1 never ask, since their switch was never set. Turning it off takes a new release (C7: no kill switch).
 
 **What it does:** at most 3 attempts per install, at 3, 10 and 25 finished pictures, at least 14 days apart, never on the day of the player's first finish, only on the gallery after leaving a fresh finish's completion screen, and only when that return has no reminder ask and isn't a reward return (design system, One interruption per return). Play draws and rate-limits the sheet and never says whether it showed, so every attempt counts. Analytics: `review_requested` (attempt). The counter (attempts made, the day of the last, the player's first-finish day) is in the `review` preferences, which are backed up. Nothing about the player or their photos is sent: the sheet is Play's own.
 

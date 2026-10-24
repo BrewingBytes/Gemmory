@@ -188,7 +188,7 @@ class GemmoryApp : Application() {
 
     private lateinit var reminderNotifier: ReminderNotifier
 
-    /** The in-app review prompt (T39): off until `features.review` is on in the signed catalog. */
+    /** The in-app review prompt (T39): Play's sheet at the 3rd, 10th and 25th finish, in every build (T52). */
     lateinit var reviews: Reviews
         private set
 
@@ -460,7 +460,6 @@ class GemmoryApp : Application() {
         prefs = ReviewPrefs(getSharedPreferences(ReviewPrefs.FILE, MODE_PRIVATE)),
         gateway = gateway,
         analytics = analytics,
-        flagOn = { remote.catalog()?.features?.review == true },
         finishes = finishes,
         today = dayClock::today,
     )
