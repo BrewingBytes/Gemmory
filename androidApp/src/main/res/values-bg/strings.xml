@@ -16,7 +16,7 @@
     <string name="mystery_later">Картина изненада</string>
     <string name="today_label_picture">Картина на деня</string>
     <string name="today_label_pick">Предложение за деня</string>
-    <string name="day_yesterday">Вчера</string>
+    <string name="day_yesterday">вчера</string>
 
     <string name="reminder_mystery_drop_text">Нова картина, скрита, докато не я завършиш.</string>
     <string name="reminder_drop_title">Тази вечер: %1$s</string>
@@ -183,9 +183,9 @@
     <string name="streak_status_keep">Завърши картина днес, за да я запазиш</string>
     <string name="streak_awaiting_several">Пропуснатите дни се покриват, когато завършиш днес.</string>
     <string name="streak_awaiting_one">Когато завършиш днес, %2$s покрива този ден: %1$s.</string>
-    <string name="streak_weekly_ready">%1$s: налично</string>
-    <string name="streak_weekly_used">%1$s · използвано: %2$s</string>
-    <string name="streak_weekly_again">Отново налично: %1$s</string>
+    <string name="streak_weekly_ready">%1$s: може да се използва</string>
+    <string name="streak_weekly_used">%1$s · използване: %2$s</string>
+    <string name="streak_weekly_again">Пак може да се използва: %1$s</string>
     <plurals name="streak_repair_title">
         <item quantity="one">Върни своя %1$d ден</item>
         <item quantity="other">Върни своите %1$d дни</item>

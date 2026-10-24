@@ -16,7 +16,7 @@
     <string name="mystery_later">Tableau mystère</string>
     <string name="today_label_picture">Tableau du jour</string>
     <string name="today_label_pick">Suggestion du jour</string>
-    <string name="day_yesterday">Hier</string>
+    <string name="day_yesterday">hier</string>
 
     <string name="reminder_mystery_drop_text">Un nouveau tableau, caché jusqu’à ce que tu le termines.</string>
     <string name="reminder_drop_title">Ce soir : %1$s</string>

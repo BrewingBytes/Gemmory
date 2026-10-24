@@ -82,6 +82,7 @@ tasks.named<Test>("jvmTest") {
     // GlyphCheckTest (T49, eng O-E6): every language's strings against the fonts that draw them, and the store listings.
     inputs.dir("../androidApp/src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("../tools/store/listing").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("../tools/store/fonts").withPathSensitivity(PathSensitivity.RELATIVE)
     // The drafted translated titles for the live catalog (T49 X4) against pictures/v1.
     inputs.dir("../tools/remote/titles").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file("../pictures/v1/catalog.json").withPathSensitivity(PathSensitivity.RELATIVE)
@@ -236,6 +237,7 @@ tasks.register<JavaExec>("frameStoreShots") {
         "shots=${root.dir(providers.gradleProperty("shots").getOrElse("build/store-shots")).asFile.path}",
         "listing=${root.dir("tools/store/listing").asFile.path}",
         "fonts=${root.dir("androidApp/src/main/res/font").asFile.path}",
+        "staticFonts=${root.dir("tools/store/fonts").asFile.path}",
         "out=${root.dir("build/store-frames").asFile.path}",
         "locale=${providers.gradleProperty("locale").getOrElse("")}",
     )

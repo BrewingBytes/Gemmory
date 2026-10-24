@@ -16,8 +16,9 @@ import javax.imageio.ImageIO
  * Build-time only (T49 X2, #136): the Play listing's five phone screenshots, captioned, per locale. It takes the raw
  * shots `StoreScreenshots` captures in that language (`-e appLocale de` → `store-de-1-gallery.png`) and each locale's
  * `tools/store/listing/<locale>/captions.txt`, and draws 1080×1920 frames: the caption in Bone on the felt ground, in
- * the language's display face, and the screenshot below it with rounded corners. The founder uploads them.
- * README → Store listings.
+ * the language's display face at 600, and the screenshot below it with rounded corners. The founder uploads them.
+ * README → Store listings. AWT draws a variable font only at its default instance (Bricolage's is 800, Geologica's
+ * 100), so the 600 instances live in `tools/store/fonts/`.
  */
 object StoreFrames {
     /** Play listing locale → the app language its shots and caption face come from. es-419 shares Spain's text (C3). */
@@ -51,8 +52,15 @@ object StoreFrames {
     fun captions(listing: File, locale: String): List<String> =
         File(listing, "$locale/captions.txt").readLines().map { it.trim() }.filter { it.isNotEmpty() }
 
-    /** One captioned frame of [shot] in [language]'s display face from [fontDir]. */
-    fun frame(shot: BufferedImage, caption: String, language: String, fontDir: File): BufferedImage {
+    /** The display face at 600 for [language]: the static instances in [staticFonts], Japanese's Bold from [fontDir]. */
+    fun displayFace(language: String, fontDir: File, staticFonts: File): File = when (language) {
+        "ja" -> File(fontDir, "zen_kaku_gothic_new_bold.ttf")
+        "bg" -> File(staticFonts, "geologica_600.ttf")
+        else -> File(staticFonts, "bricolage_grotesque_600.ttf")
+    }
+
+    /** One captioned frame of [shot] in [language]'s display face. */
+    fun frame(shot: BufferedImage, caption: String, language: String, fontDir: File, staticFonts: File): BufferedImage {
         val out = BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB)
         val g = out.createGraphics()
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
@@ -64,7 +72,7 @@ object StoreFrames {
         g.fillRect(0, 0, WIDTH, HEIGHT)
 
         // The caption: at most two lines, centered in the band above the shot.
-        val face = Font.createFont(Font.TRUETYPE_FONT, File(fontDir, GlyphCheck.faces(language).first())).deriveFont(CAPTION_PX)
+        val face = Font.createFont(Font.TRUETYPE_FONT, displayFace(language, fontDir, staticFonts)).deriveFont(CAPTION_PX)
         val text = AttributedString(caption).apply { addAttribute(TextAttribute.FONT, face) }
         val measurer = LineBreakMeasurer(text.iterator, g.fontRenderContext)
         val lines = ArrayList<TextLayout>()
@@ -93,7 +101,7 @@ object StoreFrames {
     }
 
     /** Frames every listed locale whose raw shots are in [shots] (or just [only]); returns the files written. */
-    fun run(shots: File, listing: File, fontDir: File, out: File, only: String?): List<File> {
+    fun run(shots: File, listing: File, fontDir: File, staticFonts: File, out: File, only: String?): List<File> {
         val locales = if (only != null) listOf(only.also { require(it in LOCALES) { "unknown locale $it; one of ${LOCALES.keys}" } }) else LOCALES.keys.toList()
         val written = ArrayList<File>()
         for (locale in locales) {
@@ -107,7 +115,7 @@ object StoreFrames {
             require(captions.size == SHOTS.size) { "$locale/captions.txt needs ${SHOTS.size} lines" }
             val dir = File(out, locale).apply { mkdirs() }
             for ((i, file) in raw.withIndex()) {
-                val frame = frame(ImageIO.read(file), captions[i], LOCALES.getValue(locale), fontDir)
+                val frame = frame(ImageIO.read(file), captions[i], LOCALES.getValue(locale), fontDir, staticFonts)
                 written += File(dir, "${SHOTS[i]}.png").also { check(ImageIO.write(frame, "png", it)) { "cannot write $it" } }
             }
         }
@@ -119,7 +127,7 @@ object StoreFrames {
     fun main(args: Array<String>) {
         val a = args.associate { it.substringBefore('=') to it.substringAfter('=', "") }
         fun arg(name: String) = a[name]?.takeIf { it.isNotBlank() } ?: error("missing -P$name")
-        val written = run(File(arg("shots")), File(arg("listing")), File(arg("fonts")), File(arg("out")), a["locale"]?.takeIf { it.isNotBlank() })
+        val written = run(File(arg("shots")), File(arg("listing")), File(arg("fonts")), File(arg("staticFonts")), File(arg("out")), a["locale"]?.takeIf { it.isNotBlank() })
         require(written.isNotEmpty()) { "no shots found in ${arg("shots")}: run StoreScreenshots with -e appLocale <tag> and pull them first" }
         println("wrote ${written.size} frames to ${arg("out")} (one folder per listing locale)")
     }

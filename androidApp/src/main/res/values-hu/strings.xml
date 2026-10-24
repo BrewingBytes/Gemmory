@@ -16,7 +16,7 @@
     <string name="mystery_later">Rejtélyes kép</string>
     <string name="today_label_picture">A nap képe</string>
     <string name="today_label_pick">A nap ajánlata</string>
-    <string name="day_yesterday">Tegnap</string>
+    <string name="day_yesterday">tegnap</string>
 
     <string name="reminder_mystery_drop_text">Új kép, rejtve marad, amíg be nem fejezed.</string>
     <string name="reminder_drop_title">Ma este: %1$s</string>

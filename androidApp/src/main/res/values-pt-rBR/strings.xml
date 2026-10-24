@@ -16,7 +16,7 @@
     <string name="mystery_later">Quadro misterioso</string>
     <string name="today_label_picture">Quadro do dia</string>
     <string name="today_label_pick">Sugestão do dia</string>
-    <string name="day_yesterday">Ontem</string>
+    <string name="day_yesterday">ontem</string>
 
     <string name="reminder_mystery_drop_text">Um quadro novo, escondido até você terminar.</string>
     <string name="reminder_drop_title">Hoje à noite: %1$s</string>

@@ -16,7 +16,7 @@
     <string name="mystery_later">Quadro misterioso</string>
     <string name="today_label_picture">Quadro del giorno</string>
     <string name="today_label_pick">Consiglio del giorno</string>
-    <string name="day_yesterday">Ieri</string>
+    <string name="day_yesterday">ieri</string>
 
     <string name="reminder_mystery_drop_text">Un nuovo quadro, nascosto finché non lo finisci.</string>
     <string name="reminder_drop_title">Stasera: %1$s</string>
@@ -191,7 +191,7 @@
     <string name="streak_awaiting_several">I giorni persi vengono coperti quando finisci oggi.</string>
     <string name="streak_awaiting_one">Quando finisci oggi, %2$s coprirà questo giorno: %1$s.</string>
     <string name="streak_weekly_ready">%1$s: disponibile</string>
-    <string name="streak_weekly_used">%1$s · usato: %2$s</string>
+    <string name="streak_weekly_used">%1$s · utilizzo: %2$s</string>
     <string name="streak_weekly_again">Di nuovo disponibile: %1$s</string>
     <plurals name="streak_repair_title">
         <item quantity="one">Recupera il tuo %1$d giorno</item>

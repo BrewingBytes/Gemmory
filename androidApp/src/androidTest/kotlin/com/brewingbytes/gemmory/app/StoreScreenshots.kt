@@ -213,11 +213,11 @@ class StoreScreenshots {
         scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onPhotoPicked(Uri.fromFile(file)) }
         waitText(t(R.string.photo_crop))
         scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onRatio(AspectRatio.SQUARE) }
-        compose.onNodeWithText("Next").performClick()
+        compose.onNodeWithText(t(R.string.action_next)).performClick()
         waitText(t(R.string.photo_choose_size))
         waitGone(t(R.string.photo_checking_faces))
-        compose.onNodeWithText("Big").performClick()
-        compose.onNodeWithText("Next").performClick()
+        compose.onNodeWithText(t(R.string.size_big)).performClick()
+        compose.onNodeWithText(t(R.string.action_next)).performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("preview-primary")).fetchSemanticsNodes().isNotEmpty() }
         waitGone(t(R.string.photo_setting_gems))
         previewShot?.let(::shot)
@@ -315,7 +315,7 @@ class StoreScreenshots {
             render(puppy, "puppy")
             leaveCanvas()
 
-            compose.onNodeWithText("My Photos").performClick()
+            compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
             shot("p-gallery")
         } finally {
             BillingBackends.fake.reset()

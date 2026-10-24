@@ -159,7 +159,7 @@ class ScreenSizesWalkthrough {
         compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         shot("$name-gallery-photos")
         compose.onNodeWithText(t(R.string.gallery_tab_pictures)).performClick()
-        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel("Start over")
+        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel(t(R.string.action_start_over))
         compose.waitUntil(5_000) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
         shot("$name-sheet")
         compose.onNodeWithText(t(R.string.action_keep)).performClick()
@@ -214,7 +214,7 @@ class ScreenSizesWalkthrough {
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         shot("font2-gallery")
         gallery("font2")
-        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel("Start over")
+        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel(t(R.string.action_start_over))
         compose.waitUntil(5_000) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(t(R.string.action_keep)).performClick()
         compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
@@ -230,7 +230,7 @@ class ScreenSizesWalkthrough {
         compose.onNodeWithTag("paywall-fine-print").performScrollTo()
         shot("font2-paywall-bottom")
         compose.onNodeWithContentDescription(t(R.string.action_close)).performClick()
-        compose.onNodeWithTag("settings-delete-all").performClick()
+        compose.onNodeWithTag("settings-delete-all").performScrollTo().performClick()
         shot("font2-delete-all")
         compose.onNodeWithText(t(R.string.action_keep)).performClick()
         compose.onNodeWithContentDescription(t(R.string.action_back)).performClick()

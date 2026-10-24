@@ -16,7 +16,7 @@
     <string name="mystery_later">Obraz-niespodzianka</string>
     <string name="today_label_picture">Obraz dnia</string>
     <string name="today_label_pick">Propozycja dnia</string>
-    <string name="day_yesterday">Wczoraj</string>
+    <string name="day_yesterday">wczoraj</string>
 
     <string name="reminder_mystery_drop_text">Nowy obraz, ukryty, dopóki go nie ukończysz.</string>
     <string name="reminder_drop_title">Dziś wieczorem: %1$s</string>
@@ -143,7 +143,7 @@
     <string name="hint_zoom_in">Rozsuń palce lub dotknij, aby powiększyć, aż pojawią się numery</string>
     <string name="hint_pick_color">Wybierz kolor na dole, potem dotknij jego numerów albo przeciągnij po nich</string>
     <string name="hint_tap_zoomed">Powiększono, żeby było widać numery</string>
-    <string name="milestone_count">%1$s / %2$s kryształków</string>
+    <string name="milestone_count">Kryształki: %1$s / %2$s</string>
 
     <string name="list_and">%1$s i %2$s</string>
     <string name="list_separator">,\u0020</string>
@@ -197,9 +197,9 @@
     <string name="streak_status_keep">Ukończ dziś obraz, żeby ją utrzymać</string>
     <string name="streak_awaiting_several">Opuszczone dni zostaną zaliczone, gdy dziś skończysz.</string>
     <string name="streak_awaiting_one">Gdy dziś skończysz, %2$s zaliczy ten dzień: %1$s.</string>
-    <string name="streak_weekly_ready">%1$s: gotowe</string>
-    <string name="streak_weekly_used">%1$s · użyte: %2$s</string>
-    <string name="streak_weekly_again">Znów gotowe: %1$s</string>
+    <string name="streak_weekly_ready">%1$s: do użycia</string>
+    <string name="streak_weekly_used">%1$s · użyto: %2$s</string>
+    <string name="streak_weekly_again">Znów do użycia: %1$s</string>
     <plurals name="streak_repair_title">
         <item quantity="one">Odzyskaj swój %1$d dzień</item>
         <item quantity="few">Odzyskaj swoje %1$d dni</item>
@@ -358,7 +358,7 @@
     <string name="inventory_tokens_body">Na stałe otwiera dowolny zablokowany obraz.</string>
     <string name="inventory_freezes">Ochrony serii</string>
     <string name="inventory_freezes_body">Zalicza opuszczony dzień po dniu wolnym. Możesz mieć najwyżej %1$d.</string>
-    <string name="inventory_watch">Obejrzyj film: +%1$d wypełnień</string>
+    <string name="inventory_watch">Obejrzyj film: wypełnienia +%1$d</string>
     <string name="inventory_spin_several">Zakręć po prezent (czeka: %1$d)</string>
     <string name="inventory_spin">Zakręć po prezent za serię: %1$d</string>
     <string name="inventory_item">%1$s: %2$d. %3$s</string>
@@ -396,7 +396,7 @@
 
     <string name="action_done">Gotowe</string>
     <string name="completion_title">Ukończone</string>
-    <string name="completion_meta">%1$s · %2$s kryształków · %3$s</string>
+    <string name="completion_meta">%1$s · kryształki: %2$s · %3$s</string>
     <string name="play_time_minutes">%1$d min</string>
     <string name="play_time_hours">%1$d godz. %2$d min</string>
     <string name="completion_killed">Film się zatrzymał, gdy aplikacja została zamknięta. Dotknij Udostępnij, aby spróbować ponownie.</string>
@@ -444,7 +444,7 @@
     <string name="photo_choose_size">Wybierz rozmiar</string>
     <string name="photo_preview">Podgląd</string>
     <string name="photo_default_title_dated">Moje zdjęcie · %1$s</string>
-    <string name="photo_summary">%1$s kryształków · kolorów: %2$d</string>
+    <string name="photo_summary">Kryształki: %1$s · kolorów: %2$d</string>
     <string name="photo_size_summary">%1$s · %2$s</string>
     <string name="photo_more_colors_line">Więcej kolorów: obejrzyj film albo kup VIP.</string>
     <string name="photo_one_video_more_colors">Jeden film daje to płótno z większą liczbą kolorów.</string>

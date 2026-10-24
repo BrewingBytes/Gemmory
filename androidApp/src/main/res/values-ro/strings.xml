@@ -16,7 +16,7 @@
     <string name="mystery_later">Tablou-surpriză</string>
     <string name="today_label_picture">Tabloul zilei</string>
     <string name="today_label_pick">Sugestia zilei</string>
-    <string name="day_yesterday">Ieri</string>
+    <string name="day_yesterday">ieri</string>
 
     <string name="reminder_mystery_drop_text">Un tablou nou, ascuns până îl termini.</string>
     <string name="reminder_drop_title">În seara asta: %1$s</string>
@@ -27,7 +27,7 @@
     <string name="reminder_today_unsized">Un tablou</string>
     <string name="reminder_today_text">%1$s, gratuit de început azi.</string>
     <string name="reminder_today_pick_text">%1$s, te așteaptă când vrei.</string>
-    <string name="reminder_streak_title">Seria ta de %1$d zile se termină la miezul nopții</string>
+    <string name="reminder_streak_title">Seria ta (zile: %1$d) se termină la miezul nopții</string>
     <string name="reminder_streak_text">Termină orice tablou în seara asta ca s-o păstrezi.</string>
     <string name="reminder_streak_text_hint">Termină orice tablou în seara asta ca s-o păstrezi. %1$s.</string>
     <string name="reminder_almost_title">Ai ajuns la %1$d%% din %2$s</string>
@@ -139,7 +139,7 @@
     <string name="hint_zoom_in">Ciupește sau atinge ca să mărești până apar numerele</string>
     <string name="hint_pick_color">Alege o culoare de jos, apoi atinge sau trage peste numerele ei</string>
     <string name="hint_tap_zoomed">Mărit ca să vezi numerele</string>
-    <string name="milestone_count">%1$s / %2$s pietre</string>
+    <string name="milestone_count">Pietre: %1$s / %2$s</string>
 
     <string name="list_and">%1$s și %2$s</string>
     <string name="list_separator">,\u0020</string>
@@ -274,8 +274,8 @@
     <string name="action_continue">Continuă</string>
     <string name="action_share">Distribuie</string>
     <string name="streak_celebration_words">%1$s. %2$s</string>
-    <string name="next_gift">Următoarea rotire-cadou la %1$d zile la rând</string>
-    <string name="next_gift_description">Următoarea rotire-cadou la %1$d zile la rând. Până acum %2$d din %3$d zile.</string>
+    <string name="next_gift">Următoarea rotire-cadou când seria ajunge la %1$d</string>
+    <string name="next_gift_description">Următoarea rotire-cadou când seria ajunge la %1$d. Până acum: %2$d din %3$d.</string>
 
     <string name="action_delete">Șterge</string>
     <string name="action_start_over">Ia-o de la capăt</string>
@@ -345,7 +345,7 @@
     <string name="inventory_freezes_body">Acoperă o zi ratată după ziua ta liberă. Poți păstra până la %1$d.</string>
     <string name="inventory_watch">Urmărește un video: +%1$d umpleri</string>
     <string name="inventory_spin_several">Învârte pentru cadoul tău (%1$d așteaptă)</string>
-    <string name="inventory_spin">Învârte pentru cadoul de %1$d zile</string>
+    <string name="inventory_spin">Învârte pentru cadoul seriei tale (%1$d)</string>
     <string name="inventory_item">%1$s: %2$d. %3$s</string>
     <plurals name="prize_fills">
         <item quantity="one">%1$d umplere</item>
@@ -377,7 +377,7 @@
 
     <string name="action_done">Gata</string>
     <string name="completion_title">Terminat</string>
-    <string name="completion_meta">%1$s · %2$s pietre · %3$s</string>
+    <string name="completion_meta">%1$s · pietre: %2$s · %3$s</string>
     <string name="play_time_minutes">%1$d min</string>
     <string name="play_time_hours">%1$d h %2$d min</string>
     <string name="completion_killed">Videoclipul s-a oprit când s-a închis aplicația. Atinge Distribuie ca să încerci din nou.</string>
@@ -423,13 +423,13 @@
     <string name="photo_choose_size">Alege o mărime</string>
     <string name="photo_preview">Previzualizare</string>
     <string name="photo_default_title_dated">Poza mea · %1$s</string>
-    <string name="photo_summary">%1$s pietre · %2$d culori</string>
+    <string name="photo_summary">Pietre: %1$s · culori: %2$d</string>
     <string name="photo_size_summary">%1$s · %2$s</string>
     <string name="photo_more_colors_line">Mai multe culori: urmărește un video sau ia VIP.</string>
     <string name="photo_one_video_more_colors">Un video îți dă această pânză cu mai multe culori.</string>
     <string name="photo_watch_for_colors">Urmărește un video pentru mai multe culori</string>
-    <string name="photo_colors_trough">%1$s, %2$d culori</string>
-    <string name="photo_colors_trough_video">%1$s, %2$d culori, cere un video sau VIP</string>
+    <string name="photo_colors_trough">%1$s, culori: %2$d</string>
+    <string name="photo_colors_trough_video">%1$s, culori: %2$d, cere un video sau VIP</string>
     <string name="photo_faces_best">Fețele arată cel mai bine la Mediu sau Mare</string>
     <string name="photo_faces_need_big">Fețele au nevoie de Mare</string>
     <string name="photo_faces_unsupported">Fețele nu sunt încă acceptate</string>

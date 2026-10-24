@@ -25,6 +25,7 @@
     <string name="mystery_later">Mystery picture</string>
     <string name="today_label_picture">Today\'s picture</string>
     <string name="today_label_pick">Today\'s pick</string>
+    <!-- Only in "<day> is covered…" lines (nudge_awaiting_one, streak_awaiting_one): lowercase where the day sits mid-sentence. -->
     <string name="day_yesterday">Yesterday</string>
 
     <!-- Evening reminder notification (T36, #102) -->

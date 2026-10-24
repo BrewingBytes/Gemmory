@@ -16,7 +16,7 @@
     <string name="mystery_later">Gizemli tablo</string>
     <string name="today_label_picture">Günün tablosu</string>
     <string name="today_label_pick">Günün önerisi</string>
-    <string name="day_yesterday">Dün</string>
+    <string name="day_yesterday">dün</string>
 
     <string name="reminder_mystery_drop_text">Yeni bir tablo, bitirene kadar gizli.</string>
     <string name="reminder_drop_title">Bu akşam: %1$s</string>
