@@ -8,10 +8,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The review prompt's counter (T39): the flag, the finish count and the attempts made, kept across app starts. */
+/** The review prompt's counter (T39): the finish count and the attempts made, kept across app starts. */
 class ReviewsTest {
     private val prefs = FakePrefs()
-    private var flag = true
     private var finishes = 3
     private var today = 20_000L
     private val events = mutableListOf<AnalyticsEvent>()
@@ -24,23 +23,11 @@ class ReviewsTest {
                 events += event
             }
         },
-        { flag },
         { finishes },
         { today },
     )
 
-    /** R1: with the flag off nothing is due, nothing is counted and nothing is logged. */
-    @Test
-    fun theFlagOffNeverAsks() {
-        flag = false
-        finishes = 30
-        val reviews = reviews()
-        reviews.onFreshFinish { listOf(today - 40, today) }
-        assertNull(reviews.due())
-        assertEquals(0, ReviewPrefs(prefs).made)
-        assertTrue(events.isEmpty())
-    }
-
+    /** T52 (review prompt always on): no catalog switch, only the counts and days. */
     @Test
     fun anAttemptIsCountedAndRemembered() {
         val reviews = reviews()

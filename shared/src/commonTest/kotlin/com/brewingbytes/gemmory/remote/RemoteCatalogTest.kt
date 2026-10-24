@@ -313,21 +313,21 @@ class RemoteCatalogTest {
         assertEquals(listOf(false, true), now.pictures.map { it.mystery })
     }
 
-    /** T39: `features.review` is the review prompt's switch; absent means off, and a switch this app doesn't know is ignored. */
+    /**
+     * R1 (T52, review prompt always on): `features` was T39's switch object; an old signed catalog that carries it, in
+     * any shape, still verifies and reads the same as one without it.
+     */
     @Test
-    fun featuresReadTheReviewSwitch() {
+    fun anOldCatalogWithFeaturesStillVerifies() {
         fun with(features: String?): CatalogCheck {
             val text = catalogJson(pictures).decodeToString()
             val bytes = (if (features == null) text else text.replaceFirst("\"pictures\": [", "\"features\": $features,\n  \"pictures\": [")).encodeToByteArray()
             return check(bytes, sign(bytes))
         }
-        assertEquals(RemoteFeatures(), assertIs<CatalogCheck.Ok>(with(null)).catalog.features, "R1: no features, review off")
-        assertEquals(RemoteFeatures(review = true), assertIs<CatalogCheck.Ok>(with("""{"review": true}""")).catalog.features)
-        assertEquals(RemoteFeatures(), assertIs<CatalogCheck.Ok>(with("""{"review": false}""")).catalog.features)
-        assertEquals(RemoteFeatures(review = true), assertIs<CatalogCheck.Ok>(with("""{"review": true, "later": 3}""")).catalog.features)
-        assertEquals(RemoteFeatures(), assertIs<CatalogCheck.Ok>(with("""{}""")).catalog.features)
-        assertEquals(CatalogRefusal.Malformed("features.review"), refusal(with("""{"review": "yes"}""")))
-        assertEquals(CatalogRefusal.Malformed("features"), refusal(with("""[true]""")))
+        val plain = assertIs<CatalogCheck.Ok>(with(null)).catalog
+        for (features in listOf("""{"review": true}""", """{"review": false}""", """{}""", """{"review": "yes"}""", """[true]""")) {
+            assertEquals(plain, assertIs<CatalogCheck.Ok>(with(features), features).catalog, features)
+        }
     }
 
     @Test

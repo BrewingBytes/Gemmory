@@ -197,7 +197,7 @@ dependencies {
     implementation(libs.play.billing.ktx)
     // Play Games Services v2 (#49): achievements only, automatic sign-in. No leaderboards or friends.
     implementation(libs.play.services.games.v2)
-    // Play In-App Review (T39): Play's own rating sheet after a finished picture, once features.review is on.
+    // Play In-App Review (T39): Play's own rating sheet after a finished picture (always on since T52).
     implementation(libs.play.review)
     // Play Install Referrer (T46): read once at a fresh install's first launch, on the phone, for T50's shared picture.
     implementation(libs.installreferrer)

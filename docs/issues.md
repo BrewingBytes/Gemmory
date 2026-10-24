@@ -833,7 +833,7 @@ Labels: P2, game
 
 Depends on: production access (the 12 × 14 closed test and the D18 gate), beside #74. Effort: human ~4h / CC ~30min.
 
-- **Built (2026-10-21):** the catalog's `features` object (unknown keys ignored, `review` must be true/false) and `:shared:setRemoteFeature` to flip it; publishes and withdraws keep it. The gate is pure `ReviewPrompt`, the order pure `GalleryReturn`. The finish count is the achievements ledger's (backfilled for older players); the first-finish day is stored once in the `review` preferences at the first return from a fresh finish: the earliest `firstFinishedDay` of the finished canvases, or "before T35" when any finished canvas has no day (code review on #106: stored, so a Start over or a deleted photo canvas can't move it later). The one-time music chip waits for Play's flow like for the ask. Connected `ReviewFlowTest` uses a counting gateway: Play's sheet can't be driven on an emulator.
+- **Built (2026-10-21):** the catalog's `features` object (unknown keys ignored, `review` must be true/false) and `:shared:setRemoteFeature` to flip it; publishes and withdraws keep it. The gate is pure `ReviewPrompt`, the order pure `GalleryReturn`. The finish count is the achievements ledger's (backfilled for older players); the first-finish day is stored once in the `review` preferences at the first return from a fresh finish: the earliest `firstFinishedDay` of the finished canvases, or "before T35" when any finished canvas has no day (code review on #106: stored, so a Start over or a deleted photo canvas can't move it later). The one-time music chip waits for Play's flow like for the ask. Connected `ReviewFlowTest` uses a counting gateway: Play's sheet can't be driven on an emulator. *(Superseded by T52, review prompt always on, 2026-10-24: the switch and `:shared:setRemoteFeature` are gone.)*
 
 ---
 
@@ -1278,6 +1278,8 @@ Labels: P2, game
 **Done when:** the prompt follows its finish rules in every build with no catalog switch, and old catalogs still verify.
 
 Depends on: none (ships in wave 2). Effort: human ~0.5d / CC ~30min.
+
+- **Built (2026-10-24, #139):** `RemoteFeatures`, `featuresEntry`, `RemotePictureTool.setFeature` and `:shared:setRemoteFeature` deleted; `ReviewPrompt.attemptDue` and `Reviews` lost the flag. The parser ignores a `features` key in any shape (it used to refuse a malformed one), and the next re-sign drops it. Tests: `RemoteCatalogTest.anOldCatalogWithFeaturesStillVerifies` (R1), `RemotePictureToolTest.publishingDropsAnOldFeaturesKey`, `ReviewPromptTest`/`ReviewsTest` without the flag, connected `ReviewFlowTest.anOldCatalogWithTheSwitchOffStillAsks` (R1). Can't be undone without a release (C7).
 
 ---
 

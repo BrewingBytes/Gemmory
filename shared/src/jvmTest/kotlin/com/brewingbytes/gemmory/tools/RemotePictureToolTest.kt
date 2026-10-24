@@ -346,28 +346,19 @@ class RemotePictureToolTest {
         assertFalse(File(dir, "grids/night-one.gmrg").exists())
     }
 
-    /** T39: the review switch re-signs the catalog with a later issuedAt, and later publishes and withdraws keep it. */
+    /** T52 (review prompt always on): a re-sign over an old catalog that carried T39's `features` writes none. */
     @Test
-    fun theReviewSwitchFlipsAndStays() {
+    fun publishingDropsAnOldFeaturesKey() {
         RemotePictureTool.publish(request("night-one"))
-        RemotePictureTool.publish(request("night-two"))
+        val catalog = File(dir, "catalog.json")
+        val old = catalog.readText().replaceFirst("\"pictures\": [", "\"features\": {\"review\": true},\n  \"pictures\": [").encodeToByteArray()
+        catalog.writeBytes(old)
+        File(dir, "catalog.json.sig").writeText(RemoteCatalogs.encodeSignature(RemotePictureTool.sign(old, keyFile(pair))))
         val before = assertIs<CatalogCheck.Ok>(check()).catalog
-        assertFalse(before.features.review)
-        assertFalse("features" in File(dir, "catalog.json").readText(), "no switch on, no features key")
 
-        RemotePictureTool.setFeature(dir, "review", true, 1_700_000_000, keyFile(pair), setOf("starter"), trusted)
-        val on = assertIs<CatalogCheck.Ok>(check()).catalog
-        assertTrue(on.features.review)
-        assertTrue(on.issuedAt > before.issuedAt, "a phone's anti-rollback takes it even with a clock behind")
-        assertEquals(before.pictures, on.pictures)
-
-        RemotePictureTool.publish(request("night-three", now = 1_792_000_200))
-        RemotePictureTool.withdraw(dir, "night-one", 1_792_000_300, keyFile(pair), setOf("starter"), trusted)
-        assertTrue(assertIs<CatalogCheck.Ok>(check()).catalog.features.review)
-
-        RemotePictureTool.setFeature(dir, "review", false, 1_792_000_400, keyFile(pair), setOf("starter"), trusted)
-        assertFalse(assertIs<CatalogCheck.Ok>(check()).catalog.features.review)
-        assertFailsWith<IllegalStateException> { RemotePictureTool.setFeature(dir, "holdout", true, 1_792_000_500, keyFile(pair), setOf("starter"), trusted) }
+        RemotePictureTool.publish(request("night-two", now = 1_792_000_200))
+        assertFalse("features" in catalog.readText())
+        assertEquals(before.pictures.map { it.id } + "night-two", assertIs<CatalogCheck.Ok>(check()).catalog.pictures.map { it.id })
     }
 
     @Test

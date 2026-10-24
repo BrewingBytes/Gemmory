@@ -144,10 +144,10 @@ Codex was unavailable (`gpt-6.1-sol` isn't supported with a ChatGPT login). A fr
    - **Events:** `canvas_*` gain `event_id`; `event_reward_unlocked` (event_id, finished_in_window).
    - **Constraints:** no timers on the canvas and no ads tied to it. A week missed is just gone, with no penalty and no nag.
 5. **In-app review prompt (T39)** (a launch item beside #74, not a pull feature; CEO C1). The Play In-App Review API after a finished picture.
-   - **Gate:** a single AAB is promoted from closed to production, so a build flag can't separate the tracks. The prompt is switched on by a flag in the signed remote catalog (`features.review`), which the founder flips once production goes live. No app release is needed.
+   - **Gate:** a single AAB is promoted from closed to production, so a build flag can't separate the tracks. The prompt is switched on by a flag in the signed remote catalog (`features.review`), which the founder flips once production goes live. No app release is needed. *(Removed by T52, review prompt always on: no switch from 0.8.4 (20).)*
    - **Attempts:** the app can't tell whether Play's quota showed the dialog, so it calls at most 3 times per install, kept as a counter. Attempt *n* (thresholds 3, 10, 25) is made at the first finished picture that meets all of these:
      - the finish count is at or past the *n*th threshold;
-     - `features.review` is on;
+     - `features.review` is on (removed by T52, review prompt always on);
      - it is at least 14 days after the previous attempt;
      - it isn't the day of the player's first finish.
 
@@ -651,7 +651,7 @@ catalog bytes → verify sig → parse (+new fields, minAppVersion skip) → Rem
 **Section 9 Deployment & rollout.**
 1. Ship the app with T36 (and T35) and wait for it to be the current Play build.
 2. Then publish dated pictures, which T44 stamps with that versionCode (D14).
-3. Set `features.review` at production (T39 with #74).
+3. Set `features.review` at production (T39 with #74). *(Gone: T52, review prompt always on, removed the switch.)*
 
 Rollback: withdraw a picture (one PR), a Play rollback for the app, or catalog flags off (one PR). The deploy-time risk window is old and new apps reading one catalog, handled by D14. Smoke test: a catalog check in CI (signature + versions) on every `pictures/v1/` PR (existing `build` check) plus the scheduled calendar check.
 

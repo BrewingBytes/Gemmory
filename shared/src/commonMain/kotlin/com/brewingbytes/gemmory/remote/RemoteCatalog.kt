@@ -52,12 +52,6 @@ data class RemoteCollection(
 )
 
 /**
- * Switches the founder flips without an app release, inside the signed bytes. [review]: the in-app review prompt
- * (T39), turned on once the app is in production (one AAB goes from closed to production, so a build flag can't).
- */
-data class RemoteFeatures(val review: Boolean = false)
-
-/**
  * A verified catalog. [issuedAt] (epoch seconds) only moves forward, so an old signed catalog can't be replayed.
  * [collections] are in catalog order, oldest first (T37: "newest" is the last listed).
  */
@@ -65,7 +59,6 @@ data class RemoteCatalog(
     val issuedAt: Long,
     val pictures: List<RemotePicture>,
     val collections: List<RemoteCollection> = emptyList(),
-    val features: RemoteFeatures = RemoteFeatures(),
 )
 
 /** Why a catalog was refused. Every refusal keeps the cached catalog as it is. */
@@ -249,13 +242,9 @@ object RemoteCatalogs {
                 collections += c
             }
         }
-        // Apps before T39 ignore the key; a key this app doesn't know is ignored too, so a later switch is safe.
-        val features = root.fields["features"]?.let { f ->
-            val o = f as? Json.Obj ?: return malformed("features")
-            val review = if ("review" in o.fields) (o.fields["review"] as? Json.Bool)?.value ?: return malformed("features.review") else false
-            RemoteFeatures(review)
-        } ?: RemoteFeatures()
-        return CatalogCheck.Ok(RemoteCatalog(issuedAt, pictures, collections, features))
+        // T39's `features` switches went with T52 (review prompt always on): an old catalog carrying the key is read
+        // like one with any other key this app doesn't know, whatever the key holds.
+        return CatalogCheck.Ok(RemoteCatalog(issuedAt, pictures, collections))
     }
 
     /** A downloaded grid against its catalog entry: SHA-256, then the GMRY file, then its CRC, then its shape. */
@@ -337,10 +326,6 @@ object RemoteCatalogs {
             titlesEntry(c.titles)?.let { put("titles", it) }
         },
     )
-
-    /** The publishing tool's `features` object (T39): only the switches that are on, or null when none is. */
-    fun featuresEntry(f: RemoteFeatures): Json.Obj? =
-        if (f.review) Json.Obj(linkedMapOf<String, Json>("review" to Json.Bool(true))) else null
 
     /** The publishing tool's catalog entry, fields in the documented order. */
     fun entry(p: RemotePicture): Json.Obj = Json.Obj(

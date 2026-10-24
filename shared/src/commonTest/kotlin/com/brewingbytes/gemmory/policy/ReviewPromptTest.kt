@@ -11,11 +11,10 @@ class ReviewPromptTest {
     private fun due(
         made: Int = 0,
         finishes: Int = 3,
-        flagOn: Boolean = true,
         today: Long = day,
         last: Long? = null,
         first: Long? = day - 5,
-    ) = ReviewPrompt.attemptDue(made, finishes, flagOn, today, last, first)
+    ) = ReviewPrompt.attemptDue(made, finishes, today, last, first)
 
     @Test
     fun eachAttemptWaitsForItsThreshold() {
@@ -30,14 +29,6 @@ class ReviewPromptTest {
     @Test
     fun neverMoreThanThreeAttempts() {
         assertNull(due(made = 3, finishes = 500, last = day - 365))
-    }
-
-    /** R1: with the flag off nothing is ever due, whatever the counts. */
-    @Test
-    fun theFlagOffMeansNoAttempt() {
-        assertNull(due(flagOn = false))
-        assertNull(due(made = 1, finishes = 10, flagOn = false, last = day - 30))
-        assertNull(due(made = 2, finishes = 25, flagOn = false, last = day - 30))
     }
 
     @Test
@@ -65,7 +56,7 @@ class ReviewPromptTest {
         assertNull(due(first = ReviewPrompt.firstFinishDay(listOf(day))), "only today's finishes: not yet")
     }
 
-    /** Already past 10 when the flag flips: one attempt at a time, the second at least 14 days after the first. */
+    /** Already past 10 when T52 (review prompt always on) arrives: one attempt at a time, the second at least 14 days after the first. */
     @Test
     fun aPlayerPastAThresholdGetsOneAttemptAtATime() {
         assertEquals(1, due(finishes = 40))

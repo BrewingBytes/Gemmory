@@ -12,7 +12,6 @@ import com.brewingbytes.gemmory.remote.RemoteCatalog
 import com.brewingbytes.gemmory.remote.RemoteCatalogs
 import com.brewingbytes.gemmory.remote.CollectionRules
 import com.brewingbytes.gemmory.remote.RemoteCollection
-import com.brewingbytes.gemmory.remote.RemoteFeatures
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.remote.Romanian
@@ -121,7 +120,7 @@ object RemotePictureTool {
         val groups = mergeCollections(published?.collections.orEmpty(), collections.map { it.copy(titles = normalized(it.titles)) })
         checkCollections(groups, old + pictures, first.reservedIds)
         val issuedAt = maxOf(first.nowSeconds, (oldIssued ?: 0) + 1)
-        val catalog = catalogBytes(RemoteCatalog(issuedAt, old + pictures, groups, published?.features ?: RemoteFeatures()))
+        val catalog = catalogBytes(RemoteCatalog(issuedAt, old + pictures, groups))
         val signature = sign(catalog, first.signingKey)
         verify(catalog, signature, oldIssued, first, frozen)
 
@@ -246,24 +245,10 @@ object RemotePictureTool {
         val old = published.pictures
         val oldIssued = published.issuedAt
         require(old.any { it.id == id }) { "$id isn't in the catalog" }
-        // Collections and switches stay: a withdrawn member that a phone never started leaves its collection there (T37).
+        // Collections stay: a withdrawn member that a phone never started leaves its collection there (T37).
         val next = published.copy(issuedAt = maxOf(nowSeconds, oldIssued + 1), pictures = old.filter { it.id != id })
         writeSigned(dir, next, oldIssued, signingKey, reservedIds, trustedKeys)
         File(dir, RemoteCatalogs.gridPath(id)).delete()
-    }
-
-    /**
-     * Turns a catalog switch on or off (T39: `review`, flipped once the app is in production) and re-signs the
-     * catalog with a later `issuedAt`, pictures and collections unchanged. Phones pick it up at their next fetch.
-     */
-    fun setFeature(dir: File, name: String, on: Boolean, nowSeconds: Long, signingKey: File, reservedIds: Set<String>, trustedKeys: List<ByteArray> = RemoteKeys.PRODUCTION) {
-        val published = current(dir, trustedKeys, reservedIds) ?: error("no catalog in $dir")
-        val features = when (name) {
-            "review" -> published.features.copy(review = on)
-            else -> error("unknown feature $name (known: review)")
-        }
-        val next = published.copy(issuedAt = maxOf(nowSeconds, published.issuedAt + 1), features = features)
-        writeSigned(dir, next, published.issuedAt, signingKey, reservedIds, trustedKeys)
     }
 
     /**
@@ -324,7 +309,6 @@ object RemotePictureTool {
                     "pictures" to Json.Arr(c.pictures.map { RemoteCatalogs.entry(it) }),
                 ).apply {
                     if (c.collections.isNotEmpty()) put("collections", Json.Arr(c.collections.map { RemoteCatalogs.collectionEntry(it) }))
-                    RemoteCatalogs.featuresEntry(c.features)?.let { put("features", it) }
                 },
             ),
         ) + "\n"
@@ -416,16 +400,6 @@ object RemotePictureTool {
         if (a["mode"] == "withdraw") {
             withdraw(dir, arg("id"), now, key, reserved)
             println("withdrew ${arg("id")}; commit $dir and open a PR (README → Publishing remote pictures)")
-            return
-        }
-        if (a["mode"] == "feature") {
-            val on = when (a["on"]) {
-                "true" -> true
-                "false" -> false
-                else -> error("missing -Pon=true or -Pon=false")
-            }
-            setFeature(dir, arg("feature"), on, now, key, reserved)
-            println("feature ${arg("feature")} ${if (on) "on" else "off"}; commit $dir and open a PR (play-compliance.md → In-app review)")
             return
         }
         if (a["mode"] == "titles") {
