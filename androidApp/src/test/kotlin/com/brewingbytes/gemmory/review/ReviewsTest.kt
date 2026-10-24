@@ -6,7 +6,6 @@ import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /** The review prompt's counter (T39): the finish count and the attempts made, kept across app starts. */
 class ReviewsTest {

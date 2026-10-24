@@ -42,6 +42,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -193,6 +194,7 @@ class ReviewFlowTest {
     @Test
     fun anOldCatalogWithTheSwitchOffStillAsks() {
         launch(legacyFeatures = """{"review": false}""")
+        assertNotNull(app.remote.catalog(), "the catalog with an old features key verified")
         finishFirstYesterday()
         val before = ads.interstitials
         finish(CanvasRef(CanvasKind.BUNDLED, "lemons"))

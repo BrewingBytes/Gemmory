@@ -653,7 +653,7 @@ catalog bytes → verify sig → parse (+new fields, minAppVersion skip) → Rem
 2. Then publish dated pictures, which T44 stamps with that versionCode (D14).
 3. Set `features.review` at production (T39 with #74). *(Gone: T52, review prompt always on, removed the switch.)*
 
-Rollback: withdraw a picture (one PR), a Play rollback for the app, or catalog flags off (one PR). The deploy-time risk window is old and new apps reading one catalog, handled by D14. Smoke test: a catalog check in CI (signature + versions) on every `pictures/v1/` PR (existing `build` check) plus the scheduled calendar check.
+Rollback: withdraw a picture (one PR), a Play rollback for the app, or catalog flags off (one PR). *(Catalog flags: none since T52, review prompt always on; turning the prompt off takes a release, C7.)* The deploy-time risk window is old and new apps reading one catalog, handled by D14. Smoke test: a catalog check in CI (signature + versions) on every `pictures/v1/` PR (existing `build` check) plus the scheduled calendar check.
 
 **Section 10 Long-term trajectory.**
 - Debt: the reason engine and the catalog field set grow, and the documentation debt is covered by the Dependencies "Docs" line.
