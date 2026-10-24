@@ -8,6 +8,7 @@ import android.graphics.Rect
 import androidx.core.graphics.createBitmap
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.FrameArt
 import com.brewingbytes.gemmory.timelapse.FrameLayout
@@ -44,7 +45,8 @@ object ClipStills {
         val top = max(TOP, (height - FrameStyle.WATERMARK_ROW - (LABEL_ROW + h + FrameLayout.TEXT_RESERVE - FrameStyle.WATERMARK_ROW)) / 2)
         val label = style.labelPaint()
         val imageTop = top + LABEL_ROW
-        for ((i, pair) in listOf(context.getString(R.string.frame_before) to before, AFTER to after).withIndex()) {
+        val (beforeLabel, afterLabel) = labels(context)
+        for ((i, pair) in listOf(beforeLabel to before, afterLabel to after).withIndex()) {
             val (name, bitmap) = pair
             val left = margin + i * (boxW + GAP) + (boxW - w) / 2
             canvas.drawText(name, left.toFloat(), (imageTop - 14).toFloat(), label)
@@ -75,7 +77,12 @@ object ClipStills {
         return bitmap
     }
 
-    private const val AFTER = "After"
+    /** The before/after's two labels in [context]'s language (#152: "After" used to be English in every language). */
+    fun labels(context: Context): Pair<String, String> {
+        val strings = context.strings
+        return strings.text(R.string.frame_before) to strings.text(R.string.frame_after)
+    }
+
     private const val TOP = 48
     private const val LABEL_ROW = 44
     private const val GAP = 24

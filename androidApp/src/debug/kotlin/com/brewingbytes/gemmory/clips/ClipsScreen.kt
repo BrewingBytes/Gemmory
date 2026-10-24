@@ -107,6 +107,11 @@ fun ClipsScreen(onBack: () -> Unit, model: ClipsViewModel = viewModel()) {
         ) {
             Panel(ui, picture, pictures, model)
             Queue(ui.queue, model.renderer.dir.path)
+            // TalkBack hears each entry as it finishes, not every percent.
+            Box(Modifier.size(1.dp).semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = ui.announcement.orEmpty()
+            })
         }
     }
 }
@@ -263,7 +268,7 @@ private fun Thumbnail(picture: ClipPicture) {
 private fun Queue(queue: List<ClipJob>, folder: String) {
     if (queue.isEmpty()) return
     Label("Queue")
-    Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+    Column {
         for (job in queue) {
             val languages = if (job.languages.size == ClipLanguages.ALL.size) "all" else job.languages.joinToString(" ")
             val line = when (val status = job.status) {
