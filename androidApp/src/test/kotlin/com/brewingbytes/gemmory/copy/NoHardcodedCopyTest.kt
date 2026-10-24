@@ -90,10 +90,7 @@ class NoHardcodedCopyTest {
             "not a JSON object",
         )
 
-        /**
-         * Whole files left out: the bundled pictures' titles move to resources with T49's translated titles (eng X4,
-         * `title_<id>`), and ReleaseAdIds' messages are the release build's own checks, never on a phone.
-         */
-        private val ALLOWED_FILES = listOf("bundled/BundledPictures.kt", "policy/ReleaseAdIds.kt")
+        /** Whole files left out: ReleaseAdIds' messages are the release build's own checks, never on a phone. */
+        private val ALLOWED_FILES = listOf("policy/ReleaseAdIds.kt")
     }
 }

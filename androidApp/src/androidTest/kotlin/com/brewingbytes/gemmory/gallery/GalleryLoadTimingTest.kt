@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.gallery
 
+import com.brewingbytes.gemmory.remote.Titles
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
@@ -68,7 +69,10 @@ class GalleryLoadTimingTest {
         (SystemClock.elapsedRealtimeNanos() - t) / 1e6
     }.sorted()[RUNS / 2]
 
-    /** T36, eng D12: unstarted remote pictures come from catalog metadata, so a year of drops costs little. */
+    /**
+     * T36, eng D12: unstarted remote pictures come from catalog metadata, so a year of drops costs little, titles in
+     * eleven languages included (T49).
+     */
     @Test
     fun theGalleryHoldsAtAYearOfDrops() {
         val catalog = TestCatalog()
@@ -79,7 +83,11 @@ class GalleryLoadTimingTest {
         val bundledMs = medianSummariesMs()
 
         val sizes = CanvasSize.entries
-        repeat(REMOTE) { i -> catalog.add("drop-%03d".format(i), sizes[i % sizes.size], salt = i * 7919, publish = false) }
+        // Each with a title in all eleven languages (T49 X4): the catalog grows and every tile resolves one.
+        repeat(REMOTE) { i ->
+            val titles = Titles.LANGUAGES.associateWith { "Drop %03d in $it".format(i) }
+            catalog.add("drop-%03d".format(i), sizes[i % sizes.size], salt = i * 7919, publish = false, titles = titles)
+        }
         catalog.publish()
         assertEquals(CheckOutcome.UPDATED, runBlocking { app.remote.check(force = true) })
         val start = SystemClock.elapsedRealtimeNanos()

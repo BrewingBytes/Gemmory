@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -222,8 +223,12 @@ fun PlayScreen(
                 val peek = remember(s) { Peek(scope) }
                 // A mystery picture (T43, D23) keeps its title, Peek and Share progress hidden (not dimmed) until finished.
                 val hidden = s.hiddenAs != null
+                // In the app's language now: a language switch keeps this session (T49).
+                val configuration = LocalConfiguration.current
+                val store = (context.applicationContext as GemmoryApp).store
+                val title = remember(s, configuration) { store.titleNow(s.ref, s.title, s.hiddenAs) }
                 TopBar(
-                    s.hiddenAs ?: s.title,
+                    title,
                     progress = s.placedCount to s.cellCount,
                     onBack = leave,
                     peek = peek.takeUnless { hidden },

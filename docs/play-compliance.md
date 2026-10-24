@@ -118,7 +118,7 @@ Before submitting each listing change, check:
 - [ ] The full description mentions ads and the VIP subscription honestly, with no fake urgency.
 - [ ] Screenshots and the feature graphic show the real app (StoreScreenshots + the app's own time-lapse output). No device frames of other brands, no awards or ratings we don't have.
 - [ ] Nothing aimed at children: no cartoon characters, no "for kids".
-- [ ] Translations: none until the app is localized (close "Import translations with AI").
+- [ ] Translations (T49): add our own for de-DE, es-ES, es-419, pt-BR, fr-FR, it-IT, ro, pl-PL, tr-TR, hu-HU, bg and ja-JP from `tools/store/listing/<locale>/` with the framed screenshots (README → Store listings), and close "Import translations with AI" for the rest. Each listing says the same things as the English one, ads and VIP included. Languages without a native review yet are listed in `docs/todos.md` → Localization.
 - [ ] Contact email and privacy policy URL filled in.
 
 ## Firebase Console settings (decided 2026-10-15)

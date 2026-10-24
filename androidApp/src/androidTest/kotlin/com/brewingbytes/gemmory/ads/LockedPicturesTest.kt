@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.ads
 
+import com.brewingbytes.gemmory.copy.strings
 import android.app.Activity
 import android.content.Context
 import android.os.Handler
@@ -140,7 +141,7 @@ class LockedPicturesTest {
     private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
         compose.waitUntil(matcher.description, timeout) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
-    private fun title(id: String) = BundledPictures.byId(id)!!.title
+    private fun title(id: String) = BundledPictures.byId(id)!!.title(context.strings)
 
     private fun scrollTo(id: String) {
         compose.onNodeWithTag("gallery-grid").performScrollToNode(hasTestTag("tile-bundled-$id"))

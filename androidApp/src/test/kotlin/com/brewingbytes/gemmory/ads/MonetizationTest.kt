@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.ads
 
+import com.brewingbytes.gemmory.R
 import android.app.Activity
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.policy.Allowance
@@ -301,8 +302,8 @@ class MonetizationTest {
 
     @Test
     fun picturesUnlockForGoodAndVipSeesNoLocks() = runTest(UnconfinedTestDispatcher()) {
-        val locked = BundledPicture("sunflowers", "Sunflowers", "pictures/x.gmrg", 0, locked = true)
-        val free = BundledPicture("starter", "The Starry Night", "pictures/starter.gmrg", 0)
+        val locked = BundledPicture("sunflowers", R.string.title_sunflowers, "pictures/x.gmrg", 0, locked = true)
+        val free = BundledPicture("starter", R.string.title_starter, "pictures/starter.gmrg", 0)
         data class Row(val name: String, val picture: BundledPicture, val unlocked: Set<String>, val entitlements: Entitlements, val started: Boolean, val expected: Boolean)
         val rows = listOf(
             Row("locked, free player", locked, emptySet(), Entitlements.FREE, started = false, expected = true),

@@ -33,8 +33,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 19
-        versionName = "0.8.3"
+        versionCode = 20
+        versionName = "0.8.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
@@ -145,6 +145,19 @@ android {
 
     // Connected tests run against debug; `-Pgemmory.testBuildType=perf` runs them against the release-like build (#117).
     testBuildType = providers.gradleProperty("gemmory.testBuildType").getOrElse("debug")
+
+    // The app's languages (T49, #136): English plus the eleven. The filter also keeps out the other languages that
+    // AndroidX and Play services bring, and the generated locale config lists these under Settings → Apps → Language on
+    // Android 13+ (X1). Every install carries every language (E2): no language splits, so a per-app pick needs no download.
+    androidResources {
+        generateLocaleConfig = true
+        localeFilters += listOf("en", "de", "es", "pt-rBR", "fr", "it", "ro", "pl", "tr", "hu", "bg", "ja")
+    }
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
 
     buildFeatures {
         compose = true

@@ -335,7 +335,7 @@ class CanvasStoreTest {
     fun aBundledPictureIsCopiedFromItsFrozenGridOnFirstOpen() = runBlocking<Unit> {
         assertFalse(store.repository.dirOf(starter).exists())
         val opened = assertIs<CanvasStore.Opened.Ready>(store.open(starter))
-        assertEquals(BundledPictures.STARTER.title, opened.title)
+        assertEquals(BundledPictures.STARTER.title(XmlStrings.en), opened.title)
         assertContentEquals(bundledGrid, File(store.repository.dirOf(starter), "grid").readBytes())
     }
 
@@ -423,7 +423,7 @@ class CanvasStoreTest {
     @Test
     fun summariesListEveryBundledPictureUnopenedOnAFreshInstall() = runBlocking<Unit> {
         val (pictures, photos) = store.summaries()
-        assertEquals(BundledPictures.ALL.map { it.title }, pictures.map { assertIs<CanvasSummary.Playable>(it).title })
+        assertEquals(BundledPictures.ALL.map { it.title(XmlStrings.en) }, pictures.map { assertIs<CanvasSummary.Playable>(it).title })
         assertTrue(pictures.all { (it as CanvasSummary.Playable).state.placedCount == 0 })
         assertTrue(store.list(CanvasKind.BUNDLED).isEmpty())
         assertTrue(photos.isEmpty())

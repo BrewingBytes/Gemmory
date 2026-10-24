@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.R
 import android.app.Activity
 import android.content.Context
 import android.net.Uri
@@ -112,11 +113,14 @@ class StoreScreenshots {
         }
         // A fixed day, no remote catalog, no real ads and a demo-mode status bar (T48's R1 pixel diff).
         PixelPins.pin(app)
+        // `-e appLocale <tag>`: the listing's shots in that language (T49 X2); none keeps the English run as it was.
+        TestLanguage.set(context, TestLanguage.requested)
         app.resetMonetizationForTest(NoAds)
     }
 
     @After
     fun tearDown() {
+        TestLanguage.set(context, null)
         app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
         PixelPins.unpin(app)
@@ -133,8 +137,10 @@ class StoreScreenshots {
         SystemClock.sleep(1_500)
         compose.waitForIdle()
         compose.onAllNodes(hasTestTag("locked-label"), useUnmergedTree = true).assertCountEquals(0)
-        A11yTestSupport.shell("screencap -p /data/local/tmp/store-${if (tablet) "t-" else ""}$name.png")
+        A11yTestSupport.shell("screencap -p /data/local/tmp/store-${TestLanguage.prefix}${if (tablet) "t-" else ""}$name.png")
     }
+
+    private fun t(id: Int) = TestLanguage.text(context, id)
 
     private fun session(): PlaySession? {
         var session: PlaySession? = null
@@ -163,7 +169,7 @@ class StoreScreenshots {
         instrumentation.runOnMainSync { s.viewport.set(24f, s.pattern.width * 0.55f, s.pattern.height * 0.45f) }
         shot("3-canvas-zoom")
 
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription(t(R.string.action_back)).performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         shot("1-gallery")
 
@@ -172,14 +178,14 @@ class StoreScreenshots {
         val again = session()!!
         instrumentation.runOnMainSync { while (!again.isFinished) again.placeNext() }
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("completion-fresh")).fetchSemanticsNodes().isNotEmpty() }
-        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription(t(R.string.completion_picture))).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(6_000)
         shot("4-completion")
 
         compose.onNodeWithTag("completion-done").performClick()
         // #89: the finished starter has moved to the Finished section, out of view.
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("gallery-grid")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithContentDescription(t(R.string.settings_title)).performClick()
         compose.onNodeWithTag("settings-membership").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }
         shot("5-paywall")
@@ -205,15 +211,15 @@ class StoreScreenshots {
     private fun makeCanvas(name: String, title: String, previewShot: String? = null): PlaySession {
         val file = photo(name)
         scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onPhotoPicked(Uri.fromFile(file)) }
-        waitText("Crop")
+        waitText(t(R.string.photo_crop))
         scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onRatio(AspectRatio.SQUARE) }
-        compose.onNodeWithText("Next").performClick()
-        waitText("Choose a size")
-        waitGone("Checking for faces…")
-        compose.onNodeWithText("Big").performClick()
-        compose.onNodeWithText("Next").performClick()
+        compose.onNodeWithText(t(R.string.action_next)).performClick()
+        waitText(t(R.string.photo_choose_size))
+        waitGone(t(R.string.photo_checking_faces))
+        compose.onNodeWithText(t(R.string.size_big)).performClick()
+        compose.onNodeWithText(t(R.string.action_next)).performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("preview-primary")).fetchSemanticsNodes().isNotEmpty() }
-        waitGone("Setting the gems…")
+        waitGone(t(R.string.photo_setting_gems))
         previewShot?.let(::shot)
         compose.onNodeWithTag("preview-primary").performClick()
         compose.waitUntil(20_000) { session()?.let { it.viewport.isLaidOut && it.placedCount == 0 } == true }
@@ -253,18 +259,18 @@ class StoreScreenshots {
     }
 
     private fun leaveCanvas() {
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText("My Photos")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(t(R.string.action_back)).performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(hasText(t(R.string.gallery_tab_photos))).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun finish(s: PlaySession, shotName: String? = null) {
         instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("completion-fresh")).fetchSemanticsNodes().isNotEmpty() }
-        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription(t(R.string.completion_picture))).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(6_000)
         shotName?.let(::shot)
         compose.onNodeWithTag("completion-done").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText("My Photos")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodes(hasText(t(R.string.gallery_tab_photos))).fetchSemanticsNodes().isNotEmpty() }
     }
 
     /** Six photo canvases through the real photo flow (VIP on the fake backend, so the daily allowance doesn't stop it). */
@@ -309,7 +315,7 @@ class StoreScreenshots {
             render(puppy, "puppy")
             leaveCanvas()
 
-            compose.onNodeWithText("My Photos").performClick()
+            compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
             shot("p-gallery")
         } finally {
             BillingBackends.fake.reset()

@@ -15,6 +15,8 @@ import com.brewingbytes.gemmory.remote.RemoteCollection
 import com.brewingbytes.gemmory.remote.RemoteFeatures
 import com.brewingbytes.gemmory.remote.RemoteKeys
 import com.brewingbytes.gemmory.remote.RemotePicture
+import com.brewingbytes.gemmory.remote.Romanian
+import com.brewingbytes.gemmory.remote.Titles
 import com.brewingbytes.gemmory.remote.Sha256
 import com.brewingbytes.gemmory.remote.toHex
 import com.brewingbytes.gemmory.save.Decoded
@@ -88,6 +90,8 @@ object RemotePictureTool {
          * and [RemoteCatalogs.MYSTERY_MIN_APP].
          */
         val mystery: Boolean = false,
+        /** Translated titles (T49 X4): language tag → title, for the app's eleven languages; written only when set. */
+        val titles: Map<String, String> = emptyMap(),
     )
 
     fun publish(r: Request): RemotePicture = publish(listOf(r)).single()
@@ -114,7 +118,7 @@ object RemotePictureTool {
         dates.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let {
             error("two drops on $it: one picture opens per date (CEO C4)")
         }
-        val groups = mergeCollections(published?.collections.orEmpty(), collections)
+        val groups = mergeCollections(published?.collections.orEmpty(), collections.map { it.copy(titles = normalized(it.titles)) })
         checkCollections(groups, old + pictures, first.reservedIds)
         val issuedAt = maxOf(first.nowSeconds, (oldIssued ?: 0) + 1)
         val catalog = catalogBytes(RemoteCatalog(issuedAt, old + pictures, groups, published?.features ?: RemoteFeatures()))
@@ -137,7 +141,8 @@ object RemotePictureTool {
     private fun freeze(r: Request, old: List<RemotePicture>): Triple<RemotePicture, Pattern, ByteArray> {
         require(RemoteCatalogs.ID.matches(r.id)) { "id must match ${RemoteCatalogs.ID.pattern}" }
         require(r.id !in r.reservedIds) { "${r.id} is a bundled picture's id" }
-        require(r.title.isNotBlank() && r.title.length <= RemoteCatalogs.MAX_TITLE) { "title must be 1-${RemoteCatalogs.MAX_TITLE} characters" }
+        require(Titles.valid(r.title)) { "title must be 1-${RemoteCatalogs.MAX_TITLE} characters, no control characters" }
+        checkTitles(r.id, r.titles)
         require(r.provenance.count { it == '|' } == 2) { "provenance must be \"<source> | <author, date> | <license>\"" }
         require(r.rewardOf == null || RemoteCatalogs.ID.matches(r.rewardOf)) { "rewardOf must be a collection id" }
         require(r.rewardOf == null || r.availableFrom == null) { "a keepsake is earned, not dated: no availableFrom with rewardOf" }
@@ -185,6 +190,7 @@ object RemotePictureTool {
             availableFrom = r.availableFrom,
             rewardOf = r.rewardOf,
             mystery = r.mystery,
+            titles = normalized(r.titles),
         )
         val picture = unstamped.copy(minAppVersion = r.minAppVersion ?: RemoteCatalogs.lowestApp(unstamped))
         check(picture.minAppVersion >= RemoteCatalogs.lowestApp(picture)) { "${r.id}: minAppVersion below ${RemoteCatalogs.lowestApp(picture)}" }
@@ -198,7 +204,8 @@ object RemotePictureTool {
     private fun mergeCollections(published: List<RemoteCollection>, added: List<RemoteCollection>): List<RemoteCollection> {
         added.map { it.id }.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()?.let { error("collection $it is twice in the batch") }
         val byId = added.associateBy { it.id }
-        return published.map { byId[it.id] ?: it } + added.filter { a -> published.none { it.id == a.id } }
+        // A re-listed collection keeps its published translations; the batch's own title columns win (T49).
+        return published.map { p -> byId[p.id]?.let { it.copy(titles = p.titles + it.titles) } ?: p } + added.filter { a -> published.none { it.id == a.id } }
     }
 
     /**
@@ -212,7 +219,8 @@ object RemotePictureTool {
         for (c in groups) {
             require(RemoteCatalogs.ID.matches(c.id)) { "collection id must match ${RemoteCatalogs.ID.pattern}" }
             require(c.id !in ids && c.id !in reserved) { "collection ${c.id} uses a picture's id" }
-            require(c.title.isNotBlank() && c.title.length <= RemoteCatalogs.MAX_TITLE) { "collection ${c.id}: title must be 1-${RemoteCatalogs.MAX_TITLE} characters" }
+            require(Titles.valid(c.title)) { "collection ${c.id}: title must be 1-${RemoteCatalogs.MAX_TITLE} characters, no control characters" }
+            checkTitles("collection ${c.id}", c.titles)
             require(c.members.isNotEmpty() && c.members.toSet().size == c.members.size) { "collection ${c.id}: members must be listed once each" }
             c.members.firstOrNull { it !in ids && it !in reserved }?.let { error("collection ${c.id}: $it isn't a published or bundled picture") }
             pictures.firstOrNull { it.rewardOf == c.id && it.id in c.members }?.let { error("collection ${c.id}: its keepsake ${it.id} can't be a member") }
@@ -257,6 +265,36 @@ object RemotePictureTool {
         val next = published.copy(issuedAt = maxOf(nowSeconds, published.issuedAt + 1), features = features)
         writeSigned(dir, next, published.issuedAt, signingKey, reservedIds, trustedKeys)
     }
+
+    /**
+     * Sets the translated titles (T49 X4) of pictures and collections already in the catalog, by id, and re-signs it
+     * with a later `issuedAt`; everything else stays. A language left out of an id's map keeps its title, so a later
+     * run can add one language. Phones pick it up at their next fetch; the app shows English where a language is missing.
+     */
+    fun setTitles(dir: File, titles: Map<String, Map<String, String>>, nowSeconds: Long, signingKey: File, reservedIds: Set<String>, trustedKeys: List<ByteArray> = RemoteKeys.PRODUCTION) {
+        val published = current(dir, trustedKeys, reservedIds) ?: error("no catalog in $dir")
+        val known = published.pictures.map { it.id } + published.collections.map { it.id }
+        titles.keys.firstOrNull { it !in known }?.let { error("$it isn't a published picture or collection") }
+        titles.forEach { (id, t) -> checkTitles(id, t) }
+        val next = published.copy(
+            issuedAt = maxOf(nowSeconds, published.issuedAt + 1),
+            pictures = published.pictures.map { p -> titles[p.id]?.let { p.copy(titles = p.titles + normalized(it)) } ?: p },
+            collections = published.collections.map { c -> titles[c.id]?.let { c.copy(titles = c.titles + normalized(it)) } ?: c },
+        )
+        writeSigned(dir, next, published.issuedAt, signingKey, reservedIds, trustedKeys)
+    }
+
+    /** A translated title's checks (O-E10): one of the app's languages, and the English title's rules. */
+    private fun checkTitles(what: String, titles: Map<String, String>) {
+        titles.keys.firstOrNull { it !in Titles.LANGUAGES }?.let { error("$what: $it isn't one of the app's languages ${Titles.LANGUAGES}") }
+        titles.entries.firstOrNull { !Titles.valid(it.value) }?.let {
+            error("$what: title_${it.key} must be 1-${RemoteCatalogs.MAX_TITLE} characters, no control characters")
+        }
+    }
+
+    /** Romanian titles with ș / ț only (T49): the cedilla forms are replaced. */
+    private fun normalized(titles: Map<String, String>): Map<String, String> =
+        titles.mapValues { (tag, title) -> if (tag == "ro") Romanian.normalize(title) else title }
 
     /** Signs [c], checks it with the app's verifier like a phone would, then writes the catalog and its signature. */
     private fun writeSigned(dir: File, c: RemoteCatalog, oldIssued: Long?, signingKey: File, reservedIds: Set<String>, trustedKeys: List<ByteArray>) {
@@ -388,6 +426,13 @@ object RemotePictureTool {
             }
             setFeature(dir, arg("feature"), on, now, key, reserved)
             println("feature ${arg("feature")} ${if (on) "on" else "off"}; commit $dir and open a PR (play-compliance.md → In-app review)")
+            return
+        }
+        if (a["mode"] == "titles") {
+            val titles = PictureBatch.readTitles(File(arg("titles")).readText())
+            setTitles(dir, titles, now, key, reserved)
+            a["fonts"]?.takeIf { it.isNotBlank() }?.let { fonts -> GlyphCheck(File(fonts)).warnings(titles).forEach { System.err.println("warning: $it") } }
+            println("titles set for ${titles.size} ids; commit $dir and open a PR (README → Translated titles)")
             return
         }
         if (a["contentChecked"] != "yes") {

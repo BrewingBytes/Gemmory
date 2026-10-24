@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.R
 import android.app.Activity
 import android.content.Context
 import android.os.SystemClock
@@ -90,6 +91,8 @@ class ScreenSizesWalkthrough {
         override fun showInterstitial(activity: Activity, onShown: () -> Unit) = false
     }
 
+    private fun t(id: Int) = TestLanguage.text(context, id)
+
     @Before
     fun setUp() {
         // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
@@ -98,6 +101,8 @@ class ScreenSizesWalkthrough {
         app.resetMonetizationForTest(NoAds)
         // A fixed day, no Today card, no remote catalog and a demo-mode status bar (T48's R1 pixel diff).
         PixelPins.pin(app)
+        // `-e appLocale <tag>`: the walkthrough in that language (T49: de, hu and ja at 200%); none is English.
+        TestLanguage.set(context, TestLanguage.requested)
         app.resetTodaysForTest(enabled = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
@@ -115,6 +120,7 @@ class ScreenSizesWalkthrough {
 
     @After
     fun tearDown() {
+        TestLanguage.set(context, null)
         app.resetStreakForTest()
         if (::scenario.isInitialized) scenario.close()
         app.resetMonetizationForTest()
@@ -140,7 +146,7 @@ class ScreenSizesWalkthrough {
 
     private fun shot(name: String) {
         settle()
-        A11yTestSupport.shell("screencap -p /data/local/tmp/walk-$name.png")
+        A11yTestSupport.shell("screencap -p /data/local/tmp/walk-${TestLanguage.prefix}$name.png")
     }
 
     private fun session(): PlaySession? {
@@ -150,13 +156,13 @@ class ScreenSizesWalkthrough {
     }
 
     private fun gallery(name: String) {
-        compose.onNodeWithText("My Photos").performClick()
+        compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         shot("$name-gallery-photos")
-        compose.onNodeWithText("Pictures").performClick()
-        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel("Start over")
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Start this picture over?")).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(t(R.string.gallery_tab_pictures)).performClick()
+        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel(t(R.string.action_start_over))
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
         shot("$name-sheet")
-        compose.onNodeWithText("Keep").performClick()
+        compose.onNodeWithText(t(R.string.action_keep)).performClick()
     }
 
     @Test
@@ -169,19 +175,19 @@ class ScreenSizesWalkthrough {
             gallery(d.name)
         }
         // The paywall column stays at most 480dp wide (D22).
-        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithContentDescription(t(R.string.settings_title)).performClick()
         compose.onNodeWithTag("settings-membership").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }
         for (d in tablets) {
             display(d)
             shot("${d.name}-paywall")
         }
-        compose.onNodeWithContentDescription("Close").performClick()
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription(t(R.string.action_close)).performClick()
+        compose.onNodeWithContentDescription(t(R.string.action_back)).performClick()
 
         // The canvas: zoom, center and selection survive every rotation and fold.
         display(phone)
-        compose.onNodeWithText("My Photos").performClick()
+        compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         compose.onNodeWithTag("tile-photo-walk-big").performClick()
         compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
@@ -208,28 +214,28 @@ class ScreenSizesWalkthrough {
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         shot("font2-gallery")
         gallery("font2")
-        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel("Start over")
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Start this picture over?")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Keep").performClick()
-        compose.onNodeWithText("My Photos").performClick()
-        compose.onNodeWithTag("tile-photo-walk-1").performCustomAccessibilityActionWithLabel("Rename")
+        compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel(t(R.string.action_start_over))
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(t(R.string.action_keep)).performClick()
+        compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
+        compose.onNodeWithTag("tile-photo-walk-1").performCustomAccessibilityActionWithLabel(t(R.string.action_rename))
         shot("font2-rename")
-        compose.onNodeWithText("Keep").performClick()
+        compose.onNodeWithText(t(R.string.action_keep)).performClick()
 
-        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithContentDescription(t(R.string.settings_title)).performClick()
         shot("font2-settings")
         compose.onNodeWithTag("settings-membership").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }
         shot("font2-paywall")
         compose.onNodeWithTag("paywall-fine-print").performScrollTo()
         shot("font2-paywall-bottom")
-        compose.onNodeWithContentDescription("Close").performClick()
-        compose.onNodeWithTag("settings-delete-all").performClick()
+        compose.onNodeWithContentDescription(t(R.string.action_close)).performClick()
+        compose.onNodeWithTag("settings-delete-all").performScrollTo().performClick()
         shot("font2-delete-all")
-        compose.onNodeWithText("Keep").performClick()
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText(t(R.string.action_keep)).performClick()
+        compose.onNodeWithContentDescription(t(R.string.action_back)).performClick()
 
-        compose.onNodeWithText("My Photos").performClick()
+        compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         compose.onNodeWithTag("tile-photo-walk-1").performClick()
         compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
@@ -238,16 +244,16 @@ class ScreenSizesWalkthrough {
         instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("completion-fresh")).fetchSemanticsNodes().isNotEmpty() }
         // The picture loads in real time; the lights-down sequence starts only then.
-        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription(t(R.string.completion_picture))).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(6_000)
         shot("font2-completion")
         compose.onNodeWithTag("completion-done").performClick()
-        compose.onNodeWithText("My Photos").performClick()
+        compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         // #89: the finished canvas sits in My Photos' Finished section.
         compose.openFinishedTile(CanvasRef(CanvasKind.PHOTO, "walk-1"))
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("completion-still")).fetchSemanticsNodes().isNotEmpty() }
         shot("font2-completion-still")
-        compose.onNodeWithText("Play again").performClick()
+        compose.onNodeWithText(t(R.string.completion_play_again)).performClick()
         shot("font2-play-again")
     }
 }

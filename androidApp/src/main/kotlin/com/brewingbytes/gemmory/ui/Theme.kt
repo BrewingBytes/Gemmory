@@ -20,6 +20,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
@@ -42,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.strings
 import kotlin.random.Random
 
 /** Tokens from docs/design-system.md ("The Sorting Tray"). */
@@ -79,23 +84,55 @@ data class Felt(val ground: Color, val deep: Color, val raised: Color)
 
 val LocalFelt = staticCompositionLocalOf { Felt(GemColors.Felt, GemColors.FeltDeep, GemColors.FeltRaised) }
 
-private val Bricolage = FontFamily(
-    Font(R.font.bricolage_grotesque, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
-)
-val Figtree = FontFamily(
-    Font(R.font.figtree, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
-    Font(R.font.figtree, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
-)
 private val AtkinsonMono = FontFamily(
     Font(R.font.atkinson_hyperlegible_mono, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
 )
 
+private fun AppFonts.Face.font(weight: FontWeight) =
+    if (variable) Font(res, weight, variationSettings = FontVariation.Settings(FontVariation.weight(this.weight))) else Font(res, weight)
+
+/**
+ * The type scale in one language's faces (T49): Latin is Bricolage Grotesque + Figtree as before, word for word the
+ * same styles. German and Hungarian hyphenate; Japanese breaks lines at phrases and reads at 1.6 (DR6, DC4).
+ */
+@Immutable
+class GemTypeSet private constructor(fonts: AppFonts, language: String) {
+    private val displayFamily = FontFamily(fonts.display.font(FontWeight.SemiBold))
+    private val bodyFamily = FontFamily(fonts.body.font(FontWeight.Normal), fonts.bodyStrong.font(FontWeight.SemiBold))
+    private val wrap = when (language) {
+        "de", "hu" -> TextStyle(hyphens = Hyphens.Auto)
+        "ja" -> TextStyle(lineBreak = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase))
+        else -> TextStyle()
+    }
+
+    val display = wrap.merge(TextStyle(fontFamily = displayFamily, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, letterSpacing = (-0.01).em))
+    val displayLarge = wrap.merge(TextStyle(fontFamily = displayFamily, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, letterSpacing = (-0.02).em))
+    val body = wrap.merge(TextStyle(fontFamily = bodyFamily, fontSize = 16.sp, lineHeight = if (language == "ja") 25.6.sp else 24.sp))
+    val button = wrap.merge(TextStyle(fontFamily = bodyFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp))
+    val label = wrap.merge(TextStyle(fontFamily = bodyFamily, fontSize = 13.sp))
+
+    companion object {
+        private val sets = mutableMapOf<String, GemTypeSet>()
+
+        /** The scale for a language code, made once per language. */
+        fun of(language: String): GemTypeSet {
+            val key = when (language) { "de", "hu", "ja", "bg" -> language; else -> "en" }
+            return synchronized(sets) { sets.getOrPut(key) { GemTypeSet(AppFonts.forLanguage(key), key) } }
+        }
+    }
+}
+
+val LocalGemType = staticCompositionLocalOf { GemTypeSet.of("en") }
+
+/** The type scale of the language the app shows, provided by [GemmoryTheme]. */
 object GemType {
-    val display = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, letterSpacing = (-0.01).em)
-    val displayLarge = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, letterSpacing = (-0.02).em)
-    val body = TextStyle(fontFamily = Figtree, fontSize = 16.sp, lineHeight = 24.sp)
-    val button = TextStyle(fontFamily = Figtree, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-    val label = TextStyle(fontFamily = Figtree, fontSize = 13.sp)
+    val display: TextStyle @Composable @ReadOnlyComposable get() = LocalGemType.current.display
+    val displayLarge: TextStyle @Composable @ReadOnlyComposable get() = LocalGemType.current.displayLarge
+    val body: TextStyle @Composable @ReadOnlyComposable get() = LocalGemType.current.body
+    val button: TextStyle @Composable @ReadOnlyComposable get() = LocalGemType.current.button
+    val label: TextStyle @Composable @ReadOnlyComposable get() = LocalGemType.current.label
+
+    /** Figures in every language (DC3): Atkinson Hyperlegible Mono 700, tabular. */
     val mono = TextStyle(fontFamily = AtkinsonMono, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
 
     /** The streak number (#101, G8): mono 700, tabular; 88sp on the celebration, 56sp on the streak screen. */
@@ -120,15 +157,16 @@ fun GemmoryTheme(content: @Composable () -> Unit) {
         secondaryContainer = felt.raised,
         onSecondaryContainer = GemColors.Bone,
     )
+    val type = GemTypeSet.of(strings().locale.language)
     val typography = Typography(
-        headlineLarge = GemType.displayLarge,
-        titleLarge = GemType.display,
-        bodyLarge = GemType.body,
-        bodyMedium = GemType.body,
-        labelLarge = GemType.button,
-        bodySmall = GemType.label,
+        headlineLarge = type.displayLarge,
+        titleLarge = type.display,
+        bodyLarge = type.body,
+        bodyMedium = type.body,
+        labelLarge = type.button,
+        bodySmall = type.label,
     )
-    androidx.compose.runtime.CompositionLocalProvider(LocalFelt provides felt) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalFelt provides felt, LocalGemType provides type) {
         MaterialTheme(colorScheme = scheme, typography = typography, content = content)
     }
 }
@@ -203,5 +241,5 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
             .clickable(role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(text, style = GemType.button, color = GemColors.Bone) }
+    ) { Text(text, style = GemType.button, color = GemColors.Bone, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }

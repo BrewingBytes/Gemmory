@@ -148,7 +148,7 @@ class TodaysPictureTest {
         val size = Messages.size(context.strings, assertNotNull(BundledPictures.canvasSizeOf(id)))
 
         // The card: one TalkBack node with its copy, a quiet Start, and the finished picture.
-        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture: ${picture.title}, $size, free to start today"))
+        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture: ${picture.title(context.strings)}, $size, free to start today"))
         compose.onNode(hasTestTag(TODAY_TAG) and hasAnyDescendant(hasText("Today's picture")), useUnmergedTree = true).assertExists()
         compose.onNode(hasTestTag(TODAY_TAG) and hasAnyDescendant(hasText("$size · free today")), useUnmergedTree = true).assertExists()
         compose.onNode(hasTestTag(TODAY_TAG) and hasAnyDescendant(hasText("Start")), useUnmergedTree = true).assertExists()
@@ -179,7 +179,7 @@ class TodaysPictureTest {
         assertEquals(id, gallery().today!!.tile.ref.id, "the same picture all day")
         compose.onNodeWithTag("gallery-grid").performScrollToNode(hasTestTag(TODAY_TAG))
         compose.onNode(hasTestTag(TODAY_TAG) and hasAnyDescendant(hasText("Continue")), useUnmergedTree = true).assertExists()
-        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture: ${picture.title}, ${gallery().today!!.tile.percent}% done"))
+        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture: ${picture.title(context.strings)}, ${gallery().today!!.tile.percent}% done"))
     }
 
     @Test
@@ -190,7 +190,7 @@ class TodaysPictureTest {
         val picture = assertNotNull(BundledPictures.byId(card.tile.ref.id))
         val size = Messages.size(context.strings, assertNotNull(BundledPictures.canvasSizeOf(picture.id)))
         assertTrue(card.vip && !card.free)
-        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's pick: ${picture.title}, $size"))
+        waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's pick: ${picture.title(context.strings)}, $size"))
         compose.onNode(hasTestTag(TODAY_TAG) and hasAnyDescendant(hasText("Today's pick")), useUnmergedTree = true).assertExists()
         compose.onNode(hasTestTag(TODAY_TAG) and hasAnyDescendant(hasText("$size · free today")), useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag(TODAY_TAG).performClick()

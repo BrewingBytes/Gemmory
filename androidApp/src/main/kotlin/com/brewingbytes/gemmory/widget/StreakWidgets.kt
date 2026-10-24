@@ -68,6 +68,11 @@ class StreakWidgets(
         if (placed()) arm()
     }
 
+    /** The app's language may have changed (T49): placed widgets redraw their words in it. */
+    fun relabel() {
+        scope.launch { if (placed()) StreakWidget().updateAll(context) }
+    }
+
     /** The first widget was placed. */
     fun onAdded() {
         analytics.log(AnalyticsEvent.streakWidgetAdded())

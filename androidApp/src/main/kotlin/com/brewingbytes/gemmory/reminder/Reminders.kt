@@ -61,6 +61,11 @@ class Reminders(
 
     fun notificationsAllowed(): Boolean = notifier.allowed()
 
+    /** The app's language may have changed (T49): the channel's name and description are re-set in it. */
+    fun relabel() {
+        if (prefs.on) notifier.ensureChannel()
+    }
+
     fun setOn(on: Boolean) {
         if (on == prefs.on) return
         prefs.on = on

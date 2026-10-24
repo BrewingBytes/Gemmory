@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.clips
 
+import com.brewingbytes.gemmory.remote.titleIn
 import com.brewingbytes.gemmory.copy.Messages
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
@@ -24,12 +25,12 @@ class ClipPicture(val ref: CanvasRef, val title: String, val size: String?, priv
 fun clipPictures(app: GemmoryApp): List<ClipPicture> {
     val strings = app.strings
     val bundled = BundledPictures.ALL.map { picture ->
-        ClipPicture(CanvasRef(CanvasKind.BUNDLED, picture.id), picture.title, BundledPictures.canvasSizeOf(picture.id)?.let { Messages.size(strings, it) }) {
+        ClipPicture(CanvasRef(CanvasKind.BUNDLED, picture.id), picture.title(strings), BundledPictures.canvasSizeOf(picture.id)?.let { Messages.size(strings, it) }) {
             app.assets.open(picture.asset).use { it.readBytes() }
         }
     }
     val remote = app.remote.storedPictures().map { picture ->
-        ClipPicture(CanvasRef(CanvasKind.REMOTE, picture.id), picture.title, Messages.size(strings, picture.size)) { app.remote.storedGrid(picture.id) }
+        ClipPicture(CanvasRef(CanvasKind.REMOTE, picture.id), picture.titleIn(strings.locale.toLanguageTag()), Messages.size(strings, picture.size)) { app.remote.storedGrid(picture.id) }
     }
     return bundled + remote
 }

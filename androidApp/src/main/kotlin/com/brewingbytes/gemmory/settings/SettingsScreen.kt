@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -119,9 +120,13 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     style = GemType.body,
                     color = GemColors.Bone,
                     textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).testTag("settings-highlight-value"),
                 )
             }
+            // The app's language (T49 DR5): Android 13+ only.
+            LanguageRow()
             // Play Games achievements (#49): only where Play Games can run.
             AchievementsRow(app.achievements)
             Row(
@@ -140,6 +145,8 @@ fun SettingsScreen(onBack: () -> Unit, onMembership: () -> Unit) {
                     style = GemType.body,
                     color = GemColors.Bone,
                     textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).testTag("settings-membership-value"),
                 )
             }

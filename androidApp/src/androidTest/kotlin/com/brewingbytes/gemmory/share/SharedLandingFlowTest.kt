@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.share
 
+import com.brewingbytes.gemmory.copy.strings
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.test.hasTestTag
@@ -133,7 +134,7 @@ class SharedLandingFlowTest {
         launch()
         compose.waitUntil("the shared canvas", 10_000) { opened() == lockedRef }
         compose.waitUntil("its toast", 3_000) {
-            compose.onAllNodes(hasTestTag(SHARED_TOAST_TAG) and hasText("Shared with you: ${locked.title}"), useUnmergedTree = true)
+            compose.onAllNodes(hasTestTag(SHARED_TOAST_TAG) and hasText("Shared with you: ${locked.title(context.strings)}"), useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(app.todays.isFreeToday(lockedRef), "free to start today, like Today's picture")
