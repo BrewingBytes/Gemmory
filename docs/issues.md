@@ -1332,3 +1332,5 @@ Labels: P2, ui. No T-number (founder request after #144, 2026-10-24).
 **Done when:** a picture picked from the dropdown can be queued in several languages, with more pictures after it, giving one clip per language without changing the app's language.
 
 Depends on: #144 (PR #151).
+
+**Built** (2026-10-24, branch `feat/152-clips-queue`, stacked on #151).

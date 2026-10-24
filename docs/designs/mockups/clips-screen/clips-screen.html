@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Clips screen rework</title>
+<style>
+@font-face { font-family:"Figtree"; src:url("figtree.ttf"); }
+@font-face { font-family:"Bricolage"; src:url("bricolage_grotesque.ttf"); }
+:root { --felt:#4F5A52; --felt-deep:#3E4741; --felt-raised:#5C685F; --bone:#E9E4D8; --on-bone:#2B322D; --muted:#CDD3C9; --lamp:#F4E3B1; --patina-text:#ACD6C6; --ground:#262c28; }
+* { box-sizing:border-box; }
+body { margin:0; padding:28px 32px 60px; background:var(--ground); color:var(--bone); font-family:Figtree, sans-serif; }
+h1 { font-family:Bricolage; font-weight:600; font-size:28px; margin:0 0 6px; }
+h2 { font-family:Bricolage; font-weight:600; font-size:20px; margin:36px 0 4px; }
+.lead, .note { color:var(--muted); max-width:1150px; font-size:14px; line-height:1.5; margin:4px 0 14px; }
+.row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+.col { width:360px; }
+.tag { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:10px; background:var(--felt); margin-bottom:6px; }
+.tag.rec { background:var(--lamp); color:var(--on-bone); }
+.cap { font-size:13px; color:var(--muted); line-height:1.45; margin-top:8px; }
+/* Phone at 360dp */
+.phone { width:360px; height:740px; border-radius:18px; overflow:hidden; position:relative; background:var(--felt);
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1.3px); background-size:5px 5px; box-shadow:0 6px 18px rgba(0,0,0,.4); }
+.status { height:24px; }
+.top { height:56px; display:flex; align-items:center; gap:8px; padding:0 4px; }
+.top .back { width:48px; height:48px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+.top .t { font-family:Bricolage; font-weight:600; font-size:22px; }
+.body { padding:4px 16px 16px; display:flex; flex-direction:column; gap:8px; }
+.lbl { font-size:14px; color:var(--muted); margin-top:6px; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; }
+.chip { min-width:64px; height:48px; padding:0 16px; border-radius:6px; background:var(--felt-raised); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:16px; border:2px solid transparent; }
+.chip.on { border-color:var(--lamp); }
+.chip.sm { height:40px; padding:0 12px; font-size:15px; min-width:0; }
+.drop { height:64px; border-radius:6px; background:var(--felt-deep); display:flex; align-items:center; gap:12px; padding:0 12px; border:1px solid rgba(233,228,216,.25); }
+.drop img, .item img { width:40px; height:40px; object-fit:cover; border-radius:4px; }
+.drop .n, .item .n { font-size:16px; flex:1; }
+.drop .s, .item .s { font-size:13px; color:var(--muted); }
+.drop .v { font-size:18px; }
+.btn { height:48px; border-radius:6px; background:var(--felt-raised); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:16px; margin-top:6px; }
+.line { font-size:16px; }
+.mono { font-family:ui-monospace, Menlo, monospace; font-size:13px; color:var(--bone); }
+.bar { height:6px; border-radius:3px; background:var(--felt-deep); overflow:hidden; } .bar i { display:block; height:100%; background:var(--lamp); }
+.menu { position:absolute; left:16px; right:16px; top:178px; background:var(--felt-deep); border-radius:6px; box-shadow:0 10px 30px rgba(0,0,0,.5); padding:6px 0; max-height:540px; overflow:hidden; }
+.search { margin:4px 10px 6px; height:44px; border-radius:6px; background:var(--felt); display:flex; align-items:center; padding:0 12px; color:var(--muted); font-size:15px; }
+.item { height:56px; display:flex; align-items:center; gap:12px; padding:0 12px; }
+.item.sel { background:rgba(244,227,177,.12); box-shadow:inset 3px 0 0 var(--lamp); }
+.sw { width:40px; height:40px; border-radius:4px; }
+.queue { display:flex; flex-direction:column; gap:2px; margin-top:4px; }
+.q { height:52px; display:flex; align-items:center; gap:10px; font-size:15px; border-bottom:1px solid rgba(233,228,216,.1); }
+.q .m { color:var(--muted); font-size:13px; }
+</style></head><body>
+<h1>Clips screen rework (follow-up to #144)</h1>
+<p class="lead">Debug-only founder tool (T47). Today it's one row per picture (title, 3 order chips, 3 format chips, Render) for every bundled and remote picture: a long scroll. The founder asked for a picture <b>dropdown</b> and <b>several languages in one render</b>, picked by chips, without switching the app's language. Built from the existing parts: <code>Chip</code> (lamp outline = on), <code>QuietButton</code>, felt surfaces, Figtree. 360dp phone.</p>
+
+<h2>A · One panel with a picture dropdown</h2>
+<p class="note">One panel in place of the list. The dropdown shows the picked picture (thumbnail, title, size). Languages are checkbox chips in their own names, the app's language on by default; "All" turns every one on (or off). Render says how many languages. Files get a language suffix (<code>wave-by-color-de.mp4</code>, <code>wave-before-after-de.png</code>), so nothing overwrites; <code>finished.png</code> has no words and is made once.</p>
+<div class="row" id="a"></div>
+
+<h2>B · The same panel plus a queue</h2>
+<p class="note">Render becomes "Add to queue": line up several pictures, each with its own order, formats and languages, and let them all render one after another. More to build; useful for a batch of ads in one sitting.</p>
+<div class="row" id="b"></div>
+
+<script>
+const WAVE = '<img src="15-wave-finished.png">', STAR = '<img src="14-starter-finished.png">';
+const LANGS = ["English","Deutsch","Español","Português","Français","Italiano","Română","Polski","Türkçe","Magyar","Български","日本語"];
+function phone(inner, extra = "", h = 740) { return `<div class="phone" style="height:${h}px"><div class="status"></div><div class="top"><div class="back">←</div><div class="t">Clips</div></div><div class="body">${inner}</div>${extra}</div>`; }
+function drop(img, name, size) { return `<div class="lbl">Picture</div><div class="drop">${img}<div class="n">${name}</div><div class="s">${size}</div><div class="v">▾</div></div>`; }
+function chips(list, on, cls = "") { return `<div class="chips">${list.map(x => `<div class="chip ${cls} ${on.includes(x) ? "on" : ""}">${x}</div>`).join("")}</div>`; }
+function panel(on, render, status = "") {
+  return drop(WAVE, "The Great Wave", "Medium")
+    + `<div class="lbl">Order</div>` + chips(["By color","Ripple","Random"], ["By color"])
+    + `<div class="lbl">Formats</div>` + chips(["9:16","4:5","Stills"], ["9:16","4:5","Stills"])
+    + `<div class="lbl">Languages</div>` + chips(["All", ...LANGS], on, "sm")
+    + `<div class="btn">${render}</div>` + status;
+}
+function col(tag, rec, frame, cap) { return `<div class="col"><span class="tag${rec ? " rec" : ""}">${tag}</span>${frame}<div class="cap">${cap}</div></div>`; }
+const menu = `<div class="menu"><div class="search">Search pictures</div>`
+  + [["The Great Wave","Medium",WAVE,1],["The Starry Night","Quick",STAR,0],["Almond Blossom","Medium",'<div class="sw" style="background:#9fc3c0"></div>',0],["Annecy","Big",'<div class="sw" style="background:#7b8f9e"></div>',0],["Autumn Road","Medium",'<div class="sw" style="background:#b97a45"></div>',0],["Balloon","Quick",'<div class="sw" style="background:#c9574a"></div>',0],["Beach Huts","Quick",'<div class="sw" style="background:#5d9ab8"></div>',0],["Lighthouse · remote","Medium",'<div class="sw" style="background:#6b7c8a"></div>',0]]
+    .map(([n,s,i,sel]) => `<div class="item ${sel ? "sel" : ""}">${i}<div class="n">${n}</div><div class="s">${s}</div></div>`).join("") + `</div>`;
+document.getElementById("a").innerHTML =
+  col("A · default", true, phone(panel(["English"], "Render")), "Opens on the first picture, the app's language on. Every choice stays when you switch picture.")
+  + col("A · picking a picture", true, phone(panel(["English"], "Render"), menu), "The menu lists every picture on the phone (bundled, then remote) with its size; type to filter. 56dp rows.")
+  + col("A · three languages rendering", true, phone(panel(["English","Deutsch","Español"], "Render 3 languages",
+      `<div class="line">Rendering Deutsch… 45% (2 of 3)</div><div class="bar"><i style="width:48%"></i></div><div class="line" style="margin-top:4px">Saved 4 files</div><div class="mono">/sdcard/Android/data/…/Movies/clips</div>`)),
+      "One render at a time; the line names the language. 3 languages × (9:16, 4:5, before/after) + 1 finished = 10 files.");
+document.getElementById("b").innerHTML =
+  col("B · queue", false, phone(drop(WAVE, "The Great Wave", "Medium") + `<div class="lbl">Order</div>` + chips(["By color","Ripple","Random"], ["Ripple"])
+    + `<div class="lbl">Formats</div>` + chips(["9:16","4:5","Stills"], ["9:16"]) + `<div class="lbl">Languages</div>` + chips(["All","English","Deutsch","Español","Français","…"], ["English","Deutsch"], "sm")
+    + `<div class="btn">Add to queue</div><div class="lbl">Queue</div><div class="queue">`
+    + `<div class="q">✓ The Starry Night <span class="m">· en de · done</span></div>`
+    + `<div class="q">▸ Sunflowers <span class="m">· all · 45% (Español)</span></div>`
+    + `<div class="q">· The Great Wave <span class="m">· en de · waiting</span></div></div>`, "", 860),
+    "Each entry keeps its own choices; ✓ done, ▸ rendering, · waiting. Leaving the screen stops the queue, as a render stops today.");
+</script></body></html>

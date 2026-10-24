@@ -13,10 +13,11 @@ import com.brewingbytes.gemmory.timelapse.EncodeTarget
 import com.brewingbytes.gemmory.timelapse.FallbackChain
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
 import com.brewingbytes.gemmory.timelapse.ShareFrame
+import com.brewingbytes.gemmory.copy.strings
 import kotlinx.coroutines.CancellationException
 import java.io.File
 
-/** What a clip render makes (T47). [STILLS] is two files: the before/after and the finished canvas. */
+/** What a clip render makes (T47). [STILLS] is the before/after in each language and the finished canvas once. */
 enum class ClipFormat(val label: String) {
     NINE_SIXTEEN("9:16"),
     FOUR_FIVE("4:5"),
@@ -35,57 +36,76 @@ class ClipResult(val saved: List<File>, val error: String?)
  */
 class ClipRenderer(private val context: Context, val dir: File) {
     /**
-     * Blocking. Makes `<id>-<order>.mp4`, `<id>-<order>-4x5.mp4`, `<id>-before-after.png` and `<id>-finished.png` for
-     * [formats], in that order, stopping at the first failure. [onProgress] gets a whole percent over all of them;
-     * [checkCancelled] throws to stop, and the file being written is deleted.
+     * Blocking. For each of [languages] (tags, [ClipLanguages]), in that language: `<id>-<order>-<lang>.mp4`,
+     * `<id>-<order>-4x5-<lang>.mp4` and `<id>-before-after-<lang>.png` for [formats]; then `<id>-finished.png` once (it
+     * has no words). Stops at the first failure. [onProgress] gets a whole percent over all of them and the language
+     * being drawn; [checkCancelled] throws to stop, and the file being written is deleted.
      */
-    fun render(picture: ClipPicture, order: ClipOrder, formats: Set<ClipFormat>, onProgress: (Int) -> Unit, checkCancelled: () -> Unit): ClipResult {
+    fun render(
+        picture: ClipPicture,
+        order: ClipOrder,
+        formats: Set<ClipFormat>,
+        languages: List<String>,
+        onProgress: (percent: Int, language: String) -> Unit,
+        checkCancelled: () -> Unit,
+    ): ClipResult {
         val saved = ArrayList<File>()
         val pattern = picture.pattern() ?: return ClipResult(saved, "Couldn't read this picture's grid")
         dir.mkdirs()
         val id = picture.ref.id
         val log = ClipOrders.of(order, pattern, ClipOrders.seedOf(id))
-        val request = EncodeRequest(picture.ref, pattern, log, picture.title, source = null, watermark = true, frame = ShareFrame.CLIP)
         val videos = listOf(ClipFormat.NINE_SIXTEEN, ClipFormat.FOUR_FIVE).filter { it in formats }
-        val units = videos.size * ClipFramePlan.FRAMES + if (ClipFormat.STILLS in formats) STILLS_UNITS else 0
+        val stills = ClipFormat.STILLS in formats
+        val perLanguage = videos.size * ClipFramePlan.FRAMES + if (stills) STILLS_UNITS else 0
+        val units = languages.size * perLanguage + if (stills) STILLS_UNITS else 0
         var done = 0
         var percent = -1
+        var language = languages.firstOrNull().orEmpty()
         fun progress(at: Int) {
             val next = if (units == 0) 100 else at * 100 / units
             if (next > percent) {
                 percent = next
-                onProgress(next)
+                onProgress(next, language)
             }
         }
         progress(0)
-        for (format in videos) {
-            val name = if (format == ClipFormat.NINE_SIXTEEN) "$id-${order.fileName}.mp4" else "$id-${order.fileName}-4x5.mp4"
-            val error = video(request, File(dir, name), if (format == ClipFormat.NINE_SIXTEEN) EncodeTarget.CHAIN else FOUR_FIVE, checkCancelled) {
-                progress(done + it)
-            }
-            if (error != null) return ClipResult(saved, error)
-            saved += File(dir, name)
-            done += ClipFramePlan.FRAMES
-        }
-        if (ClipFormat.STILLS in formats) {
-            val stills = listOf<Pair<String, () -> Bitmap>>(
-                "$id-before-after.png" to { ClipStills.beforeAfter(context, request) },
-                "$id-finished.png" to { ClipStills.finished(pattern) },
-            )
-            for ((name, draw) in stills) {
-                checkCancelled()
-                val file = File(dir, name)
-                val error = still(file, draw)
+        for (tag in languages) {
+            language = tag
+            val localized = ClipLanguages.context(context, tag)
+            val title = picture.titleIn(localized.strings)
+            val request = EncodeRequest(picture.ref, pattern, log, title, source = null, watermark = true, frame = ShareFrame.CLIP)
+            for (format in videos) {
+                val file = File(dir, fileName(id, order, format, tag))
+                val error = video(localized, request, file, if (format == ClipFormat.NINE_SIXTEEN) EncodeTarget.CHAIN else FOUR_FIVE, checkCancelled) {
+                    progress(done + it)
+                }
                 if (error != null) return ClipResult(saved, error)
                 saved += file
+                done += ClipFramePlan.FRAMES
             }
+            if (stills) {
+                checkCancelled()
+                val file = File(dir, fileName(id, order, ClipFormat.STILLS, tag))
+                val error = still(file) { ClipStills.beforeAfter(localized, request) }
+                if (error != null) return ClipResult(saved, error)
+                saved += file
+                done += STILLS_UNITS
+                progress(done)
+            }
+        }
+        if (stills) {
+            checkCancelled()
+            val file = File(dir, "$id-finished.png")
+            val error = still(file) { ClipStills.finished(pattern) }
+            if (error != null) return ClipResult(saved, error)
+            saved += file
             progress(units)
         }
         return ClipResult(saved, null)
     }
 
     /** One MP4 through the fallback chain; null when it's saved, else the error line. */
-    private fun video(request: EncodeRequest, out: File, targets: List<EncodeTarget>, checkCancelled: () -> Unit, onFrame: (Int) -> Unit): String? {
+    private fun video(context: Context, request: EncodeRequest, out: File, targets: List<EncodeTarget>, checkCancelled: () -> Unit, onFrame: (Int) -> Unit): String? {
         fun partialOf(target: EncodeTarget?) = File(dir, if (target == null) "${out.name}.png$PARTIAL" else "${out.name}.${target}$PARTIAL")
         val chain = FallbackChain(
             backend = MediaCodecEncoder(context, request, ::partialOf, free = { StatFs(dir.path).availableBytes }),
@@ -137,6 +157,16 @@ class ClipRenderer(private val context: Context, val dir: File) {
     }
 
     companion object {
+        /**
+         * A file's name (#152): a video or the before/after still of [format] in [language]. The finished still has no
+         * language: `<id>-finished.png`.
+         */
+        fun fileName(id: String, order: ClipOrder, format: ClipFormat, language: String): String = when (format) {
+            ClipFormat.NINE_SIXTEEN -> "$id-${order.fileName}-$language.mp4"
+            ClipFormat.FOUR_FIVE -> "$id-${order.fileName}-4x5-$language.mp4"
+            ClipFormat.STILLS -> "$id-before-after-$language.png"
+        }
+
         /** 4:5 for feed posts: 1080×1350, then 864×1080. */
         val FOUR_FIVE = listOf(EncodeTarget(1080, 1350), EncodeTarget(864, 1080))
 
