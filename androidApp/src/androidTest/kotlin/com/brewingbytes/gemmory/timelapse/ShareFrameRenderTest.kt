@@ -152,6 +152,36 @@ class ShareFrameRenderTest {
         }
     }
 
+    /**
+     * The feed cut (T51): the founder clip's 9:16 frame without the end card. Its hook puts the whole log on the
+     * canvas, and the first build frame goes back to exactly the tint grid it started from.
+     */
+    @Test
+    fun theFeedCutHasTheClipFrameWithoutTheCard() {
+        val r = request(frame = ShareFrame.FEED)
+        val art = FrameArt(context, r, 1080, 1920)
+        val fresh = FrameArt(context, r, 1080, 1920)
+        try {
+            val layout = ClipLayout.of(1080, 1920, r.pattern.width, r.pattern.height, titleLines = 1, lockupTextWidth = 0)
+            assertEquals(layout.board.bottom, art.boardRect.bottom, "board above the title, as a founder clip's")
+            assertEquals(layout.board.width, art.boardRect.width())
+            assertNotNull(art.overlay, "the title and the lockup on every frame")
+            assertNull(art.card, "no end card")
+            assertNull(art.endCard(1f))
+            assertNull(art.source, "a bundled picture has no photo over its hook")
+            assertEquals(true to 0f, art.apply(Frame.Reveal(0f)), "the hook draws every gem at once")
+            assertEquals(false to 0f, art.apply(Frame.Reveal(0f)))
+            assertTrue(!art.canvas.sameAs(fresh.canvas), "the hook shows the finished canvas")
+            assertEquals(true to 0f, art.apply(Frame.Build(0)), "the cut")
+            assertTrue(art.canvas.sameAs(fresh.canvas), "back to the very tint grid it started from")
+            art.apply(Frame.Build(r.log.size))
+            assertEquals(false to 0f, art.apply(Frame.Hold))
+        } finally {
+            art.release()
+            fresh.release()
+        }
+    }
+
     /** #144 review: a clip title's lines are exactly 70px apart in every face, Bulgarian's and Japanese's taller ones too. */
     @Test
     fun aClipTitlesLinesAre70pxInEveryFace() {

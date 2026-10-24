@@ -1258,6 +1258,10 @@ Labels: P2, timelapse
 
 **Scope trim (2026-10-23, T50 design review D5):** T53 (#145) now burns the app name and Google's Play badge into every frame of the player's share and adds the end card, so if T51 opens it is only the ≤7 s feed cut.
 
+**Gate opened (2026-10-24):** the founder called the posting test "a hit". No per-clip numbers were recorded, so length and hook follow the round 3 design doc's defaults.
+
+**Decided at Phase 6 (founder, 2026-10-24):** the surface is picked by the target app. One Share of a finished non-VIP picture makes the T53 video and a 7 s feed cut; Android's share sheet hands TikTok, Instagram and YouTube the feed cut (`EXTRA_REPLACEMENT_EXTRAS`), every other app the video and the link. There's no new button. The cut is a loop: a 0.5 s hook (the finished picture, or the photo turning into gems), a hard cut to the tint grid, a 5.5 s build and a 1 s hold, with no end card, in #144's feed-safe frame with the C2 lockup on every frame (mock `~/.gstack/projects/Gemmory/designs/t51-feed-cut-20261024/`). VIP and progress shares don't change. The debug Clips screen gets a "7 s feed" format.
+
 Depends on: the posting test; T47 for the founder's clips. Effort: human ~2d / CC ~1.5h.
 
 ---

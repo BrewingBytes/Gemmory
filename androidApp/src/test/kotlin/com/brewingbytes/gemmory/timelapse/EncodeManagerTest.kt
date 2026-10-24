@@ -59,6 +59,11 @@ class EncodeManagerTest {
     private var diskFull = false
     private var failAtFrame = 50
     private var gate: CountDownLatch? = null
+
+    /** The feed cut's backends (T51): which targets fail, and whether [gate] holds only the feed cut. */
+    private var feedFailing = emptySet<EncodeTarget>()
+    private var gateFeedOnly = false
+    private val feedBackends = AtomicInteger()
     private var atGate: CountDownLatch? = null
 
     /** Runs on the encode thread after each reported frame, once the manager has posted its progress. */
@@ -74,22 +79,23 @@ class EncodeManagerTest {
         cells = IntArray(12) { it % 2 },
     )
 
-    private inner class Scripted(private val partialOf: (EncodeTarget?) -> File) : EncodeBackend {
+    private inner class Scripted(private val partialOf: (EncodeTarget?) -> File, private val feed: Boolean = false) : EncodeBackend {
         override fun probe(target: EncodeTarget): String? = if (target in supported) "c2.fake" else null
 
         override fun encode(target: EncodeTarget, codec: String, onFrame: (Int, Int) -> Unit, checkCancelled: () -> Unit) {
             val out = partialOf(target)
             out.writeText("partial")
-            for (frame in 1..FramePlan.TOTAL_FRAMES) {
-                if (frame == 100) {
+            val frames = if (feed) FeedFramePlan.FRAMES else FramePlan.TOTAL_FRAMES
+            for (frame in 1..frames) {
+                if (frame == 100 && (feed || !gateFeedOnly)) {
                     atGate?.countDown()
                     gate?.let { g -> while (!g.await(10, TimeUnit.MILLISECONDS)) checkCancelled() }
                 }
                 checkCancelled()
-                if (target in failing && frame == failAtFrame) {
+                if (target in (if (feed) feedFailing else failing) && frame == failAtFrame) {
                     throw EncodeFailure(EncodeStage.ENCODE, if (diskFull) Exception("write failed: ENOSPC") else IllegalStateException())
                 }
-                onFrame(frame, FramePlan.TOTAL_FRAMES)
+                onFrame(frame, frames)
                 afterFrame?.invoke()
             }
             out.writeText("mp4 $target")
@@ -109,12 +115,13 @@ class EncodeManagerTest {
         override fun freeBytes(): Long = Long.MAX_VALUE
     }
 
-    private fun manager() = EncodeManager(
+    private fun manager(feedCuts: Boolean = false) = EncodeManager(
         cacheDir = tmp.root,
         scope = scope,
-        backend = { _, partialOf ->
-            backends.incrementAndGet()
-            Scripted(partialOf)
+        backend = { request, partialOf ->
+            val feed = request.frame == ShareFrame.FEED
+            (if (feed) feedBackends else backends).incrementAndGet()
+            Scripted(partialOf, feed)
         },
         canvasExists = { it in existing },
         reporter = reporter,
@@ -125,6 +132,7 @@ class EncodeManagerTest {
         },
         log = {},
         nowNanos = { clock() },
+        feedCuts = feedCuts,
     )
 
     private fun request(r: CanvasRef = ref, logSize: Int = 12, watermark: Boolean = true) =
@@ -551,5 +559,91 @@ class EncodeManagerTest {
         File(tmp.root, "encode-starter.pending").createNewFile()
         val m = manager()
         assertTrue(runBlocking { m.takeKilledNotice(ref) })
+    }
+
+    @Test
+    fun aFinishedShareAlsoMakesTheFeedCut() {
+        val m = manager(feedCuts = true)
+        val video = assertIs<EncodeState.Video>(m.shareAndWait(request()))
+        assertEquals("starter.12.wm.v2.en.mp4", video.file.name)
+        assertEquals("starter.12.feed.v1.en.mp4", video.feed?.name)
+        assertEquals("mp4 1080x1920@30", video.feed?.readText())
+        assertEquals(listOf("starter.12.feed.v1.en.mp4", "starter.12.wm.v2.en.mp4"), files(), "both kept, no partial left")
+        assertEquals(1, backends.get())
+        assertEquals(1, feedBackends.get())
+        assertFalse(m.markerOf(ref).exists())
+        assertEquals(1, events.count { it.name == "timelapse_made" }, "one encode for the player, the feed cut included")
+    }
+
+    @Test
+    fun vipAndProgressSharesHaveNoFeedCut() {
+        val m = manager(feedCuts = true)
+        assertEquals(null, assertIs<EncodeState.Video>(m.shareAndWait(request(watermark = false))).feed, "VIP keeps one clean video")
+        m.acknowledge(ref)
+        assertEquals(null, assertIs<EncodeState.Video>(m.shareAndWait(request(logSize = 6))).feed, "nothing finished to open on")
+        assertEquals(0, feedBackends.get())
+    }
+
+    @Test
+    fun bothFilesAreReusedFromTheCache() {
+        val m = manager(feedCuts = true)
+        m.shareAndWait(request())
+        m.acknowledge(ref)
+        val again = assertIs<EncodeState.Video>(m.shareAndWait(request()))
+        assertEquals("starter.12.feed.v1.en.mp4", again.feed?.name)
+        assertEquals(1, backends.get())
+        assertEquals(1, feedBackends.get())
+    }
+
+    @Test
+    fun aVideoCachedBeforeT51GetsOnlyTheFeedCut() {
+        dir.mkdirs()
+        File(dir, "starter.12.wm.v2.en.mp4").writeText("cached")
+        val m = manager(feedCuts = true)
+        val video = assertIs<EncodeState.Video>(m.shareAndWait(request()))
+        assertEquals("cached", video.file.readText(), "the video isn't made again")
+        assertEquals("starter.12.feed.v1.en.mp4", video.feed?.name)
+        assertEquals(0, backends.get())
+        assertEquals(1, feedBackends.get())
+        assertEquals(0, events.count { it.name == "timelapse_made" }, "the player's video was a cached re-share")
+    }
+
+    @Test
+    fun aFeedCutThatFailsSharesTheVideoAlone() {
+        feedFailing = EncodeTarget.CHAIN.toSet()
+        val m = manager(feedCuts = true)
+        val video = assertIs<EncodeState.Video>(m.shareAndWait(request()))
+        assertEquals("starter.12.wm.v2.en.mp4", video.file.name)
+        assertEquals(null, video.feed)
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files(), "no picture for the feed cut, no partial left")
+        assertEquals(EncodeTarget.CHAIN.size, reports.count { it is TimelapseAttemptException }, "each feed attempt is a non-fatal")
+    }
+
+    @Test
+    fun theBarCountsTheVideoAndTheFeedCut() {
+        val m = manager(feedCuts = true)
+        val seen = java.util.Collections.synchronizedList(mutableListOf<EncodeState.Running>())
+        afterFrame = { (m.state(ref).value as? EncodeState.Running)?.let { seen += it } }
+        m.shareAndWait(request())
+        val total = FramePlan(12, photoIntro = false, endCard = true).frameCount + FeedFramePlan.FRAMES
+        assertTrue(seen.all { it.total >= total - (FramePlan.END_CARD_FRAMES) }, "both files counted from the start")
+        assertEquals(total, seen.last().total)
+        assertEquals(100, seen.last().percent)
+        assertTrue(seen.zipWithNext().all { (a, b) -> b.percent >= a.percent }, "the bar never goes back")
+    }
+
+    @Test
+    fun cancelDuringTheFeedCutKeepsTheVideoAndDropsThePartial() {
+        gate = CountDownLatch(1)
+        atGate = CountDownLatch(1)
+        gateFeedOnly = true
+        val m = manager(feedCuts = true)
+        m.share(request())
+        assertTrue(atGate!!.await(5, TimeUnit.SECONDS))
+        m.cancel(ref)
+        m.awaitStopped()
+        assertEquals(EncodeState.Idle, m.state(ref).value)
+        assertEquals(listOf("starter.12.wm.v2.en.mp4"), files(), "the finished video stays cached; the feed partial is gone")
+        assertFalse(m.markerOf(ref).exists())
     }
 }

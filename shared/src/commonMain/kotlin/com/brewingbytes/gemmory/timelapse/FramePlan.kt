@@ -6,6 +6,12 @@ sealed interface Frame {
     data object Hook : Frame
 
     /**
+     * The feed cut's 0.5 s hook (T51): the finished canvas, with a photo canvas's cropped source photo over it at
+     * [photoAlpha] (the photo turning into gems; always 0 for bundled pictures). A hard cut to the build follows.
+     */
+    data class Reveal(val photoAlpha: Float) : Frame
+
+    /**
      * The 1 s intro: the empty tint grid, with the cropped source photo over it at [photoAlpha] (photo canvases
      * only; always 0 for bundled pictures).
      */
@@ -24,7 +30,10 @@ sealed interface Frame {
     data class EndCard(val alpha: Float) : Frame
 }
 
-/** The frames of one video, in order: [FramePlan] for the player's share, [ClipFramePlan] for a founder clip. */
+/**
+ * The frames of one video, in order: [FramePlan] for the player's share, [ClipFramePlan] for a founder clip,
+ * [FeedFramePlan] for the feed cut (T51).
+ */
 interface VideoPlan {
     val frameCount: Int
 
@@ -74,7 +83,7 @@ class FramePlan(val logSize: Int, val photoIntro: Boolean, val endCard: Boolean 
     fun placedAt(index: Int): Int = when (val frame = frame(index)) {
         is Frame.Intro -> 0
         is Frame.Build -> frame.placed
-        Frame.Hook, Frame.Hold, is Frame.EndCard -> logSize
+        Frame.Hook, is Frame.Reveal, Frame.Hold, is Frame.EndCard -> logSize
     }
 
     private fun photoAlpha(index: Int): Float {
@@ -129,7 +138,7 @@ class ClipFramePlan(val logSize: Int) : VideoPlan {
     fun placedAt(index: Int): Int = when (val frame = frame(index)) {
         is Frame.Intro -> 0
         is Frame.Build -> frame.placed
-        Frame.Hook, Frame.Hold, is Frame.EndCard -> logSize
+        Frame.Hook, is Frame.Reveal, Frame.Hold, is Frame.EndCard -> logSize
     }
 
     companion object {
@@ -140,5 +149,54 @@ class ClipFramePlan(val logSize: Int) : VideoPlan {
         /** The first end-card frame: after the hook and the player's 450. */
         const val CARD_START = HOOK_FRAMES + FramePlan.TOTAL_FRAMES
         const val FRAMES = CARD_START + CARD_FRAMES
+    }
+}
+
+/**
+ * The feed cut (T51), 7 s at 30 fps for TikTok, Reels and Shorts: 15 hook frames of the finished canvas (a photo
+ * canvas's photo shows alone for [PHOTO_HOLD_FRAMES], then crossfades to the gems), a hard cut to the tint grid, 165
+ * build frames replaying the placement log, and 30 hold frames of the finished canvas. No end card: the last frame
+ * shows what the first one does under the photo, so the clip loops. 210 frames in all.
+ */
+class FeedFramePlan(val logSize: Int, val photoHook: Boolean) : VideoPlan {
+    init {
+        require(logSize >= 0) { "logSize must not be negative" }
+    }
+
+    override val frameCount: Int get() = FRAMES
+
+    override fun frame(index: Int): Frame {
+        require(index in 0 until FRAMES) { "frame $index out of 0 until $FRAMES" }
+        return when {
+            index < HOOK_FRAMES -> Frame.Reveal(if (photoHook) photoAlpha(index) else 0f)
+            index < HOOK_FRAMES + BUILD_FRAMES -> Frame.Build(placedThrough(index - HOOK_FRAMES))
+            else -> Frame.Hold
+        }
+    }
+
+    /** Gems on the canvas at the end of build frame [buildFrame] (0-based): an even share, all of them at the last. */
+    fun placedThrough(buildFrame: Int): Int = ((logSize.toLong() * (buildFrame + 1)) / BUILD_FRAMES).toInt()
+
+    /** Gems on the canvas in frame [index]: all of them in the hook and the hold, the build's share in between. */
+    fun placedAt(index: Int): Int = when (val frame = frame(index)) {
+        is Frame.Build -> frame.placed
+        else -> logSize
+    }
+
+    private fun photoAlpha(index: Int): Float {
+        if (index < PHOTO_HOLD_FRAMES) return 1f
+        return 1f - (index - PHOTO_HOLD_FRAMES + 1).toFloat() / (HOOK_FRAMES - PHOTO_HOLD_FRAMES)
+    }
+
+    companion object {
+        const val HOOK_FRAMES = 15
+        const val BUILD_FRAMES = 165
+        const val HOLD_FRAMES = 30
+        const val FRAMES = HOOK_FRAMES + BUILD_FRAMES + HOLD_FRAMES
+
+        /** The photo shows alone for a sixth of a second before it turns into gems. */
+        const val PHOTO_HOLD_FRAMES = 5
+
+        const val DURATION_US = FRAMES * 1_000_000L / FramePlan.FPS
     }
 }

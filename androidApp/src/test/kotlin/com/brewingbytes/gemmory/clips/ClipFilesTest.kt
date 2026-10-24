@@ -12,6 +12,7 @@ class ClipFilesTest {
     fun everyFileCarriesItsLanguageButTheFinishedStill() {
         assertEquals("wave-by-color-de.mp4", ClipRenderer.fileName("wave", ClipOrder.BY_COLOR, ClipFormat.NINE_SIXTEEN, "de"))
         assertEquals("wave-ripple-4x5-pt-BR.mp4", ClipRenderer.fileName("wave", ClipOrder.RIPPLE, ClipFormat.FOUR_FIVE, "pt-BR"))
+        assertEquals("wave-random-feed-ro.mp4", ClipRenderer.fileName("wave", ClipOrder.RANDOM, ClipFormat.FEED, "ro"))
         assertEquals("wave-before-after-ja.png", ClipRenderer.fileName("wave", ClipOrder.RANDOM, ClipFormat.STILLS, "ja"))
         // No two languages or formats share a name.
         val names = ClipLanguages.ALL.flatMap { l -> ClipFormat.entries.map { ClipRenderer.fileName("wave", ClipOrder.BY_COLOR, it, l.tag) } }

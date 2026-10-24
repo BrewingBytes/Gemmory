@@ -297,7 +297,7 @@ fun CompletionScreen(
         if (!loaded) return@LaunchedEffect
         lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
         val request = vm.finished?.takeIf { it.ref == ref }?.request ?: return@LaunchedEffect
-        context.startActivity(ShareIntents.chooser(context, video.file, request))
+        context.startActivity(ShareIntents.chooser(context, video.file, request, video.feed))
         vm.shareHandled(ref)
     }
 

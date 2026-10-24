@@ -143,8 +143,13 @@ class TelemetryTest {
         assertEquals("starter", AnalyticsEvent.size(starter, 24, 32), "the starter never counts as Quick")
         assertEquals("other", AnalyticsEvent.size(puppy, 10, 10))
         assertEquals(
-            AnalyticsEvent("share_completed", mapOf("source" to "bundled", "size" to "big", "kind" to "progress")),
+            AnalyticsEvent("share_completed", mapOf("source" to "bundled", "size" to "big", "kind" to "progress", "cut" to "full")),
             AnalyticsEvent.shareCompleted("bundled", "big", "progress"),
+        )
+        // T51: a feed app got the feed cut.
+        assertEquals(
+            mapOf("source" to "photo", "size" to "medium", "kind" to "finished", "cut" to "feed"),
+            AnalyticsEvent.shareCompleted("photo", "medium", "finished", AnalyticsEvent.cut(feed = true)).params,
         )
     }
 

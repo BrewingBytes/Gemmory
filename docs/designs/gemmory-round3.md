@@ -444,3 +444,15 @@ Issue edits for #132 (T45), #134 (T47), #136 (T49), #137 (T50) are drafted from 
 | T53 build | Agent defaults approved from emulator stills | A tall picture fits a 760px square on the end card; the end-card block is centered; a progress share's end card shows the canvas as it stands (founder pick) |
 
 **Founder clips (#144, same day):** the founder asked for a store ask on the clips posted to TikTok, Reels and Shorts. /plan-design-review (3/10 → 8/10) picked C2 (an icon lockup "Gemmory / Free on Google Play", no Google badge, at the bottom of the safe area x 60-940, y 250-1440), E2b (end card on the blurred band, "Turn any photo into gem art") and H1 (0.5 s finished-picture hook; 18 s, 540 frames). The clips get their own feed-safe frame because the feeds' overlays cover the share frame's bottom row; T53 covers the player's share only. Mock: `~/.gstack/projects/Gemmory/designs/clip-cta-20261023/`; spec in #144.
+
+## T51 (feed-tuned share) opened (2026-10-24)
+
+**Gate C6:** the founder called the posting test "a hit", which opened it. No per-clip views or listing-visit numbers were recorded, so the length and hook follow this doc's defaults (hook in the first second, about 7 s) rather than test data.
+
+| ID | Decision | Answer |
+|---|---|---|
+| F1 | Where the feed cut reaches players | **Picked by the target app.** One Share of a finished non-VIP picture makes T53's video and the feed cut, and Android's share sheet hands TikTok, Instagram and YouTube the cut (`EXTRA_REPLACEMENT_EXTRAS`, by package; the cut is granted to those apps by name, visible through `<queries>`). Every other app gets the video and the link. Rejected: a "Share to feeds" button (a second action in the completion screen's one authored moment), and the founder clips alone |
+| F2 | The cut | **A loop:** 7 s, 210 frames, a 0.5 s hook (the finished picture; a photo canvas's photo crossfading into the gems), a hard cut to the tint grid, a 5.5 s build, a 1 s hold, no end card, in #144's feed-safe frame with the C2 lockup on every frame. Rejected: #144's end card shortened to 7 s (28% of the clip, and no loop) |
+| F3 | Who gets it (agent defaults) | Finished non-VIP shares only: VIP keeps its one clean video, a progress share has no finished picture to open on, and a share whose cut fails goes ahead with the video (a non-fatal). `share_completed` gets `cut` = feed \| full; which app was picked still isn't recorded |
+
+Cost: about 40% longer "Making your video" for those shares (504 + 210 frames). The player's video itself is byte-identical (framemd5, T51 PR). Mock: `docs/designs/mockups/feed-cut/`.

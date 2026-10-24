@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
@@ -40,7 +41,9 @@ import kotlin.math.roundToInt
  * Gemmory row, with the title and app line over a dark fade ([overlay], drawn over the canvas), the row on every
  * non-VIP frame, and the non-VIP end card ([card] plus the canvas itself at [cardPicture]). A founder clip
  * ([ShareFrame.CLIP], #144, [ClipLayout]): the canvas above the title and the store lockup, all inside the feeds' safe
- * area ([overlay]), the finished canvas as the hook ([source]), and the E2b end card ([card]).
+ * area ([overlay]), the finished canvas as the hook ([source]), and the E2b end card ([card]). The feed cut
+ * ([ShareFrame.FEED], T51): the founder clip's frame without the end card; its hook is the finished canvas itself,
+ * under a photo canvas's photo ([source]) as it fades, and the canvas goes back to the tint grid at the cut.
  *
  * Built once per attempt. The canvas lives in one bitmap that starts as the empty tint grid and gets each frame's
  * new gems drawn onto it, so a whole video costs O(gems + frames) draws (eng finding 12).
@@ -50,7 +53,9 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     private val pattern = request.pattern
     private val share: ShareLayout? =
         if (request.frame == ShareFrame.PLAYER) ShareLayout.of(width, height, pattern.width, pattern.height, request.watermark) else null
-    private val clip: ClipLayout? = if (request.frame == ShareFrame.CLIP) style.clipLayout(height, pattern, request.title) else null
+    private val clip: ClipLayout? =
+        if (request.frame == ShareFrame.CLIP || request.frame == ShareFrame.FEED) style.clipLayout(height, pattern, request.title) else null
+    private val feed = request.frame == ShareFrame.FEED
     private val layout = share?.board ?: clip!!.board
     private val painter = GemRenderer.GemPainter(pattern, layout.width, layout.height)
     private val board: Bitmap = createBitmap(layout.width, layout.height)
@@ -59,7 +64,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     private val photo: Bitmap? = request.source?.let { decodeSource(it, layout.width, layout.height) }
 
     /** A founder clip's hook (#144, H1): the finished canvas, shown in the photo's slot over the tint grid. */
-    private val hook: Bitmap? = clip?.let {
+    private val hook: Bitmap? = clip?.takeUnless { feed }?.let {
         createBitmap(layout.width, layout.height).also { b ->
             val c = Canvas(b)
             for (cell in pattern.cells.indices) painter.drawCell(c, cell, isPlaced = true)
@@ -68,9 +73,12 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     private val overlayTop = share?.fadeTop ?: clip?.let { it.title.top - style.px(FrameStyle.CLIP_TEXT_ROOM) } ?: 0
     private val overlayBitmap: Bitmap? = if (share != null || clip != null) createBitmap(width, height - overlayTop) else null
     private val cardArea: Rect? = share?.card?.let { Rect(0, it.top - style.px(FrameStyle.CARD_SHADOW_ROOM), width, it.bottom) }
-        ?: clip?.card?.area?.let { Rect(0, it.top, width, it.bottom) }
+        ?: clip?.takeUnless { feed }?.card?.area?.let { Rect(0, it.top, width, it.bottom) }
     private val cardBitmap: Bitmap? = cardArea?.let { createBitmap(it.width(), it.height()) }
     private var drawn = 0
+
+    /** The feed cut's hook (T51) has the whole log on the canvas; the first build frame puts the tint grid back. */
+    private var revealed = false
 
     /** The canvas's place in the frame ([ShareLayout] for the player's share, [ClipLayout] for a founder clip). */
     val boardRect = Rect(layout.left, layout.top, layout.right, layout.bottom)
@@ -83,7 +91,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
 
     /**
      * Drawn over the canvas at the photo's opacity: the cropped source photo for a photo canvas's intro, or a founder
-     * clip's finished canvas for its hook (#144); null otherwise.
+     * clip's finished canvas for its hook (#144); the feed cut's photo over its hook (T51); null otherwise.
      */
     val source: Bitmap? get() = photo ?: hook
 
@@ -101,16 +109,18 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     val card: Bitmap? get() = cardBitmap
 
     init {
-        for (cell in pattern.cells.indices) painter.drawCell(boardCanvas, cell, isPlaced = false)
+        drawTints()
         val c = Canvas(chrome)
         style.drawBand(c, pattern, height)
         if (clip != null) {
             val o = Canvas(overlayBitmap!!)
             o.translate(0f, -overlayTop.toFloat())
             style.drawClipText(o, clip, request.title)
-            val k = Canvas(cardBitmap!!)
-            k.translate(0f, -cardArea!!.top.toFloat())
-            style.drawClipCard(k, clip.card)
+            if (cardBitmap != null) {
+                val k = Canvas(cardBitmap)
+                k.translate(0f, -cardArea!!.top.toFloat())
+                style.drawClipCard(k, clip.card)
+            }
         } else if (share != null) {
             val o = Canvas(overlayBitmap!!)
             o.translate(0f, -overlayTop.toFloat())
@@ -129,7 +139,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
      * down by the part of the 30px slide still to go. Null without an end card.
      */
     fun endCard(alpha: Float): EndCardRects? {
-        clip?.let {
+        clip?.takeUnless { feed }?.let {
             // A founder clip's card crossfades in place, over the band darkened a further 20% (#144, E2b).
             val p = it.card.picture
             return EndCardRects(alpha, Rect(p.left, p.top, p.right, p.bottom), Rect(cardArea!!), FrameStyle.CLIP_END_CARD_DIM)
@@ -147,21 +157,36 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
 
     /**
      * Brings [canvas] up to [frame] by drawing only the gems placed since the last call. Returns whether it changed
-     * (so it needs uploading again) and the opacity of [source] over it: 1 in a founder clip's hook.
+     * (so it needs uploading again) and the opacity of [source] over it: 1 in a founder clip's hook. The feed cut's
+     * hook (T51) draws the whole log at once, and its first build frame starts again from the tint grid.
      */
     fun apply(frame: Frame): Pair<Boolean, Float> {
         val before = drawn
+        var reset = false
         when (frame) {
-            is Frame.Build -> advanceTo(frame.placed)
+            is Frame.Reveal -> if (!revealed) {
+                advanceTo(request.log.size)
+                revealed = true
+            }
+            is Frame.Build -> {
+                if (revealed) {
+                    drawTints()
+                    drawn = 0
+                    revealed = false
+                    reset = true
+                }
+                advanceTo(frame.placed)
+            }
             Frame.Hold, is Frame.EndCard -> advanceTo(request.log.size)
             is Frame.Intro, Frame.Hook -> Unit
         }
         val alpha = when {
             frame is Frame.Intro && photo != null -> frame.photoAlpha
             frame == Frame.Hook && hook != null -> 1f
+            frame is Frame.Reveal && photo != null -> frame.photoAlpha
             else -> 0f
         }
-        return (drawn != before) to alpha
+        return (reset || drawn != before) to alpha
     }
 
     fun release() {
@@ -171,6 +196,12 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         hook?.recycle()
         overlayBitmap?.recycle()
         cardBitmap?.recycle()
+    }
+
+    /** The empty tint grid over a clear canvas: the same pixels at the start and after the feed cut's hook. */
+    private fun drawTints() {
+        board.eraseColor(Color.TRANSPARENT)
+        for (cell in pattern.cells.indices) painter.drawCell(boardCanvas, cell, isPlaced = false)
     }
 
     private fun advanceTo(placed: Int) {
