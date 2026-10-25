@@ -131,13 +131,16 @@ class FinishCelebrationTest {
 
     /**
      * T56 (#157): a first-run install's first finish, consent granted. The row is in the column from the start, so the
-     * picture never moves through the celebration or after it; an answer pays one photo canvas, once, and the thanks
-     * line takes the row's place; the install is never asked again.
+     * picture never moves through the celebration, after it, or when the shorter thanks line takes the row's place; an
+     * answer pays one photo canvas, once; the install is never asked again.
      */
     @Test
     fun aFirstRunFinishAsksWhereFoundWithoutMovingThePicture() {
         app.resetFirstRunForTest(fresh = true)
         app.whereFoundConsentForTest = true
+        // The reward is earned once per inventory, so an earlier run's answer would leave only "Thanks."
+        File(context.filesDir, StorageLayout.INVENTORY).delete()
+        app.resetMonetizationForTest()
         val canvasesBefore = app.monetization.inventory.value.canvases
         val session = open().also { finished = it }
         onMain { repeat(47) { session.placeNext() } }
@@ -163,6 +166,8 @@ class FinishCelebrationTest {
         compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-friend").performClick()
         compose.waitUntil(5_000) { exists(WHERE_FOUND_THANKS_TAG) }
         compose.onNode(hasText("Thanks. 1 photo canvas added to your inventory.")).assertExists()
+        val after = compose.onNode(hasContentDescription("Finished picture")).fetchSemanticsNode().boundsInRoot
+        assertEquals(bounds.single(), after, "the shorter thanks line doesn't move the picture")
         assertEquals(canvasesBefore + 1, app.monetization.inventory.value.canvases, "one photo canvas")
         assertEquals(FirstRunAsk.No, app.firstRun.firstRunAsk(analyticsGranted = true, seed = 1), "never asked again")
     }

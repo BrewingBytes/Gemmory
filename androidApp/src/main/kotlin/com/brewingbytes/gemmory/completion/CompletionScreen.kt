@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,6 +55,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -543,6 +545,16 @@ fun CompletionScreen(
  */
 @Composable
 private fun WhereFoundBlock(vm: CompletionViewModel) {
+    // The block keeps the tallest it has been, so the shorter thanks line, or nothing after Skip, doesn't resize the
+    // picture above it.
+    var held by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = with(density) { held.toDp() })
+            .onSizeChanged { if (it.height > held) held = it.height },
+    ) {
     when (val wf = vm.whereFound) {
         is WhereFoundUi.Row -> {
             val question = stringResource(R.string.where_found_question)
@@ -573,6 +585,7 @@ private fun WhereFoundBlock(vm: CompletionViewModel) {
             )
         }
         null -> Unit
+    }
     }
 }
 
