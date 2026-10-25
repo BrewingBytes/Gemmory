@@ -6,6 +6,9 @@ import android.content.SharedPreferences
 class FakePrefs : SharedPreferences {
     val values = mutableMapOf<String, Any?>()
 
+    /** A full disk: `commit()` writes nothing and returns false. */
+    var commitFails = false
+
     override fun getAll(): Map<String, *> = values.toMap()
 
     override fun getString(key: String, defValue: String?) = values[key] as? String ?: defValue
@@ -43,6 +46,7 @@ class FakePrefs : SharedPreferences {
         override fun clear() = apply { values.clear() }
 
         override fun commit(): Boolean {
+            if (commitFails) return false
             apply()
             return true
         }

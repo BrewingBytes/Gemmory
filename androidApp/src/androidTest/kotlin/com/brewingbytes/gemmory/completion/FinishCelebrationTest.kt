@@ -18,6 +18,7 @@ import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CoachHint
+import com.brewingbytes.gemmory.policy.FirstRunAsk
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
@@ -64,6 +65,9 @@ class FinishCelebrationTest {
     fun setUp() {
         // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
         app.resetStreakForTest(celebrations = false)
+        // T56's row only on a first-run install's first finish: these cases run as an install that isn't one.
+        app.resetFirstRunForTest(fresh = false)
+        app.whereFoundConsentForTest = null
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
@@ -74,6 +78,8 @@ class FinishCelebrationTest {
     @After
     fun tearDown() {
         app.resetStreakForTest()
+        app.resetFirstRunForTest(fresh = false)
+        app.whereFoundConsentForTest = null
         compose.mainClock.autoAdvance = true
         if (::scenario.isInitialized) scenario.close()
         animatorScale?.let { shell("settings put global animator_duration_scale $it") }
@@ -121,6 +127,44 @@ class FinishCelebrationTest {
         compose.waitUntil(10_000) { picture() }
         val seen = watch()
         assertTrue(seen.values.all { it.isEmpty() }, "the still stays still: $seen")
+    }
+
+    /**
+     * T56 (#157): a first-run install's first finish, consent granted. The row is in the column from the start, so the
+     * picture never moves through the celebration or after it; an answer pays one photo canvas, once, and the thanks
+     * line takes the row's place; the install is never asked again.
+     */
+    @Test
+    fun aFirstRunFinishAsksWhereFoundWithoutMovingThePicture() {
+        app.resetFirstRunForTest(fresh = true)
+        app.whereFoundConsentForTest = true
+        val canvasesBefore = app.monetization.inventory.value.canvases
+        val session = open().also { finished = it }
+        onMain { repeat(47) { session.placeNext() } }
+        compose.mainClock.autoAdvance = false
+        instrumentation.runOnMainSync { session.placeNext() }
+        val deadline = System.currentTimeMillis() + 10_000
+        while (!(exists("completion-fresh") && picture())) {
+            assertTrue(System.currentTimeMillis() < deadline, "the fresh completion and its picture show")
+            compose.mainClock.advanceTimeByFrame()
+            Thread.sleep(16)
+        }
+        val bounds = mutableSetOf<androidx.compose.ui.geometry.Rect>()
+        for (ms in 0..WATCH_MS step STEP_MS) {
+            bounds += compose.onNode(hasContentDescription("Finished picture")).fetchSemanticsNode().boundsInRoot
+            Thread.sleep(STEP_MS.toLong())
+            compose.mainClock.advanceTimeBy(STEP_MS.toLong())
+        }
+        compose.mainClock.autoAdvance = true
+        assertEquals(1, bounds.size, "the picture never resizes: $bounds")
+        assertTrue(exists(WHERE_FOUND_ROW_TAG), "the row under Done")
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
+        compose.waitUntil(5_000) { exists("$WHERE_FOUND_ANSWER_TAG-friend") }
+        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-friend").performClick()
+        compose.waitUntil(5_000) { exists(WHERE_FOUND_THANKS_TAG) }
+        compose.onNode(hasText("Thanks. 1 photo canvas added to your inventory.")).assertExists()
+        assertEquals(canvasesBefore + 1, app.monetization.inventory.value.canvases, "one photo canvas")
+        assertEquals(FirstRunAsk.No, app.firstRun.firstRunAsk(analyticsGranted = true, seed = 1), "never asked again")
     }
 
     /**

@@ -384,6 +384,16 @@
     <string name="completion_killed">La vidéo s’est arrêtée à la fermeture de l’appli. Touche Partager pour réessayer.</string>
     <string name="completion_play_again">Rejouer</string>
     <string name="completion_picture">Tableau terminé</string>
+    <string name="where_found_question">Où as-tu trouvé Gemmory ?</string>
+    <string name="where_found_reward">Réponds pour une toile photo de plus.</string>
+    <string name="where_found_video">Une vidéo (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Un groupe ou un forum</string>
+    <string name="where_found_friend">Par un ou une ami(e)</string>
+    <string name="where_found_play_search">Recherche Play Store</string>
+    <string name="where_found_other">Ailleurs</string>
+    <string name="where_found_skip">Passer</string>
+    <string name="where_found_thanks_canvas">Merci. 1 toile photo ajoutée à ton inventaire.</string>
+    <string name="where_found_thanks">Merci.</string>
 
     <string name="widget_start">Commence une série</string>
     <string name="widget_done">Fait aujourd’hui</string>

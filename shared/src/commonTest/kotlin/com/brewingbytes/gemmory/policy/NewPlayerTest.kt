@@ -10,14 +10,26 @@ import kotlin.test.assertTrue
 class NewPlayerTest {
     private val empty = NewPlayer.Disk(canvas = false, achievements = false, streak = false, marker = false)
 
-    private class MemoryStore : StateStore<FirstRunState> {
+    private class MemoryStore : CheckedStateStore<FirstRunState> {
         var saved: FirstRunState? = null
+
+        /** A full disk: writes don't land. */
+        var failing = false
 
         override fun load() = saved
 
-        override fun save(value: FirstRunState) {
+        override fun trySave(value: FirstRunState): Boolean {
+            if (failing) return false
             saved = value
+            return true
         }
+    }
+
+    private fun begun(): Pair<MemoryStore, FirstRunFunnel> {
+        val store = MemoryStore()
+        val funnel = FirstRunFunnel(store)
+        funnel.begin(1_000)
+        return store to funnel
     }
 
     @Test
@@ -138,5 +150,78 @@ class NewPlayerTest {
         funnel.referrerRead("utm_content=fox-in-snow")
         assertNull(funnel.referrer)
         assertTrue(store.saved!!.referrerRead, "still read once")
+    }
+
+    // T56 (#157): "Where did you find Gemmory?" at a first-run install's first fresh finish, once.
+
+    @Test
+    fun theFirstFreshFinishOfAFirstRunInstallAsksOnceAndSavesFirst() {
+        val (store, funnel) = begun()
+        val ask = funnel.firstRunAsk(analyticsGranted = true, seed = 7)
+        assertEquals(FirstRunAsk.Show(WhereFoundAnswer.order(7)), ask)
+        assertEquals(WhereFound.DECIDED, store.saved?.whereFound, "saved before anything shows")
+        assertEquals(7, store.saved?.whereFoundSeed)
+        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = true, seed = 8), "a second finish never asks")
+        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 9), "nor after a relaunch")
+    }
+
+    @Test
+    fun anInstallThatIsNotFirstRunIsNeverAsked() {
+        val store = MemoryStore()
+        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 1))
+        assertNull(store.saved, "an upgrader or a restored phone writes nothing")
+    }
+
+    @Test
+    fun consentDeniedAtTheFirstFinishIsNotShownAndGrantingItLaterNeverAsks() {
+        val (store, funnel) = begun()
+        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = false, seed = 1))
+        assertEquals(WhereFound.NOT_SHOWN, store.saved?.whereFound)
+        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 2), "only the first finish counts")
+    }
+
+    @Test
+    fun aDecisionThatDoesNotSaveShowsNothingAndIsNotRetried() {
+        val (store, funnel) = begun()
+        store.failing = true
+        assertEquals(FirstRunAsk.SaveFailed, funnel.firstRunAsk(analyticsGranted = true, seed = 1))
+        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = true, seed = 1), "not retried in this process")
+        store.failing = false
+        funnel.gemPlaced(2_000)
+        assertEquals(WhereFound.NOT_SHOWN, store.saved?.whereFound, "a later save of the funnel records what happened")
+    }
+
+    @Test
+    fun anAnswerCountsOnceAndLeavingBeforeTheRowShowsStaysDecided() {
+        val (store, funnel) = begun()
+        funnel.firstRunAsk(analyticsGranted = true, seed = 1)
+        assertEquals(WhereFound.DECIDED, store.saved?.whereFound, "left mid-celebration")
+        funnel.whereFoundShown()
+        assertEquals(WhereFound.SHOWN, store.saved?.whereFound)
+        assertTrue(funnel.whereFoundAnswered(WhereFoundAnswer.FRIEND))
+        assertFalse(funnel.whereFoundAnswered(WhereFoundAnswer.VIDEO), "a second tap does nothing")
+        assertEquals(WhereFound.ANSWERED, store.saved?.whereFound)
+        assertFalse(FirstRunFunnel(store).whereFoundAnswered(WhereFoundAnswer.SKIP), "nor after a relaunch")
+    }
+
+    @Test
+    fun skipIsFinalToo() {
+        val (store, funnel) = begun()
+        funnel.firstRunAsk(analyticsGranted = true, seed = 1)
+        assertTrue(funnel.whereFoundAnswered(WhereFoundAnswer.SKIP))
+        assertEquals(WhereFound.SKIPPED, store.saved?.whereFound)
+        assertFalse(funnel.whereFoundAnswered(WhereFoundAnswer.FRIEND))
+    }
+
+    @Test
+    fun theOrderIsStablePerSeedWithSomewhereElseLast() {
+        val order = WhereFoundAnswer.order(42)
+        assertEquals(order, WhereFoundAnswer.order(42), "the same install always sees the same order")
+        assertEquals(WhereFoundAnswer.OTHER, order.last())
+        assertEquals(
+            setOf(WhereFoundAnswer.VIDEO, WhereFoundAnswer.COMMUNITY, WhereFoundAnswer.FRIEND, WhereFoundAnswer.PLAY_SEARCH),
+            order.take(4).toSet(),
+        )
+        assertTrue((0L until 50L).map { WhereFoundAnswer.order(it).first() }.toSet().size > 1, "the first answer varies by install")
     }
 }

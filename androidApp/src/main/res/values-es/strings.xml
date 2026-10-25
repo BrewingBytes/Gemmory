@@ -383,6 +383,16 @@
     <string name="completion_killed">El video se detuvo al cerrarse la app. Toca Compartir para intentarlo de nuevo.</string>
     <string name="completion_play_again">Jugar otra vez</string>
     <string name="completion_picture">Cuadro terminado</string>
+    <string name="where_found_question">¿Dónde encontraste Gemmory?</string>
+    <string name="where_found_reward">Responde y gana un lienzo de foto más.</string>
+    <string name="where_found_video">Un vídeo (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Un grupo o foro</string>
+    <string name="where_found_friend">Un amigo o amiga</string>
+    <string name="where_found_play_search">Buscando en Play Store</string>
+    <string name="where_found_other">En otro sitio</string>
+    <string name="where_found_skip">Omitir</string>
+    <string name="where_found_thanks_canvas">Gracias. 1 lienzo de foto añadido a tu inventario.</string>
+    <string name="where_found_thanks">Gracias.</string>
 
     <string name="widget_start">Empieza una racha</string>
     <string name="widget_done">Hecho hoy</string>

@@ -384,6 +384,16 @@
     <string name="completion_killed">O vídeo parou quando o app fechou. Toque em Compartilhar para tentar de novo.</string>
     <string name="completion_play_again">Jogar de novo</string>
     <string name="completion_picture">Quadro concluído</string>
+    <string name="where_found_question">Onde você encontrou o Gemmory?</string>
+    <string name="where_found_reward">Responda e ganhe mais uma tela de foto.</string>
+    <string name="where_found_video">Um vídeo (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Um grupo ou fórum</string>
+    <string name="where_found_friend">Um amigo ou amiga</string>
+    <string name="where_found_play_search">Busca na Play Store</string>
+    <string name="where_found_other">Em outro lugar</string>
+    <string name="where_found_skip">Pular</string>
+    <string name="where_found_thanks_canvas">Obrigado. 1 tela de foto foi adicionada ao seu inventário.</string>
+    <string name="where_found_thanks">Obrigado.</string>
 
     <string name="widget_start">Comece uma sequência</string>
     <string name="widget_done">Feito hoje</string>

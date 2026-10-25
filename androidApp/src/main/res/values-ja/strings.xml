@@ -345,6 +345,16 @@
     <string name="completion_killed">アプリが閉じたため動画が止まりました。シェアをタップしてもう一度お試しください。</string>
     <string name="completion_play_again">もう一度遊ぶ</string>
     <string name="completion_picture">完成した絵</string>
+    <string name="where_found_question">Gemmoryをどこで知りましたか？</string>
+    <string name="where_found_reward">答えると写真キャンバスがもう1つもらえます。</string>
+    <string name="where_found_video">動画（TikTok、Reels、YouTube）</string>
+    <string name="where_found_community">グループやフォーラム</string>
+    <string name="where_found_friend">友だち</string>
+    <string name="where_found_play_search">Playストアで検索</string>
+    <string name="where_found_other">その他</string>
+    <string name="where_found_skip">スキップ</string>
+    <string name="where_found_thanks_canvas">ありがとうございます。写真キャンバスを1つ持ち物に追加しました。</string>
+    <string name="where_found_thanks">ありがとうございます。</string>
 
     <string name="widget_start">連続記録を始めよう</string>
     <string name="widget_done">今日はクリア</string>

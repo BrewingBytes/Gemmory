@@ -35,14 +35,58 @@ data class FirstRunState(
     val sharedDay: Long = 0,
     /** The share landing has ended (T50): a referrer read that ends later isn't kept. */
     val landingEnded: Boolean = false,
+    /** Where "Where did you find Gemmory?" (T56) stands; null until the first fresh finish. */
+    val whereFound: WhereFound? = null,
+    /** Shuffles T56's answers, once per install, so a lazy tap for the reward favors no channel (design D10). */
+    val whereFoundSeed: Long = 0,
 )
+
+/**
+ * "Where did you find Gemmory?" (T56) on a first-run install, decided at its first fresh finish and never again:
+ *
+ *     null ──first fresh finish──► DECIDED ──row shown──► SHOWN ──answer──► ANSWERED
+ *       │                            │                     └──Skip, back, dismiss──► SKIPPED
+ *       └──first fresh finish, analytics consent denied, or the decision didn't save──► NOT_SHOWN
+ *
+ * DECIDED is kept when the player leaves before the row shows. NOT_SHOWN, ANSWERED and SKIPPED are final.
+ */
+enum class WhereFound { DECIDED, NOT_SHOWN, SHOWN, ANSWERED, SKIPPED }
+
+/** T56's choices as reported (`where_found` `answer`): fixed values, whatever the words in any language say. */
+enum class WhereFoundAnswer(val value: String) {
+    VIDEO("video"),
+    COMMUNITY("community"),
+    FRIEND("friend"),
+    PLAY_SEARCH("play_search"),
+    OTHER("other"),
+    SKIP("skip"),
+    ;
+
+    companion object {
+        /** The five answers in this install's order: the first four shuffled by [seed], "Somewhere else" last (D10). */
+        fun order(seed: Long): List<WhereFoundAnswer> =
+            listOf(VIDEO, COMMUNITY, FRIEND, PLAY_SEARCH).shuffled(kotlin.random.Random(seed)) + OTHER
+    }
+}
+
+/** What a first-run install's first fresh finish decided for T56. */
+sealed interface FirstRunAsk {
+    /** Show the row, its answers in [order]. */
+    data class Show(val order: List<WhereFoundAnswer>) : FirstRunAsk
+
+    /** Not this finish: not a first-run install, already decided, or consent denied. */
+    data object No : FirstRunAsk
+
+    /** The decision couldn't be saved, so nothing is shown (eng R1); the caller reports it. */
+    data object SaveFailed : FirstRunAsk
+}
 
 /**
  * `first_launch` and `first_gem` (T46, CEO O5): each once, and only for a fresh install. [begin] starts the funnel at
  * a fresh install's first foreground; the referrer read ([referrerDue], [referrerRead]) can end before it (it starts
  * at process start), so its result waits in memory until then. Not thread-safe.
  */
-class FirstRunFunnel(private val store: StateStore<FirstRunState>) {
+class FirstRunFunnel(private val store: CheckedStateStore<FirstRunState>) {
     private var state: FirstRunState? = store.load()
     private var referrerBeforeBegin: String? = null
     private var readBeforeBegin = false
@@ -106,6 +150,41 @@ class FirstRunFunnel(private val store: StateStore<FirstRunState>) {
     fun landingEnded(sharedId: String?, day: Long) {
         val s = state ?: return
         save(s.copy(referrerRaw = null, sharedId = sharedId ?: s.sharedId, sharedDay = if (sharedId != null) day else s.sharedDay, landingEnded = true))
+    }
+
+    /**
+     * A fresh finish (T56): on a first-run install's first one, decide "Where did you find Gemmory?" and save that
+     * before anything shows (eng R1): the row shows only when [analyticsGranted] and the decision reached the disk.
+     * [seed] shuffles the answers. Every later finish, and any other install, gets [FirstRunAsk.No].
+     */
+    fun firstRunAsk(analyticsGranted: Boolean, seed: Long): FirstRunAsk {
+        val s = state ?: return FirstRunAsk.No
+        if (s.whereFound != null) return FirstRunAsk.No
+        val next = s.copy(whereFound = if (analyticsGranted) WhereFound.DECIDED else WhereFound.NOT_SHOWN, whereFoundSeed = seed)
+        if (!store.trySave(next)) {
+            // Never asked in this process; a later save of the funnel keeps "not shown", which is what happened.
+            state = s.copy(whereFound = WhereFound.NOT_SHOWN)
+            return FirstRunAsk.SaveFailed
+        }
+        state = next
+        return if (analyticsGranted) FirstRunAsk.Show(WhereFoundAnswer.order(seed)) else FirstRunAsk.No
+    }
+
+    /** The row came to the screen (best effort). */
+    fun whereFoundShown() {
+        val s = state ?: return
+        if (s.whereFound == WhereFound.DECIDED) save(s.copy(whereFound = WhereFound.SHOWN))
+    }
+
+    /**
+     * The player answered [answer] ([WhereFoundAnswer.SKIP] for Skip, back or a dismissed sheet): true the first time,
+     * false after, so a second tap does nothing.
+     */
+    fun whereFoundAnswered(answer: WhereFoundAnswer): Boolean {
+        val s = state ?: return false
+        if (s.whereFound != WhereFound.DECIDED && s.whereFound != WhereFound.SHOWN) return false
+        save(s.copy(whereFound = if (answer == WhereFoundAnswer.SKIP) WhereFound.SKIPPED else WhereFound.ANSWERED))
+        return true
     }
 
     private fun save(value: FirstRunState) {

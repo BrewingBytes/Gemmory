@@ -364,6 +364,16 @@
     <string name="completion_killed">Видеото спря, когато приложението се затвори. Докосни Сподели, за да опиташ отново.</string>
     <string name="completion_play_again">Играй отново</string>
     <string name="completion_picture">Завършена картина</string>
+    <string name="where_found_question">Къде намери Gemmory?</string>
+    <string name="where_found_reward">Отговори и получи още едно фото платно.</string>
+    <string name="where_found_video">Видео (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Група или форум</string>
+    <string name="where_found_friend">Приятел</string>
+    <string name="where_found_play_search">Търсене в Play Store</string>
+    <string name="where_found_other">Другаде</string>
+    <string name="where_found_skip">Пропусни</string>
+    <string name="where_found_thanks_canvas">Благодарим. 1 фото платно е добавено в инвентара ти.</string>
+    <string name="where_found_thanks">Благодарим.</string>
 
     <string name="widget_start">Започни серия</string>
     <string name="widget_done">Готово днес</string>

@@ -12,6 +12,7 @@ import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.RewardType
+import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.reminder.AskResult
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -248,6 +249,9 @@ class TelemetryTest {
     fun reminderEventsCarryReasonsAndTimesButNoIds() {
         assertEquals(AnalyticsEvent("reminder_prompt_shown", mapOf("attempt" to 2L)), AnalyticsEvent.reminderPromptShown(2))
         assertEquals(AnalyticsEvent("reminder_prompt_result", mapOf("result" to "denied_system")), AnalyticsEvent.reminderPromptResult("denied_system"))
+        // T56: the reported value is the fixed enum value, never the translated words.
+        assertEquals(AnalyticsEvent("where_found", mapOf("answer" to "play_search")), AnalyticsEvent.whereFound(WhereFoundAnswer.PLAY_SEARCH))
+        assertEquals(AnalyticsEvent("where_found", mapOf("answer" to "skip")), AnalyticsEvent.whereFound(WhereFoundAnswer.SKIP))
         assertEquals(
             AnalyticsEvent("reminder_settings_changed", mapOf("on" to "true", "minutes" to 1230L)),
             AnalyticsEvent.reminderSettingsChanged(on = true, minutes = 1230),

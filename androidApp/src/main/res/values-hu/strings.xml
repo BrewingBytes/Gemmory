@@ -364,6 +364,16 @@
     <string name="completion_killed">A videó leállt, amikor az alkalmazás bezárult. Koppints a Megosztásra az újrapróbáláshoz.</string>
     <string name="completion_play_again">Újra játszom</string>
     <string name="completion_picture">Kész kép</string>
+    <string name="where_found_question">Hol találtad a Gemmoryt?</string>
+    <string name="where_found_reward">Válaszolj, és kapsz még egy fotóvásznat.</string>
+    <string name="where_found_video">Egy videó (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Egy csoport vagy fórum</string>
+    <string name="where_found_friend">Egy ismerős</string>
+    <string name="where_found_play_search">Keresés a Play Áruházban</string>
+    <string name="where_found_other">Máshol</string>
+    <string name="where_found_skip">Kihagyom</string>
+    <string name="where_found_thanks_canvas">Köszönjük. 1 fotóvászon a leltáradba került.</string>
+    <string name="where_found_thanks">Köszönjük.</string>
 
     <string name="widget_start">Indíts egy sorozatot</string>
     <string name="widget_done">Mára kész</string>

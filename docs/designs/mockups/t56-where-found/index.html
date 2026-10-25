@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gemmory T56 (#157): "Where did you find Gemmory?"</title>
+<style>
+@font-face { font-family: "Bricolage"; src: url("../../../../androidApp/src/main/res/font/bricolage_grotesque.ttf"); }
+@font-face { font-family: "Figtree"; src: url("../../../../androidApp/src/main/res/font/figtree.ttf"); }
+@font-face { font-family: "AHMono"; src: url("../../../../androidApp/src/main/res/font/atkinson_hyperlegible_mono.ttf"); }
+@font-face { font-family: "Zen"; font-weight: 400; src: url("../../../../androidApp/src/main/res/font/zen_kaku_gothic_new_regular.ttf"); }
+@font-face { font-family: "Zen"; font-weight: 700; src: url("../../../../androidApp/src/main/res/font/zen_kaku_gothic_new_bold.ttf"); }
+:root {
+  --felt:#4F5A52; --felt-deep:#3E4741; --felt-raised:#5C685F;
+  --felt-dark:#39423C; --felt-deep-dark:#2E3530;
+  --bone:#E9E4D8; --on-bone:#2B322D; --muted:#CDD3C9; --lamp:#F4E3B1; --scrim:#141815;
+}
+* { box-sizing:border-box; }
+body { margin:0; padding:28px 40px 80px; background:#262c28; color:var(--bone); font-family:Figtree, sans-serif; }
+h1 { font-family:Bricolage; font-weight:600; font-size:28px; margin:0 0 6px; }
+h2 { font-family:Bricolage; font-weight:600; font-size:21px; margin:44px 0 6px; }
+p.lead, p.note { color:var(--muted); max-width:1100px; line-height:1.5; margin:0 0 14px; font-size:14px; }
+code { font-family:AHMono; font-size:12.5px; color:var(--bone); }
+.row { display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start; }
+.opt { width:360px; }
+.opt h3 { font-size:15px; font-weight:600; margin:0 0 4px; }
+.opt p { font-size:12.5px; color:var(--muted); line-height:1.45; margin:4px 0 10px; min-height:54px; }
+
+/* 360x740dp phone, 1px = 1dp */
+.phone { width:360px; height:740px; border-radius:30px; border:8px solid #111; overflow:hidden; position:relative; background:var(--felt); }
+.room { position:absolute; inset:0; background:var(--felt-dark); display:flex; flex-direction:column; padding:16px; }
+.room::after { content:""; position:absolute; inset:0; background:var(--scrim); opacity:.30; pointer-events:none; }
+.room > * { position:relative; z-index:1; }
+.room .pic-area { flex:1 1 auto; display:flex; align-items:center; justify-content:center; min-height:0; }
+.pic { display:grid; gap:0; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:2; }
+.pic i { display:block; box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(0,0,0,.25); }
+.text { max-height:60%; overflow:hidden; padding-top:16px; display:flex; flex-direction:column; }
+.text > * { flex-shrink:0; }
+.title { font-family:Bricolage; font-weight:600; font-size:34px; letter-spacing:-0.02em; line-height:1.15; }
+.meta { font-size:13px; color:var(--muted); margin-top:2px; }
+.meta .n { font-family:AHMono; font-weight:700; }
+.btn { height:48px; min-height:48px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:16px; padding:0 24px; text-align:center; }
+.primary { background:var(--bone); color:var(--on-bone); margin-top:16px; }
+.quiet { background:var(--felt-raised); color:var(--bone); margin-top:8px; }
+.textbtn { color:var(--bone); background:none; }
+/* the T56 row */
+.ask { margin-top:24px; background:var(--felt-raised); border-radius:6px; padding:10px 16px; min-height:48px; display:flex; flex-direction:column; justify-content:center; }
+.ask .q { font-size:16px; font-weight:600; line-height:1.3; }
+.ask .r { font-size:13px; color:var(--muted); margin-top:2px; }
+.thanks { margin-top:24px; min-height:48px; display:flex; align-items:center; font-size:16px; line-height:1.4; color:var(--bone); }
+.tag { position:absolute; top:10px; right:10px; z-index:9; font-size:11px; background:var(--bone); color:var(--on-bone); padding:2px 6px; border-radius:4px; font-weight:600; }
+.focus { outline:3px solid #8AB4F8; outline-offset:-3px; border-radius:6px; padding:0 8px; }
+/* sheet */
+.scrim { position:absolute; inset:0; background:var(--scrim); opacity:.55; z-index:5; }
+.sheet { position:absolute; left:0; right:0; bottom:0; z-index:6; background:var(--felt-deep); border-radius:16px 16px 0 0; padding:12px 16px 20px; max-height:88%; overflow:hidden; }
+.sheet .grab { width:32px; height:4px; border-radius:2px; background:var(--muted); opacity:.5; margin:0 auto 14px; }
+.sheet h4 { font-family:Bricolage; font-weight:600; font-size:22px; letter-spacing:-0.01em; margin:0 0 4px; line-height:1.2; }
+.sheet .r { font-size:13px; color:var(--muted); margin-bottom:14px; }
+.sheet .ans { background:var(--felt-raised); color:var(--bone); border-radius:6px; min-height:48px; padding:12px 24px; font-weight:600; font-size:16px; line-height:1.3; margin-top:8px; display:flex; align-items:center; }
+.sheet .ans.sel { box-shadow: inset 0 0 0 2px var(--lamp); }
+.sheet .skip { margin-top:10px; height:48px; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:16px; }
+/* 200% font frame: everything type-related doubled */
+.big .title { font-size:68px; } .big .meta { font-size:26px; } .big .btn { font-size:32px; min-height:96px; height:auto; padding:12px 24px; }
+.big .ask .q { font-size:32px; } .big .ask .r { font-size:26px; }
+.big .text { overflow:auto; }
+.big .sheet h4 { font-size:44px; } .big .sheet .r { font-size:26px; } .big .sheet .ans { font-size:32px; } .big .sheet .skip { font-size:32px; height:96px; }
+.ja, .ja .title, .ja .sheet h4 { font-family:Zen, Figtree, sans-serif; }
+.ja .btn, .ja .ask .q, .ja .sheet .ans, .ja .sheet .skip { font-weight:700; line-height:1.6; word-break:keep-all; overflow-wrap:anywhere; }
+.legend { font-size:12.5px; color:var(--muted); line-height:1.6; max-width:1100px; }
+.legend b { color:var(--bone); }
+</style>
+</head>
+<body>
+<h1>T56 (#157): "Where did you find Gemmory?"</h1>
+<p class="lead">Decided shape (eng R3, D2): one quiet row under Done on a first-run install's first fresh finish, after the text has faded in; a tap opens the sheet with five answers and Skip; answering pays 1 photo canvas (not VIP) and leaves a thanks line. Tokens are DESIGN.md's; frames are 360×740dp at 1px = 1dp. The picture never resizes: the row fades in with the rest of the text. Translations here are drafts for layout only.</p>
+
+<h2>1. The completion screen</h2>
+<div class="row">
+  <div class="opt"><h3>1a. Row after the text fades in (non-VIP)</h3><p>Finished, meta, Share (the one primary), Done (quiet), 24dp, then the row: question in button type, reward line in label/<code>text-muted</code>. Valid on the dimmed room.</p>
+    <div class="phone" id="p1a"></div></div>
+  <div class="opt"><h3>1b. VIP</h3><p>No reward line; same row. The sheet has no reward line either. Answering says "Thanks." and calls no earn.</p>
+    <div class="phone" id="p1b"></div></div>
+  <div class="opt"><h3>1c. During the celebration (row not composed)</h3><p>Before <code>text.value == 1f</code> nothing below the picture is visible; the row arrives with the text (R2). Taps on the half-faded row are ignored by the ViewModel guard.</p>
+    <div class="phone" id="p1c"></div></div>
+</div>
+
+<h2>2. The sheet</h2>
+<div class="row">
+  <div class="opt"><h3>2a. Sheet open</h3><p>Title is the question (heading); five full-width quiet buttons, labels wrap with no line limit; first four shuffled once per install, "Somewhere else" last; Skip is a text button. Back, swipe or the scrim = skip.</p>
+    <div class="phone" id="p2a"></div></div>
+  <div class="opt"><h3>2b. Tapped: 400ms lamp hold</h3><p>The tapped answer gets the 2dp <code>lamp</code> outline (QuietButton's new <code>selected</code>) for 400ms or until the reward result arrives, whichever is later; other taps ignored.</p>
+    <div class="phone" id="p2b"></div></div>
+  <div class="opt"><h3>2c. Thanks line</h3><p>The sheet closes; the row's place shows one bone line. TalkBack focus moves to it (no live region, so it's read once). "added" only when <code>earnCanvasOnce</code> returned true.</p>
+    <div class="phone" id="p2c"></div></div>
+</div>
+
+<h2>3. Large text and languages</h2>
+<div class="row">
+  <div class="opt"><h3>3a. 200% font (360dp)</h3><p>The capped text column scrolls, as today; the row sits under Done and is reached by scrolling like Done. The picture keeps its 40%+ share.</p>
+    <div class="phone big" id="p3a"></div></div>
+  <div class="opt"><h3>3b. 200% font: sheet</h3><p>Answers wrap to two lines; the sheet scrolls past ~88% height. Skip stays at the end of the list.</p>
+    <div class="phone big" id="p3b"></div></div>
+  <div class="opt"><h3>3c. German sheet (100%)</h3><p>The longest locale for this copy; the video answer has a ~36-character cap (R4), the others ~24.</p>
+    <div class="phone" id="p3c"></div></div>
+  <div class="opt"><h3>3d. Japanese sheet (100%)</h3><p>Zen Kaku Gothic New, 700 on buttons, line height 1.6, phrase breaking; brand names stay Latin.</p>
+    <div class="phone ja" id="p3d"></div></div>
+</div>
+
+<h2>TalkBack order</h2>
+<p class="legend"><b>Screen:</b> "Finished" → meta → Share, button → Done, button → <b>"Where did you find Gemmory? Answer for one more photo canvas.", button</b> (VIP: question only). No focus move when the row appears.<br>
+<b>Sheet:</b> "Where did you find Gemmory?", heading → "A friend, button, 1 of 5" … "Somewhere else, button, 5 of 5" → "Skip, button".<br>
+<b>After an answer:</b> focus on "Thanks. 1 photo canvas added to your inventory." (read once). <b>After Skip or dismiss:</b> focus on Done.</p>
+
+<script>
+// A small lighthouse-at-sunset gem picture (24x32 cells), drawn as table-cut squares.
+function picture(cell) {
+  const W = 24, H = 32, cols = [];
+  const sky = ["#2E3A66","#3E4A7A","#5B4E86","#8A5A86","#C46A6E","#E9875A","#F2A65A","#F6C46B"];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let c;
+    if (y < 18) c = sky[Math.min(7, Math.floor(y / 2.3))];
+    else if (y < 19) c = "#F6D58A";
+    else c = (x + y) % 3 === 0 ? "#2F5E73" : (y < 22 ? "#3D7186" : "#24485A");
+    if (y >= 6 && y < 26 && x >= 10 && x <= 13) c = (y % 4 < 2) ? "#E9E4D8" : "#B84A3E";
+    if (y >= 4 && y < 6 && x >= 9 && x <= 14) c = "#2B322D";
+    if (y >= 2 && y < 4 && x >= 10 && x <= 13) c = (y === 3 && (x === 11 || x === 12)) ? "#FFF3B0" : "#2B322D";
+    if (y >= 26 && y < 30 && x >= 6 && x <= 17) c = "#4A3B34";
+    if (y === 19 && (x < 4 || x > 20)) c = "#F2A65A";
+    cols.push(c);
+  }
+  const d = document.createElement("div");
+  d.className = "pic";
+  d.style.gridTemplateColumns = `repeat(${W}, ${cell}px)`;
+  d.style.gridAutoRows = `${cell}px`;
+  cols.forEach(c => { const i = document.createElement("i"); i.style.background = c; d.appendChild(i); });
+  return d;
+}
+const T = {
+  en: { finished: "Finished", meta: ['Lighthouse · ', '768', ' gems · ', '6', ' min'], share: "Share", done: "Done",
+        q: "Where did you find Gemmory?", r: "Answer for one more photo canvas.",
+        a: ["A friend", "A group or forum", "Searching Play Store", "A video (TikTok, Reels, YouTube)", "Somewhere else"], skip: "Skip",
+        thanks: "Thanks. 1 photo canvas added to your inventory.", thanksVip: "Thanks." },
+  de: { q: "Wo hast du Gemmory gefunden?", r: "Antworte für eine weitere Fotoleinwand.",
+        a: ["Durch eine Gruppe oder ein Forum", "Durch Freunde", "Ein Video (TikTok, Reels, YouTube)", "Suche im Play Store", "Woanders"], skip: "Überspringen" },
+  ja: { q: "Gemmoryをどこで知りましたか？", r: "答えると写真キャンバスが1つもらえます。",
+        a: ["友だちから", "動画（TikTok、Reels、YouTube）", "Playストアの検索", "グループやフォーラム", "その他"], skip: "スキップ" },
+};
+function room(opts) {
+  const t = T.en;
+  const r = document.createElement("div"); r.className = "room";
+  const pa = document.createElement("div"); pa.className = "pic-area"; pa.appendChild(picture(opts.cell || 11)); r.appendChild(pa);
+  const tx = document.createElement("div"); tx.className = "text";
+  if (opts.hidden) tx.style.opacity = "0";
+  tx.innerHTML = `<div class="title">${t.finished}</div>
+    <div class="meta">${t.meta[0]}<span class="n">${t.meta[1]}</span>${t.meta[2]}<span class="n">${t.meta[3]}</span>${t.meta[4]}</div>
+    <div class="btn primary">${t.share}</div><div class="btn quiet">${t.done}</div>`;
+  if (opts.thanks) tx.innerHTML += `<div class="thanks ${opts.focus ? "focus" : ""}">${opts.vip ? t.thanksVip : t.thanks}</div>`;
+  else if (opts.row !== false) tx.innerHTML += `<div class="ask"><div class="q">${t.q}</div>${opts.vip ? "" : `<div class="r">${t.r}</div>`}</div>`;
+  r.appendChild(tx);
+  return r;
+}
+function sheet(lang, sel, vip) {
+  const t = Object.assign({}, T.en, T[lang] || {});
+  const s = document.createElement("div"); s.className = "sheet";
+  s.innerHTML = `<div class="grab"></div><h4>${t.q}</h4>${vip ? "" : `<div class="r">${t.r}</div>`}` +
+    t.a.map((a, i) => `<div class="ans ${sel === i ? "sel" : ""}">${a}</div>`).join("") +
+    `<div class="skip">${t.skip}</div>`;
+  return s;
+}
+function frame(id, build, tag) {
+  const p = document.getElementById(id);
+  build(p);
+  if (tag) { const g = document.createElement("div"); g.className = "tag"; g.textContent = tag; p.appendChild(g); }
+}
+const withSheet = (lang, sel) => p => {
+  p.appendChild(room({}));
+  const sc = document.createElement("div"); sc.className = "scrim"; p.appendChild(sc);
+  p.appendChild(sheet(lang, sel));
+};
+frame("p1a", p => p.appendChild(room({})), "first finish");
+frame("p1b", p => p.appendChild(room({ vip: true })), "VIP");
+frame("p1c", p => p.appendChild(room({ hidden: true })), "celebrating");
+frame("p2a", withSheet("en"), "sheet");
+frame("p2b", withSheet("en", 3), "400ms");
+frame("p2c", p => p.appendChild(room({ thanks: true, focus: true })), "answered");
+frame("p3a", p => p.appendChild(room({ cell: 9 })), "200%");
+frame("p3b", withSheet("en"), "200%");
+frame("p3c", withSheet("de"), "de");
+frame("p3d", withSheet("ja"), "ja");
+</script>
+</body>
+</html>

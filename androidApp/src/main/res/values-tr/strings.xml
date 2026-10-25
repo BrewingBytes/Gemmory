@@ -364,6 +364,16 @@
     <string name="completion_killed">Uygulama kapanınca video durdu. Tekrar denemek için Paylaş\'a dokun.</string>
     <string name="completion_play_again">Tekrar oyna</string>
     <string name="completion_picture">Bitmiş tablo</string>
+    <string name="where_found_question">Gemmory’yi nerede buldun?</string>
+    <string name="where_found_reward">Cevapla, bir fotoğraf tuvali daha kazan.</string>
+    <string name="where_found_video">Bir video (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Bir grup veya forum</string>
+    <string name="where_found_friend">Bir arkadaş</string>
+    <string name="where_found_play_search">Play Store’da arama</string>
+    <string name="where_found_other">Başka bir yer</string>
+    <string name="where_found_skip">Geç</string>
+    <string name="where_found_thanks_canvas">Teşekkürler. Envanterine 1 fotoğraf tuvali eklendi.</string>
+    <string name="where_found_thanks">Teşekkürler.</string>
 
     <string name="widget_start">Bir seri başlat</string>
     <string name="widget_done">Bugün tamam</string>

@@ -1,11 +1,15 @@
 package com.brewingbytes.gemmory.telemetry
 
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.brewingbytes.gemmory.policy.CheckedStateStore
+import com.brewingbytes.gemmory.policy.FirstRunAsk
 import com.brewingbytes.gemmory.policy.FirstRunFunnel
 import com.brewingbytes.gemmory.policy.FirstRunState
 import com.brewingbytes.gemmory.policy.NewPlayer
-import com.brewingbytes.gemmory.policy.StateStore
+import com.brewingbytes.gemmory.policy.WhereFound
+import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.storage.StorageLayout
 import java.io.File
 
@@ -24,6 +28,8 @@ class FirstRun(
     funnel: SharedPreferences,
     /** Connected tests only (T50): a launch counted as fresh whatever is on the disk. */
     forceFresh: Boolean = false,
+    /** Where a T56 decision that didn't save is reported (eng R1). */
+    private val reporter: NonFatalReporter? = null,
 ) {
     /** Nothing of a played install was on the disk when the process started. */
     val freshDisk: Boolean = forceFresh || NewPlayer.isFresh(
@@ -79,7 +85,25 @@ class FirstRun(
     @Synchronized
     fun landingEnded(sharedId: String?, day: Long) = funnel.landingEnded(sharedId, day)
 
-    private class PrefsStore(private val prefs: SharedPreferences) : StateStore<FirstRunState> {
+    /**
+     * A fresh finish (T56): whether to show "Where did you find Gemmory?", decided and saved once, at a first-run
+     * install's first fresh finish. A decision that didn't reach the disk shows nothing and is reported.
+     */
+    @Synchronized
+    fun firstRunAsk(analyticsGranted: Boolean, seed: Long): FirstRunAsk =
+        funnel.firstRunAsk(analyticsGranted, seed).also {
+            if (it == FirstRunAsk.SaveFailed) reporter?.report(IllegalStateException("T56 decision not saved"))
+        }
+
+    /** T56's row came to the screen. */
+    @Synchronized
+    fun whereFoundShown() = funnel.whereFoundShown()
+
+    /** T56 was answered (or skipped): true the first time only. */
+    @Synchronized
+    fun whereFoundAnswered(answer: WhereFoundAnswer): Boolean = funnel.whereFoundAnswered(answer)
+
+    private class PrefsStore(private val prefs: SharedPreferences) : CheckedStateStore<FirstRunState> {
         override fun load(): FirstRunState? {
             if (!prefs.contains(FIRST_LAUNCH)) return null
             return FirstRunState(
@@ -91,10 +115,14 @@ class FirstRun(
                 sharedId = prefs.getString(SHARED_ID, null),
                 sharedDay = prefs.getLong(SHARED_DAY, 0),
                 landingEnded = prefs.getBoolean(LANDING_ENDED, false),
+                whereFound = prefs.getString(WHERE_FOUND, null)?.let { name -> WhereFound.entries.firstOrNull { it.name == name } },
+                whereFoundSeed = prefs.getLong(WHERE_FOUND_SEED, 0),
             )
         }
 
-        override fun save(value: FirstRunState) = prefs.edit(commit = true) {
+        /** One synchronous commit, whose result is what T56 trusts (eng R1); KTX's `edit` would drop that result. */
+        @SuppressLint("UseKtx")
+        override fun trySave(value: FirstRunState): Boolean = prefs.edit().apply {
             putLong(FIRST_LAUNCH, value.firstLaunchMillis)
             putBoolean(LAUNCH_LOGGED, value.launchLogged)
             putBoolean(GEM_LOGGED, value.gemLogged)
@@ -103,7 +131,9 @@ class FirstRun(
             putString(SHARED_ID, value.sharedId)
             putLong(SHARED_DAY, value.sharedDay)
             putBoolean(LANDING_ENDED, value.landingEnded)
-        }
+            putString(WHERE_FOUND, value.whereFound?.name)
+            putLong(WHERE_FOUND_SEED, value.whereFoundSeed)
+        }.commit()
     }
 
     companion object {
@@ -122,6 +152,8 @@ class FirstRun(
         private const val SHARED_ID = "shared_id"
         private const val SHARED_DAY = "shared_day"
         private const val LANDING_ENDED = "landing_ended"
+        private const val WHERE_FOUND = "where_found"
+        private const val WHERE_FOUND_SEED = "where_found_seed"
 
         /** A canvas directory, `canvases/<kind>/<id>/`: an empty `canvases/<kind>/` isn't a canvas. */
         private fun hasCanvas(canvases: File): Boolean =

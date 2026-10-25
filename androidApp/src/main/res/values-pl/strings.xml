@@ -402,6 +402,16 @@
     <string name="completion_killed">Film się zatrzymał, gdy aplikacja została zamknięta. Dotknij Udostępnij, aby spróbować ponownie.</string>
     <string name="completion_play_again">Zagraj jeszcze raz</string>
     <string name="completion_picture">Ukończony obraz</string>
+    <string name="where_found_question">Skąd znasz Gemmory?</string>
+    <string name="where_found_reward">Odpowiedz, a dostaniesz jeszcze jedno płótno ze zdjęcia.</string>
+    <string name="where_found_video">Film (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Grupa lub forum</string>
+    <string name="where_found_friend">Znajomy lub znajoma</string>
+    <string name="where_found_play_search">Szukanie w Play Store</string>
+    <string name="where_found_other">Gdzie indziej</string>
+    <string name="where_found_skip">Pomiń</string>
+    <string name="where_found_thanks_canvas">Dziękujemy. 1 płótno ze zdjęcia trafiło do Twojego ekwipunku.</string>
+    <string name="where_found_thanks">Dziękujemy.</string>
 
     <string name="widget_start">Zacznij serię</string>
     <string name="widget_done">Dziś gotowe</string>

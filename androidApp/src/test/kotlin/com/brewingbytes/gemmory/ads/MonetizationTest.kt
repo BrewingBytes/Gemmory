@@ -244,6 +244,21 @@ class MonetizationTest {
         assertFalse(again.useToken("wave"), "none left")
     }
 
+    /** T56: answering "Where did you find Gemmory?" pays one photo canvas, once, and nothing to VIP (no inventory). */
+    @Test
+    fun theWhereFoundCanvasComesOnceAndNeverToVip() = runTest(UnconfinedTestDispatcher()) {
+        val m = monetization()
+        assertTrue(m.earnCanvasOnce("where-found"))
+        assertFalse(m.earnCanvasOnce("where-found"), "a second answer pays nothing")
+        assertEquals(1, m.inventory.value.canvases)
+        m.close()
+        entitlements.value = Entitlements(plan = VipPlan.YEARLY)
+        val vip = monetization(processStart = false)
+        vip.refresh()
+        assertFalse(vip.earnCanvasOnce("where-found-vip"))
+        assertEquals(1, vip.inventory.value.canvases, "VIP earns nothing")
+    }
+
     private val inventoryFile get() = File(tmp.root, StorageLayout.INVENTORY)
 
     private fun heldOnDisk(): Int = (InventoryCodec.decode(inventoryFile.readBytes()) as Decoded.Ok).value.freezes

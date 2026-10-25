@@ -425,6 +425,17 @@
     <string name="completion_killed">The video stopped when the app closed. Tap Share to try again.</string>
     <string name="completion_play_again">Play again</string>
     <string name="completion_picture">Finished picture</string>
+    <!-- "Where did you find Gemmory?" (T56, #157): one row under Done at a first-run install's first finish, answered in a sheet. Answers: about 24 characters or fewer (the video one about 36; TikTok, Reels and YouTube stay Latin). -->
+    <string name="where_found_question">Where did you find Gemmory?</string>
+    <string name="where_found_reward">Answer for one more photo canvas.</string>
+    <string name="where_found_video">A video (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">A group or forum</string>
+    <string name="where_found_friend">A friend</string>
+    <string name="where_found_play_search">Searching Play Store</string>
+    <string name="where_found_other">Somewhere else</string>
+    <string name="where_found_skip">Skip</string>
+    <string name="where_found_thanks_canvas">Thanks. 1 photo canvas added to your inventory.</string>
+    <string name="where_found_thanks">Thanks.</string>
 
     <!-- Streak widget (#103) -->
     <string name="widget_start">Start a streak</string>

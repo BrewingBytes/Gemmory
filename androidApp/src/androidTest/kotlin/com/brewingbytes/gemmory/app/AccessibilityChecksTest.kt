@@ -31,6 +31,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.completion.WHERE_FOUND_ANSWER_TAG
+import com.brewingbytes.gemmory.completion.WHERE_FOUND_ROW_TAG
+import com.brewingbytes.gemmory.completion.WHERE_FOUND_THANKS_TAG
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
@@ -166,6 +169,9 @@ class AccessibilityChecksTest {
     fun setUp() {
         // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
         app.resetStreakForTest(celebrations = false)
+        // T56's row only where a case asks for it (eng outside voice #10).
+        app.resetFirstRunForTest(fresh = false)
+        app.whereFoundConsentForTest = null
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         compose.enableAccessibilityChecks(scannerValidator())
@@ -174,6 +180,8 @@ class AccessibilityChecksTest {
     @After
     fun tearDown() {
         app.resetStreakForTest()
+        app.resetFirstRunForTest(fresh = false)
+        app.whereFoundConsentForTest = null
         if (::scenario.isInitialized) scenario.close()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
     }
@@ -407,6 +415,35 @@ class AccessibilityChecksTest {
         scan()
         compose.onNodeWithText("Play again").performClick()
         waitForText("Start this picture over?")
+        scan()
+    }
+
+    /** T56 (#157): the row under Done, its answer sheet, the tapped answer's outline and the thanks line. */
+    @Test
+    fun whereFoundRowSheetAndThanks() {
+        app.resetFirstRunForTest(fresh = true)
+        app.whereFoundConsentForTest = true
+        runBlocking { (context.applicationContext as GemmoryApp).store.create(photo, A11yTestSupport.pattern(8, 6, 3)) }
+        val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
+        com.brewingbytes.gemmory.play.CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
+        hints.commit()
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithText("My Photos").performClick()
+        waitForTag("tile-photo-a11y-scan")
+        compose.onNodeWithTag("tile-photo-a11y-scan").performClick()
+        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        val s = session()!!
+        instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
+        waitForTag("completion-fresh")
+        compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
+        compose.mainClock.advanceTimeBy(6_000)
+        waitForTag(WHERE_FOUND_ROW_TAG)
+        scan()
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
+        waitForTag("$WHERE_FOUND_ANSWER_TAG-video")
+        scan()
+        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-video").performClick()
+        waitForTag(WHERE_FOUND_THANKS_TAG)
         scan()
     }
 }

@@ -364,6 +364,16 @@
     <string name="completion_killed">Das Video wurde abgebrochen, als die App geschlossen wurde. Tippe auf Teilen, um es erneut zu versuchen.</string>
     <string name="completion_play_again">Noch einmal spielen</string>
     <string name="completion_picture">Fertiges Bild</string>
+    <string name="where_found_question">Wo hast du Gemmory gefunden?</string>
+    <string name="where_found_reward">Antworte für eine weitere Foto-Leinwand.</string>
+    <string name="where_found_video">Ein Video (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Gruppe oder Forum</string>
+    <string name="where_found_friend">Durch Freunde</string>
+    <string name="where_found_play_search">Suche im Play Store</string>
+    <string name="where_found_other">Woanders</string>
+    <string name="where_found_skip">Überspringen</string>
+    <string name="where_found_thanks_canvas">Danke. 1 Foto-Leinwand ist jetzt in deinem Inventar.</string>
+    <string name="where_found_thanks">Danke.</string>
 
     <string name="widget_start">Starte eine Serie</string>
     <string name="widget_done">Heute geschafft</string>
