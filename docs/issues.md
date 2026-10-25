@@ -4,7 +4,7 @@ Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decis
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
 Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
-Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)). After round 3's planning: #144 (clip store CTA, founder request after T47, no T-number) and T53 = #145 (share video ad, from T50's /plan-design-review), both on 2026-10-23, at the end.
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)). After round 3's planning: #144 (clip store CTA, founder request after T47, no T-number) and T53 = #145 (share video ad, from T50's /plan-design-review), both on 2026-10-23, at the end. Round 4 (T54-T57, plan `docs/designs/gemmory-round4.md`, office hours 2026-10-24, CEO, eng and design reviews 2026-10-24/25) is at the very end, created on GitHub on 2026-10-25 as T54 = #155, T55 = #156, T56 = #157, T57 = #158 (T*n* = #(*n*+101)); T58 was cut at the CEO review (C2).
 
 ---
 
@@ -1334,3 +1334,105 @@ Labels: P2, ui. No T-number (founder request after #144, 2026-10-24).
 Depends on: #144 (PR #151).
 
 **Built** (2026-10-24, branch `feat/152-clips-queue`, stacked on #151).
+
+---
+
+## T54: Production launch: closed-test requirement, D18 gate, promote
+Labels: P1, release
+
+**Why:** production isn't open, so no stranger can find Gemmory and #74's real ads earn nothing. Plan: T54; CEO §9, O3; eng outside voice #7, #11.
+
+**Scope** (mostly founder console work)
+- **Closed-test requirement:** for a personal developer account created after 2023-11-13, 12 opted-in testers for 14 continuous days; confirm on the Play Console dashboard. Then **Apply for production** and answer its questionnaire about the test.
+- **D18 production gate** (`docs/play-compliance.md`): crash-free users ≥ 99% on the promoted version, and no unrecovered `: damaged,` save-load non-fatals. Paste both readings here.
+- **Before promotion:** T45 + T46 gates confirmed; Data safety re-saved and the privacy policy republished for T46's and T56's events; `cut` (from #154) and T56's answer parameter registered as Firebase custom dimensions (registration doesn't apply to past data).
+- **Rollout (O3):** #154 merges → T56 lands on the closed track → that build is promoted. #74's real IDs in it or the first update after. T55 links live the same day. If T56 isn't ready when the clock and Play's review pass, promote without it (premise 4) and read the launch burst as counts only.
+- Unity test mode off and the "don't tap ads" note retired at promotion (#74).
+- **First-hour check:** `first_launch` → `first_gem` in DebugView on a fresh install of the promoted build.
+- **Calendar:** strangers joined around 2026-10-22, so 14 continuous days lands early November at the earliest, then Play's review [estimated].
+
+**Done when:** the build is live in production, the gate readings and the custom-dimension registration are written here.
+
+Depends on: the closed-test clock; T45, T46 (shipped); #154 and T56 for the promoted build (O3). Related: #74. Effort: human ~1d / CC ~20 min.
+
+---
+
+## T55: Channel links and a readout: every install in a named channel, organic or unknown
+Labels: P2, telemetry
+
+**Why:** no channel has a readable result ("Mixed / unsure"), and the clip test was called "a hit" with no numbers. Every install should land in a named channel, the organic bucket or unknown. Plan: T55; CEO C1, O1, O2; outside voice #2, #3, #14, #16.
+
+**Scope**
+- **Channel links page** (new, beside `docs/reading-first-30-days.md`): one tagged store link per channel (each subreddit, each Facebook group, each clip bio: `utm_source` = `tiktok` | `instagram` | `youtube`), with the naming rule.
+- **Reserved values:** channel links carry only `utm_source` (platform) and `utm_campaign` (community or post, e.g. `r-diamondpainting-1024`). Never `utm_source=share` (share attribution), any `utm_content` (T50 reads it as a picture id from any source, `ShareLanding.kt:68`; channel links give up picture landing by choice) or `utm_medium` (share links use it). A test that an unknown `utm_content` opens nothing, if T50's tests don't cover it.
+- **Readout:** Play Console's store-listing acquisition report by UTM campaign (counts players who declined consent), plus a saved Firebase exploration or documented query for the funnel: installs, `first_gem`, first `canvas_finished`, a day-2 `day_played`, shares, by first-user source and photo vs bundled; a row for `share_completed` `cut` = `feed` (#154). Counts under the floor of 100, rates above. Google signals stays off (thresholding hides small rows).
+- **Organic (O1):** `google-play / organic` is its own bucket, split by T56's answer ("organic · video" is a clip-driven search); organic with no answer is unknown.
+- **T56 answers:** on a tagged install the tag wins; on organic or direct the answer is the channel. Answers are rewarded, so some are taps for the canvas; "A friend" also covers word of mouth.
+- **Clip caveat:** feed posts carry no link and bio links often lose the referrer in in-app browsers, so most clip installs arrive organic.
+- No new attribution event (T46 eng O-E5).
+
+**Done when:** the links page and readout exist, and a test install from a tagged reddit link shows under its campaign in Play Console.
+
+Depends on: T46 (shipped); #154 for the `cut` row; T56 for its answer column. Effort: human ~1d / CC ~45 min.
+
+---
+
+## T56: "Where did you find Gemmory?": one row at the first finish, +1 photo canvas
+Labels: P1, telemetry, ui, a11y
+
+**Why:** installs from an organic search, a hand-copied link or a feed app arrive with no channel Firebase can name. One quiet question at a stranger's first finish fills that gap. Plan: T56; CEO C3, §2, §4, O2, O3; eng D1, R1 (D4), R2 (D3), outside voice #1-#12; design D3-D12.
+
+**Who and when**
+- Every first-run install (T46's `NewPlayer`), at its **first fresh finish**, only when analytics consent is granted. Decided once: `FirstRunState.whereFound` = decided → notShown | shown → answered | skipped, set at the first fresh finish whether or not the row shows (consent granted later never asks).
+- The "decided" write goes through a new `CheckedStateStore<T> : StateStore<T>` with `trySave(): Boolean`, implemented only by first_run's PrefsStore (`commit()`'s result); disk first, then memory. False → no row ever, a non-fatal. StateStore and the other 19 stores unchanged (R1).
+- Gate name `firstRunAsk` (not "fresh", which CompletionScreen uses for a just-finished canvas).
+- The row appears only once the text has faded in (`text.value == 1f`, R2), via a per-`ref` "celebration done" flag in the completion ViewModel (set at the end of the effect, or at once when `sequence` is false), so a rotation mid-celebration still shows it. Eligibility is decided once per `ref` and held in the ViewModel.
+
+**Layout and copy** (design D3-D12, eng R3/R4 later win)
+- Column: "Finished", meta, Share (the one primary), killed-encode line if any, Done (quiet), 24dp, then **one row**: a QuietButton "Where did you find Gemmory?" with the reward line under it (`label`, `text-muted`, non-VIP only): "Answer for one more photo canvas." Done is never moved, blocked or delayed. The row fades in with the rest of the text (`alpha(text.value)`), so the picture never resizes (R3).
+- A tap opens the system's sheet: title "Where did you find Gemmory?" (heading), the five answers as full-width QuietButtons (labels wrap, no line limit), then a 48dp text button "Skip". Answers → value: "A video (TikTok, Reels, YouTube)" → `video` (translator cap ~36 chars, brands Latin; R4) · "A group or forum" → `community` · "A friend" → `friend` · "Searching Play Store" → `play_search` · "Somewhere else" → `other` (others ~24 chars); Skip → `skip`. The first four shuffled once per install, seed saved in the same `trySave` commit as `decided`; "Somewhere else" last (D10). Values are a fixed enum, separate from strings.
+- Answering: the tapped button gets a 400ms 2dp `lamp` outline (a new `selected` parameter on `QuietButton`; not `Chip`), the sheet closes, and the row's place shows one `bone` line: "Thanks. 1 photo canvas added to your inventory." only when the reward paid, otherwise "Thanks." The swap waits for "400ms or the reward result, whichever is later". Skip, back or dismissing the sheet removes the row with no line; leaving the screen with the row untapped = skip. Reduced motion: a 150ms fade inside `withFullMotion`. State survives rotation and a Share round-trip.
+- TalkBack: Share → Done → the row (one button node with its reward line). In the sheet the title is a heading, answers are plain buttons with collection info ("1 of 5"), Skip "Skip, button". After an answer, focus moves to the thanks line (no live region, so it's spoken once); after Skip or dismiss, to Done. No focus move when the row appears.
+- Copy in all 12 `strings.xml`; ja keeps the bundled faces' rules with phrase breaking.
+
+**Reward and analytics**
+- Answering (not Skip) adds 1 photo canvas once via a new suspend `Monetization.earnCanvasOnce("where-found"): Boolean` (inside `onPolicy`, VIP check inside, like `spin()`; it calls `Inventory.earnOnce`). The completion ViewModel takes `monetization` and reads `monetization.entitlements`. Tap guard in the ViewModel. A failed inventory write is reported by the store and can lose the canvas.
+- One `where_found` event (`answer` = the enum) only on a tap, answer or Skip; leaving logs nothing. App interactions row.
+- Before promotion (T54): Data safety re-saved, privacy policy republished, custom dimension registered.
+- First-finish cap (D8): a Decisions Log row says nothing else is added to the first finish without moving or removing something.
+
+**Tests**
+- `NewPlayerTest`: rule rows (first-run only, first finish only, consent denied then granted never asks, failing CheckedStateStore → no row, reload keeps state, order stable per install, leave mid-celebration stays decided, old first_run file loads).
+- Robolectric PrefsStore round-trip; `WhereFoundTest` beside `FreshFinishTrackerTest`: double tap = 1 canvas + 1 event, VIP no `earnOnce`, Skip no canvas; `TelemetryTest` row for `where_found`.
+- `FinishCelebrationTest`: first-run, consented case: sequence unchanged, the row not composed before `text` reaches 1f, picture bounds unchanged after it appears; reduced-motion and rotation-mid-celebration cases. Test-only resets for first_run and a consent override; the ViewModel reads `firstRun` at call time.
+- `AccessibilityChecksTest`: setUp calls the first_run reset and consent seams; a new case scans the row, the sheet, the outline hold and the thanks line with a pinned shuffle seed. Semantics test: focus on the thanks line after an answer, on Done after Skip.
+- Manual QA: 100% and 200% font on a 360dp phone in de, hu, ja (row under Done visible at 100%).
+
+**Docs:** design-system.md T56 entry + navigation map (`design-system.md:175-211`) + Decisions Log row (D8); play-compliance.md Data safety; privacy-policy.md; reading-first-30-days.md.
+
+**Done when:** a first-run, consented install sees the row once after its first finish's celebration, an answer adds one canvas and logs one event, a relaunch never shows it, and every test above is green.
+
+Depends on: #154 (adds `cut`, edits `CompletionScreen.kt`). Ships in the promoted build (T54, O3). Effort: human ~2d / CC ~1.5h.
+
+---
+
+## T57: Photo-first store listing experiment (gated on photo finishes)
+Labels: P2, release
+
+**Gate: don't start this issue until the photo gate below opens.** No paid UA, so it may take months; each 30-day read is written here.
+
+**Why:** competitors lead with "color by number"; none leads with the player's own photo, the thing hobbyists buy as physical kits. But no stranger has proven the photo loop yet (premise 1, revised). Plan: T57; CEO C4, O2, O4; outside voice #12, #15.
+
+**Gate (C4, O2)**
+- Opens when the photo finish rate (photo canvases finished ÷ started) reaches **70% of the bundled finish rate at the same canvas size** (Quick, Medium, Big), pooled by the size mix of bundled starts, over at least **100 consented photo starts by players who never answered T56** (both cohorts exclude T56 answerers, a Firebase segment on `where_found`).
+- Under 100: stays closed, re-read every 30 days, each read written here.
+- Caveats noted at every read: the colors choice also changes difficulty; starter-size finishes have no photo match; founder and test devices aren't excluded (noise at 100+).
+
+**Scope (when open)**
+- A Play store listing experiment on the default listing (en-US) plus up to four localized listings, those with the most store visits (Play allows five languages per localized experiment; at low volume start with fewer).
+- The variant's short description and first two screenshots lead with "your photo as gem art" (`tools/store/listing/<locale>/`, existing capture tooling). Other locales unchanged until it ends.
+- Variant wins → every locale switches; loses → nothing changes; no result after 30 days → current listing stays, experiment stopped.
+
+**Done when:** the gate's open or closed decision is written here at each read, and if opened, the experiment's result is applied as above.
+
+Depends on: T55 (readout), production data, T56 (cohort exclusion). Effort: human ~2d / CC ~1h (when open).
