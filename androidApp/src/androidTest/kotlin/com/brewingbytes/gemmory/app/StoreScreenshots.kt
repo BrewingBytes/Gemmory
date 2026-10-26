@@ -33,11 +33,13 @@ import com.brewingbytes.gemmory.converter.AspectRatio
 import com.brewingbytes.gemmory.gallery.tileTag
 import com.brewingbytes.gemmory.photo.PhotoFlowViewModel
 import com.brewingbytes.gemmory.policy.Products
+import com.brewingbytes.gemmory.policy.ReminderAskState
 import com.brewingbytes.gemmory.ui.GemRenderer
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
+import com.brewingbytes.gemmory.reminder.ReminderPrefs
 import com.brewingbytes.gemmory.storage.StorageLayout
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -273,11 +275,18 @@ class StoreScreenshots {
         compose.waitUntil(10_000) { compose.onAllNodes(hasText(t(R.string.gallery_tab_photos))).fetchSemanticsNodes().isNotEmpty() }
     }
 
+    /** A photo canvas's title in the run's language (the listing's photo set); the pets keep their names. */
+    private fun title(english: String): String = PHOTO_TITLES[TestLanguage.requested?.substringBefore('-')]?.get(english) ?: english
+
     /** Six photo canvases through the real photo flow (VIP on the fake backend, so the daily allowance doesn't stop it). */
     @Test
     fun photoCanvases() {
         BillingBackends.fake.own(Products.VIP_YEARLY)
         runBlocking { app.billing.refresh() }
+        // The reminder ask answered, so the gallery shot shows the gallery, not the ask's sheet.
+        val reminders = ReminderPrefs(context.getSharedPreferences(ReminderPrefs.FILE, Context.MODE_PRIVATE))
+        reminders.ask = ReminderAskState.DONE
+        app.resetRemindersForTest()
         try {
             scenario = ActivityScenario.launch(MainActivity::class.java)
             compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
@@ -290,22 +299,22 @@ class StoreScreenshots {
             render(cat, "cat")
             finish(cat, "p-completion")
 
-            val sunset = makeCanvas("sunset", "Sail away")
+            val sunset = makeCanvas("sunset", title("Sail away"))
             fill(sunset, 0.6f)
             render(sunset, "sunset")
             leaveCanvas()
 
-            val cottage = makeCanvas("cottage", "The cottage")
+            val cottage = makeCanvas("cottage", title("The cottage"))
             fill(cottage, 0.7f)
             render(cottage, "cottage")
             leaveCanvas()
 
-            val sunflowers = makeCanvas("sunflowers", "Sunflowers")
+            val sunflowers = makeCanvas("sunflowers", title("Sunflowers"))
             fill(sunflowers, 0.85f)
             render(sunflowers, "sunflowers")
             leaveCanvas()
 
-            val couple = makeCanvas("couple", "Golden hour")
+            val couple = makeCanvas("couple", title("Golden hour"))
             render(couple, "couple")
             finish(couple)
 
@@ -320,6 +329,25 @@ class StoreScreenshots {
         } finally {
             BillingBackends.fake.reset()
             runBlocking { app.billing.refresh() }
+            reminders.ask = ReminderAskState.NOT_ASKED
+            app.resetRemindersForTest()
         }
+    }
+
+    private companion object {
+        /** The photo canvases' titles per app language, [title] (English stays as is). */
+        val PHOTO_TITLES: Map<String, Map<String, String>> = mapOf(
+            "de" to mapOf("Sail away" to "Leinen los", "The cottage" to "Das Häuschen", "Sunflowers" to "Sonnenblumen", "Golden hour" to "Goldene Stunde"),
+            "es" to mapOf("Sail away" to "A navegar", "The cottage" to "La casita", "Sunflowers" to "Girasoles", "Golden hour" to "Hora dorada"),
+            "pt" to mapOf("Sail away" to "Navegar", "The cottage" to "A casinha", "Sunflowers" to "Girassóis", "Golden hour" to "Hora dourada"),
+            "fr" to mapOf("Sail away" to "Prendre le large", "The cottage" to "Le cottage", "Sunflowers" to "Tournesols", "Golden hour" to "Heure dorée"),
+            "it" to mapOf("Sail away" to "Salpare", "The cottage" to "Il cottage", "Sunflowers" to "Girasoli", "Golden hour" to "Ora d’oro"),
+            "ro" to mapOf("Sail away" to "Pe mare", "The cottage" to "Căsuța", "Sunflowers" to "Floarea-soarelui", "Golden hour" to "Ora de aur"),
+            "pl" to mapOf("Sail away" to "W rejs", "The cottage" to "Domek", "Sunflowers" to "Słoneczniki", "Golden hour" to "Złota godzina"),
+            "tr" to mapOf("Sail away" to "Yelken aç", "The cottage" to "Kulübe", "Sunflowers" to "Ayçiçekleri", "Golden hour" to "Altın saat"),
+            "hu" to mapOf("Sail away" to "Vitorlát fel", "The cottage" to "A kis ház", "Sunflowers" to "Napraforgók", "Golden hour" to "Aranyóra"),
+            "bg" to mapOf("Sail away" to "В открито море", "The cottage" to "Къщичката", "Sunflowers" to "Слънчогледи", "Golden hour" to "Златен час"),
+            "ja" to mapOf("Sail away" to "船出", "The cottage" to "小さな家", "Sunflowers" to "ひまわり", "Golden hour" to "夕暮れ"),
+        )
     }
 }
