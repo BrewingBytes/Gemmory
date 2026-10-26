@@ -132,12 +132,6 @@ class CanvasAccessibilityTest {
         compose.waitForIdle()
     }
 
-    private fun PlaySession.log(): IntArray {
-        var log = IntArray(0)
-        onMain { log = placedLogForTest() }
-        return log
-    }
-
     private fun action(label: String) {
         compose.onNodeWithTag("play-canvas").performCustomAccessibilityActionWithLabel(label)
         compose.waitForIdle()

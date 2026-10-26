@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.telemetry
 
 import com.android.installreferrer.api.InstallReferrerClient.InstallReferrerResponse
 import com.brewingbytes.gemmory.policy.ReferrerParse
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -13,6 +14,7 @@ import kotlin.test.assertTrue
  * T46 (eng failure modes): the install referrer read. Anything but an answer in time is no referrer; only
  * DEVELOPER_ERROR is reported. A fake client stands in for Play's (no Robolectric here, lessons 2026-10-18).
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class InstallReferrerReaderTest {
     private val reports = mutableListOf<Throwable>()
     private val reporter = NonFatalReporter { reports += it }

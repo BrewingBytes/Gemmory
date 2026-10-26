@@ -103,7 +103,7 @@ class ShareFrameRenderTest {
         val art = FrameArt(context, r, 1080, 1920)
         try {
             val badge = layout(r).row!!.badge
-            assertTrue(whitePixels(art.overlay!!, badge.left, badge.top - art.overlayRect!!.top, badge.right, badge.bottom - art.overlayRect!!.top) > 200)
+            assertTrue(whitePixels(art.overlay!!, badge.left, badge.top - art.overlayRect!!.top, badge.right, badge.bottom - art.overlayRect.top) > 200)
             assertNotNull(art.card)
             // The card draws the canvas itself: exactly what the hold showed, 300 of the starter's 768 gems.
             art.apply(Frame.Hold)

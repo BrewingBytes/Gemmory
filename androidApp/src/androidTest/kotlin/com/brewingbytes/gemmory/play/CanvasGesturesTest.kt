@@ -113,12 +113,6 @@ class CanvasGesturesTest {
         return Offset(vp.offsetX + (cell % pattern.width + 0.5f) * vp.cellPx, vp.offsetY + (cell / pattern.width + 0.5f) * vp.cellPx)
     }
 
-    private fun PlaySession.log(): IntArray {
-        var log = IntArray(0)
-        onMain { log = placedLogForTest() }
-        return log
-    }
-
     private fun canvas(block: androidx.compose.ui.test.TouchInjectionScope.() -> Unit) {
         compose.onNodeWithTag("play-canvas").performTouchInput(block)
         compose.waitForIdle()
