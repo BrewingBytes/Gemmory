@@ -12,7 +12,7 @@ class A11yText(private val s: Strings) {
     /** "Canvas. 4,812 of 8,112 placed. Color 7 selected, 312 left." */
     fun canvas(placed: Int, total: Int, color: Int, left: Int): String {
         val progress = s.text(R.string.a11y_canvas_progress, s.number(placed), s.number(total))
-        return if (placed >= total) progress else s.text(R.string.a11y_canvas_selected, progress, color, s.number(left))
+        return if (placed >= total) progress else s.plural(R.plurals.a11y_canvas_selected, left, progress, color, s.number(left))
     }
 
     /** A wrong-color tap: an announcement only, nothing changes (eng D4). */
@@ -20,7 +20,7 @@ class A11yText(private val s: Strings) {
 
     /** "Color 7 done. Color 8 selected."; the last color has no next one. */
     fun colorDone(color: Int, next: Int?): String =
-        if (next == null) s.text(R.string.a11y_color_done, color) else s.text(R.string.a11y_color_done_next, color, next)
+        if (next == null) s.plural(R.plurals.a11y_color_done, color, color) else s.plural(R.plurals.a11y_color_done_next, color, color, next)
 
     /** After "Place next gem" (founder call #14): the selected color's remaining count. */
     fun left(left: Int): String = s.text(R.string.a11y_left, s.number(left))
@@ -46,7 +46,7 @@ class A11yText(private val s: Strings) {
     fun fillColor(color: Int): String = s.text(R.string.a11y_fill_color, color)
 
     /** The Music volume slider's value (T42): "30 percent", read after "Music volume". */
-    fun musicVolume(percent: Int): String = s.text(R.string.a11y_music_volume, percent)
+    fun musicVolume(percent: Int): String = s.plural(R.plurals.a11y_music_volume, percent, percent)
 
     /** A progress milestone's headline (#35), shown on its banner and spoken by TalkBack. */
     fun milestone(percent: Int): String = when (percent) {
@@ -108,7 +108,7 @@ class A11yText(private val s: Strings) {
      * "Seaside, 7 of 7 finished".
      */
     fun collection(title: String, finished: Int, size: Int, coming: Int): String =
-        if (coming > 0) s.text(R.string.a11y_collection_coming, title, finished, size, coming) else s.text(R.string.a11y_collection, title, finished, size)
+        if (coming > 0) s.plural(R.plurals.a11y_collection_coming, coming, title, finished, size, coming) else s.plural(R.plurals.a11y_collection, finished, title, finished, size)
 
     /** The polite announcement when a completed collection's row first shows (T37). */
     fun collectionComplete(title: String, keepsake: Boolean): String =

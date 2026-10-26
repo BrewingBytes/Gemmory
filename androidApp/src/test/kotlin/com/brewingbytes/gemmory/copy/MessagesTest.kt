@@ -232,6 +232,27 @@ class MessagesTest {
         assertEquals("1日", ja.plural(R.plurals.streak_days, 1, 1))
     }
 
+    /** #163: the counted words that were strings (lint's PluralsCandidate) follow the number. */
+    @Test
+    fun countedWordsArePlurals() {
+        val en = XmlStrings("values", Locale.ENGLISH)
+        assertEquals("8,112 gems · 1 color", en.plural(R.plurals.photo_summary, 1, "8,112", 1))
+        assertEquals("8,112 gems · 24 colors", en.plural(R.plurals.photo_summary, 24, "8,112", 24))
+        val pl = XmlStrings("values-pl", Locale.forLanguageTag("pl"))
+        assertEquals("Obejrzyj film: +1 wypełnienie", pl.plural(R.plurals.inventory_watch, 1, 1))
+        assertEquals("Obejrzyj film: +3 wypełnienia", pl.plural(R.plurals.inventory_watch, 3, 3))
+        assertEquals("Obejrzyj film: +5 wypełnień", pl.plural(R.plurals.inventory_watch, 5, 5))
+        assertEquals("Obejrzyj film: +22 wypełnienia", pl.plural(R.plurals.inventory_watch, 22, 22))
+        assertEquals("Zostały 2.", pl.plural(R.plurals.streak_left, 2, 2))
+        val ro = XmlStrings("values-ro", Locale.forLanguageTag("ro"))
+        assertEquals("Mai, 1 culoare", ro.plural(R.plurals.photo_colors_trough, 1, "Mai", 1))
+        assertEquals("Mai, 5 culori", ro.plural(R.plurals.photo_colors_trough, 5, "Mai", 5))
+        assertEquals("Mai, 60 de culori", ro.plural(R.plurals.photo_colors_trough, 60, "Mai", 60))
+        val bg = XmlStrings("values-bg", Locale.forLanguageTag("bg"))
+        assertEquals("Остава 1.", bg.plural(R.plurals.streak_left, 1, 1))
+        assertEquals("Остават 2.", bg.plural(R.plurals.streak_left, 2, 2))
+    }
+
     private val folders: List<File>
         get() = File("src/main/res").listFiles { f -> f.isDirectory && f.name.startsWith("values") && File(f, "strings.xml").isFile }.orEmpty().toList()
 

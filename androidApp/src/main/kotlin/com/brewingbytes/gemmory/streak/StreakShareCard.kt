@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withClip
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.strings
@@ -114,10 +115,9 @@ class StreakShareCardRenderer(private val context: Context) {
         // Center-cropped square, as the calendar draws a finished day.
         val side = min(art.width, art.height)
         val src = Rect((art.width - side) / 2, (art.height - side) / 2, (art.width + side) / 2, (art.height + side) / 2)
-        canvas.save()
-        canvas.clipPath(Path().apply { addRoundRect(box, radius, radius, Path.Direction.CW) })
-        canvas.drawBitmap(art, src, box, Paint(Paint.FILTER_BITMAP_FLAG))
-        canvas.restore()
+        canvas.withClip(Path().apply { addRoundRect(box, radius, radius, Path.Direction.CW) }) {
+            drawBitmap(art, src, box, Paint(Paint.FILTER_BITMAP_FLAG))
+        }
     }
 
     /** The lit flame in [length]'s tier color (G1), from the widget's drawables (the same paths as [Flame]). */

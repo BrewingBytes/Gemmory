@@ -20,6 +20,7 @@ import android.text.TextPaint
 import android.text.TextUtils
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import com.brewingbytes.gemmory.copy.Messages
 import com.brewingbytes.gemmory.copy.strings
@@ -604,10 +605,9 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
     private fun drawIcon(canvas: Canvas, at: BoardRect, radius: Int) {
         val bitmap = icon ?: return
         val rect = RectF(at.left.toFloat(), at.top.toFloat(), at.right.toFloat(), at.bottom.toFloat())
-        canvas.save()
-        canvas.clipPath(Path().apply { addRoundRect(rect, radius.toFloat(), radius.toFloat(), Path.Direction.CW) })
-        canvas.drawBitmap(bitmap, null, rect, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
-        canvas.restore()
+        canvas.withClip(Path().apply { addRoundRect(rect, radius.toFloat(), radius.toFloat(), Path.Direction.CW) }) {
+            drawBitmap(bitmap, null, rect, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        }
     }
 
     private fun drawBadge(canvas: Canvas, at: BoardRect) {

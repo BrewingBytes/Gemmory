@@ -41,7 +41,7 @@ fun NextGift(streak: Int, tag: String, modifier: Modifier = Modifier) {
             .testTag(tag)
             .clearAndSetSemantics { contentDescription = description },
     ) {
-        Text(strings.text(R.string.next_gift, next), style = GemType.label, color = GemColors.TextMuted)
+        Text(strings.plural(R.plurals.next_gift, next, next), style = GemType.label, color = GemColors.TextMuted)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             repeat(Inventory.SPIN_EVERY) { i ->
@@ -57,4 +57,4 @@ fun NextGift(streak: Int, tag: String, modifier: Modifier = Modifier) {
     }
 }
 
-internal fun nextGiftText(s: Strings, next: Int, done: Int) = s.text(R.string.next_gift_description, next, done, Inventory.SPIN_EVERY)
+internal fun nextGiftText(s: Strings, next: Int, done: Int) = s.plural(R.plurals.next_gift_description, next, next, done, Inventory.SPIN_EVERY)

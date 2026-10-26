@@ -181,7 +181,7 @@ private fun CropFrame(source: Bitmap, ratio: AspectRatio, view: CropView, onView
 internal fun summary(s: Strings, size: CanvasSize, ratio: AspectRatio, conversion: Conversion?, choice: ColorChoice = ColorChoice.STANDARD): String {
     val spec = GridSpec.of(size, ratio, choice)
     val colors = (conversion as? Conversion.Ready)?.pattern?.palette?.size ?: spec.paletteCap
-    return s.text(R.string.photo_summary, s.number(spec.cellCount), colors)
+    return s.plural(R.plurals.photo_summary, colors, s.number(spec.cellCount), colors)
 }
 
 /**
@@ -204,7 +204,7 @@ internal fun primaryText(s: Strings, primary: PreviewPrimary): String = when (pr
 
 /** A color trough's TalkBack line (#29): "More, 60 colors, needs a video or VIP". */
 internal fun colorTroughLabel(s: Strings, size: CanvasSize, choice: ColorChoice, needsVideo: Boolean): String =
-    s.text(if (needsVideo) R.string.photo_colors_trough_video else R.string.photo_colors_trough, Messages.colors(s, choice), size.cap(choice))
+    s.plural(if (needsVideo) R.plurals.photo_colors_trough_video else R.plurals.photo_colors_trough, size.cap(choice), Messages.colors(s, choice), size.cap(choice))
 
 internal fun hintText(s: Strings, hint: FaceHint): String = s.text(
     when (hint) {
@@ -304,7 +304,7 @@ private fun GemImage(bitmap: ImageBitmap, description: String, modifier: Modifie
 internal fun allowanceLine(s: Strings, allowance: Allowance, kept: Int = 0): String? = when (allowance) {
     Allowance.Unlimited -> null
     Allowance.Free -> s.text(R.string.allowance_free)
-    Allowance.Bonus -> if (kept > 0) s.text(R.string.allowance_kept, kept) else s.text(R.string.allowance_bonus)
+    Allowance.Bonus -> if (kept > 0) s.plural(R.plurals.allowance_kept, kept, kept) else s.text(R.string.allowance_bonus)
     Allowance.WatchVideo -> s.text(R.string.allowance_watch)
 }
 

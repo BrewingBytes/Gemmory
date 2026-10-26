@@ -8,13 +8,13 @@ import com.brewingbytes.gemmory.copy.Strings
 class CollectionCopy(private val s: Strings) {
     /** "3 of 7 finished"; above 1.5× font the well's words join it: "3 of 7 finished · 2 more coming" (D18). */
     fun count(finished: Int, size: Int, coming: Int, largeFont: Boolean, oneADay: Boolean = false): String {
-        val count = s.text(R.string.collection_count, finished, size)
+        val count = s.plural(R.plurals.collection_count, finished, finished, size)
         return if (largeFont && coming > 0) s.text(R.string.collection_count_coming, count, coming(coming, oneADay)) else count
     }
 
     /** The recessed well at the strip's end (D14); an event in its window drops one a day (T38). */
     fun coming(coming: Int, oneADay: Boolean = false): String =
-        s.text(if (oneADay) R.string.collection_coming_daily else R.string.collection_coming, coming)
+        s.plural(if (oneADay) R.plurals.collection_coming_daily else R.plurals.collection_coming, coming, coming)
 
     /**
      * The row's one line. In progress: the keepsake to earn, or (a collection the catalog gives no keepsake) the
@@ -25,9 +25,9 @@ class CollectionCopy(private val s: Strings) {
         if (status.event) return eventLine(status, vip)
         if (!status.complete) {
             return when {
-                status.keepsake != null -> s.text(R.string.collection_for_keepsake, size)
+                status.keepsake != null -> s.plural(R.plurals.collection_for_keepsake, size, size)
                 vip -> s.text(R.string.collection_to_complete, size)
-                else -> s.text(R.string.collection_for_token, size)
+                else -> s.plural(R.plurals.collection_for_token, size, size)
             }
         }
         return when (status.keepsakeState) {
@@ -56,7 +56,7 @@ class CollectionCopy(private val s: Strings) {
             status.inWindow && status.keepsakeState == Keepsake.ADDED -> s.text(R.string.event_keepsake_earned, status.keepsake?.titleIn(s.locale.toLanguageTag()).toString())
             status.inWindow -> s.text(R.string.event_line)
             vip -> s.text(R.string.collection_to_complete, size)
-            else -> s.text(R.string.collection_for_token, size)
+            else -> s.plural(R.plurals.collection_for_token, size, size)
         }
     }
 

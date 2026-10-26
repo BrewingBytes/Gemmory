@@ -103,7 +103,7 @@ class MainActivity : ComponentActivity() {
     private val app: GemmoryApp get() = application as GemmoryApp
 
     /** The streak celebration is on (#101): the build's kill switch (O5), and a connected test's own switch. */
-    private fun celebrations() = BuildConfig.STREAK_CELEBRATION && app.streakCelebrations
+    private fun celebrations() = app.celebrationsOn
 
     /** An evening reminder was tapped (T35): routed once the screen is up. */
     private var reminderTap by mutableStateOf<ReminderTap?>(null)

@@ -32,6 +32,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -155,7 +156,7 @@ private fun Panel(ui: ClipsUi, picture: ClipPicture, pictures: List<ClipPicture>
 private fun PictureDropdown(picture: ClipPicture, pictures: List<ClipPicture>, onPick: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    var fieldWidth by remember { mutableStateOf(0) }
+    var fieldWidth by remember { mutableIntStateOf(0) }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val density = LocalDensity.current

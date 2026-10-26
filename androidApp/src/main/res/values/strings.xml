@@ -76,10 +76,19 @@
     <!-- TalkBack (design system, Accessibility) -->
     <string name="a11y_canvas_progress">Canvas. %1$s of %2$s placed.</string>
     <!-- %1$s: a11y_canvas_progress. -->
-    <string name="a11y_canvas_selected">%1$s Color %2$d selected, %3$s left.</string>
+    <plurals name="a11y_canvas_selected">
+        <item quantity="one">%1$s Color %2$d selected, %3$s left.</item>
+        <item quantity="other">%1$s Color %2$d selected, %3$s left.</item>
+    </plurals>
     <string name="a11y_not_color">Not color %1$d</string>
-    <string name="a11y_color_done">Color %1$d done.</string>
-    <string name="a11y_color_done_next">Color %1$d done. Color %2$d selected.</string>
+    <plurals name="a11y_color_done">
+        <item quantity="one">Color %1$d done.</item>
+        <item quantity="other">Color %1$d done.</item>
+    </plurals>
+    <plurals name="a11y_color_done_next">
+        <item quantity="one">Color %1$d done. Color %2$d selected.</item>
+        <item quantity="other">Color %1$d done. Color %2$d selected.</item>
+    </plurals>
     <string name="a11y_left">%1$s left</string>
     <!-- %2$s: a11y_left. -->
     <string name="a11y_batch">%1$s placed. %2$s</string>
@@ -93,7 +102,10 @@
         <item quantity="other">Tool: %1$s, %2$d fills</item>
     </plurals>
     <string name="a11y_fill_color">Fill the rest of color %1$d</string>
-    <string name="a11y_music_volume">%1$d percent</string>
+    <plurals name="a11y_music_volume">
+        <item quantity="one">%1$d percent</item>
+        <item quantity="other">%1$d percent</item>
+    </plurals>
     <string name="milestone_quarter">A quarter done</string>
     <string name="milestone_half">Halfway there</string>
     <string name="milestone_three_quarters">Three quarters done</string>
@@ -121,8 +133,14 @@
         <item quantity="one">Finished, %1$d picture</item>
         <item quantity="other">Finished, %1$d pictures</item>
     </plurals>
-    <string name="a11y_collection">%1$s, %2$d of %3$d finished</string>
-    <string name="a11y_collection_coming">%1$s, %2$d of %3$d finished, %4$d more coming</string>
+    <plurals name="a11y_collection">
+        <item quantity="one">%1$s, %2$d of %3$d finished</item>
+        <item quantity="other">%1$s, %2$d of %3$d finished</item>
+    </plurals>
+    <plurals name="a11y_collection_coming">
+        <item quantity="one">%1$s, %2$d of %3$d finished, %4$d more coming</item>
+        <item quantity="other">%1$s, %2$d of %3$d finished, %4$d more coming</item>
+    </plurals>
     <string name="a11y_collection_complete">%1$s complete.</string>
     <string name="a11y_collection_complete_keepsake">%1$s complete. Keepsake picture added.</string>
     <string name="a11y_event_added">%1$s: keepsake picture added.</string>
@@ -206,11 +224,17 @@
     <string name="streak_kept_joined">%1$s kept it going.</string>
     <string name="streak_kept_day_off">Your day off on %1$s kept it going.</string>
     <string name="streak_kept_vip_freeze">Your VIP freeze kept it going.</string>
-    <string name="streak_kept_freezes">%1$d streak freezes kept it going.</string>
+    <plurals name="streak_kept_freezes">
+        <item quantity="one">%1$d streak freeze kept it going.</item>
+        <item quantity="other">%1$d streak freezes kept it going.</item>
+    </plurals>
     <string name="streak_kept_freeze">A streak freeze kept it going on %1$s.</string>
     <string name="streak_kept_going">Your streak kept going.</string>
     <string name="streak_none_left">None left.</string>
-    <string name="streak_left">%1$d left.</string>
+    <plurals name="streak_left">
+        <item quantity="one">%1$d left.</item>
+        <item quantity="other">%1$d left.</item>
+    </plurals>
     <string name="streak_freezes_row">Streak freezes %1$d</string>
     <string name="streak_freezes_sub">Covers a missed day. Hold up to %1$d.</string>
     <string name="streak_by_day_off">your day off</string>
@@ -308,8 +332,14 @@
     <!-- The celebration's title and line read as one node: "A week of gems. 7 days in a row.". -->
     <string name="streak_celebration_words">%1$s. %2$s</string>
     <!-- Next gift spin (#38, #101) -->
-    <string name="next_gift">Next gift spin at %1$d days in a row</string>
-    <string name="next_gift_description">Next gift spin at %1$d days in a row. %2$d of %3$d days so far.</string>
+    <plurals name="next_gift">
+        <item quantity="one">Next gift spin at %1$d day in a row</item>
+        <item quantity="other">Next gift spin at %1$d days in a row</item>
+    </plurals>
+    <plurals name="next_gift_description">
+        <item quantity="one">Next gift spin at %1$d day in a row. %2$d of %3$d days so far.</item>
+        <item quantity="other">Next gift spin at %1$d days in a row. %2$d of %3$d days so far.</item>
+    </plurals>
 
     <string name="action_delete">Delete</string>
     <string name="action_start_over">Start over</string>
@@ -357,14 +387,29 @@
     <!-- Collection and event rows (T37, T38) -->
     <string name="collections_all">All collections</string>
     <string name="collections_title">Collections</string>
-    <string name="collection_count">%1$d of %2$d finished</string>
+    <plurals name="collection_count">
+        <item quantity="one">%1$d of %2$d finished</item>
+        <item quantity="other">%1$d of %2$d finished</item>
+    </plurals>
     <!-- Above 1.5× font: %1$s is collection_count, %2$s the well's words. -->
     <string name="collection_count_coming">%1$s · %2$s</string>
-    <string name="collection_coming">%1$d more coming</string>
-    <string name="collection_coming_daily">%1$d more coming, one a day</string>
-    <string name="collection_for_keepsake">Finish all %1$d for a keepsake picture.</string>
+    <plurals name="collection_coming">
+        <item quantity="one">%1$d more coming</item>
+        <item quantity="other">%1$d more coming</item>
+    </plurals>
+    <plurals name="collection_coming_daily">
+        <item quantity="one">%1$d more coming, one a day</item>
+        <item quantity="other">%1$d more coming, one a day</item>
+    </plurals>
+    <plurals name="collection_for_keepsake">
+        <item quantity="one">Finish %1$d picture for a keepsake picture.</item>
+        <item quantity="other">Finish all %1$d for a keepsake picture.</item>
+    </plurals>
     <string name="collection_to_complete">Finish all %1$d to complete it.</string>
-    <string name="collection_for_token">Finish all %1$d for an unlock token.</string>
+    <plurals name="collection_for_token">
+        <item quantity="one">Finish %1$d picture for an unlock token.</item>
+        <item quantity="other">Finish all %1$d for an unlock token.</item>
+    </plurals>
     <string name="collection_keepsake_added">Keepsake added: %1$s.</string>
     <string name="collection_keepsake_offline">Keepsake earned. It arrives next time you\'re online.</string>
     <string name="collection_keepsake_space">Keepsake earned. It arrives when there\'s space on this phone.</string>
@@ -384,8 +429,14 @@
     <string name="inventory_tokens_body">Opens any locked picture for good.</string>
     <string name="inventory_freezes">Streak freezes</string>
     <string name="inventory_freezes_body">Covers a missed day after your day off. Hold up to %1$d.</string>
-    <string name="inventory_watch">Watch a video: +%1$d fills</string>
-    <string name="inventory_spin_several">Spin for your gift (%1$d waiting)</string>
+    <plurals name="inventory_watch">
+        <item quantity="one">Watch a video: +%1$d fill</item>
+        <item quantity="other">Watch a video: +%1$d fills</item>
+    </plurals>
+    <plurals name="inventory_spin_several">
+        <item quantity="one">Spin for your gift (%1$d waiting)</item>
+        <item quantity="other">Spin for your gift (%1$d waiting)</item>
+    </plurals>
     <string name="inventory_spin">Spin for your %1$d-day gift</string>
     <!-- An item row for TalkBack: "Fills: 4. One fills a region, …". -->
     <string name="inventory_item">%1$s: %2$d. %3$s</string>
@@ -487,15 +538,24 @@
     <!-- "My photo · 13 Oct". -->
     <string name="photo_default_title_dated">My photo · %1$s</string>
     <!-- "8,112 gems · 24 colors". -->
-    <string name="photo_summary">%1$s gems · %2$d colors</string>
+    <plurals name="photo_summary">
+        <item quantity="one">%1$s gems · %2$d color</item>
+        <item quantity="other">%1$s gems · %2$d colors</item>
+    </plurals>
     <!-- "Big · 8,112 gems · 24 colors". -->
     <string name="photo_size_summary">%1$s · %2$s</string>
     <string name="photo_more_colors_line">More colors: watch a video, or get VIP.</string>
     <string name="photo_one_video_more_colors">One video gets this canvas with more colors.</string>
     <string name="photo_watch_for_colors">Watch a video for more colors</string>
     <!-- A color choice for TalkBack: "Fewer, 16 colors". -->
-    <string name="photo_colors_trough">%1$s, %2$d colors</string>
-    <string name="photo_colors_trough_video">%1$s, %2$d colors, needs a video or VIP</string>
+    <plurals name="photo_colors_trough">
+        <item quantity="one">%1$s, %2$d color</item>
+        <item quantity="other">%1$s, %2$d colors</item>
+    </plurals>
+    <plurals name="photo_colors_trough_video">
+        <item quantity="one">%1$s, %2$d color, needs a video or VIP</item>
+        <item quantity="other">%1$s, %2$d colors, needs a video or VIP</item>
+    </plurals>
     <string name="photo_faces_best">Faces look best at Medium or Big</string>
     <string name="photo_faces_need_big">Faces need Big</string>
     <string name="photo_faces_unsupported">Faces aren\'t supported yet</string>
@@ -510,7 +570,10 @@
     <string name="photo_colors">Colors</string>
     <!-- Allowance line (design D5, #38) -->
     <string name="allowance_free">Uses today\'s free photo canvas.</string>
-    <string name="allowance_kept">Uses a kept photo canvas (%1$d left).</string>
+    <plurals name="allowance_kept">
+        <item quantity="one">Uses a kept photo canvas (%1$d left).</item>
+        <item quantity="other">Uses a kept photo canvas (%1$d left).</item>
+    </plurals>
     <string name="allowance_bonus">Uses a bonus canvas from a video.</string>
     <string name="allowance_watch">Today\'s free one is used. Watch a video for another.</string>
 
@@ -608,19 +671,28 @@
     <string name="rewarded_fills_title">More fills</string>
     <string name="rewarded_colors_title">More colors</string>
     <string name="rewarded_canvas_title">Another photo canvas</string>
-    <string name="rewarded_fills_added">%1$d fills added</string>
+    <plurals name="rewarded_fills_added">
+        <item quantity="one">%1$d fill added</item>
+        <item quantity="other">%1$d fills added</item>
+    </plurals>
     <string name="rewarded_colors_unlocked">More colors unlocked</string>
     <string name="rewarded_unlocked">Unlocked</string>
     <string name="rewarded_grace_fills">No video right now. These are on us today.</string>
     <string name="rewarded_offline">You\'re offline, connect to watch a video</string>
     <string name="rewarded_picture_body">Watch a short video to unlock this picture for good.</string>
-    <string name="rewarded_fills_body">Watch a short video for %1$d fills. Each fills a region, the rest of a color, or a brush stroke.</string>
+    <plurals name="rewarded_fills_body">
+        <item quantity="one">Watch a short video for %1$d fill. Each fills a region, the rest of a color, or a brush stroke.</item>
+        <item quantity="other">Watch a short video for %1$d fills. Each fills a region, the rest of a color, or a brush stroke.</item>
+    </plurals>
     <string name="rewarded_colors_body">Watch a short video for more colors on this photo canvas.</string>
     <string name="rewarded_canvas_body">Watch a short video for one more photo canvas. It\'s kept until you use it.</string>
     <string name="rewarded_watch_to_end">Watch to the end to unlock.</string>
     <string name="rewarded_watch">Watch video</string>
     <string name="rewarded_grace_picture">Unlock picture</string>
-    <string name="rewarded_grace_fills_button">Get %1$d fills</string>
+    <plurals name="rewarded_grace_fills_button">
+        <item quantity="one">Get %1$d fill</item>
+        <item quantity="other">Get %1$d fills</item>
+    </plurals>
     <string name="rewarded_grace_colors">Use more colors</string>
     <string name="rewarded_grace_canvas">Start canvas</string>
     <string name="rewarded_vip_picture">Or get VIP: every gallery picture unlocked</string>
@@ -628,7 +700,10 @@
     <string name="rewarded_vip_colors">Or get VIP: more colors on every photo</string>
     <string name="rewarded_vip_canvas">Or get VIP: unlimited photo canvases</string>
     <string name="rewarded_vip_no_videos">Get VIP: no videos needed</string>
-    <string name="rewarded_token">Use an unlock token · %1$d left</string>
+    <plurals name="rewarded_token">
+        <item quantity="one">Use an unlock token · %1$d left</item>
+        <item quantity="other">Use an unlock token · %1$d left</item>
+    </plurals>
 
     <string name="a11y_drag_handle">Drag handle</string>
     <!-- Bundled picture titles (T49 X4): title_<id>, the id with - as _. Classic paintings keep their customary names in each language. -->
