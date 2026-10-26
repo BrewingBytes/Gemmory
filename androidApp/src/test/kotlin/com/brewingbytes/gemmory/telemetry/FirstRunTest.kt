@@ -33,12 +33,12 @@ class FirstRunTest {
     fun theDecisionAndItsOrderSurviveARelaunch() {
         val first = launch()
         first.onFirstForeground(1_000)
-        val ask = first.firstRunAsk(analyticsGranted = true, seed = 11)
+        val ask = first.firstRunAsk(analyticsGranted = true, seed = 11, firstFinish = true)
         assertIs<FirstRunAsk.Show>(ask)
         assertEquals("DECIDED", funnel.values["where_found"])
         assertEquals(11L, funnel.values["where_found_seed"])
         val again = launch()
-        assertEquals(FirstRunAsk.No, again.firstRunAsk(analyticsGranted = true, seed = 12), "asked once per install")
+        assertEquals(FirstRunAsk.No, again.firstRunAsk(analyticsGranted = true, seed = 12, firstFinish = true), "asked once per install")
         assertTrue(again.whereFoundAnswered(WhereFoundAnswer.VIDEO))
         assertEquals("ANSWERED", funnel.values["where_found"])
         assertFalse(launch().whereFoundAnswered(WhereFoundAnswer.FRIEND))
@@ -48,7 +48,7 @@ class FirstRunTest {
     fun aFirstRunFileFromBeforeT56Loads() {
         funnel.values["first_launch_millis"] = 1_000L
         funnel.values["gem_logged"] = true
-        assertIs<FirstRunAsk.Show>(launch().firstRunAsk(analyticsGranted = true, seed = 1))
+        assertIs<FirstRunAsk.Show>(launch().firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true))
     }
 
     @Test
@@ -56,8 +56,8 @@ class FirstRunTest {
         val run = launch()
         run.onFirstForeground(1_000)
         funnel.commitFails = true
-        assertEquals(FirstRunAsk.SaveFailed, run.firstRunAsk(analyticsGranted = true, seed = 1))
+        assertEquals(FirstRunAsk.SaveFailed, run.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true))
         assertEquals(1, reports.size)
-        assertEquals(FirstRunAsk.No, run.firstRunAsk(analyticsGranted = true, seed = 1))
+        assertEquals(FirstRunAsk.No, run.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true))
     }
 }

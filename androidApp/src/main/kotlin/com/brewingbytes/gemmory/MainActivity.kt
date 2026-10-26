@@ -310,6 +310,8 @@ class MainActivity : ComponentActivity() {
             if (top is Route.Completion && completion.fresh.isFresh(top)) app.interstitials.onFreshCompletion()
             // A rotation restores the completion as a still route; the tracker keeps it fresh (it isn't "leaving").
             val leftFresh = left is Route.Completion && left != top && completion.fresh.left(left)
+            // T56's row or thanks line stays with the completion it was asked on.
+            if (left is Route.Completion && (top as? Route.Completion)?.ref != left.ref) completion.leftCompletion(left.ref)
             if (top != Route.Gallery) finishReturn = false
             // Leaving the first gallery session ends the share landing (T50): a canvas opened by hand, Settings, anything.
             if (left == Route.Gallery && top != Route.Gallery) app.sharedLanding.leftGallery()

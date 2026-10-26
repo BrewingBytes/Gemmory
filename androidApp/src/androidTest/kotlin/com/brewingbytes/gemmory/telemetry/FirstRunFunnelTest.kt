@@ -99,19 +99,19 @@ class FirstRunFunnelTest {
     fun theFirstFinishDecidesWhereFoundOnDiskAndNoLaterFinishAsks() {
         val first = launch()
         first.onFirstForeground(1_000)
-        val ask = first.firstRunAsk(analyticsGranted = true, seed = 42)
+        val ask = first.firstRunAsk(analyticsGranted = true, seed = 42, firstFinish = true)
         assertEquals(FirstRunAsk.Show(WhereFoundAnswer.order(42)), ask)
         assertEquals(WhereFound.DECIDED.name, funnel.getString("where_found", null), "on disk before the row shows")
         assertEquals(42L, funnel.getLong("where_found_seed", 0))
-        assertEquals(FirstRunAsk.No, first.firstRunAsk(analyticsGranted = true, seed = 7), "the second finish")
-        assertEquals(FirstRunAsk.No, launch().firstRunAsk(analyticsGranted = true, seed = 7), "after a relaunch")
+        assertEquals(FirstRunAsk.No, first.firstRunAsk(analyticsGranted = true, seed = 7, firstFinish = true), "the second finish")
+        assertEquals(FirstRunAsk.No, launch().firstRunAsk(analyticsGranted = true, seed = 7, firstFinish = true), "after a relaunch")
 
         clear()
         val denied = launch()
         denied.onFirstForeground(1_000)
-        assertEquals(FirstRunAsk.No, denied.firstRunAsk(analyticsGranted = false, seed = 1))
+        assertEquals(FirstRunAsk.No, denied.firstRunAsk(analyticsGranted = false, seed = 1, firstFinish = true))
         assertEquals(WhereFound.NOT_SHOWN.name, funnel.getString("where_found", null))
-        assertEquals(FirstRunAsk.No, launch().firstRunAsk(analyticsGranted = true, seed = 1), "consent granted later")
+        assertEquals(FirstRunAsk.No, launch().firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true), "consent granted later")
     }
 
     /** T56: an install that isn't first-run (restored, upgraded) is never asked, and nothing is written for it. */
@@ -120,7 +120,7 @@ class FirstRunFunnelTest {
         marker.edit().putBoolean("launched", true).commit()
         val app = launch()
         app.onFirstForeground(1_000)
-        assertEquals(FirstRunAsk.No, app.firstRunAsk(analyticsGranted = true, seed = 1))
+        assertEquals(FirstRunAsk.No, app.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true))
         assertFalse(funnel.contains("where_found"))
     }
 

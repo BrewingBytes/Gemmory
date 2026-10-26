@@ -91,6 +91,73 @@ class WhereFoundTest {
         assertFalse(h.flow.sheet)
     }
 
+    /** A later finish in the same activity (#160 review): the earlier row or thanks line goes, and nothing is asked. */
+    @Test
+    fun aResetForANewFinishClearsTheRowAndTheThanks() = runTest {
+        val h = Harness(this)
+        h.flow.ask(order, vip = false)
+        h.flow.reset()
+        assertNull(h.flow.ui, "an untapped row doesn't follow to the next finish")
+        h.flow.answer(WhereFoundAnswer.FRIEND, reducedMotion = false)
+        h.flow.open()
+        assertTrue(h.answers.isEmpty() && h.events.isEmpty())
+        assertFalse(h.flow.sheet)
+
+        h.flow.ask(order, vip = false)
+        h.flow.answer(WhereFoundAnswer.FRIEND, reducedMotion = false)
+        advanceUntilIdle()
+        assertEquals(WhereFoundUi.Thanks(paid = true), h.flow.ui)
+        h.flow.reset()
+        assertNull(h.flow.ui, "nor does the thanks line")
+        assertFalse(h.flow.answering)
+    }
+
+    /** #160 review: the row, or the thanks line, survives the process (a Share round-trip) through its saved form. */
+    @Test
+    fun theRowAndTheThanksLineComeBackAfterTheProcessDied() = runTest {
+        val saves = ArrayList<String?>()
+        lateinit var flow: WhereFoundFlow
+        val h = Harness(this)
+        flow = WhereFoundFlow(this, { true }, { true }, {}, { currentTime }, onChange = { saves += flow.saved() })
+        flow.ask(order, vip = false)
+        val row = saves.last()!!
+        flow.answer(WhereFoundAnswer.FRIEND, reducedMotion = true)
+        advanceUntilIdle()
+        assertEquals("thanks:true", saves.last())
+
+        h.flow.restore(row, open = true)
+        assertEquals(WhereFoundUi.Row(order, vip = false), h.flow.ui, "an unanswered row comes back, in its order")
+        h.flow.answer(WhereFoundAnswer.VIDEO, reducedMotion = true)
+        advanceUntilIdle()
+        assertEquals(1, h.earns, "and can still be answered")
+
+        val answeredBeforeDying = Harness(this)
+        answeredBeforeDying.flow.restore(row, open = false)
+        assertNull(answeredBeforeDying.flow.ui, "a row answered just before the process died doesn't come back")
+
+        val thanks = Harness(this)
+        thanks.flow.restore("thanks:true", open = false)
+        assertEquals(WhereFoundUi.Thanks(paid = true), thanks.flow.ui)
+        thanks.flow.answer(WhereFoundAnswer.FRIEND, reducedMotion = true)
+        thanks.flow.open()
+        assertTrue(thanks.events.isEmpty() && !thanks.flow.sheet)
+
+        val junk = Harness(this)
+        junk.flow.restore("row:maybe:FRIEND", open = true)
+        assertNull(junk.flow.ui)
+    }
+
+    @Test
+    fun aResetDuringTheHoldDropsTheThanksLine() = runTest {
+        val h = Harness(this)
+        h.flow.ask(order, vip = false)
+        h.flow.answer(WhereFoundAnswer.FRIEND, reducedMotion = false)
+        runCurrent()
+        h.flow.reset()
+        advanceUntilIdle()
+        assertNull(h.flow.ui, "the completion was left: no thanks line lands on the next one")
+    }
+
     @Test
     fun theOutlineHoldsFor400msWhenTheRewardIsQuick() = runTest {
         val h = Harness(this)

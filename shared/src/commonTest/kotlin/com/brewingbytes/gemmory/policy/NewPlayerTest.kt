@@ -157,35 +157,35 @@ class NewPlayerTest {
     @Test
     fun theFirstFreshFinishOfAFirstRunInstallAsksOnceAndSavesFirst() {
         val (store, funnel) = begun()
-        val ask = funnel.firstRunAsk(analyticsGranted = true, seed = 7)
+        val ask = funnel.firstRunAsk(analyticsGranted = true, seed = 7, firstFinish = true)
         assertEquals(FirstRunAsk.Show(WhereFoundAnswer.order(7)), ask)
         assertEquals(WhereFound.DECIDED, store.saved?.whereFound, "saved before anything shows")
         assertEquals(7, store.saved?.whereFoundSeed)
-        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = true, seed = 8), "a second finish never asks")
-        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 9), "nor after a relaunch")
+        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = true, seed = 8, firstFinish = true), "a second finish never asks")
+        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 9, firstFinish = true), "nor after a relaunch")
     }
 
     @Test
     fun anInstallThatIsNotFirstRunIsNeverAsked() {
         val store = MemoryStore()
-        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 1))
+        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true))
         assertNull(store.saved, "an upgrader or a restored phone writes nothing")
     }
 
     @Test
     fun consentDeniedAtTheFirstFinishIsNotShownAndGrantingItLaterNeverAsks() {
         val (store, funnel) = begun()
-        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = false, seed = 1))
+        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = false, seed = 1, firstFinish = true))
         assertEquals(WhereFound.NOT_SHOWN, store.saved?.whereFound)
-        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 2), "only the first finish counts")
+        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 2, firstFinish = true), "only the first finish counts")
     }
 
     @Test
     fun aDecisionThatDoesNotSaveShowsNothingAndIsNotRetried() {
         val (store, funnel) = begun()
         store.failing = true
-        assertEquals(FirstRunAsk.SaveFailed, funnel.firstRunAsk(analyticsGranted = true, seed = 1))
-        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = true, seed = 1), "not retried in this process")
+        assertEquals(FirstRunAsk.SaveFailed, funnel.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true))
+        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true), "not retried in this process")
         store.failing = false
         funnel.gemPlaced(2_000)
         assertEquals(WhereFound.NOT_SHOWN, store.saved?.whereFound, "a later save of the funnel records what happened")
@@ -194,7 +194,7 @@ class NewPlayerTest {
     @Test
     fun anAnswerCountsOnceAndLeavingBeforeTheRowShowsStaysDecided() {
         val (store, funnel) = begun()
-        funnel.firstRunAsk(analyticsGranted = true, seed = 1)
+        funnel.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true)
         assertEquals(WhereFound.DECIDED, store.saved?.whereFound, "left mid-celebration")
         funnel.whereFoundShown()
         assertEquals(WhereFound.SHOWN, store.saved?.whereFound)
@@ -207,10 +207,34 @@ class NewPlayerTest {
     @Test
     fun skipIsFinalToo() {
         val (store, funnel) = begun()
-        funnel.firstRunAsk(analyticsGranted = true, seed = 1)
+        funnel.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true)
         assertTrue(funnel.whereFoundAnswered(WhereFoundAnswer.SKIP))
         assertEquals(WhereFound.SKIPPED, store.saved?.whereFound)
         assertFalse(funnel.whereFoundAnswered(WhereFoundAnswer.FRIEND))
+    }
+
+    /** #160 review: an install that updated into T56 after finishing a canvas isn't asked at its next finish. */
+    @Test
+    fun aFinishThatIsntTheFirstIsNotShownAndNeverAsked() {
+        val (store, funnel) = begun()
+        assertTrue(funnel.whereFoundDue())
+        assertEquals(FirstRunAsk.No, funnel.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = false))
+        assertEquals(WhereFound.NOT_SHOWN, store.saved?.whereFound)
+        assertFalse(funnel.whereFoundDue())
+        assertFalse(funnel.whereFoundOpen())
+        assertEquals(FirstRunAsk.No, FirstRunFunnel(store).firstRunAsk(analyticsGranted = true, seed = 2, firstFinish = true))
+    }
+
+    @Test
+    fun theQuestionIsOpenFromTheDecisionUntilAnAnswer() {
+        val (_, funnel) = begun()
+        assertFalse(funnel.whereFoundOpen())
+        funnel.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true)
+        assertTrue(funnel.whereFoundOpen(), "decided")
+        funnel.whereFoundShown()
+        assertTrue(funnel.whereFoundOpen(), "shown")
+        funnel.whereFoundAnswered(WhereFoundAnswer.SKIP)
+        assertFalse(funnel.whereFoundOpen(), "skipped")
     }
 
     @Test

@@ -90,10 +90,18 @@ class FirstRun(
      * install's first fresh finish. A decision that didn't reach the disk shows nothing and is reported.
      */
     @Synchronized
-    fun firstRunAsk(analyticsGranted: Boolean, seed: Long): FirstRunAsk =
-        funnel.firstRunAsk(analyticsGranted, seed).also {
+    fun firstRunAsk(analyticsGranted: Boolean, seed: Long, firstFinish: Boolean): FirstRunAsk =
+        funnel.firstRunAsk(analyticsGranted, seed, firstFinish).also {
             if (it == FirstRunAsk.SaveFailed) reporter?.report(IllegalStateException("T56 decision not saved"))
         }
+
+    /** T56 is still to be decided (so the caller looks for other finished canvases only then). */
+    @Synchronized
+    fun whereFoundDue(): Boolean = funnel.whereFoundDue()
+
+    /** T56 is out and unanswered. */
+    @Synchronized
+    fun whereFoundOpen(): Boolean = funnel.whereFoundOpen()
 
     /** T56's row came to the screen. */
     @Synchronized

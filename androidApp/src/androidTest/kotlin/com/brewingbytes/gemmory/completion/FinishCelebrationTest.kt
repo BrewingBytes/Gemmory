@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -20,6 +21,7 @@ import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.policy.FirstRunAsk
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
+import com.brewingbytes.gemmory.reminder.REMINDER_ASK_NOT_NOW_TAG
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
@@ -183,7 +185,7 @@ class FinishCelebrationTest {
         val after = compose.onNode(hasContentDescription("Finished picture")).fetchSemanticsNode().boundsInRoot
         assertEquals(bounds.single(), after, "the shorter thanks line doesn't move the picture")
         assertEquals(canvasesBefore + 1, app.monetization.inventory.value.canvases, "one photo canvas")
-        assertEquals(FirstRunAsk.No, app.firstRun.firstRunAsk(analyticsGranted = true, seed = 1), "never asked again")
+        assertEquals(FirstRunAsk.No, app.firstRun.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true), "never asked again")
     }
 
     /** T56 (#157, design D5): under reduced motion the row still comes after the text, and an answer has no hold. */
@@ -222,6 +224,75 @@ class FinishCelebrationTest {
         scenario.recreate()
         compose.waitUntil(10_000) { exists("completion-fresh") && exists(WHERE_FOUND_THANKS_TAG) }
         assertTrue(!exists(WHERE_FOUND_ROW_TAG), "the row never comes back")
+    }
+
+    /**
+     * T56 (#160 review): the completion ViewModel lives as long as the activity, so a later fresh finish in the same
+     * activity shows neither the first finish's row nor its thanks line, and isn't asked.
+     */
+    @Test
+    fun aSecondFinishInTheSameActivityShowsNoRowAndNoThanks() {
+        firstRunAsked()
+        start()
+        compose.mainClock.autoAdvance = true
+        compose.waitUntil(10_000) { exists(WHERE_FOUND_ROW_TAG) }
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
+        compose.waitUntil(5_000) { exists("$WHERE_FOUND_ANSWER_TAG-friend") }
+        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-friend").performClick()
+        compose.waitUntil(5_000) { exists(WHERE_FOUND_THANKS_TAG) }
+
+        val second = CanvasRef(CanvasKind.PHOTO, "celebration-two")
+        runBlocking { app.store.create(second, small) }
+        compose.waitUntil(10_000) {
+            if (!exists("gallery-grid") && exists("completion-done")) runCatching { compose.onNodeWithTag("completion-done").performClick() }
+            exists("gallery-grid")
+        }
+        if (exists(REMINDER_ASK_NOT_NOW_TAG)) compose.onNodeWithTag(REMINDER_ASK_NOT_NOW_TAG).performClick()
+        compose.onNode(hasText("My Photos")).performClick()
+        compose.waitUntil(5_000) { exists("tile-photo-celebration-two") }
+        compose.onNodeWithTag("tile-photo-celebration-two").performClick()
+        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        val s = session()!!
+        onMain { while (!s.isFinished) s.placeNext() }
+        compose.waitUntil(10_000) { exists("completion-fresh") && exists("completion-done") }
+        compose.mainClock.advanceTimeBy(6_000)
+        compose.waitForIdle()
+        assertTrue(!exists(WHERE_FOUND_ROW_TAG), "no row at a later finish")
+        assertTrue(!exists(WHERE_FOUND_THANKS_TAG), "nor the first finish's thanks line")
+    }
+
+    /**
+     * T56 (#160 review): the row survives the process dying in the background (a Share round-trip on a low-memory
+     * phone) through the ViewModel's saved state: a ViewModel built from the same [SavedStateHandle], as Android builds
+     * one after the process died, shows it again on that canvas, still answerable; after an answer, the thanks line.
+     * A test can't kill its own process, so the restore is driven here, on the real app's first-run state.
+     */
+    @Test
+    fun theRowAndTheThanksComeBackFromSavedState() {
+        firstRunAsked()
+        val handle = SavedStateHandle()
+        fun viewModel(): CompletionViewModel {
+            var vm: CompletionViewModel? = null
+            instrumentation.runOnMainSync { vm = CompletionViewModel(app, handle) }
+            return vm!!
+        }
+        val first = viewModel()
+        instrumentation.runOnMainSync { first.decideWhereFound(ref) }
+        assertTrue(first.whereFound.ui is WhereFoundUi.Row, "asked: ${first.whereFound.ui}")
+
+        val restored = viewModel()
+        assertEquals(first.whereFound.ui, restored.whereFound.ui, "the row comes back, in its order")
+        assertTrue(restored.whereFoundOn(ref), "on that canvas's completion (a still after the process died)")
+        assertTrue(!restored.whereFoundOn(CanvasRef(CanvasKind.PHOTO, "another")))
+        instrumentation.runOnMainSync { restored.whereFound.answer(WhereFoundAnswer.FRIEND, reducedMotion = true) }
+        val deadline = System.currentTimeMillis() + 5_000
+        while (restored.whereFound.ui !is WhereFoundUi.Thanks) {
+            assertTrue(System.currentTimeMillis() < deadline, "the answer lands: ${restored.whereFound.ui}")
+            Thread.sleep(50)
+        }
+        assertEquals(WhereFoundUi.Thanks(paid = true), viewModel().whereFound.ui, "then the thanks line comes back")
+        instrumentation.runOnMainSync { restored.leftCompletion(ref) }
+        assertEquals(null, viewModel().whereFound.ui, "and nothing once the completion was left")
     }
 
     /** A first-run install with analytics consent, an empty inventory (the reward is once per inventory) and a pinned order. */

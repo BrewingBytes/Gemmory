@@ -46,7 +46,7 @@ data class FirstRunState(
  *
  *     null ──first fresh finish──► DECIDED ──row shown──► SHOWN ──answer──► ANSWERED
  *       │                            │                     └──Skip, back, dismiss──► SKIPPED
- *       └──first fresh finish, analytics consent denied, or the decision didn't save──► NOT_SHOWN
+ *       └──first fresh finish with consent denied or another canvas already finished, or the decision didn't save──► NOT_SHOWN
  *
  * DECIDED is kept when the player leaves before the row shows. NOT_SHOWN, ANSWERED and SKIPPED are final.
  */
@@ -152,23 +152,31 @@ class FirstRunFunnel(private val store: CheckedStateStore<FirstRunState>) {
         save(s.copy(referrerRaw = null, sharedId = sharedId ?: s.sharedId, sharedDay = if (sharedId != null) day else s.sharedDay, landingEnded = true))
     }
 
+    /** T56 is still to be decided: a first-run install whose fresh finishes haven't been looked at yet. */
+    fun whereFoundDue(): Boolean = state?.let { it.whereFound == null } == true
+
     /**
      * A fresh finish (T56): on a first-run install's first one, decide "Where did you find Gemmory?" and save that
-     * before anything shows (eng R1): the row shows only when [analyticsGranted] and the decision reached the disk.
-     * [seed] shuffles the answers. Every later finish, and any other install, gets [FirstRunAsk.No].
+     * before anything shows (eng R1): the row shows only when [analyticsGranted], [firstFinish] (no other canvas is
+     * finished, so an install that updated into T56 after finishing some isn't asked) and the decision reached the
+     * disk. [seed] shuffles the answers. Every later finish, and any other install, gets [FirstRunAsk.No].
      */
-    fun firstRunAsk(analyticsGranted: Boolean, seed: Long): FirstRunAsk {
+    fun firstRunAsk(analyticsGranted: Boolean, seed: Long, firstFinish: Boolean): FirstRunAsk {
         val s = state ?: return FirstRunAsk.No
         if (s.whereFound != null) return FirstRunAsk.No
-        val next = s.copy(whereFound = if (analyticsGranted) WhereFound.DECIDED else WhereFound.NOT_SHOWN, whereFoundSeed = seed)
+        val ask = analyticsGranted && firstFinish
+        val next = s.copy(whereFound = if (ask) WhereFound.DECIDED else WhereFound.NOT_SHOWN, whereFoundSeed = seed)
         if (!store.trySave(next)) {
             // Never asked in this process; a later save of the funnel keeps "not shown", which is what happened.
             state = s.copy(whereFound = WhereFound.NOT_SHOWN)
             return FirstRunAsk.SaveFailed
         }
         state = next
-        return if (analyticsGranted) FirstRunAsk.Show(WhereFoundAnswer.order(seed)) else FirstRunAsk.No
+        return if (ask) FirstRunAsk.Show(WhereFoundAnswer.order(seed)) else FirstRunAsk.No
     }
+
+    /** The question is out and unanswered (decided or shown): a row restored after the process died may still be answered. */
+    fun whereFoundOpen(): Boolean = state?.whereFound.let { it == WhereFound.DECIDED || it == WhereFound.SHOWN }
 
     /** The row came to the screen (best effort). */
     fun whereFoundShown() {

@@ -68,6 +68,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -168,7 +169,7 @@ class Finished(
     val colors: List<Color> = request.pattern.palette.map { Color(it.argb) }
 }
 
-class CompletionViewModel(application: Application) : AndroidViewModel(application) {
+class CompletionViewModel(application: Application, private val savedState: SavedStateHandle) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
     private val encodes = application.let { it as GemmoryApp }.encodes
     private val billing = (application as GemmoryApp).billing
@@ -182,9 +183,37 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
         earn = { app.monetization.earnCanvasOnce(WHERE_FOUND_EARN_ID) },
         log = { analytics.log(it) },
         now = SystemClock::uptimeMillis,
+        onChange = { saveWhereFound() },
     )
 
+    /** The completion T56's row or thanks line belongs to; it shows there, fresh or (after the process died) as a still. */
     private var whereFoundRef: CanvasRef? = null
+
+    init {
+        // A Share round-trip can cost the process (#160 review): the row or the thanks line comes back with the completion.
+        savedState.get<String>(WHERE_FOUND_KEY)?.let { saved ->
+            val ref = saved.substringBefore('|').split(':').takeIf { it.size == 2 }
+                ?.let { (kind, id) -> CanvasKind.entries.firstOrNull { it.name == kind }?.let { CanvasRef(it, id) } }
+            if (ref != null) {
+                whereFoundRef = ref
+                whereFound.restore(saved.substringAfter('|'), open = app.firstRun.whereFoundOpen())
+            }
+        }
+    }
+
+    private fun saveWhereFound() {
+        savedState[WHERE_FOUND_KEY] = whereFoundRef?.let { ref -> whereFound.saved()?.let { "${ref.kind.name}:${ref.id}|$it" } }
+    }
+
+    /** T56's row or thanks line shows on [ref]'s completion. */
+    fun whereFoundOn(ref: CanvasRef) = whereFoundRef == ref
+
+    /** The player left [ref]'s completion (not a rotation): T56's row or thanks line stays behind. */
+    fun leftCompletion(ref: CanvasRef) {
+        if (whereFoundRef != ref) return
+        whereFound.reset()
+        whereFoundRef = null
+    }
 
     var finished by mutableStateOf<Finished?>(null)
         private set
@@ -213,12 +242,20 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * A fresh completion of [ref] opened (T56): decide the question once per canvas here, so a rotation keeps the same
      * answer. The first-run rule, the consent check and the save come first ([com.brewingbytes.gemmory.telemetry.FirstRun]).
+     * Only while T56 is undecided does it look for another canvas ever finished (its small `play` file), so an install
+     * that updated into T56 after finishing some isn't asked. On the main thread, like the `commit()` (eng #12): the row
+     * must be laid out before the picture draws, or the picture would resize.
      */
     fun decideWhereFound(ref: CanvasRef) {
         if (whereFoundRef == ref) return
         whereFoundRef = ref
+        if (!app.firstRun.whereFoundDue()) return
+        val repository = store.repository
+        val firstFinish = CanvasKind.entries.none { kind ->
+            repository.list(kind).any { id -> CanvasRef(kind, id).let { it != ref && repository.readPlay(it)?.firstFinishedDay != null } }
+        }
         val granted = app.whereFoundConsentForTest ?: app.consent.consentMode.value.analyticsStorage
-        val ask = app.firstRun.firstRunAsk(granted, app.whereFoundSeedForTest ?: Random.nextLong())
+        val ask = app.firstRun.firstRunAsk(granted, app.whereFoundSeedForTest ?: Random.nextLong(), firstFinish)
         if (ask is FirstRunAsk.Show) whereFound.ask(ask.order, vip = app.monetization.entitlements.value.vip)
     }
 
@@ -232,6 +269,8 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
         fresh.finished(ref)
         played.forget(ref)
         if (finished?.ref == ref) finished = null
+        // T56: a new finish is decided anew (a later one is never asked), so an earlier row or thanks line never shows.
+        whereFoundRef?.let(::leftCompletion)
     }
 
     /** Always re-reads, so a rename or a new play time since the last visit shows. The old picture stays until then. */
@@ -292,6 +331,9 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     companion object {
         /** T56's reward, earned once per install (Inventory's earn id). */
         const val WHERE_FOUND_EARN_ID = "where-found"
+
+        /** T56's row or thanks line in saved state: `<kind>:<id>|<WhereFoundFlow.saved>`. */
+        private const val WHERE_FOUND_KEY = "where_found"
 
         /** "5 min", "1 h 12 min"; under a minute rounds up to "1 min". */
         fun playTime(s: Strings, millis: Long): String {
@@ -427,7 +469,7 @@ fun CompletionScreen(
                                 GemTextButton(stringResource(R.string.completion_play_again), { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
                             }
                         }
-                        if (fresh) WhereFoundBlock(vm.whereFound, revealed = text.value >= 1f)
+                        if (fresh || vm.whereFoundOn(ref)) WhereFoundBlock(vm.whereFound, revealed = text.value >= 1f)
                     }
                     // Until they have faded in, the buttons can't be pressed unseen; system back still works.
                     if (text.value < 1f) {
