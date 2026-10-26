@@ -24,7 +24,8 @@ import javax.imageio.ImageIO
  * `subtitles.txt` (a line under it) and `feature.txt` (the feature graphic's tagline and line), and draws the frames
  * the founder uploads: 1080×1920, the title in Bone in the language's display face at 600 and the subtitle in
  * text-muted in its body face, over the felt's top-lit gradient, with the shot in a scrim-colored phone below; and the
- * 1024×500 feature graphic, "Gemmory" and the two lines beside the puppy's gem art (`store-r-puppy-full.png`).
+ * 1024×500 feature graphic, "Gemmory" and the two lines beside the puppy's gem art (`store-r-puppy-full.png`); and
+ * the 1920×1080 tablet set ([TABLET_SHOTS]) for the 7" and 10" listings.
  * README → Store listings. AWT draws a variable font only at its default instance (Bricolage's is 800, Geologica's
  * 100), so the 600 instances live in `tools/store/fonts/`.
  */
@@ -45,6 +46,15 @@ object StoreFrames {
     /** The five shots, in listing order (`StoreScreenshots.photoCanvases`), and the names their frames get. */
     val SHOTS = listOf("p-preview", "p-zoom", "p-canvas", "p-gallery", "p-completion")
     val FRAMES = listOf("1-your-photo", "2-place-every-gem", "3-watch-it-appear", "4-pets-people-places", "5-finish-and-share")
+
+    /**
+     * The tablet set (7" and 10" listings, one 1920×1080 image each): the same titles and subtitles in the same order,
+     * the first on the puppy's gem art with the privacy line (`tablet.txt`) under it, the rest on the shots
+     * `photoCanvases` captures with `-e storeDisplay tablet` (`store-de-t-p-zoom.png`).
+     */
+    val TABLET_SHOTS = listOf(null, "t-p-zoom", "t-p-canvas", "t-p-gallery", "t-p-completion")
+    const val TABLET_WIDTH = 1920
+    const val TABLET_HEIGHT = 1080
 
     /** The feature graphic's art: the puppy's finished gems, the same in every language. */
     const val FEATURE_ART = "store-r-puppy-full.png"
@@ -77,6 +87,9 @@ object StoreFrames {
 
     fun captions(listing: File, locale: String): List<String> = lines(listing, locale, "captions")
     fun subtitles(listing: File, locale: String): List<String> = lines(listing, locale, "subtitles")
+
+    /** The tablet set's privacy line, under the first frame's subtitle. */
+    fun privacy(listing: File, locale: String): String = lines(listing, locale, "tablet").single()
 
     /** The feature graphic's tagline and line. */
     fun feature(listing: File, locale: String): List<String> = lines(listing, locale, "feature")
@@ -222,6 +235,104 @@ object StoreFrames {
     private const val CARD_LEFT = 572
     private const val CARD_TOP = (FEATURE_HEIGHT - CARD_SIZE) / 2
 
+    /**
+     * One tablet frame: [title] (at most three lines) and [subtitle] (at most two) on the left, then [privacy] if
+     * given; on the right [shot] in a landscape `scrim` tablet, or [art] on a card. A Japanese title shrinks to one line.
+     */
+    fun tabletFrame(
+        shot: BufferedImage?, art: BufferedImage?, title: String, subtitle: String, privacy: String?, language: String,
+        fontDir: File, staticFonts: File,
+    ): BufferedImage {
+        val (out, g) = canvas(TABLET_WIDTH, TABLET_HEIGHT)
+        ground(g, TABLET_WIDTH, TABLET_HEIGHT, Point2D.Float(TABLET_WIDTH * 0.3f, 0f))
+        val room = TAB_TEXT_ROOM.toFloat()
+        var titlePx = TAB_TITLE_PX
+        var titleLines = wrap(g, title, font(displayFace(language, fontDir, staticFonts), titlePx), room)
+        while (language == "ja" && titleLines.size > 1 && titlePx > TAB_TITLE_MIN_JA) {
+            titlePx -= 4f
+            titleLines = wrap(g, title, font(displayFace(language, fontDir, staticFonts), titlePx), room)
+        }
+        require(titleLines.size <= 3) { "\"$title\" takes ${titleLines.size} lines on a tablet; keep it to three" }
+        require(language != "ja" || titleLines.size == 1) { "\"$title\" wraps on a tablet; keep a Japanese title shorter" }
+        val subLines = wrap(g, subtitle, font(bodyFace(language, fontDir), TAB_SUB_PX), room)
+        require(subLines.size <= 2) { "\"$subtitle\" takes ${subLines.size} lines on a tablet; keep it to two" }
+        val privacyLines = privacy?.let { wrap(g, it, font(bodyFace(language, fontDir), TAB_PRIVACY_PX), room) }.orEmpty()
+        require(privacyLines.size <= 2) { "\"$privacy\" takes ${privacyLines.size} lines on a tablet; keep it to two" }
+        // AWT breaks Japanese at any character, so its lines stay whole.
+        require(language != "ja" || (subLines.size == 1 && privacyLines.size <= 1)) { "\"$subtitle\" or \"$privacy\" wraps on a tablet; keep Japanese to one line" }
+
+        val titleLeading = titlePx * if (language == "ja") 1.25f else 1.04f
+        val subLeading = TAB_SUB_PX * 1.3f
+        val privacyLeading = TAB_PRIVACY_PX * 1.3f
+        val height = titleLeading * titleLines.size + 24 + subLeading * subLines.size +
+            (if (privacyLines.isEmpty()) 0f else 18 + privacyLeading * privacyLines.size)
+        var y = (TABLET_HEIGHT - height) / 2
+        g.color = BONE
+        for (line in titleLines) {
+            line.draw(g, TAB_TEXT_LEFT.toFloat(), y + line.ascent)
+            y += titleLeading
+        }
+        y += 24
+        g.color = TEXT_MUTED
+        for (line in subLines) {
+            line.draw(g, TAB_TEXT_LEFT.toFloat(), y + line.ascent)
+            y += subLeading
+        }
+        if (privacyLines.isNotEmpty()) y += 18
+        for (line in privacyLines) {
+            line.draw(g, TAB_TEXT_LEFT.toFloat(), y + line.ascent)
+            y += privacyLeading
+        }
+
+        if (shot != null) {
+            val left = (TABLET_WIDTH - TAB_RIGHT - TAB_WIDTH).toDouble()
+            val top = (TABLET_HEIGHT - TAB_HEIGHT) / 2.0
+            for (i in 24 downTo 1) {
+                g.color = Color(0, 0, 0, 5)
+                g.fill(RoundRectangle2D.Double(left - i, top + 30.0 - i, TAB_WIDTH + 2.0 * i, TAB_HEIGHT + 2.0 * i, TAB_CORNER * 2 + i, TAB_CORNER * 2 + i))
+            }
+            g.color = SCRIM
+            g.fill(RoundRectangle2D.Double(left, top, TAB_WIDTH.toDouble(), TAB_HEIGHT.toDouble(), TAB_CORNER * 2, TAB_CORNER * 2))
+            val sw = TAB_WIDTH - 2 * TAB_PAD
+            val sh = TAB_HEIGHT - 2 * TAB_PAD
+            g.clip = RoundRectangle2D.Double(left + TAB_PAD, top + TAB_PAD, sw.toDouble(), sh.toDouble(), TAB_SCREEN_CORNER * 2, TAB_SCREEN_CORNER * 2)
+            val scale = maxOf(sw.toDouble() / shot.width, sh.toDouble() / shot.height)
+            val dw = shot.width * scale
+            val dh = shot.height * scale
+            g.drawImage(shot, (left + TAB_PAD + (sw - dw) / 2).toInt(), (top + TAB_PAD + (sh - dh) / 2).toInt(), dw.toInt(), dh.toInt(), null)
+        } else {
+            requireNotNull(art) { "the tablet's first frame needs the puppy's art ($FEATURE_ART)" }
+            val left = TABLET_WIDTH - TAB_CARD_RIGHT - TAB_CARD
+            val top = (TABLET_HEIGHT - TAB_CARD) / 2
+            for (i in 20 downTo 1) {
+                g.color = Color(0, 0, 0, 6)
+                g.fill(RoundRectangle2D.Double(left - i.toDouble(), top + 18.0 - i, TAB_CARD + 2.0 * i, TAB_CARD + 2.0 * i, 48.0 + i, 48.0 + i))
+            }
+            g.clip = RoundRectangle2D.Double(left.toDouble(), top.toDouble(), TAB_CARD.toDouble(), TAB_CARD.toDouble(), 48.0, 48.0)
+            val side = minOf(art.width, art.height)
+            val sx = (art.width - side) / 2
+            val sy = (art.height - side) / 2
+            g.drawImage(art, left, top, left + TAB_CARD, top + TAB_CARD, sx, sy, sx + side, sy + side, null)
+        }
+        g.dispose()
+        return out
+    }
+
+    private const val TAB_TEXT_LEFT = 120
+    private const val TAB_TEXT_ROOM = 620
+    private const val TAB_TITLE_PX = 88f
+    private const val TAB_TITLE_MIN_JA = 60f
+    private const val TAB_SUB_PX = 36f
+    private const val TAB_PRIVACY_PX = 30f
+    private const val TAB_WIDTH = 1040
+    private const val TAB_HEIGHT = 602
+    private const val TAB_PAD = 20
+    private const val TAB_RIGHT = 100
+    private const val TAB_CORNER = 56.0
+    private const val TAB_SCREEN_CORNER = 38.0
+    private const val TAB_CARD = 660
+    private const val TAB_CARD_RIGHT = 160
+
     /** Frames every listed locale whose raw shots are in [shots] (or just [only]); returns the files written. */
     fun run(shots: File, listing: File, fontDir: File, staticFonts: File, out: File, only: String?): List<File> {
         val locales = if (only != null) listOf(only.also { require(it in LOCALES) { "unknown locale $it; one of ${LOCALES.keys}" } }) else LOCALES.keys.toList()
@@ -230,7 +341,10 @@ object StoreFrames {
         for (locale in locales) {
             val prefix = appTag(locale)?.let { "$it-" }.orEmpty()
             val raw = SHOTS.map { File(shots, "store-$prefix$it.png") }
-            if (raw.any { !it.exists() }) {
+            val tabletRaw = TABLET_SHOTS.map { it?.let { name -> File(shots, "store-$prefix$name.png") } }
+            val phone = raw.all { it.exists() }
+            val tablet = art != null && tabletRaw.all { it == null || it.exists() }
+            if (!phone && !tablet) {
                 require(only == null) { "missing ${raw.filter { !it.exists() }.joinToString { it.name }} in $shots" }
                 continue
             }
@@ -239,14 +353,23 @@ object StoreFrames {
             val subs = subtitles(listing, locale)
             require(titles.size == SHOTS.size && subs.size == SHOTS.size) { "$locale needs ${SHOTS.size} captions and subtitles" }
             val dir = File(out, locale).apply { mkdirs() }
-            for ((i, file) in raw.withIndex()) {
-                val frame = frame(ImageIO.read(file), titles[i], subs[i], language, fontDir, staticFonts)
-                written += File(dir, "${FRAMES[i]}.png").also { check(ImageIO.write(frame, "png", it)) { "cannot write $it" } }
+            fun save(image: BufferedImage, name: String) {
+                written += File(dir, name).also { check(ImageIO.write(image, "png", it)) { "cannot write $it" } }
+            }
+            if (phone) {
+                for ((i, file) in raw.withIndex()) save(frame(ImageIO.read(file), titles[i], subs[i], language, fontDir, staticFonts), "${FRAMES[i]}.png")
+            }
+            if (tablet) {
+                for ((i, file) in tabletRaw.withIndex()) {
+                    val image = tabletFrame(
+                        file?.let(ImageIO::read), art, titles[i], subs[i], if (i == 0) privacy(listing, locale) else null, language, fontDir, staticFonts,
+                    )
+                    save(image, "tablet-${FRAMES[i]}.png")
+                }
             }
             if (art != null) {
                 val (tagline, line) = feature(listing, locale)
-                val graphic = featureGraphic(art, tagline, line, language, fontDir, staticFonts)
-                written += File(dir, FEATURE_NAME).also { check(ImageIO.write(graphic, "png", it)) { "cannot write $it" } }
+                save(featureGraphic(art, tagline, line, language, fontDir, staticFonts), FEATURE_NAME)
             }
         }
         return written
