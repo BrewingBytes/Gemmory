@@ -32,6 +32,44 @@ Where the numbers live: Firebase console → Analytics (Dashboard, Retention, Us
 | Unknown under half among installs that finished a picture (T56, CEO O1) | For consented `first_launch` installs since T56's build: **named** = first user source other than direct/(not set) and other than `google-play / organic`; **organic** = `google-play / organic`, split by the install's `where_found` `answer`; **answered** = a `where_found` answer other than `skip`; **unknown** = neither named nor answered. The bar is over installs with a `canvas_finished` (the only ones asked); across all installs unknown is reported with no bar. On a tagged install the tag wins over a disagreeing answer; on organic or direct the answer is the channel. Answers are paid with a photo canvas, so some are taps for the reward; "A friend" also covers word of mouth. |
 | T56 answers (informational) | `where_found` users by `answer`; `inventory_earned` with `source` = `where_found` counts the canvases paid. |
 | T57's photo gate | The photo and bundled cohorts both leave out players with a `where_found` answer other than `skip` (a segment on the event), so the reward canvas and its nudge don't reach the gate (CEO O2). |
+| Per channel: installs, first gem, first finish, day-2 return, shares (T55) | The channel readout below. |
+
+### Channel readout (T55)
+
+The links behind the named channels, and how to make one: [channel-links.md](channel-links.md). No custom attribution event: the channel is Play's install referrer, read by Firebase and Play Console (T46 eng O-E5).
+
+**1. Installs per tagged channel: Play Console.** Store performance → Store listing acquisition, broken down by UTM source and campaign. It counts every install, players who declined analytics consent included, so tagged installs come from here, not from Firebase. Organic installs are a Play traffic source there too, but only Firebase can split them by T56's answer.
+
+**2. The funnel: one saved exploration, "T55 channels".** Build it once in Firebase → Analytics → Explore and save it; after that the readout is opening it and setting the date range (consented players only). Its four tabs:
+
+| Tab | Technique | Set up |
+|---|---|---|
+| Funnel | Funnel exploration, **closed** | Steps: `first_launch` → `first_gem` → `canvas_finished` → `share_completed`. Breakdown: First user source / medium, then First user campaign. Segment comparison: "photo" = users with `first_gem` `source` = photo, "bundled" = `source` = bundled or remote; in each, filter the `canvas_finished` step to the same `source`. Step 1 is installs by channel (there's no photo/bundled split before a gem); a closed funnel counts each player's first finish only. |
+| Day 2 | Cohort exploration | Inclusion `first_launch`, return `day_played`, daily, breakdown First user source / medium. Read **Day 1**: a `day_played` on the next calendar day after the install, in the property's time zone (the same reading as round 1's day-1 retention). |
+| Shares | Free form | Rows: `cut`, then `source`. Value: event count of `share_completed`. The `cut` = feed row is players' feed-cut shares (T51), set beside the organic · video installs of the same weeks: feed shares carry no link, so their installs can only show up there. |
+| Answers | Free form | Rows: First user source / medium. Columns: `answer`. Value: users with `where_found`. |
+
+**3. Buckets** (CEO O1; the bar is the "unknown under half" row above):
+
+- **Named:** a first user source other than `google-play / organic` and other than direct/(not set). On a tagged install the tag wins over a disagreeing T56 answer.
+- **Organic:** `google-play / organic`, split by the answer: video, community, friend, play_search, other, skip. Organic with no answer counts as unknown. "organic · video" is the clip-driven search ([channel-links.md](channel-links.md) → Clips).
+- **Direct / (not set):** the answer is the channel; with no answer it's unknown.
+- Answers are paid with a photo canvas, so some are taps for the reward. "A friend" also covers word of mouth, not only a friend's share link.
+
+**4. Rules.** Counts under the floor of 100, rates above it, each with its N. Google signals stays **off** (Google Analytics → Admin → Data collection and modification → Data collection): with it on, GA4 thresholding hides the small rows a launch produces. `answer` and `cut` must be registered as custom dimensions before the window starts (the list above); registration doesn't apply to the past.
+
+**What a readout looks like** (invented numbers, only to show the shape):
+
+| Channel | Installs (Play Console) | `first_launch` | `first_gem` | First finish (photo / bundled) | Day 2 | Shares |
+|---|---|---|---|---|---|---|
+| tiktok / bio | 31 | 24 | 20 | 2 / 9 | 7 | 3 |
+| reddit / r-diamondpainting-1024 | 18 | 15 | 14 | 3 / 6 | 6 | 2 |
+| organic · video | — | 140 | 86% (121) | 27% / 18% (38 / 25 of 140) | 33% (46 of 140) | 12 |
+| organic · no answer (unknown) | — | 212 | 80% (170) | 4% / 29% (9 / 61 of 212) | 27% (58 of 212) | 9 |
+| direct / (not set), no answer (unknown) | — | 6 | 5 | 0 / 2 | 1 | 0 |
+| Feed-cut shares (`share_completed` `cut` = feed) | | | | | | 17 of 41 finished shares |
+
+Organic has no tag, so it has no Play Console column of its own. A row with 100 or more `first_launch` reads as rates; every other row as counts.
 
 ## Round 1: early production
 
