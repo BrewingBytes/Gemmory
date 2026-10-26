@@ -24,7 +24,7 @@ Run before handing work back, and report every warning and error:
 - Smoke-test the R8 release build on an emulator after any dependency or keep-rule change.
 - The converter goldens, the pinned starter grid CRC and every pinned bundled-picture CRC must stay green. Never re-freeze a shipped picture.
 - A change to the time-lapse encoder (`timelapse/`, `FallbackChain`) also runs the Test Lab encoder smoke by hand (Actions → Test Lab → Run workflow) before it merges; it costs 3 of the 5 free physical-device runs a day. Release candidates run it from their `v*` tag (README → Release), which also runs the frame-timing check on the Galaxy A06: 4 runs that day (README → Frame timing on Firebase Test Lab).
-- The only expected warning is Gradle's deprecation summary ("Deprecated Gradle features were used…").
+- The only expected warning is Gradle's deprecation summary ("Deprecated Gradle features were used…", AGP 9.4.1's `Configuration.setVisible`). A Kotlin or lint warning fails the build (#163: `allWarningsAsErrors`, lint `warningsAsErrors`, no baseline): fix it, don't suppress it without a reason in a comment.
 
 ## Emulator and device work
 

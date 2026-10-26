@@ -7,6 +7,8 @@ plugins {
 
 kotlin {
     jvmToolchain(17)
+    // #163: a new warning fails the build, so the list stays empty (workflow.md).
+    compilerOptions { allWarningsAsErrors.set(true) }
 
     android {
         namespace = "com.brewingbytes.gemmory.shared"
