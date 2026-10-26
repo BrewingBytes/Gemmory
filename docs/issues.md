@@ -1379,6 +1379,8 @@ Labels: P2, telemetry
 
 Depends on: T46 (shipped); #154 for the `cut` row; T56 for its answer column. Effort: human ~1d / CC ~45 min.
 
+**Built in PR (T55, 2026-10-26):** docs only. `docs/channel-links.md` lists the three clip-bio links (founder: clip bios only; communities get rows through the naming rule, with a reddit worked example for the Done-when install); the readout is `docs/reading-first-30-days.md` → Round 4, channel readout: Play Console's acquisition report plus one saved "T55 channels" exploration (founder: a recipe saved once). Day 2 = a `day_played` on the next calendar day (cohort Day 1). No new test: the unknown `utm_content` case is covered by `ShareLandingTest.theIdIsUtmContentWhateverTheSource`, `SharedLandingTest.aHiddenIdOpensNothingOnceTheCheckHasEnded` and `ScheduledDropsFlowTest`.
+
 ---
 
 ## T56: "Where did you find Gemmory?": one row at the first finish, +1 photo canvas

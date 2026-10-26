@@ -26,7 +26,8 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | [docs/designs/streak-screen.md](docs/designs/streak-screen.md) | Streak screen design doc, its review ledgers and mockup |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, components, navigation, canvas gestures, copy, accessibility |
 | [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, Test Lab CI credentials, the production gate |
-| [docs/reading-first-30-days.md](docs/reading-first-30-days.md) | How to read each success criterion of rounds 1-3 in production: its event or report, the consented-only caveat, the floor of 100 (T46) |
+| [docs/reading-first-30-days.md](docs/reading-first-30-days.md) | How to read each success criterion of rounds 1-3 in production: its event or report, the consented-only caveat, the floor of 100 (T46); round 4's T56 buckets and the per-channel readout (T55) |
+| [docs/channel-links.md](docs/channel-links.md) | The tagged Play Store link for each place Gemmory is posted (clip bios), the rule for making a new one, the referrer values a channel link never uses, and why clip installs mostly arrive organic (T55) |
 | [docs/privacy-policy.md](docs/privacy-policy.md) | The published privacy policy |
 | [tools/bundled/PROVENANCE.md](tools/bundled/PROVENANCE.md) | Source, license and freeze settings of every bundled picture |
 | [tools/remote/PROVENANCE.md](tools/remote/PROVENANCE.md) | The same for every remote picture, with when it was published |

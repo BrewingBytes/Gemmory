@@ -938,6 +938,14 @@ Approval readiness: PASS. Checked: R3 (D2 A), R4 (D3 A); corrections #2, #4-#11 
 - Outside voice: codex unavailable (gpt-6-astra unsupported on ChatGPT); native Claude fallback completed, 11 findings: 2 decided (R3, R4), 9 applied.
 - Unresolved decisions: 0.
 
+## Phase 6 decisions: T55 (2026-10-26)
+
+Founder answers while planning T55 (#156); they settle what the sections above left open.
+- **Readout form** (Open Questions): a recipe in `docs/reading-first-30-days.md` → Round 4, channel readout, which the founder saves once as the Firebase exploration "T55 channels" (funnel, day 2, shares, answers tabs), beside Play Console's acquisition report. Not a manual pull each time, not a BigQuery export.
+- **Day 2** (outside voice R2-4): a `day_played` on the next calendar day after `first_launch`, in the property's time zone (cohort exploration Day 1, as round 1's day-1 retention). **Photo vs bundled per row:** installs by channel only; from `first_gem` on, split by the first gem's `source`, the finish step filtered to the same `source`; shares by `share_completed` `source`.
+- **Channels listed now:** the three clip bios only (`utm_campaign` = `bio`); subreddits and Facebook groups get rows through the naming rule when the founder posts (`docs/channel-links.md`).
+- **Unknown `utm_content` test:** not added; covered by `ShareLandingTest.theIdIsUtmContentWhateverTheSource` (the source is ignored), `SharedLandingTest.aHiddenIdOpensNothingOnceTheCheckHasEnded` (an unlisted id opens nothing, frees nothing) and `ScheduledDropsFlowTest` (`openableRef` of an unknown id is null).
+
 ## Approved Mockups
 
 | Screen/Section | Mockup Path | Direction | Notes |
