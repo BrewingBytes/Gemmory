@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>T51 (feed-tuned share) — loop cut mock</title>
+<style>
+ body{background:#1d2a24;color:#e9e4d8;font:16px/1.5 system-ui,sans-serif;margin:32px;max-width:1200px}
+ h1,h2{font-weight:600} video,img{border-radius:6px} .row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+ figure{margin:0} figcaption{font-size:13px;color:#b7b0a1;text-align:center}
+ pre{background:#14201b;padding:16px;border-radius:6px;overflow:auto}
+</style>
+<h1>T51 (feed-tuned share): the 7 s loop cut</h1>
+<p>Mock re-timed from #144's real "The Great Wave" clip frames (C2 frame, safe area x 60-940, y 250-1440). The photo hook uses the
+bundled source photo as a stand-in for a player's photo. 210 frames at 30 fps: 0.5 s hook, hard cut to the tint grid, 5.5 s build, 1 s hold. No end card.</p>
+
+<h2>Videos</h2>
+<div class="row">
+ <figure><video src="feed-photo.mp4" width="270" controls loop autoplay muted></video><figcaption>Photo canvas: photo → gems hook</figcaption></figure>
+ <figure><video src="feed-bundled.mp4" width="270" controls loop autoplay muted></video><figcaption>Bundled picture: finished-picture hook</figcaption></figure>
+</div>
+
+<h2>Photo canvas, frame by frame</h2>
+<img src="strip-photo.png" width="1100">
+<p>Frames 0 (photo), 8 (photo starting to dissolve), 14 (finished gems), 15 (hard cut to the tint grid), 97 (build at half), 209 (hold; loops to frame 0).</p>
+<h2>Bundled picture</h2>
+<img src="strip-bundled.png" width="733">
+<p>Frames 0 (finished), 15 (tint grid), 97 (half), 209 (hold). The last frame matches the first: the loop seam can't be seen.</p>
+
+<h2>Who gets which file (one Share)</h2>
+<pre>
+Completion screen → Share (unchanged) → "Making your video…" (both files, ~40% longer)
+                                      → Android chooser
+   TikTok · Instagram · YouTube   → feed-7s.mp4   (EXTRA_REPLACEMENT_EXTRAS by package)
+   WhatsApp · Messages · Gmail …  → 16.8 s T53 video + "Made with Gemmory: &lt;Play link&gt;"
+VIP, progress shares, PNG fallback → unchanged (one file)
+</pre>
+</html>

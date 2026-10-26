@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.CoroutineContext
 
 /** Where one canvas's share stands, for the progress sheet (design system, Share progress sheet). */
 sealed interface EncodeState {
@@ -34,11 +35,12 @@ sealed interface EncodeState {
     }
 
     /**
-     * The finished MP4, ready for the share sheet. Not a data class: every result is a new value, so a re-share of
-     * the same cached file still reaches the screen.
+     * The finished MP4, ready for the share sheet, and the feed cut made beside it for TikTok, Instagram and YouTube
+     * (T51; null when there isn't one). Not a data class: every result is a new value, so a re-share of the same cached
+     * file still reaches the screen.
      */
-    class Video(val file: File) : EncodeState {
-        override fun toString() = "Video(${file.name})"
+    class Video(val file: File, val feed: File? = null) : EncodeState {
+        override fun toString() = "Video(${file.name}${feed?.let { ", ${it.name}" }.orEmpty()})"
     }
 
     /** No video target worked: the before/after PNG (eng E1). Identity-equal like [Video]. */
@@ -72,6 +74,10 @@ class TimelapseException(ref: CanvasRef, cause: Throwable) : Exception("time-lap
  * A progress share (#36) runs the same way, keyed apart ([EncodeRequest.key]). Its marker is
  * `encode-<canvasId>.progress.pending` and the next start just deletes it: the canvas has no completion screen to
  * tell, and Share progress starts over anyway. A placement stops it ([onPlaced]), since the video would be out of date.
+ *
+ * A finished non-VIP share also makes the feed cut (T51) after the video, under the same marker and Cancel, the bar
+ * counting both. The feed cut is a video or nothing: when it can't be made the share goes ahead with the video alone,
+ * reported as a non-fatal.
  */
 class EncodeManager(
     private val cacheDir: File,
@@ -85,6 +91,8 @@ class EncodeManager(
     private val nowNanos: () -> Long = System::nanoTime,
     /** The language the frames' words are drawn in (T48): part of a cached file's name, so a switch never reuses one. */
     private val language: () -> String = { "en" },
+    /** Finished non-VIP shares also make the feed cut (T51); off only in tests that look at the video alone. */
+    private val feedCuts: Boolean = true,
 ) : EncodeCanceller {
     val dir = File(cacheDir, DIR)
     private val lock = Any()
@@ -92,6 +100,12 @@ class EncodeManager(
     private val states = ConcurrentHashMap<CanvasRef, MutableStateFlow<EncodeState>>()
     private val swept: Job = scope.launch(io) { sweep() }
     private val _encoding = MutableStateFlow(false)
+
+    /**
+     * Feed cuts (by cache name) that couldn't be made in this process (T51): a re-share goes straight to the video
+     * instead of failing the same encode again. Cleared by [cancelAndClear], and with the process.
+     */
+    private val failedFeeds = ConcurrentHashMap.newKeySet<String>()
 
     /** Some encode (a share or a progress share) is running: the music pauses for the export (T42). */
     val encoding: StateFlow<Boolean> = _encoding.asStateFlow()
@@ -153,6 +167,7 @@ class EncodeManager(
     override suspend fun cancelAndClear(ref: CanvasRef) {
         val job = synchronized(lock) { jobs.remove(ref).also { _encoding.value = jobs.isNotEmpty() } }
         job?.cancelAndJoin()
+        failedFeeds.removeAll { it.startsWith("${ref.id}.") }
         withContext(io) {
             filesOf(ref).forEach { it.delete() }
             markerOf(ref).delete()
@@ -183,46 +198,60 @@ class EncodeManager(
         val job = context[Job]!!
         val name = "${request.key}.${language()}"
         val video = File(dir, "$name.mp4")
-        if (video.isFile) {
-            post(ref, job, EncodeState.Video(video))
+        val feedName = request.takeIf { feedCuts && it.feedCut }?.feed()?.let { "${it.key}.${language()}" }
+        val feed = feedName?.takeUnless { it in failedFeeds }?.let { request.feed() }
+        val feedVideo = feed?.let { File(dir, "$feedName.mp4") }
+        if (video.isFile && (feedVideo == null || feedVideo.isFile)) {
+            post(ref, job, EncodeState.Video(video, feedVideo))
             return
         }
-        post(ref, job, EncodeState.Running(0, FramePlan(request.log.size, photoIntro = false, endCard = request.endCard).frameCount))
+        val feedFrames = if (feed != null) FeedFramePlan.FRAMES else 0
+        val videoFrames = if (video.isFile) 0 else FramePlan(request.log.size, photoIntro = false, endCard = request.endCard).frameCount
+        post(ref, job, EncodeState.Running(0, videoFrames + feedFrames))
         val marker = if (request.inProgress) progressMarkerOf(ref) else markerOf(ref)
         val started = nowNanos()
         try {
             dir.mkdirs()
             marker.createNewFile()
-            val chain = FallbackChain(
-                backend = backend(request) { target -> partialOf(ref, target) },
-                report = { reporter.report(TimelapseAttemptException(ref, it)) },
-            )
-            val outcome = chain.run(
-                onProgress = { done, total ->
-                    // Only upward whole-percent steps: the sheet has nothing new to draw in between, and a fallback
-                    // attempt restarting from 0 holds the bar where it was until it passes it (the drop is silent).
-                    val current = flow(ref).value as? EncodeState.Running
-                    val next = EncodeState.Running(done, total)
-                    if (current == null || next.percent > current.percent) post(ref, job, next)
-                },
-                checkCancelled = { context.ensureActive() },
-            )
-            val result = when (outcome) {
-                is ChainOutcome.Video -> publish(ref, partialOf(ref, outcome.target), video)?.let(EncodeState::Video)
-                ChainOutcome.Picture -> publish(ref, partialOf(ref, null), File(dir, "$name.png"))?.let(EncodeState::Picture)
-                ChainOutcome.Failed -> EncodeState.Failed
-                ChainOutcome.DiskFull -> EncodeState.DiskFull
+            var outcome: ChainOutcome? = null
+            val result = if (video.isFile) {
+                EncodeState.Video(video)
+            } else {
+                val chain = FallbackChain(
+                    backend = backend(request) { target -> partialOf(ref, target) },
+                    report = { reporter.report(TimelapseAttemptException(ref, it)) },
+                )
+                val made = chain.run(onProgress = progress(ref, job, before = 0, after = feedFrames), checkCancelled = { context.ensureActive() })
+                outcome = made
+                when (made) {
+                    is ChainOutcome.Video -> publish(ref, partialOf(ref, made.target), video)?.let(EncodeState::Video)
+                    ChainOutcome.Picture -> publish(ref, partialOf(ref, null), File(dir, "$name.png"))?.let(EncodeState::Picture)
+                    ChainOutcome.Failed -> EncodeState.Failed
+                    ChainOutcome.DiskFull -> EncodeState.DiskFull
+                }
             }
-            val wallMs = (nowNanos() - started) / 1_000_000
-            log("time-lapse ${ref.id}: $outcome in $wallMs ms")
-            // Eng finding 16: how long encodes really take. Analytics measures it across phones (consented players);
-            // the Crashlytics keys only ride along with reports recorded later in this process.
-            analytics.log(AnalyticsEvent.timelapseMade(ref, request.pattern.width, request.pattern.height, outcomeName(outcome), wallMs))
-            reporter.setKey(KEY_WALL_MS, wallMs.toString())
-            reporter.setKey(KEY_OUTCOME, outcomeName(outcome))
+            if (outcome != null) {
+                val wallMs = (nowNanos() - started) / 1_000_000
+                log("time-lapse ${ref.id}: $outcome in $wallMs ms")
+                // Eng finding 16: how long encodes really take: the video's own, before any feed cut (T51). Analytics
+                // measures it across phones (consented players); the Crashlytics keys only ride along with later reports.
+                analytics.log(AnalyticsEvent.timelapseMade(ref, request.pattern.width, request.pattern.height, outcomeName(outcome), wallMs))
+                reporter.setKey(KEY_WALL_MS, wallMs.toString())
+                reporter.setKey(KEY_OUTCOME, outcomeName(outcome))
+            }
+            val shared = if (result is EncodeState.Video && feed != null && feedVideo != null) {
+                val feedStarted = nowNanos()
+                val cut = feedCut(feed, feedVideo, keep = result.file, job, before = videoFrames, context)
+                // A full disk can be freed, so that one is tried again on the next share.
+                if (cut == FeedCut.FAILED && canvasExists(ref)) failedFeeds += feedName
+                log("time-lapse ${ref.id}: feed cut ${cut.name.lowercase()} in ${(nowNanos() - feedStarted) / 1_000_000} ms")
+                EncodeState.Video(result.file, feedVideo.takeIf { cut == FeedCut.MADE })
+            } else {
+                result
+            }
             marker.delete()
             // Null: the canvas was deleted meanwhile, so there's nothing to show.
-            post(ref, job, result ?: EncodeState.Idle)
+            post(ref, job, shared ?: EncodeState.Idle)
         } catch (e: CancellationException) {
             marker.delete()
             throw e
@@ -234,18 +263,62 @@ class EncodeManager(
         }
     }
 
+    /** How a feed cut (T51) ended. */
+    private enum class FeedCut { MADE, FAILED, DISK_FULL, GONE }
+
+    /**
+     * The feed cut (T51) into [target], after the video [keep]: the 1080 and 720 targets, no picture. Each failed
+     * attempt is a non-fatal; [FeedCut.GONE]: the canvas was deleted meanwhile.
+     */
+    private fun feedCut(request: EncodeRequest, target: File, keep: File, job: Job, before: Int, context: CoroutineContext): FeedCut {
+        val ref = request.ref
+        if (target.isFile) return FeedCut.MADE
+        return try {
+            val chain = FallbackChain(
+                backend = backend(request) { t -> feedPartialOf(ref, t) },
+                report = { reporter.report(TimelapseAttemptException(ref, it)) },
+                picture = false,
+            )
+            when (val made = chain.run(onProgress = progress(ref, job, before, after = 0), checkCancelled = { context.ensureActive() })) {
+                is ChainOutcome.Video -> if (publish(ref, feedPartialOf(ref, made.target), target, keep) != null) FeedCut.MADE else FeedCut.GONE
+                ChainOutcome.DiskFull -> FeedCut.DISK_FULL
+                ChainOutcome.Failed, ChainOutcome.Picture -> FeedCut.FAILED
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            reporter.report(TimelapseException(ref, e))
+            partialsOf(ref).forEach { it.delete() }
+            FeedCut.FAILED
+        }
+    }
+
+    /**
+     * One attempt's progress as the share's: [before] frames already done, [after] still to come. Only upward
+     * whole-percent steps: the sheet has nothing new to draw in between, and a fallback attempt restarting from 0
+     * holds the bar where it was until it passes it (the drop is silent).
+     */
+    private fun progress(ref: CanvasRef, job: Job, before: Int, after: Int): (Int, Int) -> Unit = { done, total ->
+        val current = flow(ref).value as? EncodeState.Running
+        val next = EncodeState.Running(before + done, before + total + after)
+        if (current == null || next.percent > current.percent) post(ref, job, next)
+    }
+
     /** Only the canvas's current, uncancelled encode may move its state, so a late frame can't undo a Cancel. */
     private fun post(ref: CanvasRef, job: Job, state: EncodeState) {
         synchronized(lock) { if (jobs[ref] === job && job.isActive) flow(ref).value = state }
     }
 
-    /** Renames the partial into the cache if the canvas still exists (eng E4d); older results of it are dropped. */
-    private fun publish(ref: CanvasRef, partial: File, target: File): File? {
+    /**
+     * Renames the partial into the cache if the canvas still exists (eng E4d); older results of it are dropped, except
+     * [keep] (the video a feed cut is made beside, T51).
+     */
+    private fun publish(ref: CanvasRef, partial: File, target: File, keep: File? = null): File? {
         if (!canvasExists(ref)) {
             partial.delete()
             return null
         }
-        filesOf(ref).filter { it != partial && it != target && !it.name.endsWith(PARTIAL) }.forEach { it.delete() }
+        filesOf(ref).filter { it != partial && it != target && it != keep && !it.name.endsWith(PARTIAL) }.forEach { it.delete() }
         target.parentFile?.mkdirs()
         if (!partial.renameTo(target)) {
             partial.delete()
@@ -272,6 +345,9 @@ class EncodeManager(
 
     fun partialOf(ref: CanvasRef, target: EncodeTarget?): File =
         File(dir, if (target == null) "${ref.id}.png$PARTIAL" else "${ref.id}.${target.width}x${target.height}.mp4$PARTIAL")
+
+    fun feedPartialOf(ref: CanvasRef, target: EncodeTarget?): File =
+        File(dir, "${ref.id}.${EncodeRequest.FEED}.${target?.let { "${it.width}x${it.height}" } ?: "none"}.mp4$PARTIAL")
 
     fun markerOf(ref: CanvasRef): File = File(cacheDir, "encode-${ref.id}.pending")
 

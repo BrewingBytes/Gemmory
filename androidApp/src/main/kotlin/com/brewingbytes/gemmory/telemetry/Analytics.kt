@@ -111,9 +111,14 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         fun shareTapped(ref: CanvasRef, width: Int, height: Int, progress: Boolean) =
             AnalyticsEvent("share_tapped", canvas(ref, width, height) + (KIND to kind(progress)))
 
-        /** The player picked an app in the share sheet. [kind]: `progress` or `finished`. */
-        fun shareCompleted(source: String, size: String, kind: String) =
-            AnalyticsEvent("share_completed", mapOf(SOURCE to source, SIZE to size, KIND to kind))
+        /**
+         * The player picked an app in the share sheet. [kind]: `progress` or `finished`. [cut]: `feed` when a feed app
+         * got the feed cut (T51), else `full`.
+         */
+        fun shareCompleted(source: String, size: String, kind: String, cut: String = cut(feed = false)) =
+            AnalyticsEvent("share_completed", mapOf(SOURCE to source, SIZE to size, KIND to kind, CUT to cut))
+
+        fun cut(feed: Boolean): String = if (feed) "feed" else "full"
 
         /** The first picture finished on a new day (#33): the daily play streak is now [length] days. */
         fun streakDay(length: Int) = AnalyticsEvent("streak_day", mapOf("length" to length.toLong()))
@@ -207,6 +212,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         const val SOURCE = "source"
         const val SIZE = "size"
         const val KIND = "kind"
+        const val CUT = "cut"
         const val ENTRY = "entry"
         const val DAYS_SINCE_AVAILABLE = "days_since_available"
         const val COLLECTION_ID = "collection_id"

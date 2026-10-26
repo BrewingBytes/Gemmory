@@ -91,8 +91,9 @@ class TimelapseEncoderSmokeTest {
         return out to target
     }
 
-    /** 504 with the end card (a non-VIP player share), else 450. */
-    private fun frameCount(request: EncodeRequest) = FramePlan(request.log.size, photoIntro = false, endCard = request.endCard).frameCount
+    /** 504 with the end card (a non-VIP player share), else 450; the feed cut's 210 (T51). */
+    private fun frameCount(request: EncodeRequest) =
+        if (request.frame == ShareFrame.FEED) FeedFramePlan.FRAMES else FramePlan(request.log.size, photoIntro = false, endCard = request.endCard).frameCount
 
     private fun assertPlayable(file: File, target: EncodeTarget, frames: Int = FramePlan.TOTAL_FRAMES + FramePlan.END_CARD_FRAMES) {
         val expectedUs = frames * 1_000_000L / FramePlan.FPS
@@ -123,7 +124,7 @@ class TimelapseEncoderSmokeTest {
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(file.path)
-            for (us in listOf(500_000L, 7_000_000L, expectedUs - 100_000L)) {
+            for (us in listOf(500_000L, minOf(7_000_000L, expectedUs / 2), expectedUs - 100_000L)) {
                 val frame = assertNotNull(retriever.getFrameAtTime(us, MediaMetadataRetriever.OPTION_CLOSEST), "frame at $us")
                 assertEquals(target.width, frame.width)
                 assertEquals(target.height, frame.height)
@@ -155,6 +156,18 @@ class TimelapseEncoderSmokeTest {
     fun quickPhotoCanvasWithIntroByChain() {
         val (file, target) = encodeByChain(quickPhoto())
         assertPlayable(file, target)
+    }
+
+    @Test
+    fun feedCutByChain() {
+        val (file, target) = encodeByChain(starter().feed())
+        assertPlayable(file, target, FeedFramePlan.FRAMES)
+    }
+
+    @Test
+    fun quickPhotoFeedCutWithPhotoHookByChain() {
+        val (file, target) = encodeByChain(quickPhoto().feed())
+        assertPlayable(file, target, FeedFramePlan.FRAMES)
     }
 
     @Test
