@@ -4,6 +4,7 @@ import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -18,6 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** "Where did you find Gemmory?" (T56, #157) on the completion screen: once, paid once, never for VIP, held 400ms. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class WhereFoundTest {
     private val order = WhereFoundAnswer.order(1)
 
