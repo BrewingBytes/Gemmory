@@ -120,11 +120,7 @@
         <item quantity="many">%1$s, %2$d sur %3$d terminés</item>
         <item quantity="other">%1$s, %2$d sur %3$d terminés</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, %2$d sur %3$d terminés, %4$d à venir</item>
-        <item quantity="many">%1$s, %2$d sur %3$d terminés, %4$d à venir</item>
-        <item quantity="other">%1$s, %2$d sur %3$d terminés, %4$d à venir</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s terminée.</string>
     <string name="a11y_collection_complete_keepsake">%1$s terminée. Tableau souvenir ajouté.</string>
     <string name="a11y_event_added">%1$s : tableau souvenir ajouté.</string>

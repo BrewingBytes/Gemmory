@@ -111,10 +111,7 @@
         <item quantity="one">%1$s, %3$d tablodan %2$d tanesi bitti</item>
         <item quantity="other">%1$s, %3$d tablodan %2$d tanesi bitti</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, %3$d tablodan %2$d tanesi bitti, %4$d tane daha geliyor</item>
-        <item quantity="other">%1$s, %3$d tablodan %2$d tanesi bitti, %4$d tane daha geliyor</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s tamamlandı.</string>
     <string name="a11y_collection_complete_keepsake">%1$s tamamlandı. Hatıra tablo eklendi.</string>
     <string name="a11y_event_added">%1$s: hatıra tablo eklendi.</string>

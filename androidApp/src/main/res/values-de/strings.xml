@@ -111,10 +111,7 @@
         <item quantity="one">%1$s, %2$d von %3$d fertig</item>
         <item quantity="other">%1$s, %2$d von %3$d fertig</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, %2$d von %3$d fertig, %4$d weiteres kommt</item>
-        <item quantity="other">%1$s, %2$d von %3$d fertig, %4$d weitere kommen</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s vollständig.</string>
     <string name="a11y_collection_complete_keepsake">%1$s vollständig. Andenken-Bild hinzugefügt.</string>
     <string name="a11y_event_added">%1$s: Andenken-Bild hinzugefügt.</string>

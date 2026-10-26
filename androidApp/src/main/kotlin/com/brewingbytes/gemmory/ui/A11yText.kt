@@ -105,10 +105,12 @@ class A11yText(private val s: Strings) {
 
     /**
      * A collection row's heading (T37), with the well folded in: "Seaside, 3 of 7 finished, 2 more coming" /
-     * "Seaside, 7 of 7 finished".
+     * "Seaside, 7 of 7 finished". Each part is counted by its own number (#163).
      */
-    fun collection(title: String, finished: Int, size: Int, coming: Int): String =
-        if (coming > 0) s.plural(R.plurals.a11y_collection_coming, coming, title, finished, size, coming) else s.plural(R.plurals.a11y_collection, finished, title, finished, size)
+    fun collection(title: String, finished: Int, size: Int, coming: Int): String {
+        val count = s.plural(R.plurals.a11y_collection, finished, title, finished, size)
+        return if (coming > 0) s.text(R.string.a11y_collection_coming, count, s.plural(R.plurals.collection_coming, coming, coming)) else count
+    }
 
     /** The polite announcement when a completed collection's row first shows (T37). */
     fun collectionComplete(title: String, keepsake: Boolean): String =

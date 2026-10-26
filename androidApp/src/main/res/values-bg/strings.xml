@@ -111,10 +111,7 @@
         <item quantity="one">%1$s, завършена %2$d от %3$d</item>
         <item quantity="other">%1$s, завършени %2$d от %3$d</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, завършени %2$d от %3$d, предстои още %4$d</item>
-        <item quantity="other">%1$s, завършени %2$d от %3$d, предстоят още %4$d</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s: завършена.</string>
     <string name="a11y_collection_complete_keepsake">%1$s: завършена. Добавена е картина спомен.</string>
     <string name="a11y_event_added">%1$s: добавена е картина спомен.</string>

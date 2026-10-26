@@ -116,15 +116,11 @@
         <item quantity="other">Concluídos, %1$d quadros</item>
     </plurals>
     <plurals name="a11y_collection">
-        <item quantity="one">%1$s, %2$d de %3$d concluído</item>
-        <item quantity="many">%1$s, %2$d de %3$d concluídos</item>
-        <item quantity="other">%1$s, %2$d de %3$d concluídos</item>
+        <item quantity="one">%1$s, concluídos: %2$d de %3$d</item>
+        <item quantity="many">%1$s, concluídos: %2$d de %3$d</item>
+        <item quantity="other">%1$s, concluídos: %2$d de %3$d</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, %2$d de %3$d concluídos, mais %4$d a caminho</item>
-        <item quantity="many">%1$s, %2$d de %3$d concluídos, mais %4$d a caminho</item>
-        <item quantity="other">%1$s, %2$d de %3$d concluídos, mais %4$d a caminho</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s completa.</string>
     <string name="a11y_collection_complete_keepsake">%1$s completa. Quadro de lembrança adicionado.</string>
     <string name="a11y_event_added">%1$s: quadro de lembrança adicionado.</string>
@@ -360,9 +356,9 @@
     <string name="collections_all">Todas as coleções</string>
     <string name="collections_title">Coleções</string>
     <plurals name="collection_count">
-        <item quantity="one">%1$d de %2$d concluído</item>
-        <item quantity="many">%1$d de %2$d concluídos</item>
-        <item quantity="other">%1$d de %2$d concluídos</item>
+        <item quantity="one">Concluídos: %1$d de %2$d</item>
+        <item quantity="many">Concluídos: %1$d de %2$d</item>
+        <item quantity="other">Concluídos: %1$d de %2$d</item>
     </plurals>
     <string name="collection_count_coming">%1$s · %2$s</string>
     <plurals name="collection_coming">

@@ -129,12 +129,7 @@
         <item quantity="many">%1$s, ukończono %2$d z %3$d</item>
         <item quantity="other">%1$s, ukończono %2$d z %3$d</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, ukończono %2$d z %3$d, w drodze jeszcze %4$d</item>
-        <item quantity="few">%1$s, ukończono %2$d z %3$d, w drodze jeszcze %4$d</item>
-        <item quantity="many">%1$s, ukończono %2$d z %3$d, w drodze jeszcze %4$d</item>
-        <item quantity="other">%1$s, ukończono %2$d z %3$d, w drodze jeszcze %4$d</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s ukończona.</string>
     <string name="a11y_collection_complete_keepsake">%1$s ukończona. Dodano obraz-pamiątkę.</string>
     <string name="a11y_event_added">%1$s: dodano obraz-pamiątkę.</string>

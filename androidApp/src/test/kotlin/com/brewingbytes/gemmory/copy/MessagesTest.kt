@@ -20,6 +20,7 @@ import com.brewingbytes.gemmory.remote.MysteryName
 import com.brewingbytes.gemmory.timelapse.ProgressLine
 import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.timelapse.ShareLink
+import com.brewingbytes.gemmory.ui.A11yText
 import org.junit.Test
 import java.io.File
 import java.util.Locale
@@ -251,6 +252,20 @@ class MessagesTest {
         val bg = XmlStrings("values-bg", Locale.forLanguageTag("bg"))
         assertEquals("Остава 1.", bg.plural(R.plurals.streak_left, 1, 1))
         assertEquals("Остават 2.", bg.plural(R.plurals.streak_left, 2, 2))
+    }
+
+    /** #163 review: a collection heading's two numbers each pick their own words; Portuguese's "one" includes 0. */
+    @Test
+    fun collectionHeadingsAgreeWithEachNumber() {
+        val es = A11yText(XmlStrings("values-es", Locale.forLanguageTag("es")))
+        assertEquals("Mar, 1 de 7 terminado, 4 más en camino", es.collection("Mar", 1, 7, 4))
+        assertEquals("Mar, 3 de 7 terminados", es.collection("Mar", 3, 7, 0))
+        val de = A11yText(XmlStrings("values-de", Locale.GERMAN))
+        assertEquals("See, 2 von 7 fertig, 1 weiteres kommt", de.collection("See", 2, 7, 1))
+        val pt = XmlStrings("values-pt-rBR", Locale.forLanguageTag("pt-BR"))
+        assertEquals("Mar, concluídos: 0 de 3", A11yText(pt).collection("Mar", 0, 3, 0))
+        assertEquals("Concluídos: 0 de 3", pt.plural(R.plurals.collection_count, 0, 0, 3))
+        assertEquals("Seaside, 0 of 3 finished, 1 more coming", A11yText(XmlStrings()).collection("Seaside", 0, 3, 1))
     }
 
     private val folders: List<File>

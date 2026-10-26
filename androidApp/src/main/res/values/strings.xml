@@ -137,10 +137,7 @@
         <item quantity="one">%1$s, %2$d of %3$d finished</item>
         <item quantity="other">%1$s, %2$d of %3$d finished</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, %2$d of %3$d finished, %4$d more coming</item>
-        <item quantity="other">%1$s, %2$d of %3$d finished, %4$d more coming</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s complete.</string>
     <string name="a11y_collection_complete_keepsake">%1$s complete. Keepsake picture added.</string>
     <string name="a11y_event_added">%1$s: keepsake picture added.</string>

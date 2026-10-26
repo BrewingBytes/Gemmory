@@ -102,9 +102,7 @@
     <plurals name="a11y_collection">
         <item quantity="other">%1$s、%3$d枚中%2$d枚完成</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="other">%1$s、%3$d枚中%2$d枚完成、あと%4$d枚届きます</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s、%2$s</string>
     <string name="a11y_collection_complete">%1$sをコンプリート。</string>
     <string name="a11y_collection_complete_keepsake">%1$sをコンプリート。記念の絵が追加されました。</string>
     <string name="a11y_event_added">%1$s：記念の絵が追加されました。</string>

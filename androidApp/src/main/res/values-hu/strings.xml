@@ -111,10 +111,7 @@
         <item quantity="one">%1$s, %3$d képből %2$d kész</item>
         <item quantity="other">%1$s, %3$d képből %2$d kész</item>
     </plurals>
-    <plurals name="a11y_collection_coming">
-        <item quantity="one">%1$s, %3$d képből %2$d kész, még %4$d érkezik</item>
-        <item quantity="other">%1$s, %3$d képből %2$d kész, még %4$d érkezik</item>
-    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s: teljes.</string>
     <string name="a11y_collection_complete_keepsake">%1$s: teljes. Emlékkép hozzáadva.</string>
     <string name="a11y_event_added">%1$s: emlékkép hozzáadva.</string>
