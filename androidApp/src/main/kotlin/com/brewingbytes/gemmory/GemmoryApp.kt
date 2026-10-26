@@ -288,6 +288,9 @@ class GemmoryApp : Application() {
     @VisibleForTesting
     var streakNudge = true
 
+    /** The streak celebration is on (#101): the kill-switch flag (O5) and the test switch. */
+    val celebrationsOn: Boolean get() = BuildConfig.STREAK_CELEBRATION && streakCelebrations
+
     /** The keep-it-alive nudge is on: the kill-switch flag (O5) and the test switch. */
     val nudgeOn: Boolean get() = BuildConfig.STREAK_CELEBRATION && streakNudge
 

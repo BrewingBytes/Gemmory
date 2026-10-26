@@ -56,10 +56,19 @@
     <string name="reminder_channel_description">Napi egy üzenet valami új játszanivalóról, vagy egy majdnem kész képről.</string>
 
     <string name="a11y_canvas_progress">Vászon. %2$s kőből %1$s a helyén.</string>
-    <string name="a11y_canvas_selected">%1$s %2$d. szín kiválasztva, %3$s van hátra.</string>
+    <plurals name="a11y_canvas_selected">
+        <item quantity="one">%1$s %2$d. szín kiválasztva, %3$s van hátra.</item>
+        <item quantity="other">%1$s %2$d. szín kiválasztva, %3$s van hátra.</item>
+    </plurals>
     <string name="a11y_not_color">Nem a(z) %1$d. szín</string>
-    <string name="a11y_color_done">%1$d. szín kész.</string>
-    <string name="a11y_color_done_next">%1$d. szín kész. %2$d. szín kiválasztva.</string>
+    <plurals name="a11y_color_done">
+        <item quantity="one">%1$d. szín kész.</item>
+        <item quantity="other">%1$d. szín kész.</item>
+    </plurals>
+    <plurals name="a11y_color_done_next">
+        <item quantity="one">%1$d. szín kész. %2$d. szín kiválasztva.</item>
+        <item quantity="other">%1$d. szín kész. %2$d. szín kiválasztva.</item>
+    </plurals>
     <string name="a11y_left">%1$s van hátra</string>
     <string name="a11y_batch">%1$s a helyén. %2$s</string>
     <string name="a11y_join">%1$s. %2$s</string>
@@ -70,7 +79,10 @@
         <item quantity="other">Eszköz: %1$s, %2$d kitöltés</item>
     </plurals>
     <string name="a11y_fill_color">A(z) %1$d. szín maradékának kitöltése</string>
-    <string name="a11y_music_volume">%1$d százalék</string>
+    <plurals name="a11y_music_volume">
+        <item quantity="one">%1$d százalék</item>
+        <item quantity="other">%1$d százalék</item>
+    </plurals>
     <string name="milestone_quarter">Egynegyed kész</string>
     <string name="milestone_half">Félúton vagy</string>
     <string name="milestone_three_quarters">Háromnegyed kész</string>
@@ -95,8 +107,11 @@
         <item quantity="one">Kész, %1$d kép</item>
         <item quantity="other">Kész, %1$d kép</item>
     </plurals>
-    <string name="a11y_collection">%1$s, %3$d képből %2$d kész</string>
-    <string name="a11y_collection_coming">%1$s, %3$d képből %2$d kész, még %4$d érkezik</string>
+    <plurals name="a11y_collection">
+        <item quantity="one">%1$s, %3$d képből %2$d kész</item>
+        <item quantity="other">%1$s, %3$d képből %2$d kész</item>
+    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s: teljes.</string>
     <string name="a11y_collection_complete_keepsake">%1$s: teljes. Emlékkép hozzáadva.</string>
     <string name="a11y_event_added">%1$s: emlékkép hozzáadva.</string>
@@ -167,11 +182,17 @@
     <string name="streak_kept_joined">%1$s megmentette a sorozatod.</string>
     <string name="streak_kept_day_off">A szabadnapod megmentette a sorozatod: %1$s.</string>
     <string name="streak_kept_vip_freeze">A VIP-védelmed megmentette a sorozatod.</string>
-    <string name="streak_kept_freezes">Sorozatvédők mentették meg ennyiszer: %1$d.</string>
+    <plurals name="streak_kept_freezes">
+        <item quantity="one">%1$d sorozatvédő mentette meg.</item>
+        <item quantity="other">%1$d sorozatvédő mentette meg.</item>
+    </plurals>
     <string name="streak_kept_freeze">Egy sorozatvédő megmentette: %1$s.</string>
     <string name="streak_kept_going">A sorozatod folytatódik.</string>
     <string name="streak_none_left">Nem maradt több.</string>
-    <string name="streak_left">Még %1$d maradt.</string>
+    <plurals name="streak_left">
+        <item quantity="one">Még %1$d maradt.</item>
+        <item quantity="other">Még %1$d maradt.</item>
+    </plurals>
     <string name="streak_freezes_row">Sorozatvédők %1$d</string>
     <string name="streak_freezes_sub">Beszámít egy kihagyott napot. Legfeljebb %1$d lehet nálad.</string>
     <string name="streak_by_day_off">a szabadnapod</string>
@@ -259,8 +280,14 @@
     <string name="action_continue">Tovább</string>
     <string name="action_share">Megosztás</string>
     <string name="streak_celebration_words">%1$s. %2$s</string>
-    <string name="next_gift">Következő ajándékpörgetés %1$d nap után egymás után</string>
-    <string name="next_gift_description">Következő ajándékpörgetés %1$d nap után egymás után. Eddig %3$d napból %2$d.</string>
+    <plurals name="next_gift">
+        <item quantity="one">Következő ajándékpörgetés %1$d nap után egymás után</item>
+        <item quantity="other">Következő ajándékpörgetés %1$d nap után egymás után</item>
+    </plurals>
+    <plurals name="next_gift_description">
+        <item quantity="one">Következő ajándékpörgetés %1$d nap után egymás után. Eddig %3$d napból %2$d.</item>
+        <item quantity="other">Következő ajándékpörgetés %1$d nap után egymás után. Eddig %3$d napból %2$d.</item>
+    </plurals>
 
     <string name="action_delete">Törlés</string>
     <string name="action_start_over">Újrakezdés</string>
@@ -303,13 +330,28 @@
 
     <string name="collections_all">Minden gyűjtemény</string>
     <string name="collections_title">Gyűjtemények</string>
-    <string name="collection_count">%2$d képből %1$d kész</string>
+    <plurals name="collection_count">
+        <item quantity="one">%2$d képből %1$d kész</item>
+        <item quantity="other">%2$d képből %1$d kész</item>
+    </plurals>
     <string name="collection_count_coming">%1$s · %2$s</string>
-    <string name="collection_coming">Még %1$d érkezik</string>
-    <string name="collection_coming_daily">Még %1$d érkezik, naponta egy</string>
-    <string name="collection_for_keepsake">Fejezd be mind a(z) %1$d képet egy emlékképért.</string>
+    <plurals name="collection_coming">
+        <item quantity="one">Még %1$d érkezik</item>
+        <item quantity="other">Még %1$d érkezik</item>
+    </plurals>
+    <plurals name="collection_coming_daily">
+        <item quantity="one">Még %1$d érkezik, naponta egy</item>
+        <item quantity="other">Még %1$d érkezik, naponta egy</item>
+    </plurals>
+    <plurals name="collection_for_keepsake">
+        <item quantity="one">Fejezd be mind a(z) %1$d képet egy emlékképért.</item>
+        <item quantity="other">Fejezd be mind a(z) %1$d képet egy emlékképért.</item>
+    </plurals>
     <string name="collection_to_complete">Fejezd be mind a(z) %1$d képet, hogy teljes legyen.</string>
-    <string name="collection_for_token">Fejezd be mind a(z) %1$d képet egy feloldó zsetonért.</string>
+    <plurals name="collection_for_token">
+        <item quantity="one">Fejezd be mind a(z) %1$d képet egy feloldó zsetonért.</item>
+        <item quantity="other">Fejezd be mind a(z) %1$d képet egy feloldó zsetonért.</item>
+    </plurals>
     <string name="collection_keepsake_added">Emlék hozzáadva: %1$s.</string>
     <string name="collection_keepsake_offline">Emlék megszerezve. Akkor érkezik, amikor legközelebb online leszel.</string>
     <string name="collection_keepsake_space">Emlék megszerezve. Akkor érkezik, amikor lesz hely a telefonon.</string>
@@ -328,8 +370,14 @@
     <string name="inventory_tokens_body">Bármelyik zárolt képet végleg feloldja.</string>
     <string name="inventory_freezes">Sorozatvédők</string>
     <string name="inventory_freezes_body">A szabadnapod után beszámít egy kihagyott napot. Legfeljebb %1$d lehet nálad.</string>
-    <string name="inventory_watch">Videó megnézése: +%1$d kitöltés</string>
-    <string name="inventory_spin_several">Pörgess az ajándékodért (%1$d vár)</string>
+    <plurals name="inventory_watch">
+        <item quantity="one">Videó megnézése: +%1$d kitöltés</item>
+        <item quantity="other">Videó megnézése: +%1$d kitöltés</item>
+    </plurals>
+    <plurals name="inventory_spin_several">
+        <item quantity="one">Pörgess az ajándékodért (%1$d vár)</item>
+        <item quantity="other">Pörgess az ajándékodért (%1$d vár)</item>
+    </plurals>
     <string name="inventory_spin">Pörgess a %1$d napos ajándékodért</string>
     <string name="inventory_item">%1$s: %2$d. %3$s</string>
     <plurals name="prize_fills">
@@ -415,13 +463,22 @@
     <string name="photo_choose_size">Válassz méretet</string>
     <string name="photo_preview">Előnézet</string>
     <string name="photo_default_title_dated">Saját fotó · %1$s</string>
-    <string name="photo_summary">%1$s kő · %2$d szín</string>
+    <plurals name="photo_summary">
+        <item quantity="one">%1$s kő · %2$d szín</item>
+        <item quantity="other">%1$s kő · %2$d szín</item>
+    </plurals>
     <string name="photo_size_summary">%1$s · %2$s</string>
     <string name="photo_more_colors_line">Több szín: nézz meg egy videót, vagy legyél VIP.</string>
     <string name="photo_one_video_more_colors">Egy videóért ezt a vásznat több színnel kapod.</string>
     <string name="photo_watch_for_colors">Videó megnézése több színért</string>
-    <string name="photo_colors_trough">%1$s, %2$d szín</string>
-    <string name="photo_colors_trough_video">%1$s, %2$d szín, videó vagy VIP kell hozzá</string>
+    <plurals name="photo_colors_trough">
+        <item quantity="one">%1$s, %2$d szín</item>
+        <item quantity="other">%1$s, %2$d szín</item>
+    </plurals>
+    <plurals name="photo_colors_trough_video">
+        <item quantity="one">%1$s, %2$d szín, videó vagy VIP kell hozzá</item>
+        <item quantity="other">%1$s, %2$d szín, videó vagy VIP kell hozzá</item>
+    </plurals>
     <string name="photo_faces_best">Az arcok Közepes vagy Nagy méretben mutatnak a legjobban</string>
     <string name="photo_faces_need_big">Az arcokhoz Nagy méret kell</string>
     <string name="photo_faces_unsupported">Az arcok még nem támogatottak</string>
@@ -435,7 +492,10 @@
     <string name="photo_save_failed">Nem sikerült menteni ezt a vásznat a telefonra. Próbáld újra.</string>
     <string name="photo_colors">Színek</string>
     <string name="allowance_free">A mai ingyenes fotóvásznat használja.</string>
-    <string name="allowance_kept">Egy félretett fotóvásznat használ (még %1$d maradt).</string>
+    <plurals name="allowance_kept">
+        <item quantity="one">Egy félretett fotóvásznat használ (még %1$d maradt).</item>
+        <item quantity="other">Egy félretett fotóvásznat használ (még %1$d maradt).</item>
+    </plurals>
     <string name="allowance_bonus">Egy videóért kapott bónuszvásznat használ.</string>
     <string name="allowance_watch">A mai ingyenes már elfogyott. Nézz meg egy videót egy újabbért.</string>
 
@@ -523,19 +583,28 @@
     <string name="rewarded_fills_title">Több kitöltés</string>
     <string name="rewarded_colors_title">Több szín</string>
     <string name="rewarded_canvas_title">Még egy fotóvászon</string>
-    <string name="rewarded_fills_added">%1$d kitöltés hozzáadva</string>
+    <plurals name="rewarded_fills_added">
+        <item quantity="one">%1$d kitöltés hozzáadva</item>
+        <item quantity="other">%1$d kitöltés hozzáadva</item>
+    </plurals>
     <string name="rewarded_colors_unlocked">Több szín feloldva</string>
     <string name="rewarded_unlocked">Feloldva</string>
     <string name="rewarded_grace_fills">Most nincs videó. Ma ezeket mi álljuk.</string>
     <string name="rewarded_offline">Nincs internetkapcsolat, csatlakozz, hogy videót nézhess</string>
     <string name="rewarded_picture_body">Nézz meg egy rövid videót, hogy végleg feloldd ezt a képet.</string>
-    <string name="rewarded_fills_body">Nézz meg egy rövid videót %1$d kitöltésért. Mindegyik kitölt egy területet, egy szín maradékát vagy egy ecsetvonást.</string>
+    <plurals name="rewarded_fills_body">
+        <item quantity="one">Nézz meg egy rövid videót %1$d kitöltésért. Mindegyik kitölt egy területet, egy szín maradékát vagy egy ecsetvonást.</item>
+        <item quantity="other">Nézz meg egy rövid videót %1$d kitöltésért. Mindegyik kitölt egy területet, egy szín maradékát vagy egy ecsetvonást.</item>
+    </plurals>
     <string name="rewarded_colors_body">Nézz meg egy rövid videót, hogy több színed legyen ezen a fotóvásznon.</string>
     <string name="rewarded_canvas_body">Nézz meg egy rövid videót még egy fotóvászonért. Megmarad, amíg fel nem használod.</string>
     <string name="rewarded_watch_to_end">Nézd végig a feloldáshoz.</string>
     <string name="rewarded_watch">Videó megnézése</string>
     <string name="rewarded_grace_picture">Kép feloldása</string>
-    <string name="rewarded_grace_fills_button">%1$d kitöltés kérése</string>
+    <plurals name="rewarded_grace_fills_button">
+        <item quantity="one">%1$d kitöltés kérése</item>
+        <item quantity="other">%1$d kitöltés kérése</item>
+    </plurals>
     <string name="rewarded_grace_colors">Több szín használata</string>
     <string name="rewarded_grace_canvas">Vászon indítása</string>
     <string name="rewarded_vip_picture">Vagy legyél VIP: a galéria minden képe feloldva</string>
@@ -543,7 +612,10 @@
     <string name="rewarded_vip_colors">Vagy legyél VIP: több szín minden fotón</string>
     <string name="rewarded_vip_canvas">Vagy legyél VIP: korlátlan fotóvászon</string>
     <string name="rewarded_vip_no_videos">Legyél VIP: nem kell videó</string>
-    <string name="rewarded_token">Feloldó zseton használata · még %1$d maradt</string>
+    <plurals name="rewarded_token">
+        <item quantity="one">Feloldó zseton használata · még %1$d maradt</item>
+        <item quantity="other">Feloldó zseton használata · még %1$d maradt</item>
+    </plurals>
 
     <string name="a11y_drag_handle">Húzófogantyú</string>
     <string name="title_starter">Csillagos éj</string>

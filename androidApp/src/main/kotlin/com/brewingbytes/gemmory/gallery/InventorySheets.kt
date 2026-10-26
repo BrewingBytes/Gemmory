@@ -153,10 +153,10 @@ fun InventorySheet(
     }
 }
 
-internal fun watchLabel(s: Strings) = s.text(R.string.inventory_watch, Inventory.FILLS_PER_VIDEO)
+internal fun watchLabel(s: Strings) = s.plural(R.plurals.inventory_watch, Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
 
 internal fun spinLabel(s: Strings, waiting: Int) =
-    if (waiting > 1) s.text(R.string.inventory_spin_several, waiting) else s.text(R.string.inventory_spin, Inventory.SPIN_EVERY)
+    if (waiting > 1) s.plural(R.plurals.inventory_spin_several, waiting, waiting) else s.text(R.string.inventory_spin, Inventory.SPIN_EVERY)
 
 @Composable
 private fun ItemRow(icon: ImageVector, count: Int, name: String, body: String, tag: String) {

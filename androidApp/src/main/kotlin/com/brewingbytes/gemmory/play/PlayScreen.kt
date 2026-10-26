@@ -176,7 +176,7 @@ fun PlayScreen(
     LaunchedEffect(finished) {
         if (!finished) return@LaunchedEffect
         // A tool's batch (#20) that placed the last gem finishes its sweep first.
-        session?.let { delay(it.cueDelayMs()) }
+        delay(session.cueDelayMs())
         if (reducedMotion) {
             withFullMotion { chrome.animateTo(0f, tween(REDUCED_FADE_MS)) }
         } else {

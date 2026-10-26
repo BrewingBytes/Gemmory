@@ -365,7 +365,7 @@ fun RewardedSheet(
             RewardPhase.Unlocked -> {
                 Text(
                     when {
-                        fills -> strings.text(R.string.rewarded_fills_added, Inventory.FILLS_PER_VIDEO)
+                        fills -> strings.plural(R.plurals.rewarded_fills_added, Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
                         colors -> strings.text(R.string.rewarded_colors_unlocked)
                         else -> strings.text(R.string.rewarded_unlocked)
                     },
@@ -391,7 +391,7 @@ fun RewardedSheet(
             else -> Text(
                 when {
                     picture -> strings.text(R.string.rewarded_picture_body)
-                    fills -> strings.text(R.string.rewarded_fills_body, Inventory.FILLS_PER_VIDEO)
+                    fills -> strings.plural(R.plurals.rewarded_fills_body, Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
                     colors -> strings.text(R.string.rewarded_colors_body)
                     else -> strings.text(R.string.rewarded_canvas_body)
                 },
@@ -431,7 +431,7 @@ fun RewardedSheet(
                     PrimaryButton(
                         when {
                             picture -> strings.text(R.string.rewarded_grace_picture)
-                            fills -> strings.text(R.string.rewarded_grace_fills_button, Inventory.FILLS_PER_VIDEO)
+                            fills -> strings.plural(R.plurals.rewarded_grace_fills_button, Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
                             colors -> strings.text(R.string.rewarded_grace_colors)
                             else -> strings.text(R.string.rewarded_grace_canvas)
                         },
@@ -464,7 +464,7 @@ fun RewardedSheet(
         // An unlock token (#38) is another way in, offered under the video while nothing else is under way.
         if (picture && tokens > 0 && phase != RewardPhase.Showing) {
             Spacer(Modifier.height(8.dp))
-            QuietButton(strings.text(R.string.rewarded_token, tokens), onToken, Modifier.fillMaxWidth().testTag("rewarded-token"))
+            QuietButton(strings.plural(R.plurals.rewarded_token, tokens, tokens), onToken, Modifier.fillMaxWidth().testTag("rewarded-token"))
         }
     }
 }

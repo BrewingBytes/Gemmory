@@ -6,7 +6,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -111,12 +111,6 @@ class CanvasGesturesTest {
     private fun PlaySession.centerOf(cell: Int): Offset {
         val vp = viewport
         return Offset(vp.offsetX + (cell % pattern.width + 0.5f) * vp.cellPx, vp.offsetY + (cell / pattern.width + 0.5f) * vp.cellPx)
-    }
-
-    private fun PlaySession.log(): IntArray {
-        var log = IntArray(0)
-        onMain { log = placedLogForTest() }
-        return log
     }
 
     private fun canvas(block: androidx.compose.ui.test.TouchInjectionScope.() -> Unit) {

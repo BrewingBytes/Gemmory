@@ -72,7 +72,7 @@ class StreakText(private val s: Strings) {
             DayKind.DAY_OFF -> s.text(R.string.streak_kept_day_off, day)
             DayKind.VIP_FREEZE -> s.text(R.string.streak_kept_vip_freeze)
             DayKind.FREEZE -> {
-                val kept = if (covered.size > 1) s.text(R.string.streak_kept_freezes, covered.size) else s.text(R.string.streak_kept_freeze, day)
+                val kept = if (covered.size > 1) s.plural(R.plurals.streak_kept_freezes, covered.size, covered.size) else s.text(R.string.streak_kept_freeze, day)
                 s.text(R.string.sentences, kept, left(freezesLeft))
             }
             DayKind.FINISHED, DayKind.REPAIRED -> s.text(R.string.streak_kept_going)
@@ -80,7 +80,7 @@ class StreakText(private val s: Strings) {
     }
 
     /** "1 left." / "None left." */
-    private fun left(freezes: Int): String = if (freezes == 0) s.text(R.string.streak_none_left) else s.text(R.string.streak_left, freezes)
+    private fun left(freezes: Int): String = if (freezes == 0) s.text(R.string.streak_none_left) else s.plural(R.plurals.streak_left, freezes, freezes)
 
     /** The streak screen's freeze row (#102): "Streak freezes 1" over "Covers a missed day. Hold up to 2." */
     fun freezes(held: Int): Pair<String, String> =

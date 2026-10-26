@@ -20,6 +20,7 @@ import com.brewingbytes.gemmory.remote.MysteryName
 import com.brewingbytes.gemmory.timelapse.ProgressLine
 import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.timelapse.ShareLink
+import com.brewingbytes.gemmory.ui.A11yText
 import org.junit.Test
 import java.io.File
 import java.util.Locale
@@ -230,6 +231,43 @@ class MessagesTest {
         assertEquals("12 dni", pl.plural(R.plurals.streak_days, 12, 12))
         val ja = XmlStrings("values-ja", Locale.JAPANESE)
         assertEquals("1日", ja.plural(R.plurals.streak_days, 1, 1))
+    }
+
+    /** #163: the counted words that were strings (lint's PluralsCandidate) follow the number. */
+    @Test
+    fun countedWordsArePlurals() {
+        val en = XmlStrings("values", Locale.ENGLISH)
+        assertEquals("8,112 gems · 1 color", en.plural(R.plurals.photo_summary, 1, "8,112", 1))
+        assertEquals("8,112 gems · 24 colors", en.plural(R.plurals.photo_summary, 24, "8,112", 24))
+        val pl = XmlStrings("values-pl", Locale.forLanguageTag("pl"))
+        assertEquals("Obejrzyj film: +1 wypełnienie", pl.plural(R.plurals.inventory_watch, 1, 1))
+        assertEquals("Obejrzyj film: +3 wypełnienia", pl.plural(R.plurals.inventory_watch, 3, 3))
+        assertEquals("Obejrzyj film: +5 wypełnień", pl.plural(R.plurals.inventory_watch, 5, 5))
+        assertEquals("Obejrzyj film: +22 wypełnienia", pl.plural(R.plurals.inventory_watch, 22, 22))
+        assertEquals("Zostały 2.", pl.plural(R.plurals.streak_left, 2, 2))
+        val ro = XmlStrings("values-ro", Locale.forLanguageTag("ro"))
+        assertEquals("Mai, 1 culoare", ro.plural(R.plurals.photo_colors_trough, 1, "Mai", 1))
+        assertEquals("Mai, 5 culori", ro.plural(R.plurals.photo_colors_trough, 5, "Mai", 5))
+        assertEquals("Mai, 60 de culori", ro.plural(R.plurals.photo_colors_trough, 60, "Mai", 60))
+        val bg = XmlStrings("values-bg", Locale.forLanguageTag("bg"))
+        assertEquals("Остава 1.", bg.plural(R.plurals.streak_left, 1, 1))
+        assertEquals("Остават 2.", bg.plural(R.plurals.streak_left, 2, 2))
+    }
+
+    /** #163 review: a collection heading's two numbers each pick their own words; Portuguese's "one" includes 0. */
+    @Test
+    fun collectionHeadingsAgreeWithEachNumber() {
+        val es = A11yText(XmlStrings("values-es", Locale.forLanguageTag("es")))
+        assertEquals("Mar, 1 de 7 terminado, 4 más en camino", es.collection("Mar", 1, 7, 4))
+        assertEquals("Mar, 3 de 7 terminados", es.collection("Mar", 3, 7, 0))
+        val de = A11yText(XmlStrings("values-de", Locale.GERMAN))
+        assertEquals("See, 2 von 7 fertig, 1 weiteres kommt", de.collection("See", 2, 7, 1))
+        val pt = XmlStrings("values-pt-rBR", Locale.forLanguageTag("pt-BR"))
+        assertEquals("Mar, concluídos: 0 de 3", A11yText(pt).collection("Mar", 0, 3, 0))
+        assertEquals("Concluídos: 0 de 3", pt.plural(R.plurals.collection_count, 0, 0, 3))
+        assertEquals("Seaside, 0 of 3 finished, 1 more coming", A11yText(XmlStrings()).collection("Seaside", 0, 3, 1))
+        val pl = A11yText(XmlStrings("values-pl", Locale.forLanguageTag("pl")))
+        assertEquals("Morze, ukończono 1 z 7, jeszcze 4 w drodze", pl.collection("Morze", 1, 7, 4))
     }
 
     private val folders: List<File>

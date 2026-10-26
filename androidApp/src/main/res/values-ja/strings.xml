@@ -55,10 +55,16 @@
     <string name="reminder_channel_description">1日1回、新しく遊べる絵や、あと少しで完成する絵をお知らせします。</string>
 
     <string name="a11y_canvas_progress">キャンバス。%2$s個中%1$s個を配置済み。</string>
-    <string name="a11y_canvas_selected">%1$s色%2$dを選択中、残り%3$s個。</string>
+    <plurals name="a11y_canvas_selected">
+        <item quantity="other">%1$s色%2$dを選択中、残り%3$s個。</item>
+    </plurals>
     <string name="a11y_not_color">色%1$dではありません</string>
-    <string name="a11y_color_done">色%1$dが完成。</string>
-    <string name="a11y_color_done_next">色%1$dが完成。色%2$dを選択中。</string>
+    <plurals name="a11y_color_done">
+        <item quantity="other">色%1$dが完成。</item>
+    </plurals>
+    <plurals name="a11y_color_done_next">
+        <item quantity="other">色%1$dが完成。色%2$dを選択中。</item>
+    </plurals>
     <string name="a11y_left">残り%1$s個</string>
     <string name="a11y_batch">%1$s個を配置。%2$s</string>
     <string name="a11y_join">%1$s。%2$s</string>
@@ -68,7 +74,9 @@
         <item quantity="other">ツール：%1$s、塗りつぶし%2$d回</item>
     </plurals>
     <string name="a11y_fill_color">色%1$dの残りを塗りつぶす</string>
-    <string name="a11y_music_volume">%1$dパーセント</string>
+    <plurals name="a11y_music_volume">
+        <item quantity="other">%1$dパーセント</item>
+    </plurals>
     <string name="milestone_quarter">4分の1完成</string>
     <string name="milestone_half">半分まで来ました</string>
     <string name="milestone_three_quarters">4分の3完成</string>
@@ -91,8 +99,10 @@
     <plurals name="a11y_finished_pictures">
         <item quantity="other">完成、絵%1$d枚</item>
     </plurals>
-    <string name="a11y_collection">%1$s、%3$d枚中%2$d枚完成</string>
-    <string name="a11y_collection_coming">%1$s、%3$d枚中%2$d枚完成、あと%4$d枚届きます</string>
+    <plurals name="a11y_collection">
+        <item quantity="other">%1$s、%3$d枚中%2$d枚完成</item>
+    </plurals>
+    <string name="a11y_collection_coming">%1$s、%2$s</string>
     <string name="a11y_collection_complete">%1$sをコンプリート。</string>
     <string name="a11y_collection_complete_keepsake">%1$sをコンプリート。記念の絵が追加されました。</string>
     <string name="a11y_event_added">%1$s：記念の絵が追加されました。</string>
@@ -160,11 +170,15 @@
     <string name="streak_kept_joined">%1$sで連続記録が続きました。</string>
     <string name="streak_kept_day_off">お休みの日（%1$s）で連続記録が続きました。</string>
     <string name="streak_kept_vip_freeze">VIP保護で連続記録が続きました。</string>
-    <string name="streak_kept_freezes">連続保護%1$d個で連続記録が続きました。</string>
+    <plurals name="streak_kept_freezes">
+        <item quantity="other">連続保護%1$d個で連続記録が続きました。</item>
+    </plurals>
     <string name="streak_kept_freeze">連続保護で連続記録が続きました：%1$s。</string>
     <string name="streak_kept_going">連続記録は続いています。</string>
     <string name="streak_none_left">残りはありません。</string>
-    <string name="streak_left">残り%1$d個。</string>
+    <plurals name="streak_left">
+        <item quantity="other">残り%1$d個。</item>
+    </plurals>
     <string name="streak_freezes_row">連続保護 %1$d</string>
     <string name="streak_freezes_sub">抜けた日を1日カバーします。最大%1$d個まで持てます。</string>
     <string name="streak_by_day_off">お休みの日</string>
@@ -244,8 +258,12 @@
     <string name="action_continue">続ける</string>
     <string name="action_share">シェア</string>
     <string name="streak_celebration_words">%1$s。%2$s</string>
-    <string name="next_gift">次のプレゼントルーレットは%1$d日連続で</string>
-    <string name="next_gift_description">次のプレゼントルーレットは%1$d日連続で。現在%3$d日中%2$d日。</string>
+    <plurals name="next_gift">
+        <item quantity="other">次のプレゼントルーレットは%1$d日連続で</item>
+    </plurals>
+    <plurals name="next_gift_description">
+        <item quantity="other">次のプレゼントルーレットは%1$d日連続で。現在%3$d日中%2$d日。</item>
+    </plurals>
 
     <string name="action_delete">削除</string>
     <string name="action_start_over">最初からやり直す</string>
@@ -288,13 +306,23 @@
 
     <string name="collections_all">すべてのコレクション</string>
     <string name="collections_title">コレクション</string>
-    <string name="collection_count">%2$d枚中%1$d枚完成</string>
+    <plurals name="collection_count">
+        <item quantity="other">%2$d枚中%1$d枚完成</item>
+    </plurals>
     <string name="collection_count_coming">%1$s・%2$s</string>
-    <string name="collection_coming">あと%1$d枚届きます</string>
-    <string name="collection_coming_daily">あと%1$d枚、1日1枚届きます</string>
-    <string name="collection_for_keepsake">%1$d枚すべて完成させると記念の絵がもらえます。</string>
+    <plurals name="collection_coming">
+        <item quantity="other">あと%1$d枚届きます</item>
+    </plurals>
+    <plurals name="collection_coming_daily">
+        <item quantity="other">あと%1$d枚、1日1枚届きます</item>
+    </plurals>
+    <plurals name="collection_for_keepsake">
+        <item quantity="other">%1$d枚すべて完成させると記念の絵がもらえます。</item>
+    </plurals>
     <string name="collection_to_complete">%1$d枚すべて完成させるとコンプリートです。</string>
-    <string name="collection_for_token">%1$d枚すべて完成させると解放チケットがもらえます。</string>
+    <plurals name="collection_for_token">
+        <item quantity="other">%1$d枚すべて完成させると解放チケットがもらえます。</item>
+    </plurals>
     <string name="collection_keepsake_added">記念の絵を追加：%1$s。</string>
     <string name="collection_keepsake_offline">記念の絵を獲得。次にオンラインになったときに届きます。</string>
     <string name="collection_keepsake_space">記念の絵を獲得。スマホに空きができたら届きます。</string>
@@ -313,8 +341,12 @@
     <string name="inventory_tokens_body">ロック中の絵をどれでもずっと解放します。</string>
     <string name="inventory_freezes">連続保護</string>
     <string name="inventory_freezes_body">お休みの日のあとに抜けた日を1日カバーします。最大%1$d個まで持てます。</string>
-    <string name="inventory_watch">動画を見る：塗りつぶし+%1$d回</string>
-    <string name="inventory_spin_several">プレゼントルーレットを回す（%1$d回分）</string>
+    <plurals name="inventory_watch">
+        <item quantity="other">動画を見る：塗りつぶし+%1$d回</item>
+    </plurals>
+    <plurals name="inventory_spin_several">
+        <item quantity="other">プレゼントルーレットを回す（%1$d回分）</item>
+    </plurals>
     <string name="inventory_spin">%1$d日連続のプレゼントルーレットを回す</string>
     <string name="inventory_item">%1$s：%2$d。%3$s</string>
     <plurals name="prize_fills">
@@ -394,13 +426,19 @@
     <string name="photo_choose_size">サイズを選ぶ</string>
     <string name="photo_preview">プレビュー</string>
     <string name="photo_default_title_dated">マイ写真・%1$s</string>
-    <string name="photo_summary">%1$s個・%2$d色</string>
+    <plurals name="photo_summary">
+        <item quantity="other">%1$s個・%2$d色</item>
+    </plurals>
     <string name="photo_size_summary">%1$s・%2$s</string>
     <string name="photo_more_colors_line">色を増やす：動画を見るか、VIPに。</string>
     <string name="photo_one_video_more_colors">動画1本で、このキャンバスの色を増やせます。</string>
     <string name="photo_watch_for_colors">動画を見て色を増やす</string>
-    <string name="photo_colors_trough">%1$s、%2$d色</string>
-    <string name="photo_colors_trough_video">%1$s、%2$d色、動画かVIPが必要</string>
+    <plurals name="photo_colors_trough">
+        <item quantity="other">%1$s、%2$d色</item>
+    </plurals>
+    <plurals name="photo_colors_trough_video">
+        <item quantity="other">%1$s、%2$d色、動画かVIPが必要</item>
+    </plurals>
     <string name="photo_faces_best">顔はミディアムかビッグがきれいです</string>
     <string name="photo_faces_need_big">顔にはビッグが必要です</string>
     <string name="photo_faces_unsupported">顔にはまだ対応していません</string>
@@ -414,7 +452,9 @@
     <string name="photo_save_failed">このキャンバスをスマホに保存できませんでした。もう一度お試しください。</string>
     <string name="photo_colors">色</string>
     <string name="allowance_free">今日の無料の写真キャンバスを使います。</string>
-    <string name="allowance_kept">持っている写真キャンバスを使います（残り%1$d枚）。</string>
+    <plurals name="allowance_kept">
+        <item quantity="other">持っている写真キャンバスを使います（残り%1$d枚）。</item>
+    </plurals>
     <string name="allowance_bonus">動画でもらったボーナスキャンバスを使います。</string>
     <string name="allowance_watch">今日の無料分は使用済みです。動画を見るともう1枚もらえます。</string>
 
@@ -502,19 +542,25 @@
     <string name="rewarded_fills_title">塗りつぶしを増やす</string>
     <string name="rewarded_colors_title">色を増やす</string>
     <string name="rewarded_canvas_title">写真キャンバスをもう1枚</string>
-    <string name="rewarded_fills_added">塗りつぶし%1$d回分を追加しました</string>
+    <plurals name="rewarded_fills_added">
+        <item quantity="other">塗りつぶし%1$d回分を追加しました</item>
+    </plurals>
     <string name="rewarded_colors_unlocked">色を増やしました</string>
     <string name="rewarded_unlocked">解放しました</string>
     <string name="rewarded_grace_fills">今は動画がありません。今日は無料でどうぞ。</string>
     <string name="rewarded_offline">オフラインです。動画を見るにはネットにつないでください</string>
     <string name="rewarded_picture_body">短い動画を見ると、この絵がずっと解放されます。</string>
-    <string name="rewarded_fills_body">短い動画を見ると塗りつぶし%1$d回分がもらえます。1回で、範囲・色の残り・ブラシひと塗りのどれかを塗れます。</string>
+    <plurals name="rewarded_fills_body">
+        <item quantity="other">短い動画を見ると塗りつぶし%1$d回分がもらえます。1回で、範囲・色の残り・ブラシひと塗りのどれかを塗れます。</item>
+    </plurals>
     <string name="rewarded_colors_body">短い動画を見ると、この写真キャンバスの色を増やせます。</string>
     <string name="rewarded_canvas_body">短い動画を見ると写真キャンバスがもう1枚もらえます。使うまで残ります。</string>
     <string name="rewarded_watch_to_end">最後まで見ると解放されます。</string>
     <string name="rewarded_watch">動画を見る</string>
     <string name="rewarded_grace_picture">絵を解放</string>
-    <string name="rewarded_grace_fills_button">塗りつぶし%1$d回分をもらう</string>
+    <plurals name="rewarded_grace_fills_button">
+        <item quantity="other">塗りつぶし%1$d回分をもらう</item>
+    </plurals>
     <string name="rewarded_grace_colors">色を増やして使う</string>
     <string name="rewarded_grace_canvas">キャンバスを始める</string>
     <string name="rewarded_vip_picture">またはVIPに：ギャラリーの絵をすべて解放</string>
@@ -522,7 +568,9 @@
     <string name="rewarded_vip_colors">またはVIPに：どの写真も色を増やせる</string>
     <string name="rewarded_vip_canvas">またはVIPに：写真キャンバス無制限</string>
     <string name="rewarded_vip_no_videos">VIPなら動画は不要</string>
-    <string name="rewarded_token">解放チケットを使う・残り%1$d枚</string>
+    <plurals name="rewarded_token">
+        <item quantity="other">解放チケットを使う・残り%1$d枚</item>
+    </plurals>
 
     <string name="a11y_drag_handle">ドラッグハンドル</string>
     <string name="title_starter">星月夜</string>

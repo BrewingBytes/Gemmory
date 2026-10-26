@@ -23,6 +23,8 @@ val REMOTE_PICTURES_URL = "https://raw.githubusercontent.com/BrewingBytes/Gemmor
 
 kotlin {
     jvmToolchain(17)
+    // #163: a new warning fails the build, so the list stays empty (workflow.md).
+    compilerOptions { allWarningsAsErrors.set(true) }
 }
 
 android {
@@ -139,7 +141,7 @@ android {
 
     sourceSets {
         getByName("perf") {
-            kotlin.srcDir("src/debug/kotlin")
+            kotlin.directories.add("src/debug/kotlin")
         }
     }
 
@@ -165,7 +167,8 @@ android {
     }
 
     lint {
-        warningsAsErrors = false
+        // #163: no lint warning ships, and there is no baseline.
+        warningsAsErrors = true
         abortOnError = true
     }
 }

@@ -57,10 +57,22 @@
     <string name="reminder_channel_description">Un mesaj pe zi despre ceva nou de jucat sau un tablou pe care aproape l-ai terminat.</string>
 
     <string name="a11y_canvas_progress">Pânză. %1$s din %2$s puse.</string>
-    <string name="a11y_canvas_selected">%1$s Culoarea %2$d selectată, mai sunt %3$s.</string>
+    <plurals name="a11y_canvas_selected">
+        <item quantity="one">%1$s Culoarea %2$d selectată, mai este %3$s.</item>
+        <item quantity="few">%1$s Culoarea %2$d selectată, mai sunt %3$s.</item>
+        <item quantity="other">%1$s Culoarea %2$d selectată, mai sunt %3$s.</item>
+    </plurals>
     <string name="a11y_not_color">Nu e culoarea %1$d</string>
-    <string name="a11y_color_done">Culoarea %1$d gata.</string>
-    <string name="a11y_color_done_next">Culoarea %1$d gata. Culoarea %2$d selectată.</string>
+    <plurals name="a11y_color_done">
+        <item quantity="one">Culoarea %1$d gata.</item>
+        <item quantity="few">Culoarea %1$d gata.</item>
+        <item quantity="other">Culoarea %1$d gata.</item>
+    </plurals>
+    <plurals name="a11y_color_done_next">
+        <item quantity="one">Culoarea %1$d gata. Culoarea %2$d selectată.</item>
+        <item quantity="few">Culoarea %1$d gata. Culoarea %2$d selectată.</item>
+        <item quantity="other">Culoarea %1$d gata. Culoarea %2$d selectată.</item>
+    </plurals>
     <string name="a11y_left">Mai sunt %1$s</string>
     <string name="a11y_batch">%1$s puse. %2$s</string>
     <string name="a11y_join">%1$s. %2$s</string>
@@ -72,7 +84,11 @@
         <item quantity="other">Unealtă: %1$s, %2$d de umpleri</item>
     </plurals>
     <string name="a11y_fill_color">Umple restul culorii %1$d</string>
-    <string name="a11y_music_volume">%1$d la sută</string>
+    <plurals name="a11y_music_volume">
+        <item quantity="one">%1$d la sută</item>
+        <item quantity="few">%1$d la sută</item>
+        <item quantity="other">%1$d la sută</item>
+    </plurals>
     <string name="milestone_quarter">Un sfert gata</string>
     <string name="milestone_half">Jumătate gata</string>
     <string name="milestone_three_quarters">Trei sferturi gata</string>
@@ -99,8 +115,12 @@
         <item quantity="few">Terminate, %1$d tablouri</item>
         <item quantity="other">Terminate, %1$d de tablouri</item>
     </plurals>
-    <string name="a11y_collection">%1$s, %2$d din %3$d terminate</string>
-    <string name="a11y_collection_coming">%1$s, %2$d din %3$d terminate, încă %4$d vin</string>
+    <plurals name="a11y_collection">
+        <item quantity="one">%1$s, %2$d din %3$d terminat</item>
+        <item quantity="few">%1$s, %2$d din %3$d terminate</item>
+        <item quantity="other">%1$s, %2$d din %3$d terminate</item>
+    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s completă.</string>
     <string name="a11y_collection_complete_keepsake">%1$s completă. Tablou-amintire adăugat.</string>
     <string name="a11y_event_added">%1$s: tablou-amintire adăugat.</string>
@@ -174,11 +194,19 @@
     <string name="streak_kept_joined">%1$s ți-au salvat seria.</string>
     <string name="streak_kept_day_off">Ziua ta liberă (%1$s) ți-a salvat seria.</string>
     <string name="streak_kept_vip_freeze">Protecția ta VIP ți-a salvat seria.</string>
-    <string name="streak_kept_freezes">%1$d protecții de serie ți-au salvat-o.</string>
+    <plurals name="streak_kept_freezes">
+        <item quantity="one">%1$d protecție de serie ți-a salvat-o.</item>
+        <item quantity="few">%1$d protecții de serie ți-au salvat-o.</item>
+        <item quantity="other">%1$d de protecții de serie ți-au salvat-o.</item>
+    </plurals>
     <string name="streak_kept_freeze">O protecție de serie ți-a salvat-o: %1$s.</string>
     <string name="streak_kept_going">Seria ta continuă.</string>
     <string name="streak_none_left">Nu mai ai niciuna.</string>
-    <string name="streak_left">Mai ai %1$d.</string>
+    <plurals name="streak_left">
+        <item quantity="one">Mai ai %1$d.</item>
+        <item quantity="few">Mai ai %1$d.</item>
+        <item quantity="other">Mai ai %1$d.</item>
+    </plurals>
     <string name="streak_freezes_row">Protecții de serie %1$d</string>
     <string name="streak_freezes_sub">Acoperă o zi ratată. Poți păstra până la %1$d.</string>
     <string name="streak_by_day_off">ziua ta liberă</string>
@@ -274,8 +302,16 @@
     <string name="action_continue">Continuă</string>
     <string name="action_share">Distribuie</string>
     <string name="streak_celebration_words">%1$s. %2$s</string>
-    <string name="next_gift">Următoarea rotire-cadou când seria ajunge la %1$d</string>
-    <string name="next_gift_description">Următoarea rotire-cadou când seria ajunge la %1$d. Până acum: %2$d din %3$d.</string>
+    <plurals name="next_gift">
+        <item quantity="one">Următoarea rotire-cadou la %1$d zi la rând</item>
+        <item quantity="few">Următoarea rotire-cadou la %1$d zile la rând</item>
+        <item quantity="other">Următoarea rotire-cadou la %1$d de zile la rând</item>
+    </plurals>
+    <plurals name="next_gift_description">
+        <item quantity="one">Următoarea rotire-cadou la %1$d zi la rând. Până acum: %2$d din %3$d.</item>
+        <item quantity="few">Următoarea rotire-cadou la %1$d zile la rând. Până acum: %2$d din %3$d.</item>
+        <item quantity="other">Următoarea rotire-cadou la %1$d de zile la rând. Până acum: %2$d din %3$d.</item>
+    </plurals>
 
     <string name="action_delete">Șterge</string>
     <string name="action_start_over">Ia-o de la capăt</string>
@@ -318,13 +354,33 @@
 
     <string name="collections_all">Toate colecțiile</string>
     <string name="collections_title">Colecții</string>
-    <string name="collection_count">%1$d din %2$d terminate</string>
+    <plurals name="collection_count">
+        <item quantity="one">%1$d din %2$d terminat</item>
+        <item quantity="few">%1$d din %2$d terminate</item>
+        <item quantity="other">%1$d din %2$d terminate</item>
+    </plurals>
     <string name="collection_count_coming">%1$s · %2$s</string>
-    <string name="collection_coming">%1$d urmează</string>
-    <string name="collection_coming_daily">%1$d urmează, câte unul pe zi</string>
-    <string name="collection_for_keepsake">Termină-le pe toate %1$d pentru un tablou-amintire.</string>
+    <plurals name="collection_coming">
+        <item quantity="one">%1$d urmează</item>
+        <item quantity="few">%1$d urmează</item>
+        <item quantity="other">%1$d urmează</item>
+    </plurals>
+    <plurals name="collection_coming_daily">
+        <item quantity="one">%1$d urmează, câte unul pe zi</item>
+        <item quantity="few">%1$d urmează, câte unul pe zi</item>
+        <item quantity="other">%1$d urmează, câte unul pe zi</item>
+    </plurals>
+    <plurals name="collection_for_keepsake">
+        <item quantity="one">Termină %1$d tablou pentru un tablou-amintire.</item>
+        <item quantity="few">Termină-le pe toate %1$d pentru un tablou-amintire.</item>
+        <item quantity="other">Termină-le pe toate %1$d pentru un tablou-amintire.</item>
+    </plurals>
     <string name="collection_to_complete">Termină-le pe toate %1$d ca s-o completezi.</string>
-    <string name="collection_for_token">Termină-le pe toate %1$d pentru un jeton de deblocare.</string>
+    <plurals name="collection_for_token">
+        <item quantity="one">Termină %1$d tablou pentru un jeton de deblocare.</item>
+        <item quantity="few">Termină-le pe toate %1$d pentru un jeton de deblocare.</item>
+        <item quantity="other">Termină-le pe toate %1$d pentru un jeton de deblocare.</item>
+    </plurals>
     <string name="collection_keepsake_added">Amintire adăugată: %1$s.</string>
     <string name="collection_keepsake_offline">Amintire câștigată. Ajunge data viitoare când ești online.</string>
     <string name="collection_keepsake_space">Amintire câștigată. Ajunge când e loc pe acest telefon.</string>
@@ -343,8 +399,16 @@
     <string name="inventory_tokens_body">Deschide definitiv orice tablou blocat.</string>
     <string name="inventory_freezes">Protecții de serie</string>
     <string name="inventory_freezes_body">Acoperă o zi ratată după ziua ta liberă. Poți păstra până la %1$d.</string>
-    <string name="inventory_watch">Urmărește un video: +%1$d umpleri</string>
-    <string name="inventory_spin_several">Învârte pentru cadoul tău (%1$d așteaptă)</string>
+    <plurals name="inventory_watch">
+        <item quantity="one">Urmărește un video: +%1$d umplere</item>
+        <item quantity="few">Urmărește un video: +%1$d umpleri</item>
+        <item quantity="other">Urmărește un video: +%1$d de umpleri</item>
+    </plurals>
+    <plurals name="inventory_spin_several">
+        <item quantity="one">Învârte pentru cadoul tău (%1$d așteaptă)</item>
+        <item quantity="few">Învârte pentru cadoul tău (%1$d așteaptă)</item>
+        <item quantity="other">Învârte pentru cadoul tău (%1$d așteaptă)</item>
+    </plurals>
     <string name="inventory_spin">Învârte pentru cadoul seriei tale (%1$d)</string>
     <string name="inventory_item">%1$s: %2$d. %3$s</string>
     <plurals name="prize_fills">
@@ -436,13 +500,25 @@
     <string name="photo_choose_size">Alege o mărime</string>
     <string name="photo_preview">Previzualizare</string>
     <string name="photo_default_title_dated">Poza mea · %1$s</string>
-    <string name="photo_summary">Pietre: %1$s · culori: %2$d</string>
+    <plurals name="photo_summary">
+        <item quantity="one">Pietre: %1$s · %2$d culoare</item>
+        <item quantity="few">Pietre: %1$s · %2$d culori</item>
+        <item quantity="other">Pietre: %1$s · %2$d de culori</item>
+    </plurals>
     <string name="photo_size_summary">%1$s · %2$s</string>
     <string name="photo_more_colors_line">Mai multe culori: urmărește un video sau ia VIP.</string>
     <string name="photo_one_video_more_colors">Un video îți dă această pânză cu mai multe culori.</string>
     <string name="photo_watch_for_colors">Urmărește un video pentru mai multe culori</string>
-    <string name="photo_colors_trough">%1$s, culori: %2$d</string>
-    <string name="photo_colors_trough_video">%1$s, culori: %2$d, cere un video sau VIP</string>
+    <plurals name="photo_colors_trough">
+        <item quantity="one">%1$s, %2$d culoare</item>
+        <item quantity="few">%1$s, %2$d culori</item>
+        <item quantity="other">%1$s, %2$d de culori</item>
+    </plurals>
+    <plurals name="photo_colors_trough_video">
+        <item quantity="one">%1$s, %2$d culoare, cere un video sau VIP</item>
+        <item quantity="few">%1$s, %2$d culori, cere un video sau VIP</item>
+        <item quantity="other">%1$s, %2$d de culori, cere un video sau VIP</item>
+    </plurals>
     <string name="photo_faces_best">Fețele arată cel mai bine la Mediu sau Mare</string>
     <string name="photo_faces_need_big">Fețele au nevoie de Mare</string>
     <string name="photo_faces_unsupported">Fețele nu sunt încă acceptate</string>
@@ -456,7 +532,11 @@
     <string name="photo_save_failed">Pânza nu s-a putut salva pe telefon. Încearcă din nou.</string>
     <string name="photo_colors">Culori</string>
     <string name="allowance_free">Folosește pânza foto gratuită de azi.</string>
-    <string name="allowance_kept">Folosește o pânză foto păstrată (mai ai %1$d).</string>
+    <plurals name="allowance_kept">
+        <item quantity="one">Folosește o pânză foto păstrată (mai ai %1$d).</item>
+        <item quantity="few">Folosește o pânză foto păstrată (mai ai %1$d).</item>
+        <item quantity="other">Folosește o pânză foto păstrată (mai ai %1$d).</item>
+    </plurals>
     <string name="allowance_bonus">Folosește o pânză bonus de la un video.</string>
     <string name="allowance_watch">Cea gratuită de azi e folosită. Urmărește un video pentru încă una.</string>
 
@@ -544,19 +624,31 @@
     <string name="rewarded_fills_title">Mai multe umpleri</string>
     <string name="rewarded_colors_title">Mai multe culori</string>
     <string name="rewarded_canvas_title">Încă o pânză foto</string>
-    <string name="rewarded_fills_added">%1$d umpleri adăugate</string>
+    <plurals name="rewarded_fills_added">
+        <item quantity="one">%1$d umplere adăugată</item>
+        <item quantity="few">%1$d umpleri adăugate</item>
+        <item quantity="other">%1$d de umpleri adăugate</item>
+    </plurals>
     <string name="rewarded_colors_unlocked">Mai multe culori deblocate</string>
     <string name="rewarded_unlocked">Deblocat</string>
     <string name="rewarded_grace_fills">Niciun video acum. Azi astea sunt din partea noastră.</string>
     <string name="rewarded_offline">Ești offline, conectează-te ca să urmărești un video</string>
     <string name="rewarded_picture_body">Urmărește un video scurt ca să deblochezi definitiv acest tablou.</string>
-    <string name="rewarded_fills_body">Urmărește un video scurt pentru %1$d umpleri. Fiecare acoperă o zonă, restul unei culori sau o trăsătură de pensulă.</string>
+    <plurals name="rewarded_fills_body">
+        <item quantity="one">Urmărește un video scurt pentru %1$d umplere. Fiecare acoperă o zonă, restul unei culori sau o trăsătură de pensulă.</item>
+        <item quantity="few">Urmărește un video scurt pentru %1$d umpleri. Fiecare acoperă o zonă, restul unei culori sau o trăsătură de pensulă.</item>
+        <item quantity="other">Urmărește un video scurt pentru %1$d de umpleri. Fiecare acoperă o zonă, restul unei culori sau o trăsătură de pensulă.</item>
+    </plurals>
     <string name="rewarded_colors_body">Urmărește un video scurt pentru mai multe culori pe această pânză foto.</string>
     <string name="rewarded_canvas_body">Urmărește un video scurt pentru încă o pânză foto. Rămâne până o folosești.</string>
     <string name="rewarded_watch_to_end">Urmărește până la capăt ca să deblochezi.</string>
     <string name="rewarded_watch">Urmărește videoclipul</string>
     <string name="rewarded_grace_picture">Deblochează tabloul</string>
-    <string name="rewarded_grace_fills_button">Ia %1$d umpleri</string>
+    <plurals name="rewarded_grace_fills_button">
+        <item quantity="one">Ia %1$d umplere</item>
+        <item quantity="few">Ia %1$d umpleri</item>
+        <item quantity="other">Ia %1$d de umpleri</item>
+    </plurals>
     <string name="rewarded_grace_colors">Folosește mai multe culori</string>
     <string name="rewarded_grace_canvas">Începe pânza</string>
     <string name="rewarded_vip_picture">Sau ia VIP: toate tablourile din galerie deblocate</string>
@@ -564,7 +656,11 @@
     <string name="rewarded_vip_colors">Sau ia VIP: mai multe culori pe fiecare poză</string>
     <string name="rewarded_vip_canvas">Sau ia VIP: pânze foto nelimitate</string>
     <string name="rewarded_vip_no_videos">Ia VIP: fără videoclipuri</string>
-    <string name="rewarded_token">Folosește un jeton de deblocare · mai ai %1$d</string>
+    <plurals name="rewarded_token">
+        <item quantity="one">Folosește un jeton de deblocare · mai ai %1$d</item>
+        <item quantity="few">Folosește un jeton de deblocare · mai ai %1$d</item>
+        <item quantity="other">Folosește un jeton de deblocare · mai ai %1$d</item>
+    </plurals>
 
     <string name="a11y_drag_handle">Mâner de tragere</string>
     <string name="title_starter">Noapte înstelată</string>

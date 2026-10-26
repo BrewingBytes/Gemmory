@@ -11,6 +11,7 @@ import android.opengl.EGLSurface
 import android.opengl.GLES20
 import android.opengl.GLUtils
 import android.view.Surface
+import androidx.core.graphics.createBitmap
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -81,7 +82,7 @@ class GlFrameWriter(surface: Surface, private val width: Int, private val height
         if (overlay != null) load(OVERLAY, overlay)
         if (card != null) {
             load(CARD, card)
-            val black = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFF000000.toInt()) }
+            val black = createBitmap(1, 1).apply { eraseColor(0xFF000000.toInt()) }
             load(BLACK, black)
             black.recycle()
         }

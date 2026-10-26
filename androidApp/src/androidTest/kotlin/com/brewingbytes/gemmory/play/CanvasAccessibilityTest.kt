@@ -14,7 +14,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
@@ -130,12 +130,6 @@ class CanvasAccessibilityTest {
     private fun onMain(block: () -> Unit) {
         instrumentation.runOnMainSync(block)
         compose.waitForIdle()
-    }
-
-    private fun PlaySession.log(): IntArray {
-        var log = IntArray(0)
-        onMain { log = placedLogForTest() }
-        return log
     }
 
     private fun action(label: String) {

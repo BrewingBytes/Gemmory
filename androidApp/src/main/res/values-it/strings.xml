@@ -57,10 +57,22 @@
     <string name="reminder_channel_description">Un avviso al giorno su qualcosa di nuovo da giocare o su un quadro che hai quasi finito.</string>
 
     <string name="a11y_canvas_progress">Tela. %1$s di %2$s posizionate.</string>
-    <string name="a11y_canvas_selected">%1$s Colore %2$d selezionato, ne mancano %3$s.</string>
+    <plurals name="a11y_canvas_selected">
+        <item quantity="one">%1$s Colore %2$d selezionato, ne manca %3$s.</item>
+        <item quantity="many">%1$s Colore %2$d selezionato, ne mancano %3$s.</item>
+        <item quantity="other">%1$s Colore %2$d selezionato, ne mancano %3$s.</item>
+    </plurals>
     <string name="a11y_not_color">Non è il colore %1$d</string>
-    <string name="a11y_color_done">Colore %1$d completato.</string>
-    <string name="a11y_color_done_next">Colore %1$d completato. Colore %2$d selezionato.</string>
+    <plurals name="a11y_color_done">
+        <item quantity="one">Colore %1$d completato.</item>
+        <item quantity="many">Colore %1$d completato.</item>
+        <item quantity="other">Colore %1$d completato.</item>
+    </plurals>
+    <plurals name="a11y_color_done_next">
+        <item quantity="one">Colore %1$d completato. Colore %2$d selezionato.</item>
+        <item quantity="many">Colore %1$d completato. Colore %2$d selezionato.</item>
+        <item quantity="other">Colore %1$d completato. Colore %2$d selezionato.</item>
+    </plurals>
     <string name="a11y_left">Ne mancano %1$s</string>
     <string name="a11y_batch">%1$s posizionate. %2$s</string>
     <string name="a11y_join">%1$s. %2$s</string>
@@ -72,7 +84,11 @@
         <item quantity="other">Strumento: %1$s, %2$d riempimenti</item>
     </plurals>
     <string name="a11y_fill_color">Riempi il resto del colore %1$d</string>
-    <string name="a11y_music_volume">%1$d per cento</string>
+    <plurals name="a11y_music_volume">
+        <item quantity="one">%1$d per cento</item>
+        <item quantity="many">%1$d per cento</item>
+        <item quantity="other">%1$d per cento</item>
+    </plurals>
     <string name="milestone_quarter">Un quarto fatto</string>
     <string name="milestone_half">A metà strada</string>
     <string name="milestone_three_quarters">Tre quarti fatti</string>
@@ -99,8 +115,12 @@
         <item quantity="many">Finiti, %1$d quadri</item>
         <item quantity="other">Finiti, %1$d quadri</item>
     </plurals>
-    <string name="a11y_collection">%1$s, %2$d di %3$d finiti</string>
-    <string name="a11y_collection_coming">%1$s, %2$d di %3$d finiti, altri %4$d in arrivo</string>
+    <plurals name="a11y_collection">
+        <item quantity="one">%1$s, %2$d di %3$d finito</item>
+        <item quantity="many">%1$s, %2$d di %3$d finiti</item>
+        <item quantity="other">%1$s, %2$d di %3$d finiti</item>
+    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s completata.</string>
     <string name="a11y_collection_complete_keepsake">%1$s completata. Quadro ricordo aggiunto.</string>
     <string name="a11y_event_added">%1$s: quadro ricordo aggiunto.</string>
@@ -174,11 +194,19 @@
     <string name="streak_kept_joined">%1$s hanno salvato la tua serie.</string>
     <string name="streak_kept_day_off">Il tuo giorno libero (%1$s) ha salvato la tua serie.</string>
     <string name="streak_kept_vip_freeze">La tua protezione VIP ha salvato la tua serie.</string>
-    <string name="streak_kept_freezes">%1$d protezioni serie l’hanno salvata.</string>
+    <plurals name="streak_kept_freezes">
+        <item quantity="one">%1$d protezione serie l’ha salvata.</item>
+        <item quantity="many">%1$d di protezioni serie l’hanno salvata.</item>
+        <item quantity="other">%1$d protezioni serie l’hanno salvata.</item>
+    </plurals>
     <string name="streak_kept_freeze">Una protezione serie l’ha salvata: %1$s.</string>
     <string name="streak_kept_going">La tua serie continua.</string>
     <string name="streak_none_left">Non ne restano.</string>
-    <string name="streak_left">Ne restano %1$d.</string>
+    <plurals name="streak_left">
+        <item quantity="one">Ne resta %1$d.</item>
+        <item quantity="many">Ne restano %1$d.</item>
+        <item quantity="other">Ne restano %1$d.</item>
+    </plurals>
     <string name="streak_freezes_row">Protezioni serie %1$d</string>
     <string name="streak_freezes_sub">Copre un giorno perso. Puoi tenerne fino a %1$d.</string>
     <string name="streak_by_day_off">il tuo giorno libero</string>
@@ -274,8 +302,16 @@
     <string name="action_continue">Continua</string>
     <string name="action_share">Condividi</string>
     <string name="streak_celebration_words">%1$s. %2$s</string>
-    <string name="next_gift">Prossimo giro regalo a %1$d giorni di fila</string>
-    <string name="next_gift_description">Prossimo giro regalo a %1$d giorni di fila. Finora %2$d giorni su %3$d.</string>
+    <plurals name="next_gift">
+        <item quantity="one">Prossimo giro regalo a %1$d giorno di fila</item>
+        <item quantity="many">Prossimo giro regalo a %1$d di giorni di fila</item>
+        <item quantity="other">Prossimo giro regalo a %1$d giorni di fila</item>
+    </plurals>
+    <plurals name="next_gift_description">
+        <item quantity="one">Prossimo giro regalo a %1$d giorno di fila. Finora %2$d giorni su %3$d.</item>
+        <item quantity="many">Prossimo giro regalo a %1$d di giorni di fila. Finora %2$d giorni su %3$d.</item>
+        <item quantity="other">Prossimo giro regalo a %1$d giorni di fila. Finora %2$d giorni su %3$d.</item>
+    </plurals>
 
     <string name="action_delete">Elimina</string>
     <string name="action_start_over">Ricomincia</string>
@@ -318,13 +354,33 @@
 
     <string name="collections_all">Tutte le collezioni</string>
     <string name="collections_title">Collezioni</string>
-    <string name="collection_count">%1$d di %2$d finiti</string>
+    <plurals name="collection_count">
+        <item quantity="one">%1$d di %2$d finito</item>
+        <item quantity="many">%1$d di %2$d finiti</item>
+        <item quantity="other">%1$d di %2$d finiti</item>
+    </plurals>
     <string name="collection_count_coming">%1$s · %2$s</string>
-    <string name="collection_coming">%1$d in arrivo</string>
-    <string name="collection_coming_daily">%1$d in arrivo, uno al giorno</string>
-    <string name="collection_for_keepsake">Finiscili tutti e %1$d per un quadro ricordo.</string>
+    <plurals name="collection_coming">
+        <item quantity="one">%1$d in arrivo</item>
+        <item quantity="many">%1$d in arrivo</item>
+        <item quantity="other">%1$d in arrivo</item>
+    </plurals>
+    <plurals name="collection_coming_daily">
+        <item quantity="one">%1$d in arrivo, uno al giorno</item>
+        <item quantity="many">%1$d in arrivo, uno al giorno</item>
+        <item quantity="other">%1$d in arrivo, uno al giorno</item>
+    </plurals>
+    <plurals name="collection_for_keepsake">
+        <item quantity="one">Finisci %1$d quadro per un quadro ricordo.</item>
+        <item quantity="many">Finiscili tutti e %1$d per un quadro ricordo.</item>
+        <item quantity="other">Finiscili tutti e %1$d per un quadro ricordo.</item>
+    </plurals>
     <string name="collection_to_complete">Finiscili tutti e %1$d per completarla.</string>
-    <string name="collection_for_token">Finiscili tutti e %1$d per un gettone di sblocco.</string>
+    <plurals name="collection_for_token">
+        <item quantity="one">Finisci %1$d quadro per un gettone di sblocco.</item>
+        <item quantity="many">Finiscili tutti e %1$d per un gettone di sblocco.</item>
+        <item quantity="other">Finiscili tutti e %1$d per un gettone di sblocco.</item>
+    </plurals>
     <string name="collection_keepsake_added">Ricordo aggiunto: %1$s.</string>
     <string name="collection_keepsake_offline">Ricordo ottenuto. Arriverà la prossima volta che sei online.</string>
     <string name="collection_keepsake_space">Ricordo ottenuto. Arriverà quando ci sarà spazio su questo telefono.</string>
@@ -343,8 +399,16 @@
     <string name="inventory_tokens_body">Sblocca per sempre un quadro bloccato.</string>
     <string name="inventory_freezes">Protezioni serie</string>
     <string name="inventory_freezes_body">Copre un giorno perso dopo il tuo giorno libero. Puoi tenerne fino a %1$d.</string>
-    <string name="inventory_watch">Guarda un video: +%1$d riempimenti</string>
-    <string name="inventory_spin_several">Gira per il tuo regalo (%1$d in attesa)</string>
+    <plurals name="inventory_watch">
+        <item quantity="one">Guarda un video: +%1$d riempimento</item>
+        <item quantity="many">Guarda un video: +%1$d di riempimenti</item>
+        <item quantity="other">Guarda un video: +%1$d riempimenti</item>
+    </plurals>
+    <plurals name="inventory_spin_several">
+        <item quantity="one">Gira per il tuo regalo (%1$d in attesa)</item>
+        <item quantity="many">Gira per il tuo regalo (%1$d in attesa)</item>
+        <item quantity="other">Gira per il tuo regalo (%1$d in attesa)</item>
+    </plurals>
     <string name="inventory_spin">Gira per il regalo dei %1$d giorni</string>
     <string name="inventory_item">%1$s: %2$d. %3$s</string>
     <plurals name="prize_fills">
@@ -436,13 +500,25 @@
     <string name="photo_choose_size">Scegli una dimensione</string>
     <string name="photo_preview">Anteprima</string>
     <string name="photo_default_title_dated">La mia foto · %1$s</string>
-    <string name="photo_summary">%1$s gemme · %2$d colori</string>
+    <plurals name="photo_summary">
+        <item quantity="one">%1$s gemme · %2$d colore</item>
+        <item quantity="many">%1$s gemme · %2$d di colori</item>
+        <item quantity="other">%1$s gemme · %2$d colori</item>
+    </plurals>
     <string name="photo_size_summary">%1$s · %2$s</string>
     <string name="photo_more_colors_line">Più colori: guarda un video o passa a VIP.</string>
     <string name="photo_one_video_more_colors">Un video ti dà questa tela con più colori.</string>
     <string name="photo_watch_for_colors">Guarda un video per più colori</string>
-    <string name="photo_colors_trough">%1$s, %2$d colori</string>
-    <string name="photo_colors_trough_video">%1$s, %2$d colori, serve un video o VIP</string>
+    <plurals name="photo_colors_trough">
+        <item quantity="one">%1$s, %2$d colore</item>
+        <item quantity="many">%1$s, %2$d di colori</item>
+        <item quantity="other">%1$s, %2$d colori</item>
+    </plurals>
+    <plurals name="photo_colors_trough_video">
+        <item quantity="one">%1$s, %2$d colore, serve un video o VIP</item>
+        <item quantity="many">%1$s, %2$d di colori, serve un video o VIP</item>
+        <item quantity="other">%1$s, %2$d colori, serve un video o VIP</item>
+    </plurals>
     <string name="photo_faces_best">I volti rendono meglio in Medio o Grande</string>
     <string name="photo_faces_need_big">I volti richiedono Grande</string>
     <string name="photo_faces_unsupported">I volti non sono ancora supportati</string>
@@ -456,7 +532,11 @@
     <string name="photo_save_failed">Impossibile salvare questa tela sul telefono. Riprova.</string>
     <string name="photo_colors">Colori</string>
     <string name="allowance_free">Usa la tela foto gratis di oggi.</string>
-    <string name="allowance_kept">Usa una tela foto conservata (ne restano %1$d).</string>
+    <plurals name="allowance_kept">
+        <item quantity="one">Usa una tela foto conservata (ne resta %1$d).</item>
+        <item quantity="many">Usa una tela foto conservata (ne restano %1$d).</item>
+        <item quantity="other">Usa una tela foto conservata (ne restano %1$d).</item>
+    </plurals>
     <string name="allowance_bonus">Usa una tela bonus da un video.</string>
     <string name="allowance_watch">Quella gratis di oggi è già usata. Guarda un video per averne un’altra.</string>
 
@@ -544,19 +624,31 @@
     <string name="rewarded_fills_title">Più riempimenti</string>
     <string name="rewarded_colors_title">Più colori</string>
     <string name="rewarded_canvas_title">Un’altra tela foto</string>
-    <string name="rewarded_fills_added">%1$d riempimenti aggiunti</string>
+    <plurals name="rewarded_fills_added">
+        <item quantity="one">%1$d riempimento aggiunto</item>
+        <item quantity="many">%1$d di riempimenti aggiunti</item>
+        <item quantity="other">%1$d riempimenti aggiunti</item>
+    </plurals>
     <string name="rewarded_colors_unlocked">Più colori sbloccati</string>
     <string name="rewarded_unlocked">Sbloccato</string>
     <string name="rewarded_grace_fills">Nessun video al momento. Oggi questi li offriamo noi.</string>
     <string name="rewarded_offline">Sei offline, connettiti per guardare un video</string>
     <string name="rewarded_picture_body">Guarda un breve video per sbloccare questo quadro per sempre.</string>
-    <string name="rewarded_fills_body">Guarda un breve video per %1$d riempimenti. Ognuno riempie un’area, il resto di un colore o una pennellata.</string>
+    <plurals name="rewarded_fills_body">
+        <item quantity="one">Guarda un breve video per %1$d riempimento. Ognuno riempie un’area, il resto di un colore o una pennellata.</item>
+        <item quantity="many">Guarda un breve video per %1$d di riempimenti. Ognuno riempie un’area, il resto di un colore o una pennellata.</item>
+        <item quantity="other">Guarda un breve video per %1$d riempimenti. Ognuno riempie un’area, il resto di un colore o una pennellata.</item>
+    </plurals>
     <string name="rewarded_colors_body">Guarda un breve video per avere più colori su questa tela foto.</string>
     <string name="rewarded_canvas_body">Guarda un breve video per un’altra tela foto. Resta finché non la usi.</string>
     <string name="rewarded_watch_to_end">Guarda fino alla fine per sbloccare.</string>
     <string name="rewarded_watch">Guarda il video</string>
     <string name="rewarded_grace_picture">Sblocca il quadro</string>
-    <string name="rewarded_grace_fills_button">Prendi %1$d riempimenti</string>
+    <plurals name="rewarded_grace_fills_button">
+        <item quantity="one">Prendi %1$d riempimento</item>
+        <item quantity="many">Prendi %1$d di riempimenti</item>
+        <item quantity="other">Prendi %1$d riempimenti</item>
+    </plurals>
     <string name="rewarded_grace_colors">Usa più colori</string>
     <string name="rewarded_grace_canvas">Inizia la tela</string>
     <string name="rewarded_vip_picture">Oppure VIP: tutti i quadri della galleria sbloccati</string>
@@ -564,7 +656,11 @@
     <string name="rewarded_vip_colors">Oppure VIP: più colori su ogni foto</string>
     <string name="rewarded_vip_canvas">Oppure VIP: tele foto illimitate</string>
     <string name="rewarded_vip_no_videos">VIP: nessun video da guardare</string>
-    <string name="rewarded_token">Usa un gettone di sblocco · ne restano %1$d</string>
+    <plurals name="rewarded_token">
+        <item quantity="one">Usa un gettone di sblocco · ne resta %1$d</item>
+        <item quantity="many">Usa un gettone di sblocco · ne restano %1$d</item>
+        <item quantity="other">Usa un gettone di sblocco · ne restano %1$d</item>
+    </plurals>
 
     <string name="a11y_drag_handle">Maniglia di trascinamento</string>
     <string name="title_starter">Notte stellata</string>

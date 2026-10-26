@@ -56,10 +56,19 @@
     <string name="reminder_channel_description">Едно известие на ден за нещо ново за игра или за картина, която е почти завършена.</string>
 
     <string name="a11y_canvas_progress">Платно. Поставени %1$s от %2$s.</string>
-    <string name="a11y_canvas_selected">%1$s Избран цвят %2$d, остават %3$s.</string>
+    <plurals name="a11y_canvas_selected">
+        <item quantity="one">%1$s Избран цвят %2$d, остава %3$s.</item>
+        <item quantity="other">%1$s Избран цвят %2$d, остават %3$s.</item>
+    </plurals>
     <string name="a11y_not_color">Не е цвят %1$d</string>
-    <string name="a11y_color_done">Цвят %1$d е готов.</string>
-    <string name="a11y_color_done_next">Цвят %1$d е готов. Избран цвят %2$d.</string>
+    <plurals name="a11y_color_done">
+        <item quantity="one">Цвят %1$d е готов.</item>
+        <item quantity="other">Цвят %1$d е готов.</item>
+    </plurals>
+    <plurals name="a11y_color_done_next">
+        <item quantity="one">Цвят %1$d е готов. Избран цвят %2$d.</item>
+        <item quantity="other">Цвят %1$d е готов. Избран цвят %2$d.</item>
+    </plurals>
     <string name="a11y_left">Остават %1$s</string>
     <string name="a11y_batch">Поставени %1$s. %2$s</string>
     <string name="a11y_join">%1$s. %2$s</string>
@@ -70,7 +79,10 @@
         <item quantity="other">Инструмент: %1$s, %2$d запълвания</item>
     </plurals>
     <string name="a11y_fill_color">Запълни остатъка от цвят %1$d</string>
-    <string name="a11y_music_volume">%1$d процента</string>
+    <plurals name="a11y_music_volume">
+        <item quantity="one">%1$d процент</item>
+        <item quantity="other">%1$d процента</item>
+    </plurals>
     <string name="milestone_quarter">Четвърт е готова</string>
     <string name="milestone_half">Половината е готова</string>
     <string name="milestone_three_quarters">Три четвърти са готови</string>
@@ -95,8 +107,11 @@
         <item quantity="one">Завършени, %1$d картина</item>
         <item quantity="other">Завършени, %1$d картини</item>
     </plurals>
-    <string name="a11y_collection">%1$s, завършени %2$d от %3$d</string>
-    <string name="a11y_collection_coming">%1$s, завършени %2$d от %3$d, предстоят още %4$d</string>
+    <plurals name="a11y_collection">
+        <item quantity="one">%1$s, завършена %2$d от %3$d</item>
+        <item quantity="other">%1$s, завършени %2$d от %3$d</item>
+    </plurals>
+    <string name="a11y_collection_coming">%1$s, %2$s</string>
     <string name="a11y_collection_complete">%1$s: завършена.</string>
     <string name="a11y_collection_complete_keepsake">%1$s: завършена. Добавена е картина спомен.</string>
     <string name="a11y_event_added">%1$s: добавена е картина спомен.</string>
@@ -167,11 +182,17 @@
     <string name="streak_kept_joined">%1$s запазиха серията ти.</string>
     <string name="streak_kept_day_off">Почивният ти ден (%1$s) запази серията ти.</string>
     <string name="streak_kept_vip_freeze">VIP защитата ти запази серията ти.</string>
-    <string name="streak_kept_freezes">%1$d защити на серията я запазиха.</string>
+    <plurals name="streak_kept_freezes">
+        <item quantity="one">%1$d защита на серията я запази.</item>
+        <item quantity="other">%1$d защити на серията я запазиха.</item>
+    </plurals>
     <string name="streak_kept_freeze">Защита на серията я запази: %1$s.</string>
     <string name="streak_kept_going">Серията ти продължава.</string>
     <string name="streak_none_left">Не са останали.</string>
-    <string name="streak_left">Остават %1$d.</string>
+    <plurals name="streak_left">
+        <item quantity="one">Остава %1$d.</item>
+        <item quantity="other">Остават %1$d.</item>
+    </plurals>
     <string name="streak_freezes_row">Защити на серията %1$d</string>
     <string name="streak_freezes_sub">Покрива пропуснат ден. Можеш да пазиш до %1$d.</string>
     <string name="streak_by_day_off">почивният ти ден</string>
@@ -259,8 +280,14 @@
     <string name="action_continue">Продължи</string>
     <string name="action_share">Сподели</string>
     <string name="streak_celebration_words">%1$s. %2$s</string>
-    <string name="next_gift">Следващ подарък при %1$d дни поред</string>
-    <string name="next_gift_description">Следващ подарък при %1$d дни поред. Досега %2$d от %3$d дни.</string>
+    <plurals name="next_gift">
+        <item quantity="one">Следващ подарък при %1$d ден поред</item>
+        <item quantity="other">Следващ подарък при %1$d дни поред</item>
+    </plurals>
+    <plurals name="next_gift_description">
+        <item quantity="one">Следващ подарък при %1$d ден поред. Досега %2$d от %3$d дни.</item>
+        <item quantity="other">Следващ подарък при %1$d дни поред. Досега %2$d от %3$d дни.</item>
+    </plurals>
 
     <string name="action_delete">Изтрий</string>
     <string name="action_start_over">Започни отначало</string>
@@ -303,13 +330,28 @@
 
     <string name="collections_all">Всички колекции</string>
     <string name="collections_title">Колекции</string>
-    <string name="collection_count">Завършени %1$d от %2$d</string>
+    <plurals name="collection_count">
+        <item quantity="one">Завършена %1$d от %2$d</item>
+        <item quantity="other">Завършени %1$d от %2$d</item>
+    </plurals>
     <string name="collection_count_coming">%1$s · %2$s</string>
-    <string name="collection_coming">Предстоят още %1$d</string>
-    <string name="collection_coming_daily">Предстоят още %1$d, по една на ден</string>
-    <string name="collection_for_keepsake">Завърши всички %1$d за картина спомен.</string>
+    <plurals name="collection_coming">
+        <item quantity="one">Предстои още %1$d</item>
+        <item quantity="other">Предстоят още %1$d</item>
+    </plurals>
+    <plurals name="collection_coming_daily">
+        <item quantity="one">Предстои още %1$d, по една на ден</item>
+        <item quantity="other">Предстоят още %1$d, по една на ден</item>
+    </plurals>
+    <plurals name="collection_for_keepsake">
+        <item quantity="one">Завърши %1$d картина за картина спомен.</item>
+        <item quantity="other">Завърши всички %1$d за картина спомен.</item>
+    </plurals>
     <string name="collection_to_complete">Завърши всички %1$d, за да я попълниш.</string>
-    <string name="collection_for_token">Завърши всички %1$d за жетон за отключване.</string>
+    <plurals name="collection_for_token">
+        <item quantity="one">Завърши %1$d картина за жетон за отключване.</item>
+        <item quantity="other">Завърши всички %1$d за жетон за отключване.</item>
+    </plurals>
     <string name="collection_keepsake_added">Добавен спомен: %1$s.</string>
     <string name="collection_keepsake_offline">Спомен спечелен. Ще пристигне следващия път, когато си онлайн.</string>
     <string name="collection_keepsake_space">Спомен спечелен. Ще пристигне, когато има място на този телефон.</string>
@@ -328,8 +370,14 @@
     <string name="inventory_tokens_body">Отключва завинаги коя да е заключена картина.</string>
     <string name="inventory_freezes">Защити на серията</string>
     <string name="inventory_freezes_body">Покрива пропуснат ден след почивния ти ден. Можеш да пазиш до %1$d.</string>
-    <string name="inventory_watch">Гледай видео: +%1$d запълвания</string>
-    <string name="inventory_spin_several">Завърти за подаръка си (%1$d чакат)</string>
+    <plurals name="inventory_watch">
+        <item quantity="one">Гледай видео: +%1$d запълване</item>
+        <item quantity="other">Гледай видео: +%1$d запълвания</item>
+    </plurals>
+    <plurals name="inventory_spin_several">
+        <item quantity="one">Завърти за подаръка си (%1$d чака)</item>
+        <item quantity="other">Завърти за подаръка си (%1$d чакат)</item>
+    </plurals>
     <string name="inventory_spin">Завърти за подаръка си за %1$d дни</string>
     <string name="inventory_item">%1$s: %2$d. %3$s</string>
     <plurals name="prize_fills">
@@ -415,13 +463,22 @@
     <string name="photo_choose_size">Избери размер</string>
     <string name="photo_preview">Преглед</string>
     <string name="photo_default_title_dated">Моята снимка · %1$s</string>
-    <string name="photo_summary">%1$s камъчета · %2$d цвята</string>
+    <plurals name="photo_summary">
+        <item quantity="one">%1$s камъчета · %2$d цвят</item>
+        <item quantity="other">%1$s камъчета · %2$d цвята</item>
+    </plurals>
     <string name="photo_size_summary">%1$s · %2$s</string>
     <string name="photo_more_colors_line">Още цветове: гледай видео или вземи VIP.</string>
     <string name="photo_one_video_more_colors">Едно видео ти дава това платно с повече цветове.</string>
     <string name="photo_watch_for_colors">Гледай видео за повече цветове</string>
-    <string name="photo_colors_trough">%1$s, %2$d цвята</string>
-    <string name="photo_colors_trough_video">%1$s, %2$d цвята, иска видео или VIP</string>
+    <plurals name="photo_colors_trough">
+        <item quantity="one">%1$s, %2$d цвят</item>
+        <item quantity="other">%1$s, %2$d цвята</item>
+    </plurals>
+    <plurals name="photo_colors_trough_video">
+        <item quantity="one">%1$s, %2$d цвят, иска видео или VIP</item>
+        <item quantity="other">%1$s, %2$d цвята, иска видео или VIP</item>
+    </plurals>
     <string name="photo_faces_best">Лицата изглеждат най-добре в Средна или Голяма</string>
     <string name="photo_faces_need_big">Лицата искат Голяма</string>
     <string name="photo_faces_unsupported">Лицата още не се поддържат</string>
@@ -435,7 +492,10 @@
     <string name="photo_save_failed">Платното не може да се запази на телефона. Опитай отново.</string>
     <string name="photo_colors">Цветове</string>
     <string name="allowance_free">Използва днешното безплатно фото платно.</string>
-    <string name="allowance_kept">Използва запазено фото платно (остават %1$d).</string>
+    <plurals name="allowance_kept">
+        <item quantity="one">Използва запазено фото платно (остава %1$d).</item>
+        <item quantity="other">Използва запазено фото платно (остават %1$d).</item>
+    </plurals>
     <string name="allowance_bonus">Използва бонус платно от видео.</string>
     <string name="allowance_watch">Днешното безплатно е използвано. Гледай видео за още едно.</string>
 
@@ -523,19 +583,28 @@
     <string name="rewarded_fills_title">Още запълвания</string>
     <string name="rewarded_colors_title">Още цветове</string>
     <string name="rewarded_canvas_title">Още едно фото платно</string>
-    <string name="rewarded_fills_added">Добавени са %1$d запълвания</string>
+    <plurals name="rewarded_fills_added">
+        <item quantity="one">Добавено е %1$d запълване</item>
+        <item quantity="other">Добавени са %1$d запълвания</item>
+    </plurals>
     <string name="rewarded_colors_unlocked">Отключени са още цветове</string>
     <string name="rewarded_unlocked">Отключено</string>
     <string name="rewarded_grace_fills">В момента няма видео. Днес тези са от нас.</string>
     <string name="rewarded_offline">Нямаш връзка, свържи се, за да гледаш видео</string>
     <string name="rewarded_picture_body">Гледай кратко видео, за да отключиш тази картина завинаги.</string>
-    <string name="rewarded_fills_body">Гледай кратко видео за %1$d запълвания. Всяко запълва зона, остатъка от цвят или мазка с четка.</string>
+    <plurals name="rewarded_fills_body">
+        <item quantity="one">Гледай кратко видео за %1$d запълване. Всяко запълва зона, остатъка от цвят или мазка с четка.</item>
+        <item quantity="other">Гледай кратко видео за %1$d запълвания. Всяко запълва зона, остатъка от цвят или мазка с четка.</item>
+    </plurals>
     <string name="rewarded_colors_body">Гледай кратко видео за още цветове на това фото платно.</string>
     <string name="rewarded_canvas_body">Гледай кратко видео за още едно фото платно. Пази се, докато го използваш.</string>
     <string name="rewarded_watch_to_end">Гледай до края, за да отключиш.</string>
     <string name="rewarded_watch">Гледай видеото</string>
     <string name="rewarded_grace_picture">Отключи картината</string>
-    <string name="rewarded_grace_fills_button">Вземи %1$d запълвания</string>
+    <plurals name="rewarded_grace_fills_button">
+        <item quantity="one">Вземи %1$d запълване</item>
+        <item quantity="other">Вземи %1$d запълвания</item>
+    </plurals>
     <string name="rewarded_grace_colors">Използвай още цветове</string>
     <string name="rewarded_grace_canvas">Започни платното</string>
     <string name="rewarded_vip_picture">Или вземи VIP: всички картини в галерията са отключени</string>
@@ -543,7 +612,10 @@
     <string name="rewarded_vip_colors">Или вземи VIP: още цветове на всяка снимка</string>
     <string name="rewarded_vip_canvas">Или вземи VIP: неограничени фото платна</string>
     <string name="rewarded_vip_no_videos">Вземи VIP: без видеа</string>
-    <string name="rewarded_token">Използвай жетон за отключване · остават %1$d</string>
+    <plurals name="rewarded_token">
+        <item quantity="one">Използвай жетон за отключване · остава %1$d</item>
+        <item quantity="other">Използвай жетон за отключване · остават %1$d</item>
+    </plurals>
 
     <string name="a11y_drag_handle">Дръжка за плъзгане</string>
     <string name="title_starter">Звездна нощ</string>

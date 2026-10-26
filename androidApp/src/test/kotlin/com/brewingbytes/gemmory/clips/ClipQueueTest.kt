@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.clips
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.timelapse.ClipOrder
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -13,6 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /** The Clips screen's queue (#152): one entry at a time, in order, none left waiting, a failure doesn't stop it. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class ClipQueueTest {
     private fun picture(id: String) = ClipPicture(CanvasRef(CanvasKind.BUNDLED, id), id, null) { null }
 

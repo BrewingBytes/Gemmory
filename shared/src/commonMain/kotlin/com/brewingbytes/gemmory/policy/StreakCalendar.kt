@@ -78,7 +78,7 @@ object StreakCalendar {
         val date = LocalDate.fromEpochDays(day.toInt())
         val first = LocalDate(date.year, date.month, 1)
         val next = if (date.month.ordinal == 11) LocalDate(date.year + 1, 1, 1) else LocalDate(date.year, date.month.ordinal + 2, 1)
-        return first.toEpochDays().toLong() until next.toEpochDays().toLong()
+        return first.toEpochDays() until next.toEpochDays()
     }
 
     /** The earliest month the calendar opens on: the first logged day's, or today's when nothing is logged. */
