@@ -4,7 +4,7 @@ Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decis
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
 Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
-Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)). After round 3's planning: #144 (clip store CTA, founder request after T47, no T-number) and T53 = #145 (share video ad, from T50's /plan-design-review), both on 2026-10-23, at the end. Round 4 (T54-T57, plan `docs/designs/gemmory-round4.md`, office hours 2026-10-24, CEO, eng and design reviews 2026-10-24/25) is at the very end, created on GitHub on 2026-10-25 as T54 = #155, T55 = #156, T56 = #157, T57 = #158 (T*n* = #(*n*+101)); T58 was cut at the CEO review (C2).
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)). After round 3's planning: #144 (clip store CTA, founder request after T47, no T-number) and T53 = #145 (share video ad, from T50's /plan-design-review), both on 2026-10-23, at the end. Round 4 (T54-T57, plan `docs/designs/gemmory-round4.md`, office hours 2026-10-24, CEO, eng and design reviews 2026-10-24/25) is at the very end, created on GitHub on 2026-10-25 as T54 = #155, T55 = #156, T56 = #157, T57 = #158 (T*n* = #(*n*+101)); T58 was cut at the CEO review (C2). After that, #163 (build warnings, founder request, 2026-10-26, no T-number) is at the end.
 
 ---
 
@@ -1442,3 +1442,48 @@ Labels: P2, release
 **Done when:** the gate's open or closed decision is written here at each read, and if opened, the experiment's result is applied as above.
 
 Depends on: T55 (readout), production data, T56 (cohort exclusion). Effort: human ~2d / CC ~1h (when open).
+
+---
+
+## #163: Build warnings: clear the Kotlin, lint and Gradle warnings (21 + 30 + 1)
+Labels: build, P2
+
+Founder request (2026-10-26, during T56 (where found), PR #160): list every build warning and fix them. Counted on `main` + #160 at `733dd87`: all Kotlin source sets recompiled (`--rerun-tasks --warning-mode all`), plus `:androidApp:lintDebug`. #160 itself adds none.
+
+**Why:** the workflow says the only expected warning is Gradle's deprecation summary, and a new warning gets lost among about 50 old ones. Once the list is empty, a new warning shows up.
+
+**Kotlin compiler: 21 warnings**
+- **`DEPRECATION` ×15 (androidTest):** `createEmptyComposeRule` / `createComposeRule` / `createAndroidComposeRule` are deprecated in favor of `androidx.compose.ui.test.junit4.v2.*`.
+  - Files: AchievementsFlowTest:50, InventoryFlowTest:56, LockedPicturesTest:59, RewardedSheetTest:24, AccessibilityChecksTest:164 and :508, AccessibilityScreensTest:46, FirstRunTest:51, FreshInstallTest:42, HighlightWalkthrough:49, LanguageSwitchTest:42, ScreenSizesWalkthrough:54, StoreScreenshots:61, MusicFlowTest:57, BillingFlowTest:48.
+  - **Risk:** v2 uses `StandardTestDispatcher` (it queues work instead of running it at once), so tests that rely on effects running immediately may need an explicit `waitForIdle` or `mainClock` step. This is the one part that needs the full connected suite on the emulator, class by class.
+- **`OPT_IN_USAGE` ×6:** `ClipQueueTest` 37, 54, 67, 69, 85, 107. Add `@OptIn(ExperimentalCoroutinesApi::class)` (as #160 did for WhereFoundTest).
+- **`EXTENSION_SHADOWED_BY_MEMBER` ×2:** CanvasAccessibilityTest:135 and CanvasGesturesTest:116 declare a `log()` extension that `PlaySession.log()` shadows. Delete the extensions.
+- **`REDUNDANT_CALL_OF_CONVERSION_METHOD`:** `shared/.../policy/StreakCalendar.kt:81` (reported once per target, ×4).
+- **`UNNECESSARY_SAFE_CALL`:** `PlayScreen.kt:179` (`PlaySession` is non-null there).
+- **`UNNECESSARY_NOT_NULL_ASSERTION`:** `ShareFrameRenderTest.kt:106`.
+
+**Android lint: 30 warnings** (`:androidApp:lintDebug`, none fatal)
+- **`PluralsCandidate` ×25** in `values/strings.xml`. For each `%d` + noun, decide whether it is a real plural, then fix or ignore it:
+  - lines 79, 81, 82, 96, 124, 125, 209, 213, 311, 312, 360, 363, 364, 365, 367, 387, 388, 490, 497, 498, 513, 611, 617, 623, 631;
+  - a real plural moves to `<plurals>` in all 12 languages, with the existing `PluralRules` test;
+  - a false positive, such as "%d%" or a number shown as a label, gets `tools:ignore="PluralsCandidate"` on that string.
+- **`UseKtx` ×3:**
+  - FrameArt.kt:607 and StreakShareCard.kt:117 (`Canvas.withClip`);
+  - GlFrameWriter.kt:84 (`createBitmap`).
+
+  FrameArt and GlFrameWriter are encoder code, so the change runs the encoder smoke (workflow.md: Test Lab by hand, or on the next `v*` tag).
+- **`VisibleForTests`:** `MainActivity.kt:106` reads `app.streakCelebrations`, a test switch. Read it through a non-test accessor, or make the switch's annotation say "and the activity".
+- **`AutoboxingStateCreation` (hint):** debug `ClipsScreen.kt:158`, `mutableStateOf` → `mutableIntStateOf`.
+
+**Gradle: 1 deprecation**
+- `Configuration.setVisible(boolean)` is deprecated and will be removed in Gradle 11. It comes from AGP 9.4.1 (`com.android.build.gradle.internal.plugins.BasePlugin.createAndroidJdkImageConfiguration`), not from our scripts. It goes away with an AGP release that drops the call; until then it is the "expected" Gradle deprecation summary.
+
+**Proposed order (one PR):**
+1. Mechanical Kotlin fixes: OPT_IN, shadowed `log()`, redundant conversion, safe call, `!!`.
+2. Lint: UseKtx, VisibleForTests, the hint, and the plurals review (in all languages for real plurals).
+3. The v2 compose-rule migration, with a full connected run on `gemmory_pixel`.
+4. Optionally, make warnings fail the build so they stay at zero: `allWarningsAsErrors` for Kotlin and `warningsAsErrors` for lint, with a baseline only if something can't be fixed.
+
+**Done when:** a clean `./gradlew :shared:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug :androidApp:bundleRelease :androidApp:compileDebugAndroidTestKotlin --rerun-tasks` prints no Kotlin or lint warning, and the AGP deprecation is the only Gradle one. The connected suite and the encoder smoke are green.
+
+Effort: human ~1d / CC ~1.5h (most of it is the connected run after the v2 migration).
