@@ -78,9 +78,7 @@ import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.game.FinishCelebration
 import com.brewingbytes.gemmory.nav.Route
-import com.brewingbytes.gemmory.policy.EarnSource
 import com.brewingbytes.gemmory.policy.FirstRunAsk
-import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
@@ -177,20 +175,16 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     private val analytics = (application as GemmoryApp).analytics
     private val app = application as GemmoryApp
 
-    /** "Where did you find Gemmory?" (T56) on this completion: the row, then the thanks line; null when not asked. */
-    var whereFound by mutableStateOf<WhereFoundUi?>(null)
-        private set
-
-    /** T56's answer sheet is open. */
-    var whereFoundSheet by mutableStateOf(false)
-        private set
-
-    /** The answer tapped, outlined while its reward lands (design D5). */
-    var whereFoundSelected by mutableStateOf<WhereFoundAnswer?>(null)
-        private set
+    /** "Where did you find Gemmory?" (T56) on this completion. */
+    val whereFound = WhereFoundFlow(
+        scope = viewModelScope,
+        answered = { app.firstRun.whereFoundAnswered(it) },
+        earn = { app.monetization.earnCanvasOnce(WHERE_FOUND_EARN_ID) },
+        log = { analytics.log(it) },
+        now = SystemClock::uptimeMillis,
+    )
 
     private var whereFoundRef: CanvasRef? = null
-    private var whereFoundAnswering = false
 
     var finished by mutableStateOf<Finished?>(null)
         private set
@@ -224,51 +218,12 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
         if (whereFoundRef == ref) return
         whereFoundRef = ref
         val granted = app.whereFoundConsentForTest ?: app.consent.consentMode.value.analyticsStorage
-        val ask = app.firstRun.firstRunAsk(granted, Random.nextLong())
-        if (ask is FirstRunAsk.Show) whereFound = WhereFoundUi.Row(ask.order, vip = app.monetization.entitlements.value.vip)
+        val ask = app.firstRun.firstRunAsk(granted, app.whereFoundSeedForTest ?: Random.nextLong())
+        if (ask is FirstRunAsk.Show) whereFound.ask(ask.order, vip = app.monetization.entitlements.value.vip)
     }
 
     /** T56's row is on the screen (the text has faded in). */
     fun whereFoundShown() = app.firstRun.whereFoundShown()
-
-    fun openWhereFound() {
-        if (whereFound is WhereFoundUi.Row) whereFoundSheet = true
-    }
-
-    /**
-     * An answer, or Skip, was tapped: counted once (later taps do nothing), logged, then for an answer the reward is
-     * added and, once it has and the outline has shown for [WHERE_FOUND_HOLD_MS], the row becomes the thanks line.
-     */
-    fun answerWhereFound(answer: WhereFoundAnswer) {
-        if (whereFoundAnswering || !app.firstRun.whereFoundAnswered(answer)) return
-        whereFoundAnswering = true
-        analytics.log(AnalyticsEvent.whereFound(answer))
-        if (answer == WhereFoundAnswer.SKIP) {
-            whereFoundSheet = false
-            whereFound = null
-            return
-        }
-        whereFoundSelected = answer
-        viewModelScope.launch {
-            val start = SystemClock.uptimeMillis()
-            val paid = app.monetization.earnCanvasOnce(WHERE_FOUND_EARN_ID)
-            if (paid) analytics.log(AnalyticsEvent.inventoryEarned(Item.PHOTO_CANVAS, EarnSource.WHERE_FOUND, 1))
-            delay((WHERE_FOUND_HOLD_MS - (SystemClock.uptimeMillis() - start)).coerceAtLeast(0))
-            whereFoundSheet = false
-            whereFoundSelected = null
-            whereFound = WhereFoundUi.Thanks(paid)
-        }
-    }
-
-    /** Back, a swipe or the scrim closed the sheet: a skip, with no event; after an answer it only closes it. */
-    fun dismissWhereFound() {
-        whereFoundSheet = false
-        if (whereFoundAnswering) return
-        if (app.firstRun.whereFoundAnswered(WhereFoundAnswer.SKIP)) {
-            whereFoundAnswering = true
-            whereFound = null
-        }
-    }
 
     fun markPlayed(ref: CanvasRef) = played.markPlayed(ref)
 
@@ -338,24 +293,12 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
         /** T56's reward, earned once per install (Inventory's earn id). */
         const val WHERE_FOUND_EARN_ID = "where-found"
 
-        /** The tapped answer's outline holds at least this long (design D5). */
-        const val WHERE_FOUND_HOLD_MS = 400L
-
         /** "5 min", "1 h 12 min"; under a minute rounds up to "1 min". */
         fun playTime(s: Strings, millis: Long): String {
             val minutes = ((millis + 59_999) / 60_000).coerceAtLeast(1)
             return if (minutes < 60) s.text(R.string.play_time_minutes, minutes) else s.text(R.string.play_time_hours, minutes / 60, minutes % 60)
         }
     }
-}
-
-/** T56 on the completion screen. */
-sealed interface WhereFoundUi {
-    /** The row under Done; [order] is the sheet's answers; no reward line for [vip]. */
-    data class Row(val order: List<WhereFoundAnswer>, val vip: Boolean) : WhereFoundUi
-
-    /** The thanks line; it names the photo canvas only when the reward was really added ([paid]). */
-    data class Thanks(val paid: Boolean) : WhereFoundUi
 }
 
 /**
@@ -484,7 +427,7 @@ fun CompletionScreen(
                                 GemTextButton(stringResource(R.string.completion_play_again), { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
                             }
                         }
-                        if (fresh) WhereFoundBlock(vm)
+                        if (fresh) WhereFoundBlock(vm.whereFound, revealed = text.value >= 1f)
                     }
                     // Until they have faded in, the buttons can't be pressed unseen; system back still works.
                     if (text.value < 1f) {
@@ -500,11 +443,11 @@ fun CompletionScreen(
             }
         }
     }
-    val whereFound = vm.whereFound
+    val whereFound = vm.whereFound.ui
     LaunchedEffect(whereFound is WhereFoundUi.Row, text.value >= 1f) {
         if (whereFound is WhereFoundUi.Row && text.value >= 1f) vm.whereFoundShown()
     }
-    if (vm.whereFoundSheet && whereFound is WhereFoundUi.Row) WhereFoundSheet(whereFound, vm)
+    if (vm.whereFound.sheet && whereFound is WhereFoundUi.Row) WhereFoundSheet(whereFound, vm.whereFound, reducedMotion)
     ShareSheet(
         state = encode,
         before = finished?.before,
@@ -541,10 +484,12 @@ fun CompletionScreen(
 
 /**
  * "Where did you find Gemmory?" (T56, design D3-D12, eng R3): 24dp under Done, one quiet button with the reward line
- * under it (not for VIP); after an answer, the thanks line in its place, which TalkBack focus lands on.
+ * under it (not for VIP); after an answer, the thanks line in its place, which TalkBack focus lands on. It's laid out
+ * from the first frame, so the picture never resizes, but until the text has faded in ([revealed], eng R2) it has no
+ * semantics and can't be tapped: TalkBack can't reach it and tests don't find it.
  */
 @Composable
-private fun WhereFoundBlock(vm: CompletionViewModel) {
+private fun WhereFoundBlock(flow: WhereFoundFlow, revealed: Boolean) {
     // The block keeps the tallest it has been, so the shorter thanks line, or nothing after Skip, doesn't resize the
     // picture above it.
     var held by remember { mutableIntStateOf(0) }
@@ -553,16 +498,17 @@ private fun WhereFoundBlock(vm: CompletionViewModel) {
         Modifier
             .fillMaxWidth()
             .heightIn(min = with(density) { held.toDp() })
-            .onSizeChanged { if (it.height > held) held = it.height },
+            .onSizeChanged { if (it.height > held) held = it.height }
+            .then(if (revealed) Modifier else Modifier.clearAndSetSemantics { }),
     ) {
-    when (val wf = vm.whereFound) {
+    when (val wf = flow.ui) {
         is WhereFoundUi.Row -> {
             val question = stringResource(R.string.where_found_question)
             val reward = stringResource(R.string.where_found_reward)
             Spacer(Modifier.height(24.dp))
             QuietButton(
                 question,
-                vm::openWhereFound,
+                { if (revealed) flow.open() },
                 Modifier
                     .fillMaxWidth()
                     .testTag(WHERE_FOUND_ROW_TAG)
@@ -595,30 +541,30 @@ private fun WhereFoundBlock(vm: CompletionViewModel) {
  * outline while its reward lands; focus then goes to the thanks line, or to Done after Skip or a dismiss.
  */
 @Composable
-private fun WhereFoundSheet(row: WhereFoundUi.Row, vm: CompletionViewModel) {
+private fun WhereFoundSheet(row: WhereFoundUi.Row, flow: WhereFoundFlow, reducedMotion: Boolean) {
     GemSheet(
         title = stringResource(R.string.where_found_question),
-        onDismiss = vm::dismissWhereFound,
-        returnFocusTo = if (vm.whereFoundSelected != null) WHERE_FOUND_THANKS_TAG else DONE_TAG,
+        onDismiss = flow::dismiss,
+        returnFocusTo = if (flow.answering) WHERE_FOUND_THANKS_TAG else DONE_TAG,
     ) {
         if (!row.vip) Text(stringResource(R.string.where_found_reward), style = GemType.label, color = GemColors.TextMuted)
         Column(Modifier.fillMaxWidth().semantics { collectionInfo = CollectionInfo(row.order.size, 1) }) {
             row.order.forEachIndexed { index, answer ->
                 QuietButton(
                     stringResource(answer.label()),
-                    { vm.answerWhereFound(answer) },
+                    { flow.answer(answer, reducedMotion) },
                     Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                         .semantics { collectionItemInfo = CollectionItemInfo(index, 1, 0, 1) }
                         .testTag("$WHERE_FOUND_ANSWER_TAG-${answer.value}"),
-                    selected = vm.whereFoundSelected == answer,
+                    selected = flow.selected == answer,
                 )
             }
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            GemTextButton(stringResource(R.string.where_found_skip), { vm.answerWhereFound(WhereFoundAnswer.SKIP) }, Modifier.testTag(WHERE_FOUND_SKIP_TAG))
+            GemTextButton(stringResource(R.string.where_found_skip), { flow.answer(WhereFoundAnswer.SKIP, reducedMotion) }, Modifier.testTag(WHERE_FOUND_SKIP_TAG))
         }
     }
 }

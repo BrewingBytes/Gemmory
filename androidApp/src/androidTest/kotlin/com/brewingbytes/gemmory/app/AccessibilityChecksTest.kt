@@ -1,5 +1,8 @@
 package com.brewingbytes.gemmory.app
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performSemanticsAction
+import org.junit.Assume.assumeTrue
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -33,6 +36,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.completion.WHERE_FOUND_ANSWER_TAG
 import com.brewingbytes.gemmory.completion.WHERE_FOUND_ROW_TAG
+import com.brewingbytes.gemmory.completion.WHERE_FOUND_SKIP_TAG
 import com.brewingbytes.gemmory.completion.WHERE_FOUND_THANKS_TAG
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.GemmoryApp
@@ -164,6 +168,7 @@ class AccessibilityChecksTest {
     private val photo = CanvasRef(CanvasKind.PHOTO, "a11y-scan")
     private val app get() = context.applicationContext as GemmoryApp
     private lateinit var scenario: ActivityScenario<MainActivity>
+    private var talkBack = false
 
     @Before
     fun setUp() {
@@ -182,7 +187,9 @@ class AccessibilityChecksTest {
         app.resetStreakForTest()
         app.resetFirstRunForTest(fresh = false)
         app.whereFoundConsentForTest = null
+        app.whereFoundSeedForTest = null
         if (::scenario.isInitialized) scenario.close()
+        if (talkBack) A11yTestSupport.talkBackOff()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
     }
 
@@ -421,16 +428,66 @@ class AccessibilityChecksTest {
     /** T56 (#157): the row under Done, its answer sheet, the tapped answer's outline and the thanks line. */
     @Test
     fun whereFoundRowSheetAndThanks() {
+        finishFirstRun()
+        scan()
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
+        waitForTag("$WHERE_FOUND_ANSWER_TAG-video")
+        scan()
+        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-video").performClick()
+        scan() // the 400ms lamp outline
+        waitForTag(WHERE_FOUND_THANKS_TAG)
+        scan()
+    }
+
+    /** T56 (#157, "TalkBack after R3"): after an answer TalkBack's focus lands on the thanks line. */
+    @Test
+    fun withTalkBackAnAnswerFocusesTheThanksLine() {
+        talkBackFinishFirstRun()
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performSemanticsAction(SemanticsActions.OnClick)
+        A11yTestSupport.waitFor(5_000, "focus on the sheet's question") {
+            compose.waitForIdle()
+            A11yTestSupport.accessibilityFocusText() == context.getString(R.string.where_found_question)
+        }
+        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-friend").performSemanticsAction(SemanticsActions.OnClick)
+        A11yTestSupport.waitFor(5_000, "focus on the thanks line") {
+            compose.waitForIdle()
+            A11yTestSupport.accessibilityFocusText()?.startsWith(context.getString(R.string.where_found_thanks)) == true
+        }
+    }
+
+    /** T56 (#157, "TalkBack after R3"): after Skip TalkBack's focus goes to Done. */
+    @Test
+    fun withTalkBackSkipFocusesDone() {
+        talkBackFinishFirstRun()
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performSemanticsAction(SemanticsActions.OnClick)
+        waitForTag(WHERE_FOUND_SKIP_TAG)
+        compose.onNodeWithTag(WHERE_FOUND_SKIP_TAG).performSemanticsAction(SemanticsActions.OnClick)
+        A11yTestSupport.waitFor(5_000, "focus on Done") {
+            compose.waitForIdle()
+            A11yTestSupport.accessibilityFocusText() == context.getString(R.string.action_done)
+        }
+    }
+
+    private fun talkBackFinishFirstRun() {
+        assumeTrue("needs TalkBack on the device", A11yTestSupport.talkBackInstalled)
+        talkBack = true
+        A11yTestSupport.talkBackOn()
+        finishFirstRun()
+    }
+
+    /** A first-run install (consent granted, answers in a pinned order) finishes a photo canvas; the row has come in. */
+    private fun finishFirstRun() {
         app.resetFirstRunForTest(fresh = true)
         app.whereFoundConsentForTest = true
+        app.whereFoundSeedForTest = 1
         runBlocking { (context.applicationContext as GemmoryApp).store.create(photo, A11yTestSupport.pattern(8, 6, 3)) }
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
         com.brewingbytes.gemmory.play.CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNodeWithText("My Photos").performClick()
+        compose.onNodeWithText("My Photos").performSemanticsAction(SemanticsActions.OnClick)
         waitForTag("tile-photo-a11y-scan")
-        compose.onNodeWithTag("tile-photo-a11y-scan").performClick()
+        compose.onNodeWithTag("tile-photo-a11y-scan").performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
@@ -438,13 +495,6 @@ class AccessibilityChecksTest {
         compose.waitUntil(10_000) { compose.onAllNodes(hasContentDescription("Finished picture")).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.advanceTimeBy(6_000)
         waitForTag(WHERE_FOUND_ROW_TAG)
-        scan()
-        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
-        waitForTag("$WHERE_FOUND_ANSWER_TAG-video")
-        scan()
-        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-video").performClick()
-        waitForTag(WHERE_FOUND_THANKS_TAG)
-        scan()
     }
 }
 

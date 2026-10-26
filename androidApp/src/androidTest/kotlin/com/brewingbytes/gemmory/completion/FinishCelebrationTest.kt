@@ -19,6 +19,7 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.policy.FirstRunAsk
+import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
 import com.brewingbytes.gemmory.play.PlayViewModel
@@ -27,6 +28,7 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
 import java.io.File
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -68,6 +70,7 @@ class FinishCelebrationTest {
         // T56's row only on a first-run install's first finish: these cases run as an install that isn't one.
         app.resetFirstRunForTest(fresh = false)
         app.whereFoundConsentForTest = null
+        app.whereFoundSeedForTest = null
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
@@ -80,6 +83,7 @@ class FinishCelebrationTest {
         app.resetStreakForTest()
         app.resetFirstRunForTest(fresh = false)
         app.whereFoundConsentForTest = null
+        app.whereFoundSeedForTest = null
         compose.mainClock.autoAdvance = true
         if (::scenario.isInitialized) scenario.close()
         animatorScale?.let { shell("settings put global animator_duration_scale $it") }
@@ -129,41 +133,51 @@ class FinishCelebrationTest {
         assertTrue(seen.values.all { it.isEmpty() }, "the still stays still: $seen")
     }
 
+    /** T56 (#157, eng R2): with the row due, a first-run install's first finish plays the same sequence. */
+    @Test
+    fun aFirstRunFinishKeepsTheSequenceWithWhereFoundDue() {
+        firstRunAsked()
+        val seen = finishAndWatch()
+        val sparkle = seen.filter { SPARKLE in it.value }.keys
+        val confetti = seen.filter { CONFETTI in it.value }.keys
+        assertTrue(sparkle.isNotEmpty() && confetti.isNotEmpty(), "sparkle and confetti both play: $seen")
+        assertTrue(sparkle.max() < confetti.min(), "sparkle first, confetti from the chime: $sparkle then $confetti")
+        assertTrue(sparkle.min() >= 200 && sparkle.max() <= 2_800, "sparkle within the sweep (250-2,650ms): $sparkle")
+        assertTrue(confetti.max() <= 4_700, "confetti gone by the end of the hold (4,650ms): $confetti")
+        assertTrue(seen.filterKeys { it >= 4_800 }.values.all { it.isEmpty() }, "nothing over Share and Done")
+        assertTrue(exists(WHERE_FOUND_ROW_TAG), "the row once the text is in")
+    }
+
     /**
-     * T56 (#157): a first-run install's first finish, consent granted. The row is in the column from the start, so the
-     * picture never moves through the celebration, after it, or when the shorter thanks line takes the row's place; an
-     * answer pays one photo canvas, once; the install is never asked again.
+     * T56 (#157, eng R2/R3): the row is laid out from the start, so the picture never moves through the celebration,
+     * after it, or when the shorter thanks line takes the row's place; but it isn't in the tree (no tag, no TalkBack
+     * node) until the text has faded in. An answer pays one photo canvas, once; the install is never asked again.
      */
     @Test
-    fun aFirstRunFinishAsksWhereFoundWithoutMovingThePicture() {
-        app.resetFirstRunForTest(fresh = true)
-        app.whereFoundConsentForTest = true
-        // The reward is earned once per inventory, so an earlier run's answer would leave only "Thanks."
-        File(context.filesDir, StorageLayout.INVENTORY).delete()
-        app.resetMonetizationForTest()
+    fun theRowJoinsOnlyOnceTheTextIsInAndThePictureNeverMoves() {
+        firstRunAsked()
         val canvasesBefore = app.monetization.inventory.value.canvases
-        val session = open().also { finished = it }
-        onMain { repeat(47) { session.placeNext() } }
-        compose.mainClock.autoAdvance = false
-        instrumentation.runOnMainSync { session.placeNext() }
-        val deadline = System.currentTimeMillis() + 10_000
-        while (!(exists("completion-fresh") && picture())) {
-            assertTrue(System.currentTimeMillis() < deadline, "the fresh completion and its picture show")
-            compose.mainClock.advanceTimeByFrame()
-            Thread.sleep(16)
-        }
+        start()
         val bounds = mutableSetOf<androidx.compose.ui.geometry.Rect>()
+        val row = sortedSetOf<Int>()
+        val confetti = sortedSetOf<Int>()
         for (ms in 0..WATCH_MS step STEP_MS) {
             bounds += compose.onNode(hasContentDescription("Finished picture")).fetchSemanticsNode().boundsInRoot
+            if (exists(WHERE_FOUND_ROW_TAG)) row += ms
+            if (exists(CONFETTI)) confetti += ms
             Thread.sleep(STEP_MS.toLong())
             compose.mainClock.advanceTimeBy(STEP_MS.toLong())
         }
         compose.mainClock.autoAdvance = true
         assertEquals(1, bounds.size, "the picture never resizes: $bounds")
-        assertTrue(exists(WHERE_FOUND_ROW_TAG), "the row under Done")
+        // The text fades in over 400ms (TEXT_MS) from the end of the hold, when the confetti has gone: the row joins at 1f.
+        assertTrue(confetti.isNotEmpty() && row.isNotEmpty(), "confetti $confetti, row from ${row.firstOrNull()}")
+        assertTrue(row.first() >= confetti.last() + 350, "the row joins only at text 1f: from ${row.first()}, confetti until ${confetti.last()}")
+        assertEquals((row.first()..WATCH_MS step STEP_MS).toList(), row.toList(), "and stays")
         compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
         compose.waitUntil(5_000) { exists("$WHERE_FOUND_ANSWER_TAG-friend") }
         compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-friend").performClick()
+        assertEquals(WhereFoundAnswer.FRIEND, completion().whereFound.selected, "the lamp outline holds")
         compose.waitUntil(5_000) { exists(WHERE_FOUND_THANKS_TAG) }
         compose.onNode(hasText("Thanks. 1 photo canvas added to your inventory.")).assertExists()
         val after = compose.onNode(hasContentDescription("Finished picture")).fetchSemanticsNode().boundsInRoot
@@ -172,11 +186,70 @@ class FinishCelebrationTest {
         assertEquals(FirstRunAsk.No, app.firstRun.firstRunAsk(analyticsGranted = true, seed = 1), "never asked again")
     }
 
+    /** T56 (#157, design D5): under reduced motion the row still comes after the text, and an answer has no hold. */
+    @Test
+    fun underReducedMotionTheRowComesAfterTheTextWithNoOutlineHold() {
+        animatorScale = shell("settings get global animator_duration_scale").ifBlank { "1" }.let { if (it == "null") "1" else it }
+        shell("settings put global animator_duration_scale 0")
+        firstRunAsked()
+        start()
+        compose.mainClock.autoAdvance = true
+        compose.waitUntil(10_000) { exists(WHERE_FOUND_ROW_TAG) }
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
+        compose.waitUntil(5_000) { exists("$WHERE_FOUND_ANSWER_TAG-video") }
+        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-video").performClick()
+        assertNull(completion().whereFound.selected, "no outline hold under reduced motion")
+        compose.waitUntil(5_000) { exists(WHERE_FOUND_THANKS_TAG) }
+        compose.onNode(hasText("Thanks. 1 photo canvas added to your inventory.")).assertExists()
+    }
+
+    /**
+     * T56 (#157, eng outside voice #1): a rotation mid-celebration (the lights-down moment is marked played) still
+     * shows the row, and one after an answer shows the thanks line, never the row again.
+     */
+    @Test
+    fun aRotationMidCelebrationStillShowsTheRowAndTheThanksSurvivesOne() {
+        firstRunAsked()
+        start()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.mainClock.autoAdvance = true
+        scenario.recreate()
+        compose.waitUntil(10_000) { exists("completion-fresh") && exists(WHERE_FOUND_ROW_TAG) }
+        compose.onNodeWithTag(WHERE_FOUND_ROW_TAG).performClick()
+        compose.waitUntil(5_000) { exists("$WHERE_FOUND_ANSWER_TAG-community") }
+        compose.onNodeWithTag("$WHERE_FOUND_ANSWER_TAG-community").performClick()
+        compose.waitUntil(5_000) { exists(WHERE_FOUND_THANKS_TAG) }
+        scenario.recreate()
+        compose.waitUntil(10_000) { exists("completion-fresh") && exists(WHERE_FOUND_THANKS_TAG) }
+        assertTrue(!exists(WHERE_FOUND_ROW_TAG), "the row never comes back")
+    }
+
+    /** A first-run install with analytics consent, an empty inventory (the reward is once per inventory) and a pinned order. */
+    private fun firstRunAsked() {
+        app.resetFirstRunForTest(fresh = true)
+        app.whereFoundConsentForTest = true
+        app.whereFoundSeedForTest = 1
+        File(context.filesDir, StorageLayout.INVENTORY).delete()
+        app.resetMonetizationForTest()
+    }
+
+    private fun completion(): CompletionViewModel {
+        var vm: CompletionViewModel? = null
+        scenario.onActivity { vm = ViewModelProvider(it)[CompletionViewModel::class.java] }
+        return vm!!
+    }
+
     /**
      * Places every gem but the last, holds the test clock, places the last, waits (in real time) for the finished
      * picture, then watches the celebration's layers frame by frame from the moment the sequence starts.
      */
     private fun finishAndWatch(): Map<Int, Set<String>> {
+        start()
+        return watch()
+    }
+
+    /** Places every gem but the last, holds the test clock, places the last and waits for the finished picture. */
+    private fun start() {
         val session = open().also { finished = it }
         onMain { repeat(47) { session.placeNext() } }
         compose.mainClock.autoAdvance = false
@@ -187,7 +260,6 @@ class FinishCelebrationTest {
             compose.mainClock.advanceTimeByFrame()
             Thread.sleep(16)
         }
-        return watch()
     }
 
     /** Which celebration layers exist at each 50ms step over 6s, moving both the test clock and real time. */

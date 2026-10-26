@@ -405,6 +405,9 @@ class GemmoryApp : Application() {
      */
     internal var whereFoundConsentForTest: Boolean? = null
 
+    /** Connected tests only (T56): the answers' shuffle seed, pinned so a scan or a screenshot sees one order (eng #10). */
+    internal var whereFoundSeedForTest: Long? = null
+
     /**
      * Connected tests only (T56): a launch over cleared `first_run` preferences, as a first-run install when [fresh]
      * (its funnel begun, nothing decided yet) or as an install that isn't, which is never asked.

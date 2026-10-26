@@ -1418,6 +1418,8 @@ Labels: P1, telemetry, ui, a11y
 
 Depends on: #154 (adds `cut`, edits `CompletionScreen.kt`). Ships in the promoted build (T54, O3). Effort: human ~2d / CC ~1.5h.
 
+**Built in PR #160** (2026-10-25/26): the row is laid out from the first frame but has no semantics or tap until `text` reaches 1f (founder, 2026-10-26: "hidden until 1f" reconciles R2's "not composed" with R3's "never resizes"); under reduced motion an answer has no outline hold (D5); the answer logic is `WhereFoundFlow`, unit-tested by `WhereFoundTest`.
+
 ---
 
 ## T57: Photo-first store listing experiment (gated on photo finishes)
