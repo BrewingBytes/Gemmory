@@ -3,6 +3,9 @@ package com.brewingbytes.gemmory.telemetry
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.policy.FirstRunAsk
+import com.brewingbytes.gemmory.policy.WhereFound
+import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.storage.StorageLayout
 import org.junit.After
 import org.junit.Before
@@ -86,6 +89,39 @@ class FirstRunFunnelTest {
             assertFalse(app.launchDue())
             assertNull(app.gemPlaced(2_000))
         }
+    }
+
+    /**
+     * T56 (#157, eng R1): the first fresh finish decides "Where did you find Gemmory?" and commits it, with the
+     * answers' seed, before the row shows; a later finish, a relaunch, or consent granted later never asks again.
+     */
+    @Test
+    fun theFirstFinishDecidesWhereFoundOnDiskAndNoLaterFinishAsks() {
+        val first = launch()
+        first.onFirstForeground(1_000)
+        val ask = first.firstRunAsk(analyticsGranted = true, seed = 42, firstFinish = true)
+        assertEquals(FirstRunAsk.Show(WhereFoundAnswer.order(42)), ask)
+        assertEquals(WhereFound.DECIDED.name, funnel.getString("where_found", null), "on disk before the row shows")
+        assertEquals(42L, funnel.getLong("where_found_seed", 0))
+        assertEquals(FirstRunAsk.No, first.firstRunAsk(analyticsGranted = true, seed = 7, firstFinish = true), "the second finish")
+        assertEquals(FirstRunAsk.No, launch().firstRunAsk(analyticsGranted = true, seed = 7, firstFinish = true), "after a relaunch")
+
+        clear()
+        val denied = launch()
+        denied.onFirstForeground(1_000)
+        assertEquals(FirstRunAsk.No, denied.firstRunAsk(analyticsGranted = false, seed = 1, firstFinish = true))
+        assertEquals(WhereFound.NOT_SHOWN.name, funnel.getString("where_found", null))
+        assertEquals(FirstRunAsk.No, launch().firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true), "consent granted later")
+    }
+
+    /** T56: an install that isn't first-run (restored, upgraded) is never asked, and nothing is written for it. */
+    @Test
+    fun anInstallThatIsntFirstRunIsNeverAsked() {
+        marker.edit().putBoolean("launched", true).commit()
+        val app = launch()
+        app.onFirstForeground(1_000)
+        assertEquals(FirstRunAsk.No, app.firstRunAsk(analyticsGranted = true, seed = 1, firstFinish = true))
+        assertFalse(funnel.contains("where_found"))
     }
 
     private companion object {

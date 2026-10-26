@@ -31,6 +31,9 @@ enum class EarnSource(val param: String) {
 
     /** A completed collection's token (T37, CEO C6). */
     COLLECTION("collection"),
+
+    /** "Where did you find Gemmory?" answered (T56, CEO C3): one photo canvas. */
+    WHERE_FOUND("where_found"),
 }
 
 /**

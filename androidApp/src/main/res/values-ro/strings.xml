@@ -383,6 +383,16 @@
     <string name="completion_killed">Videoclipul s-a oprit când s-a închis aplicația. Atinge Distribuie ca să încerci din nou.</string>
     <string name="completion_play_again">Joacă din nou</string>
     <string name="completion_picture">Tablou terminat</string>
+    <string name="where_found_question">Unde ai găsit Gemmory?</string>
+    <string name="where_found_reward">Răspunde și primești încă o pânză foto.</string>
+    <string name="where_found_video">Un video (TikTok, Reels, YouTube)</string>
+    <string name="where_found_community">Un grup sau un forum</string>
+    <string name="where_found_friend">Un prieten</string>
+    <string name="where_found_play_search">Căutând în Play Store</string>
+    <string name="where_found_other">În altă parte</string>
+    <string name="where_found_skip">Sari peste</string>
+    <string name="where_found_thanks_canvas">Mulțumim. Ai primit 1 pânză foto în inventar.</string>
+    <string name="where_found_thanks">Mulțumim.</string>
 
     <string name="widget_start">Începe o serie</string>
     <string name="widget_done">Gata azi</string>

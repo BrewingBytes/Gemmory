@@ -9,6 +9,7 @@ import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.ReminderReason
 import com.brewingbytes.gemmory.policy.RewardType
+import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 
@@ -88,6 +89,9 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 
         /** How the ask ended (T35): `granted` | `declined_in_app` | `denied_system`. */
         fun reminderPromptResult(result: String) = AnalyticsEvent("reminder_prompt_result", mapOf("result" to result))
+
+        /** "Where did you find Gemmory?" (T56) was answered, or Skip was tapped: `video` | `community` | `friend` | `play_search` | `other` | `skip`. */
+        fun whereFound(answer: WhereFoundAnswer) = AnalyticsEvent("where_found", mapOf("answer" to answer.value))
 
         /** Reminders turned on or off, or their time changed, in Settings or the ask (T35). [minutes]: since midnight. */
         fun reminderSettingsChanged(on: Boolean, minutes: Int) =

@@ -9,7 +9,7 @@ How to read every success criterion of rounds 1-3 once Gemmory is in production:
 - **Localized markets are one bucket.** Until each language has 100 players of its own, pool the 11 localized languages (de, es, pt-BR, fr, it, ro, pl, tr, hu, bg, ja) into one "localized" bucket and compare it with English. Never read a single small market on its own.
 - **The denominator is `first_launch`, not `first_open`.** `first_launch` fires once, on a fresh install only, after the consent form has settled (T46). Firebase's automatic `first_open` fires again on a restored phone and isn't gated the same way. Use `first_open` only for install sources (below).
 - **Production only.** Closed-test numbers are a handful of people (round 1 D18): informational.
-- **Register the custom dimensions first.** Explorations can filter on an event param only once it's registered (Firebase console → Analytics → Custom definitions), and registration doesn't apply to the past. Before production, register these event-scoped dimensions: `source`, `size`, `kind`, `cut`, `entry`, `days_since_available`, `collection_id`, `event_id`, `milestone`, `reason`, `result`, `saved_by`, `target`. Register `ms_since_first_launch` and `length` as custom metrics.
+- **Register the custom dimensions first.** Explorations can filter on an event param only once it's registered (Firebase console → Analytics → Custom definitions), and registration doesn't apply to the past. Before production, register these event-scoped dimensions: `source`, `size`, `kind`, `cut`, `answer`, `entry`, `days_since_available`, `collection_id`, `event_id`, `milestone`, `reason`, `result`, `saved_by`, `target`. Register `ms_since_first_launch` and `length` as custom metrics.
 
 Where the numbers live: Firebase console → Analytics (Dashboard, Retention, User acquisition, and **Explore** for funnels and cohorts). Play Console → Statistics, Ratings and Store performance. Crashlytics for stability.
 
@@ -24,6 +24,14 @@ Where the numbers live: Firebase console → Analytics (Dashboard, Retention, Us
 | Shared-picture opens (informational, T50) | `canvas_started` with `entry` = `share_link`, divided by first users whose first user source is `share` and whose medium is `bundled` (a picture share, which carries the picture's id as the campaign content). Only chat-style shares keep the link, so this is informational. |
 | Feed shares (T51, informational) | `share_completed` with `cut` = feed (TikTok, Instagram or YouTube got the 7 s feed cut), divided by `share_completed` with `kind` = finished. Installs from those shares can't be told apart: feeds drop the link, so they arrive as organic installs. |
 | Non-English installs (informational) | Play Console → Statistics → installs by country or language: the localized bucket's share of all installs. Store conversion per language: Play Console → Store performance → Store listing acquisition, by language (visitors → acquirers). |
+
+## Round 4: where installs come from (T55, T56)
+
+| Criterion | How to read it |
+|---|---|
+| Unknown under half among installs that finished a picture (T56, CEO O1) | For consented `first_launch` installs since T56's build: **named** = first user source other than direct/(not set) and other than `google-play / organic`; **organic** = `google-play / organic`, split by the install's `where_found` `answer`; **answered** = a `where_found` answer other than `skip`; **unknown** = neither named nor answered. The bar is over installs with a `canvas_finished` (the only ones asked); across all installs unknown is reported with no bar. On a tagged install the tag wins over a disagreeing answer; on organic or direct the answer is the channel. Answers are paid with a photo canvas, so some are taps for the reward; "A friend" also covers word of mouth. |
+| T56 answers (informational) | `where_found` users by `answer`; `inventory_earned` with `source` = `where_found` counts the canvases paid. |
+| T57's photo gate | The photo and bundled cohorts both leave out players with a `where_found` answer other than `skip` (a segment on the event), so the reward canvas and its nudge don't reach the gate (CEO O2). |
 
 ## Round 1: early production
 

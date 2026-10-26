@@ -25,7 +25,7 @@ fun View.moveAccessibilityFocus(tag: String): Boolean {
 /**
  * Gives TalkBack's focus back to the node tagged [tag] after a sheet's window closes. TalkBack moves its focus on its
  * own when that window goes away, a moment after the sheet is gone, so for a short while the focus is asked for again
- * whenever the trigger doesn't have it. Stops early when [cancelled] says another sheet opened.
+ * whenever the trigger doesn't have it, or isn't there yet. Stops early when [cancelled] says another sheet opened.
  */
 fun View.returnAccessibilityFocus(tag: String, cancelled: () -> Boolean) {
     val deadline = SystemClock.uptimeMillis() + RETURN_WINDOW_MS
@@ -33,8 +33,9 @@ fun View.returnAccessibilityFocus(tag: String, cancelled: () -> Boolean) {
         override fun run() {
             if (cancelled()) return
             val provider = accessibilityNodeProvider ?: return
-            val id = semanticsIdOf(tag) ?: return
-            if (provider.createAccessibilityNodeInfo(id)?.isAccessibilityFocused != true) moveAccessibilityFocus(tag)
+            // The node may come a moment after the sheet goes (T56's thanks line, after its 400ms hold): keep asking.
+            val id = semanticsIdOf(tag)
+            if (id != null && provider.createAccessibilityNodeInfo(id)?.isAccessibilityFocused != true) moveAccessibilityFocus(tag)
             if (SystemClock.uptimeMillis() < deadline) postDelayed(this, RETURN_STEP_MS)
         }
     }

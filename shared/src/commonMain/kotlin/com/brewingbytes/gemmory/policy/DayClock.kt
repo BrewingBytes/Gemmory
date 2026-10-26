@@ -43,3 +43,16 @@ interface StateStore<T> {
 
     fun save(value: T)
 }
+
+/**
+ * A [StateStore] that can tell whether a write reached the disk (T56, eng R1). Only a store that really knows
+ * implements it, so no caller is told "saved" for a write nobody checked.
+ */
+interface CheckedStateStore<T> : StateStore<T> {
+    /** Writes [value]; false when it didn't reach the disk. */
+    fun trySave(value: T): Boolean
+
+    override fun save(value: T) {
+        trySave(value)
+    }
+}

@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.completion
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -31,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -53,11 +55,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CollectionInfo
+import androidx.compose.ui.semantics.CollectionItemInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.collectionInfo
+import androidx.compose.ui.semantics.collectionItemInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,6 +79,10 @@ import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.game.FinishCelebration
 import com.brewingbytes.gemmory.nav.Route
+import com.brewingbytes.gemmory.policy.DayKind
+import com.brewingbytes.gemmory.policy.FirstRunAsk
+import com.brewingbytes.gemmory.policy.isFirstFinish
+import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.share.ShareIntents
@@ -81,6 +96,7 @@ import com.brewingbytes.gemmory.timelapse.FrameArt
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemRenderer
+import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.ui.TableCut
 import com.brewingbytes.gemmory.ui.GemTextButton
 import com.brewingbytes.gemmory.ui.GemType
@@ -96,6 +112,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 /**
  * Canvases whose lights-down moment already ran in this process, so a rotation mid-sequence doesn't replay it.
@@ -154,11 +171,51 @@ class Finished(
     val colors: List<Color> = request.pattern.palette.map { Color(it.argb) }
 }
 
-class CompletionViewModel(application: Application) : AndroidViewModel(application) {
+class CompletionViewModel(application: Application, private val savedState: SavedStateHandle) : AndroidViewModel(application) {
     private val store = (application as GemmoryApp).store
     private val encodes = application.let { it as GemmoryApp }.encodes
     private val billing = (application as GemmoryApp).billing
     private val analytics = (application as GemmoryApp).analytics
+    private val app = application as GemmoryApp
+
+    /** "Where did you find Gemmory?" (T56) on this completion. */
+    val whereFound = WhereFoundFlow(
+        scope = viewModelScope,
+        answered = { app.firstRun.whereFoundAnswered(it) },
+        earn = { app.monetization.earnCanvasOnce(WHERE_FOUND_EARN_ID) },
+        log = { analytics.log(it) },
+        now = SystemClock::uptimeMillis,
+        onChange = { saveWhereFound() },
+    )
+
+    /** The completion T56's row or thanks line belongs to; it shows there, fresh or (after the process died) as a still. */
+    private var whereFoundRef: CanvasRef? = null
+
+    init {
+        // A Share round-trip can cost the process (#160 review): the row or the thanks line comes back with the completion.
+        savedState.get<String>(WHERE_FOUND_KEY)?.let { saved ->
+            val ref = saved.substringBefore('|').split(':').takeIf { it.size == 2 }
+                ?.let { (kind, id) -> CanvasKind.entries.firstOrNull { it.name == kind }?.let { CanvasRef(it, id) } }
+            if (ref != null) {
+                whereFoundRef = ref
+                whereFound.restore(saved.substringAfter('|'), open = app.firstRun.whereFoundOpen())
+            }
+        }
+    }
+
+    private fun saveWhereFound() {
+        savedState[WHERE_FOUND_KEY] = whereFoundRef?.let { ref -> whereFound.saved()?.let { "${ref.kind.name}:${ref.id}|$it" } }
+    }
+
+    /** T56's row or thanks line shows on [ref]'s completion. */
+    fun whereFoundOn(ref: CanvasRef) = whereFoundRef == ref
+
+    /** The player left [ref]'s completion (not a rotation): T56's row or thanks line stays behind. */
+    fun leftCompletion(ref: CanvasRef) {
+        if (whereFoundRef != ref) return
+        whereFound.reset()
+        whereFoundRef = null
+    }
 
     var finished by mutableStateOf<Finished?>(null)
         private set
@@ -184,6 +241,34 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
 
     fun hasPlayed(ref: CanvasRef) = played.hasPlayed(ref)
 
+    /**
+     * A fresh completion of [ref] opened (T56): decide the question once per canvas here, so a rotation keeps the same
+     * answer. The first-run rule, the consent check and the save come first ([com.brewingbytes.gemmory.telemetry.FirstRun]).
+     * Only while T56 is undecided does it look for an earlier finish ([isFirstFinish]: the canvases' small `play` files
+     * and the streak log), so an install that updated into T56 after finishing a picture isn't asked. On the main thread,
+     * like the `commit()` (eng #12): the row must be laid out before the picture draws, or the picture would resize.
+     */
+    fun decideWhereFound(ref: CanvasRef) {
+        if (whereFoundRef == ref) return
+        whereFoundRef = ref
+        if (!app.firstRun.whereFoundDue()) return
+        val repository = store.repository
+        val firstFinish = isFirstFinish(
+            otherCanvasFinished = CanvasKind.entries.any { kind ->
+                repository.list(kind).any { id -> CanvasRef(kind, id).let { it != ref && repository.readPlay(it)?.firstFinishedDay != null } }
+            },
+            thisCanvasFirstFinishedDay = repository.readPlay(ref)?.firstFinishedDay,
+            streakFinishDays = app.streak.history().filter { it.kind == DayKind.FINISHED }.map { it.day },
+            today = app.dayClock.today(),
+        )
+        val granted = app.whereFoundConsentForTest ?: app.consent.consentMode.value.analyticsStorage
+        val ask = app.firstRun.firstRunAsk(granted, app.whereFoundSeedForTest ?: Random.nextLong(), firstFinish)
+        if (ask is FirstRunAsk.Show) whereFound.ask(ask.order, vip = app.monetization.entitlements.value.vip)
+    }
+
+    /** T56's row is on the screen (the text has faded in). */
+    fun whereFoundShown() = app.firstRun.whereFoundShown()
+
     fun markPlayed(ref: CanvasRef) = played.markPlayed(ref)
 
     /** A canvas was just finished: its lights-down moment plays again, whatever ran for it before. */
@@ -191,6 +276,8 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
         fresh.finished(ref)
         played.forget(ref)
         if (finished?.ref == ref) finished = null
+        // T56: a new finish is decided anew (a later one is never asked), so an earlier row or thanks line never shows.
+        whereFoundRef?.let(::leftCompletion)
     }
 
     /** Always re-reads, so a rename or a new play time since the last visit shows. The old picture stays until then. */
@@ -249,6 +336,12 @@ class CompletionViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     companion object {
+        /** T56's reward, earned once per install (Inventory's earn id). */
+        const val WHERE_FOUND_EARN_ID = "where-found"
+
+        /** T56's row or thanks line in saved state: `<kind>:<id>|<WhereFoundFlow.saved>`. */
+        private const val WHERE_FOUND_KEY = "where_found"
+
         /** "5 min", "1 h 12 min"; under a minute rounds up to "1 min". */
         fun playTime(s: Strings, millis: Long): String {
             val minutes = ((millis + 59_999) / 60_000).coerceAtLeast(1)
@@ -274,6 +367,8 @@ fun CompletionScreen(
     onPlayAgain: () -> Unit,
 ) {
     LaunchedEffect(ref) { vm.load(ref) }
+    // T56: decided before the text fades in, so the row is in the column from the start and the picture never resizes.
+    LaunchedEffect(ref, fresh) { if (fresh) vm.decideWhereFound(ref) }
     val reducedMotion = rememberReducedMotion()
     val context = LocalContext.current
     val feedback = remember { Feedback(context, (context.applicationContext as GemmoryApp).settings) }
@@ -375,12 +470,13 @@ fun CompletionScreen(
                             )
                         }
                         Spacer(Modifier.height(8.dp))
-                        QuietButton(stringResource(R.string.action_done), onDone, Modifier.fillMaxWidth().testTag("completion-done"))
+                        QuietButton(stringResource(R.string.action_done), onDone, Modifier.fillMaxWidth().testTag(DONE_TAG))
                         if (!fresh) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                                 GemTextButton(stringResource(R.string.completion_play_again), { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
                             }
                         }
+                        if (fresh || vm.whereFoundOn(ref)) WhereFoundBlock(vm.whereFound, revealed = text.value >= 1f)
                     }
                     // Until they have faded in, the buttons can't be pressed unseen; system back still works.
                     if (text.value < 1f) {
@@ -396,6 +492,11 @@ fun CompletionScreen(
             }
         }
     }
+    val whereFound = vm.whereFound.ui
+    LaunchedEffect(whereFound is WhereFoundUi.Row, text.value >= 1f) {
+        if (whereFound is WhereFoundUi.Row && text.value >= 1f) vm.whereFoundShown()
+    }
+    if (vm.whereFound.sheet && whereFound is WhereFoundUi.Row) WhereFoundSheet(whereFound, vm.whereFound, reducedMotion)
     ShareSheet(
         state = encode,
         before = finished?.before,
@@ -428,6 +529,102 @@ fun CompletionScreen(
             returnFocusTo = PLAY_AGAIN_TAG,
         )
     }
+}
+
+/**
+ * "Where did you find Gemmory?" (T56, design D3-D12, eng R3): 24dp under Done, one quiet button with the reward line
+ * under it (not for VIP); after an answer, the thanks line in its place, which TalkBack focus lands on. It's laid out
+ * from the first frame, so the picture never resizes, but until the text has faded in ([revealed], eng R2) it has no
+ * semantics and can't be tapped: TalkBack can't reach it and tests don't find it.
+ */
+@Composable
+private fun WhereFoundBlock(flow: WhereFoundFlow, revealed: Boolean) {
+    // The block keeps the tallest it has been, so the shorter thanks line, or nothing after Skip, doesn't resize the
+    // picture above it.
+    var held by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = with(density) { held.toDp() })
+            .onSizeChanged { if (it.height > held) held = it.height }
+            .then(if (revealed) Modifier else Modifier.clearAndSetSemantics { }),
+    ) {
+    when (val wf = flow.ui) {
+        is WhereFoundUi.Row -> {
+            val question = stringResource(R.string.where_found_question)
+            val reward = stringResource(R.string.where_found_reward)
+            Spacer(Modifier.height(24.dp))
+            QuietButton(
+                question,
+                { if (revealed) flow.open() },
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(WHERE_FOUND_ROW_TAG)
+                    .semantics { contentDescription = if (wf.vip) question else "$question $reward" },
+            )
+            if (!wf.vip) {
+                Text(reward, style = GemType.label, color = GemColors.TextMuted, modifier = Modifier.padding(top = 4.dp).clearAndSetSemantics { })
+            }
+        }
+        is WhereFoundUi.Thanks -> {
+            // A 150ms fade, also under reduced motion (D5).
+            val fade = remember(wf) { Animatable(0f) }
+            LaunchedEffect(wf) { withFullMotion { fade.animateTo(1f, tween(WHERE_FOUND_FADE_MS)) } }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                stringResource(if (wf.paid) R.string.where_found_thanks_canvas else R.string.where_found_thanks),
+                style = GemType.body,
+                color = GemColors.Bone,
+                modifier = Modifier.alpha(fade.value).testTag(WHERE_FOUND_THANKS_TAG),
+            )
+        }
+        null -> Unit
+    }
+    }
+}
+
+/**
+ * T56's answers (eng R3): the question as the sheet's title, the reward line, the five answers as full-width quiet
+ * buttons in this install's order (labels wrap; TalkBack hears "1 of 5"), then Skip. A tapped answer keeps the lamp
+ * outline while its reward lands; focus then goes to the thanks line, or to Done after Skip or a dismiss.
+ */
+@Composable
+private fun WhereFoundSheet(row: WhereFoundUi.Row, flow: WhereFoundFlow, reducedMotion: Boolean) {
+    GemSheet(
+        title = stringResource(R.string.where_found_question),
+        onDismiss = flow::dismiss,
+        returnFocusTo = if (flow.answering) WHERE_FOUND_THANKS_TAG else DONE_TAG,
+    ) {
+        if (!row.vip) Text(stringResource(R.string.where_found_reward), style = GemType.label, color = GemColors.TextMuted)
+        Column(Modifier.fillMaxWidth().semantics { collectionInfo = CollectionInfo(row.order.size, 1) }) {
+            row.order.forEachIndexed { index, answer ->
+                QuietButton(
+                    stringResource(answer.label()),
+                    { flow.answer(answer, reducedMotion) },
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .semantics { collectionItemInfo = CollectionItemInfo(index, 1, 0, 1) }
+                        .testTag("$WHERE_FOUND_ANSWER_TAG-${answer.value}"),
+                    selected = flow.selected == answer,
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            GemTextButton(stringResource(R.string.where_found_skip), { flow.answer(WhereFoundAnswer.SKIP, reducedMotion) }, Modifier.testTag(WHERE_FOUND_SKIP_TAG))
+        }
+    }
+}
+
+private fun WhereFoundAnswer.label(): Int = when (this) {
+    WhereFoundAnswer.VIDEO -> R.string.where_found_video
+    WhereFoundAnswer.COMMUNITY -> R.string.where_found_community
+    WhereFoundAnswer.FRIEND -> R.string.where_found_friend
+    WhereFoundAnswer.PLAY_SEARCH -> R.string.where_found_play_search
+    WhereFoundAnswer.OTHER -> R.string.where_found_other
+    WhereFoundAnswer.SKIP -> R.string.where_found_skip
 }
 
 /**
@@ -525,6 +722,12 @@ private const val HOLD_MS = 2_000L
 private const val TEXT_MS = 400
 private const val TEXT_MAX_SHARE = 0.6f
 private const val SHARE_TAG = "completion-share"
+private const val DONE_TAG = "completion-done"
+const val WHERE_FOUND_ROW_TAG = "where-found-row"
+const val WHERE_FOUND_THANKS_TAG = "where-found-thanks"
+const val WHERE_FOUND_ANSWER_TAG = "where-found-answer"
+const val WHERE_FOUND_SKIP_TAG = "where-found-skip"
+private const val WHERE_FOUND_FADE_MS = 150
 private const val PLAY_AGAIN_TAG = "completion-play-again"
 private const val SPARKLE_TAG = "finish-sparkle"
 private const val CONFETTI_TAG = "finish-confetti"

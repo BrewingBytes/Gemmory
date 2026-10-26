@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.res.Configuration
 import android.util.Log
 import androidx.annotation.VisibleForTesting
+import androidx.core.content.edit
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -399,6 +400,33 @@ class GemmoryApp : Application() {
     )
 
     /**
+     * Connected tests only (T56): analytics consent as T56's question sees it; null (always, outside tests) reads the
+     * real consent. Read by the completion screen, so not marked test-only.
+     */
+    internal var whereFoundConsentForTest: Boolean? = null
+
+    /** Connected tests only (T56): the answers' shuffle seed, pinned so a scan or a screenshot sees one order (eng #10). */
+    internal var whereFoundSeedForTest: Long? = null
+
+    /**
+     * Connected tests only (T56): a launch over cleared `first_run` preferences, as a first-run install when [fresh]
+     * (its funnel begun, nothing decided yet) or as an install that isn't, which is never asked.
+     */
+    @VisibleForTesting
+    internal fun resetFirstRunForTest(fresh: Boolean) {
+        getSharedPreferences(FirstRun.FUNNEL_FILE, MODE_PRIVATE).edit(commit = true) { clear() }
+        firstRun = FirstRun(
+            filesDir = filesDir,
+            streakPrefs = File(dataDir, "shared_prefs/$STREAK_PREFS.xml"),
+            marker = getSharedPreferences(FirstRun.MARKER_FILE, MODE_PRIVATE),
+            funnel = getSharedPreferences(FirstRun.FUNNEL_FILE, MODE_PRIVATE),
+            forceFresh = fresh,
+            reporter = reporter,
+        )
+        if (fresh) firstRun.onFirstForeground(dayClock.nowMillis())
+    }
+
+    /**
      * Connected tests only (T50): a share landing as on a fresh install's first launch, reading [rawReferrer] (through the
      * same parser) instead of Play's, already read; the test cleared the `first_run` preferences first. [fresh] false
      * puts back a launch that isn't fresh and never lands.
@@ -411,6 +439,7 @@ class GemmoryApp : Application() {
             marker = getSharedPreferences(FirstRun.MARKER_FILE, MODE_PRIVATE),
             funnel = getSharedPreferences(FirstRun.FUNNEL_FILE, MODE_PRIVATE),
             forceFresh = fresh,
+            reporter = reporter,
         )
         if (fresh) {
             firstRun.onFirstForeground(dayClock.nowMillis())
@@ -732,6 +761,7 @@ class GemmoryApp : Application() {
             streakPrefs = File(dataDir, "shared_prefs/$STREAK_PREFS.xml"),
             marker = getSharedPreferences(FirstRun.MARKER_FILE, MODE_PRIVATE),
             funnel = getSharedPreferences(FirstRun.FUNNEL_FILE, MODE_PRIVATE),
+            reporter = reporter,
         )
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         encodes = EncodeManager(

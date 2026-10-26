@@ -198,6 +198,11 @@ class Monetization(
     /** A completed collection's unlock token (T37, CEO C6), once per [earnId]; true when it was added now. */
     suspend fun earnTokenOnce(earnId: String): Boolean = onPolicy { items.earnOnce(Item.UNLOCK_TOKEN, 1, earnId) }
 
+    /** T56's reward: one photo canvas once for [earnId]; never for VIP, who has no inventory. True when it was added now. */
+    suspend fun earnCanvasOnce(earnId: String): Boolean = onPolicy {
+        !entitlements.value.vip && items.earnOnce(Item.PHOTO_CANVAS, 1, earnId)
+    }
+
     /** Spends one [item] for [useId] (idempotent per use); false when none is left. VIP spends nothing. */
     suspend fun spend(item: Item, useId: String): Boolean = onPolicy {
         entitlements.value.vip || items.spend(item, useId)
