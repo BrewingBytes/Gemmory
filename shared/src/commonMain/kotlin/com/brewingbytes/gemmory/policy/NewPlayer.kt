@@ -69,6 +69,15 @@ enum class WhereFoundAnswer(val value: String) {
     }
 }
 
+/**
+ * Whether the finish happening [today] is the install's first ever (T56; #160 review): no other canvas was ever finished
+ * ([otherCanvasFinished], from their play files), this canvas wasn't finished on an earlier day (a Start over keeps that
+ * day, [thisCanvasFirstFinishedDay]), and the streak log has no finish before today ([streakFinishDays]; it keeps the day
+ * of a canvas deleted since). So an install that updated into T56 after finishing a picture is never asked.
+ */
+fun isFirstFinish(otherCanvasFinished: Boolean, thisCanvasFirstFinishedDay: Long?, streakFinishDays: List<Long>, today: Long): Boolean =
+    !otherCanvasFinished && (thisCanvasFirstFinishedDay == null || thisCanvasFirstFinishedDay >= today) && streakFinishDays.none { it < today }
+
 /** What a first-run install's first fresh finish decided for T56. */
 sealed interface FirstRunAsk {
     /** Show the row, its answers in [order]. */

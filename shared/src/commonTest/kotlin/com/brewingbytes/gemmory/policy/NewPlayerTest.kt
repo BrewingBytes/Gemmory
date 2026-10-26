@@ -237,6 +237,17 @@ class NewPlayerTest {
         assertFalse(funnel.whereFoundOpen(), "skipped")
     }
 
+    /** #160 review round 2: an earlier finish anywhere (another canvas, this one replayed, a deleted one) means not the first. */
+    @Test
+    fun onlyTheInstallsFirstFinishEverCounts() {
+        val today = 20_000L
+        assertTrue(isFirstFinish(false, null, emptyList(), today), "nothing finished before")
+        assertTrue(isFirstFinish(false, today, listOf(today), today), "this finish, already written down")
+        assertFalse(isFirstFinish(true, null, emptyList(), today), "another canvas was finished")
+        assertFalse(isFirstFinish(false, today - 3, emptyList(), today), "this canvas, started over, was finished before")
+        assertFalse(isFirstFinish(false, null, listOf(today - 9), today), "a canvas finished and deleted since")
+    }
+
     @Test
     fun theOrderIsStablePerSeedWithSomewhereElseLast() {
         val order = WhereFoundAnswer.order(42)

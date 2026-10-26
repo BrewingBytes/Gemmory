@@ -21,6 +21,7 @@ import com.brewingbytes.gemmory.gallery.openFinishedTile
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.policy.FirstRunAsk
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
+import com.brewingbytes.gemmory.save.PlayTimes
 import com.brewingbytes.gemmory.reminder.REMINDER_ASK_NOT_NOW_TAG
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.play.PlayUi
@@ -295,6 +296,34 @@ class FinishCelebrationTest {
         assertEquals(null, viewModel().whereFound.ui, "and nothing once the completion was left")
     }
 
+    /** T56 (#160 review round 2): an install that finished another picture before (it updated into T56) isn't asked. */
+    @Test
+    fun anInstallThatFinishedAnotherPictureBeforeIsNotAsked() {
+        firstRunAsked()
+        val earlier = CanvasRef(CanvasKind.PHOTO, "finished-earlier")
+        runBlocking { app.store.create(earlier, small) }
+        app.store.repository.writePlay(earlier, PlayTimes(firstFinishedDay = app.dayClock.today() - 5))
+        assertNotAsked()
+    }
+
+    /** T56 (#160 review round 2): nor one that replays (Play again) the picture it finished on an earlier day. */
+    @Test
+    fun aPictureFinishedOnAnEarlierDayAndPlayedAgainIsNotAsked() {
+        firstRunAsked()
+        runBlocking { app.store.create(ref, small) }
+        app.store.repository.writePlay(ref, PlayTimes(firstFinishedDay = app.dayClock.today() - 3))
+        assertNotAsked()
+    }
+
+    private fun assertNotAsked() {
+        start()
+        compose.mainClock.advanceTimeBy(6_000)
+        compose.mainClock.autoAdvance = true
+        compose.waitUntil(5_000) { exists("completion-done") }
+        assertTrue(!exists(WHERE_FOUND_ROW_TAG), "no row")
+        assertTrue(!app.firstRun.whereFoundDue() && !app.firstRun.whereFoundOpen(), "decided as not shown, for good")
+    }
+
     /** A first-run install with analytics consent, an empty inventory (the reward is once per inventory) and a pinned order. */
     private fun firstRunAsked() {
         app.resetFirstRunForTest(fresh = true)
@@ -348,7 +377,8 @@ class FinishCelebrationTest {
     }
 
     private fun open(): PlaySession {
-        runBlocking { (context.applicationContext as GemmoryApp).store.create(ref, small) }
+        // A case may have made it already (with a play file of its own).
+        if (!app.store.repository.dirOf(ref).isDirectory) runBlocking { app.store.create(ref, small) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNode(hasText("My Photos")).performClick()
         compose.waitUntil(5_000) { exists(TILE) }

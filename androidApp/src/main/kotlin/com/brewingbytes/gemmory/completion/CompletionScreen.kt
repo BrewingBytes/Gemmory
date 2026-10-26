@@ -79,7 +79,9 @@ import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.game.FinishCelebration
 import com.brewingbytes.gemmory.nav.Route
+import com.brewingbytes.gemmory.policy.DayKind
 import com.brewingbytes.gemmory.policy.FirstRunAsk
+import com.brewingbytes.gemmory.policy.isFirstFinish
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
@@ -242,18 +244,23 @@ class CompletionViewModel(application: Application, private val savedState: Save
     /**
      * A fresh completion of [ref] opened (T56): decide the question once per canvas here, so a rotation keeps the same
      * answer. The first-run rule, the consent check and the save come first ([com.brewingbytes.gemmory.telemetry.FirstRun]).
-     * Only while T56 is undecided does it look for another canvas ever finished (its small `play` file), so an install
-     * that updated into T56 after finishing some isn't asked. On the main thread, like the `commit()` (eng #12): the row
-     * must be laid out before the picture draws, or the picture would resize.
+     * Only while T56 is undecided does it look for an earlier finish ([isFirstFinish]: the canvases' small `play` files
+     * and the streak log), so an install that updated into T56 after finishing a picture isn't asked. On the main thread,
+     * like the `commit()` (eng #12): the row must be laid out before the picture draws, or the picture would resize.
      */
     fun decideWhereFound(ref: CanvasRef) {
         if (whereFoundRef == ref) return
         whereFoundRef = ref
         if (!app.firstRun.whereFoundDue()) return
         val repository = store.repository
-        val firstFinish = CanvasKind.entries.none { kind ->
-            repository.list(kind).any { id -> CanvasRef(kind, id).let { it != ref && repository.readPlay(it)?.firstFinishedDay != null } }
-        }
+        val firstFinish = isFirstFinish(
+            otherCanvasFinished = CanvasKind.entries.any { kind ->
+                repository.list(kind).any { id -> CanvasRef(kind, id).let { it != ref && repository.readPlay(it)?.firstFinishedDay != null } }
+            },
+            thisCanvasFirstFinishedDay = repository.readPlay(ref)?.firstFinishedDay,
+            streakFinishDays = app.streak.history().filter { it.kind == DayKind.FINISHED }.map { it.day },
+            today = app.dayClock.today(),
+        )
         val granted = app.whereFoundConsentForTest ?: app.consent.consentMode.value.analyticsStorage
         val ask = app.firstRun.firstRunAsk(granted, app.whereFoundSeedForTest ?: Random.nextLong(), firstFinish)
         if (ask is FirstRunAsk.Show) whereFound.ask(ask.order, vip = app.monetization.entitlements.value.vip)
