@@ -266,6 +266,8 @@ class MessagesTest {
         assertEquals("Mar, concluídos: 0 de 3", A11yText(pt).collection("Mar", 0, 3, 0))
         assertEquals("Concluídos: 0 de 3", pt.plural(R.plurals.collection_count, 0, 0, 3))
         assertEquals("Seaside, 0 of 3 finished, 1 more coming", A11yText(XmlStrings()).collection("Seaside", 0, 3, 1))
+        val pl = A11yText(XmlStrings("values-pl", Locale.forLanguageTag("pl")))
+        assertEquals("Morze, ukończono 1 z 7, jeszcze 4 w drodze", pl.collection("Morze", 1, 7, 4))
     }
 
     private val folders: List<File>

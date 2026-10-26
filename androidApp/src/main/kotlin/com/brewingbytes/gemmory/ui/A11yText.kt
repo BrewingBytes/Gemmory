@@ -109,7 +109,10 @@ class A11yText(private val s: Strings) {
      */
     fun collection(title: String, finished: Int, size: Int, coming: Int): String {
         val count = s.plural(R.plurals.a11y_collection, finished, title, finished, size)
-        return if (coming > 0) s.text(R.string.a11y_collection_coming, count, s.plural(R.plurals.collection_coming, coming, coming)) else count
+        if (coming <= 0) return count
+        // The well's words start a sentence on screen (pl "Jeszcze", bg, hu); here they follow a comma.
+        val well = s.plural(R.plurals.collection_coming, coming, coming).replaceFirstChar { it.lowercase(s.locale) }
+        return s.text(R.string.a11y_collection_coming, count, well)
     }
 
     /** The polite announcement when a completed collection's row first shows (T37). */
