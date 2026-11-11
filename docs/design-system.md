@@ -86,7 +86,7 @@ components:
 
 **Creative North Star:** "The Sorting Tray." Gemmory looks like a jeweler's grey-green felt tray under one bedside lamp: matte, mid-tone, tactile. It serves the founder's anchor, *"the calmest thing on my phone."* The shell carries no saturated color, so the player's photo is the only vivid thing on screen and reads as *their* photo.
 
-**Product context:** Android (Kotlin, Jetpack Compose, Material 3 base) diamond-painting game for adults (not for children) who already play color-by-number / diamond apps 30-60 min a day, often in the evening. The differentiator is an own-photo canvas that stays recognizable plus a 9:16 sparkle time-lapse. See `docs/designs/gemmory.md`.
+**Product context:** Android (Kotlin, Jetpack Compose, Material 3 base) diamond-painting game, with iOS coming on the same shared Compose UI (see iOS: it copies these rules), for adults (not for children) who already play color-by-number / diamond apps 30-60 min a day, often in the evening. The differentiator is an own-photo canvas that stays recognizable plus a 9:16 sparkle time-lapse. See `docs/designs/gemmory.md`.
 
 **Mode per surface:**
 - Gallery, crop, size picker, preview: Operate (calm, fast decisions).
@@ -169,7 +169,7 @@ Scale: 34 / 30 / 22 / 16 / 13 sp. Adjacent levels differ by size *and* role, nev
 - Touch targets are at least 48dp, text buttons included. **Documented exception:** canvas cells can be placed from 16dp. The accessible alternatives are zoom up to 48dp cells, the Find button and the TalkBack canvas actions (Phase 5 D16).
 - Sheets have a 16dp top radius, a grab handle and 20dp padding. Their content scrolls, so nothing clips at 200% font. The grab handle is a 32×4dp bar in a 48dp square labelled "Drag handle" (Material puts expand and close actions on it).
 
-**Navigation map** (Phase 5 D3). System back always goes one step up.
+**Navigation map** (Phase 5 D3). System back always goes one step up. iOS has no system back: each screen's way back is in iOS → Back.
 
 ```
 first launch ─► UMP consent (EEA only, first launch, before any ad request; never over a later launch)
@@ -238,7 +238,7 @@ Reminder notification (T35) ─tap─► drop or Today's picture: its canvas, no
 
 **Large screens** (Phase 5 D22). On 600dp and wider, Android 16 ignores orientation locks, so these layouts are required:
 - Under 600dp: portrait-first, as designed. Landscape is allowed but not optimized.
-- 600dp and wider: the gallery has 3 columns (4 at 840dp and wider). Sheets are at most 560dp wide and centered. The paywall content column is at most 480dp.
+- 600dp and wider: the gallery has 3 columns (4 at 840dp and wider). Sheets are centered cards, at most 560dp wide, with a 16dp radius on all four corners (iOS design D3, which holds on Android tablets too). The paywall content column is at most 480dp.
 - The Today card (with its Tomorrow line) and the collection or event rows still span the grid; their text column is at most 480dp, a row's strip shows more thumbnails without scrolling, and rows stay stacked, never side by side (plan-design-review D19).
 - Canvas at 600dp and wider in landscape: the tray becomes a vertical 2-column rail on the right, with the same troughs, and the canvas fills the rest.
 - Canvas, zoom and selection state survive rotation and fold changes.
@@ -785,6 +785,131 @@ Video repairs have no limit; VIP gets one free repair every 7 days; a grace repa
 - Haptics also follow the system touch-feedback setting.
 - The Selected color styles have no motion of their own; switching style redraws the canvas at once, with or without reduced motion.
 
+## iOS
+
+iOS runs the same shared Compose UI as Android (`:composeApp`; plan `docs/designs/gemmory-ios.md`). **iOS copies Android's rules.** Everything above holds on iPhone and iPad as written, with dp read as pt. This section lists only the places where iOS forces a difference, and names the closest iOS equivalent for each (design review D2-D9 and the founder directive, 2026-11-05: "do like android", "dont change"). A rule this section doesn't name is the same on both platforms. A new iOS difference needs a row here and a decision-log entry, and its row in the parity checklist reads "replaced".
+
+**Back** (design D2). iOS has no system back button, and a left-edge swipe near the canvas would fight pan and paint. Each screen states its way back:
+
+| Screen | On-screen | Left-edge swipe | VoiceOver escape (two-finger Z) |
+|---|---|---|---|
+| Settings, Crop, Size picker, Preview, Your streak | top-bar Back | on | back |
+| Paywall | Close (top-left) | on | close |
+| Canvas | top-bar Back | **off** | leave (the same `leave()` path as Back) |
+| Completion, fresh | none for 5.05 s | **off** | Done, from 1 s |
+| Completion still | Done | on | Done |
+| Streak celebration | Continue | **off** | Continue |
+| Sheets | grab handle, scrim, swipe down | n/a | close; counts as "Not now" or Skip wherever this doc says back |
+
+- Wherever this doc says "back, swipe or the scrim", iOS reads "back, VoiceOver escape, swipe or the scrim". Esc on a hardware keyboard is back too (Pointer and keyboard below).
+- Pushed screens slide in from the right over 300 ms; under Reduce Motion they switch at once, as on Android.
+- `NavigationBackHandler(isBackEnabled)` turns the edge swipe off per screen (verified in Stage 0, #167).
+
+**Sheets on wide screens and over the keyboard** (design D3).
+- From 600 wide, every sheet is the centered card in Large screens above (this rule came from iOS and holds on Android tablets too). Phones keep the bottom sheet.
+- Every sheet rides above the on-screen keyboard. Return triggers the sheet's primary button. A hardware keyboard adds no inset.
+
+**Large screens** (directive F11). Large screens above holds unchanged. One forced addition: the rail also needs a height of 480 or more, so an iPhone Pro Max in landscape keeps the bottom tray, as an Android phone in landscape does. iPad allows every orientation; iPhone is portrait-first with landscape allowed, as on Android.
+
+**Safe areas** (directive F20). The same as Android's edge-to-edge:
+- The felt runs under the status bar and the home indicator.
+- The top bar and the tray's content sit inside the safe area; the tray's fill continues under the home indicator.
+- The landscape rail sits inside the side inset, and the FAB sits 16 above the bottom inset.
+- The status bar is light. The home indicator is never hidden.
+
+**Dynamic Type** (directive F16). It works like Android's font scale: Large (17 pt), the iOS default, is 1.0, and the chrome's scale is clamped at 2.0, Android's maximum, so every 1.5× and 200% rule above holds unchanged. QA at the 2.0 clamp on the narrowest supported iPhone, as Android's QA runs at 200% on a 360dp phone. Stage 0 found that Compose reads the size at launch only (#167), so Stage 1c listens for `UIContentSizeCategory.didChangeNotification` and the app follows a change live, as Android does.
+
+**Language** (directive F14). Forced: iOS takes the app's language from the bundle. `CFBundleLocalizations` lists all 11 languages plus English, and the app follows `preferredLocalizations`. The Settings → Language row looks the same as on Android (its value is the language the app shows, in its own name), but on iOS it opens the app's page in iOS Settings, where Apple's per-app language picker lives. On iOS the row shows on every supported version, not only from Android 13 on.
+
+**Audio** (directive F12). Android pauses music on silent or vibrate and follows audio focus. iOS equivalent:
+- `AVAudioSession` category `.ambient`, so the Silent switch mutes Gemmory. Replaced, two forced differences: on Android only music stops on silent or vibrate and the placing sounds keep playing, while on iOS the Silent switch mutes the sounds too; and iOS can't read the Silent switch, so music "plays" muted instead of pausing, and First music (D24) starts at the first canvas whatever the switch says.
+- Music doesn't start while other audio plays (`secondaryAudioShouldBeSilencedHint`), pauses on an interruption (a call, Siri) and resumes after it.
+- Full-screen ads and exports pause it, and leaving the app stops it, as on Android. The Sound, Music and volume settings are unchanged.
+
+**Haptics** (directive F13). The same events and strengths as the Haptics and sound table, on the nearest iOS generators:
+
+| Event | Android | iOS |
+|---|---|---|
+| Gem placed | `CLOCK_TICK` (drag ≤ 1 per 40 ms) | `UIImpactFeedbackGenerator` `.light` (same throttle) |
+| Wrong color | `TEXT_HANDLE_MOVE` | `.soft`, at a lower intensity than the gem |
+| Color finished, progress milestone | `CONFIRM` | `UINotificationFeedbackGenerator` `.success` |
+| A tool's batch, the finish crescendo | `PRIMITIVE_TICK` patterns | Core Haptics patterns of the same shape (timing and swell) |
+| Finish under reduced motion | the 400 ms soft vibration | one 400 ms soft continuous event |
+
+iPads without a haptic engine play nothing; the Haptics toggle stays in Settings anyway. Haptics follow the system's System Haptics setting, as Android follows touch feedback.
+
+**Time-lapse encode in the background** (design D4; amends eng D4). On iOS the app usually survives in the background, so Android's "The video stopped when the app closed." isn't true there. The iOS states:
+
+| Moment | What the player sees (iOS) |
+|---|---|
+| Encoding | the screen stays awake (`isIdleTimerDisabled` while an encode runs; reset on finish, cancel or expiry). On iOS 18-25 the progress sheet's hint reads "Keep Gemmory open until it's done." |
+| The iOS 26 system progress card | title "Making your video", subtitle the picture's title. Cancelling there counts as Cancel (no notice) |
+| Stopped in the background | under Share, once: "The video stopped while Gemmory was in the background. Tap Share to try again." |
+| Finished while away (iOS 26) | no share sheet from the background. On return the progress sheet shows "Your video is ready" with the primary button "Share video" |
+| A progress share expired | on return the sheet closes back where it started, with no message (it starts over anyway) |
+
+The completion screen checks for the stopped notice every time the app comes back to the foreground, not only when it loads (eng OV-1a). The feed cut (T51) runs under the same rules.
+
+**Share sheet** (design D5).
+- On iPad the share sheet is a popover anchored to what was tapped: the Completion Share button, the canvas top-bar share icon, or the tile's rect (its ⋮ menu has closed by then), and the streak celebration's Share.
+- "Save Video" and "Save Image" are allowed. They need the add-only Photos string (`NSPhotoLibraryAddUsageDescription` in `InfoPlist.xcstrings`): "Save your Gemmory videos and pictures to Photos." The app never asks to read the library.
+- Dismissed, cancelled or completed: back where it started, with no message, as on Android.
+
+**Getting your photo** (design D6). "New from photo" opens PHPicker (no library permission): `selectionLimit` 1, filter `.images` (a Live Photo gives its still), `.current` representation.
+- Between the picker closing and Crop: "Getting your photo…" (body, `bone`) over a 2 dp indeterminate line, with a text button "Cancel" that goes back to the gallery. A photo still in iCloud can take a while.
+- An offline or iCloud failure shows the existing decode-fail copy.
+
+**Paywall, Restore and family sharing** (design D7, eng D17). Purchases go through StoreKit 2. Entitlements are per store: VIP or Ads removed bought on Google Play doesn't carry over to iPhone (no backend), and the Paywall and the restore help say so. Family Sharing is on for VIP and `remove_ads`. The iOS states and copy:
+
+| State | iOS copy |
+|---|---|
+| Pending (Ask to Buy, SCA) | "Payment pending. VIP starts once it's approved." |
+| Error | "The App Store couldn't finish the purchase. You weren't charged." |
+| Restoring | "Checking the App Store…" |
+| Restore found family | "Purchases restored: VIP, shared by your family" |
+| Membership row, family | "VIP · family sharing" |
+| Manage | Apple's manage-subscriptions sheet (`showManageSubscriptions`), not a URL |
+| Family access ended / refunded | one gallery line, once: "VIP from family sharing has ended." / "VIP was refunded and has ended." |
+| Offline | "VIP · connect to the App Store to confirm" |
+| Fine print | "VIP renews automatically until you cancel. Cancel anytime in Settings, under Subscriptions. VIP and Ads removed can be shared with your family." |
+
+App Review 3.1.2 items on the iOS Paywall: working Terms of Use (EULA) and Privacy Policy links, a quiet "Restore" text button, and the billed price as the larger figure on each plan row. The rest of the Paywall layout is Android's. The navigation map's "Membership row ─► Play subscription page (VIP)" reads "─► Apple's manage-subscriptions sheet" on iOS.
+
+**App Tracking Transparency** (design D8, founder override; supersedes eng D16's own pre-prompt sheet). At first launch Apple's system ATT prompt shows right after the UMP step and before any ad request: the moment Android shows UMP. UMP still shows only where it does on Android (the EEA, the UK and Switzerland); elsewhere the ATT prompt follows at once. **A player who declines personalized ads in UMP gets no ATT prompt** (eng D16's order test, kept by D8: UMP denied → no ATT; ATT denied → non-personalized). There is no explainer sheet of ours; the only copy is Apple's required purpose string, `NSUserTrackingUsageDescription`, which the system prompt shows. Denied or restricted means non-personalized ads. The first-run order above is otherwise unchanged: consent (EEA) ─► ATT ─► Gallery with the starter first.
+
+**Game Center** (design D9). It replaces Play Games and follows its rules:
+- Game Center starts at the same moment Play Games does (after the first finish, T45). Its sign-in view is presented when iOS provides it, over whatever shows then: Android's accepted Play Games exception (Do's and Don'ts).
+- Unlocks are sent only while the Gallery or Settings shows. `GKAccessPoint` is off (Android has no floating button).
+- The Settings Achievements row reads "Game Center" at its end and opens Game Center's achievements view. It shows only where Game Center is available.
+
+**Store names and the end card** (directives F9, F10; CEO D13). App Store Review Guideline 2.3.10 forbids naming other platforms. On iOS every string that names Google Play, Play Store, Play Games or Android has a store-neutral or App Store variant: the billing copy above, the Achievements row, the T56 answer "Searching Play Store" → "Searching the App Store", and the streak card's share text. A JVM test resolves every string in every locale through the iOS resolver and fails on those names.
+- Until Stage 5 the time-lapse end card, the feed cut and the player's share use the neutral lockup: the same layout with the badge removed. The Gemmory row's text block stays where it is, and the end-card block is re-centered vertically. A badge-off golden variant is drawn on Android for the iOS cross-platform check. Stage 5 adds the App Store badge.
+
+**Reminders** (directive F22). Android's large icon becomes a `UNNotificationAttachment` thumbnail of the flat picture, under the same rules (never a photo, frosted when hidden). "Open settings" goes to the app's notification settings. Lock-screen content follows the player's Show Previews setting. The ask, the copy and the timing are Android's.
+
+**Widget** (directive F23). The same look as the Glance widget: felt ground, the mono number, the flame, one line. WidgetKit can use our fonts, so the line is in Figtree, not the system font. `systemSmall` only. In tinted mode the flame is marked accentable; otherwise it follows the system. The widget reads only the streak snapshot in the App Group container, never a photo.
+
+**System UI and Liquid Glass** (directive F21). Apple's own sheets (share sheet, StoreKit, ATT, PHPicker, Game Center) draw in Apple's style, Liquid Glass included, as Android's system dialogs draw in Android's. That is accepted for system UI only. Our own surfaces (top bar, tray, sheets, buttons, toasts) never use glass, blur or translucency: they stay matte felt.
+
+**VoiceOver** (directive F15). Every TalkBack rule in Accessibility holds, mapped:
+- The canvas counts go in `accessibilityValue`, and the canvas actions are the Actions rotor (`customActions`; mapped in Stage 0, #167, with the founder's on-device listen still to do).
+- Announcements are queued (`UIAccessibilitySpeechAttributeQueueAnnouncement`), so the polite live region's "same words twice are spoken twice" rule holds.
+- Sheets are `accessibilityViewIsModal`, with focus on the title on open and back to the trigger on close. The 1.2 s TalkBack re-focus hack is Android-only.
+- Every "TalkBack on" check above (no timeout, no auto-advance) also applies when VoiceOver or Switch Control is running.
+- Labels start with the visible text, so Voice Control can name them.
+- `performAccessibilityAudit()` runs in the Stage 2 XCTest UI run.
+
+**Reduce Motion** (directive F17). `UIAccessibility.isReduceMotionEnabled` with its change notification, and Prefer Cross-Fade Transitions, feed one `ReducedMotion` service. The behaviour is the Motion section's reduced-motion list, unchanged.
+
+**Pointer and keyboard on iPad** (directive F18).
+- Click is a tap, click-drag follows the one-finger rule, trackpad scroll pans, pinch zooms, and a secondary click is a long-press. No hover states.
+- Esc is back or close per the Back table; Return is the open sheet's primary button.
+- Full Keyboard Access uses the existing 2 dp `lamp` focus outline.
+
+**Smart Invert** (directive F19). The canvas, gallery tiles, the completion screen and every picture or photo are `accessibilityIgnoresInvertColors`, so the picture is always shown true, as today.
+
+**New iOS copy** (task DR2), in English and the 11 languages, each with a store-name check: the three encode lines and the ready state (D4), "Getting your photo…" (D6), the Paywall and Restore lines (D7), the Photos add string, the ATT purpose string, and the F9 store-neutral variants.
+
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
@@ -853,3 +978,6 @@ Video repairs have no limit; VIP gets one free repair every 7 days; a grace repa
 | 2026-10-24 | Review prompt always on (T52, #139): the `features.review` catalog switch is gone, so Play's sheet takes its place in the one-interruption order (after the reminder ask, before the interstitial) in every build from 0.8.4 (20). Nothing of ours is drawn and no copy changes | CEO C8: the prompt shouldn't wait for a catalog flip; closed testers get Play's private-feedback sheet, and the ten unreviewed languages see it too (O8, accepted) |
 | 2026-10-25 | "Where did you find Gemmory?" (T56, #157): one quiet row under Done on a first-run install's first fresh finish (consent granted), answered in a sheet of five full-width quiet buttons plus Skip, paying 1 photo canvas (not VIP), then a thanks line. **First-finish cap (D8): T56 is the first finish's one extra ask; nothing else is added to the first finish's completion screen or its return without moving or removing something already there.** QuietButton gains a `selected` lamp outline (the Chip's "this one") | Round-4 design review D3-D12 (founder picks, 2026-10-25), eng re-run R3 (one row and a sheet: the inline block didn't fit the 60% text column at 100% font) and R4 (the video answer keeps its brand names, ~36 characters); approved HTML mockup `docs/designs/mockups/t56-where-found/` |
 | 2026-10-26 | Store listing photo set: the Play screenshots and feature graphic in all 13 listing locales follow the English set the founder shipped with 0.7.0 (photo canvases, not bundled art): a title in Bone in the language's display face at 600 and a subtitle in `text-muted` in its body face over the felt lit from the top (`felt-raised` → `felt` → `felt-deep`), the shot in a `scrim` phone; the feature graphic is "Gemmory", the tagline in `lamp` and one line beside the puppy's gem art. The 1920×1080 tablet set (7" and 10") puts the text on the left and the shot in a landscape `scrim` tablet on the right, the first frame on the puppy's art with "Your photos never leave your phone.". Drawn by `StoreFrames` from `StoreScreenshots#photoCanvases`, which now answers the reminder ask first so the gallery shot shows the gallery | The founder's English set leads with the player's own photo, the store's strongest promise; the T49 frames (bundled pictures, one caption) were weaker and never uploaded. One tool keeps the 12 other languages in the same look with their own faces (Bricolage and Figtree have no Cyrillic or Japanese) |
+| 2026-11-05 | iOS copies Android (T61, #169; iOS design review D2-D9 and the founder directive, `docs/designs/gemmory-ios.md`): the iOS section lists only forced differences, each with its closest iOS equivalent; ATT shows at launch right after UMP with no sheet of ours (D8, founder override of eng D16); Game Center signs in like Play Games (D9) | Founder: "do like android", "dont change". One shared UI, so one set of rules; a difference is recorded, never invented |
+| 2026-11-05 | Liquid Glass for system UI only (iOS directive F21): Apple's share sheet, StoreKit, ATT, PHPicker and Game Center draw in Apple's style; our own surfaces never use glass, blur or translucency | Same stance as Android's system dialogs; glass over the felt would break the matte "Sorting Tray" and compete with the picture |
+| 2026-11-05 | Centered sheet on wide screens (iOS design D3): from 600 wide every sheet is a centered card, at most 560 wide, 16 radius on all corners, same scrim and dismiss rules; phones keep the bottom sheet; Android tablets get it too (shared UI) | A full-width bottom sheet on an iPad reads as a stretched phone; one rule for both platforms' tablets |
