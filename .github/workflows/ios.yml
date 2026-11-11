@@ -167,13 +167,11 @@ jobs:
           path: ~/.konan
           key: ${{ steps.konan.outputs.cache-primary-key }}
 
-      # Both boot now: a new iPad's first boot takes about 6 min, so it boots while the iPhone tests run. Gradle is
-      # stopped above, which leaves room for two simulators in the runner's 7 GB.
-      - name: Boot the simulators
+      # One simulator at a time: booting the iPad during the iPhone tests made them take 13 min instead of 4.5 on the
+      # runner's 3 cores (#168), more than the iPad's own boot saves.
+      - name: Boot the iPhone
         timeout-minutes: 10
-        run: |
-          xcrun simctl boot "$IPAD_UDID"
-          xcrun simctl bootstatus "$IPHONE_UDID" -b
+        run: xcrun simctl bootstatus "$IPHONE_UDID" -b
 
       - name: XCTests on the iPhone
         timeout-minutes: 15
@@ -182,9 +180,10 @@ jobs:
             -destination "id=$IPHONE_UDID" -derivedDataPath build/ios-dd \
             -resultBundlePath build/ios-results/iphone.xcresult
 
+      # A new iPad's first boot takes about 6 min on the runner.
       - name: XCTests on the iPad
         if: ${{ !cancelled() }}
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           xcrun simctl shutdown "$IPHONE_UDID" || true
           xcrun simctl bootstatus "$IPAD_UDID" -b
