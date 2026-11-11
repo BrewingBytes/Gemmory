@@ -130,3 +130,19 @@ Each of these shipped as Claude's draft, with no native-speaker review yet (foun
 ### ICU data built for iOS 18.5
 - **What:** linking warns that skiko's ICU object was built for iOS 18.5 while the app's minimum is 18.0 (eng D2). Decide in Stage 2 whether the minimum moves to 18.5 or the warning is harmless.
 - **Priority:** P3
+
+### Renderer memory and batch size on iOS (from the #167 review)
+- **What:** (a) the spike's `SpikeRenderer` ignores the evicted bucket's atlas (`newBucket = { spec, _ -> … }`), so every zoom bucket a pinch crosses allocates a new atlas, where Android's `CanvasRenderer` reuses it (`Atlas.of(…, recycled)`); (b) iOS `drawCellBatch` passes the whole capacity arrays (up to 16k quads) to `drawVertices` on every batch, zeroing the tail instead of copying.
+- **Why:** both cost native memory and per-frame marshalling that the 120 Hz gate (draw p95 0.67 ms on the 15 Pro Max) didn't catch.
+- **Context:** Stage 1a (T62), when the shared renderer replaces `CanvasRenderer`: carry the recycling over, and measure `copyOf(count)` against the zeroed tail on the phone.
+- **Priority:** P2 (with 1a)
+
+### Test hooks and backup exclusion in the iOS app (from the #167 review)
+- **What:** (c) `-reset` (deletes the save) and `-bench` work in Release builds, because the UI tests run against Release; gate them before the app ships. (d) Check whether `NSURLIsExcludedFromBackupKey` also keeps files out of iPhone-to-iPhone transfer (AGENTS.md: photo data stays out of backup and device transfer).
+- **Context:** Stage 1c (T64), before photo files are stored on iOS.
+- **Priority:** P1 for (d), P3 for (c)
+
+### Linker warnings from Kotlin/Native's caches under Xcode 27
+- **What:** linking the iOS test binaries prints `warning: could not open …/klib/cache/ios_simulator_arm64-gSTATIC-system/…-cache.a(….a.o)` for each platform cache (Xcode 27.2, Kotlin 2.4.21). The tests link and pass.
+- **Context:** recheck on the next Kotlin update; if it persists, report it to JetBrains or turn off the native cache for the test link.
+- **Priority:** P3

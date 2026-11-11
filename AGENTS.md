@@ -9,7 +9,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 - **Adults only.** The app is not directed at children (Play Families / AdMob child-directed rules stay off).
 - **User photos never leave the phone.** No upload, no backend for user content, and photo data is excluded from cloud backup and device transfer.
 - **No ads on the play canvas.** Interstitials only after leaving the completion screen, under the caps in the design doc.
-- **`shared/src/commonMain` is pure Kotlin.** No `android.*` or `java.awt` imports. `composeApp/src/commonMain` has no `android.*`, `platform.*` or `java.*` either.
+- **`shared/src/commonMain` is pure Kotlin.** No `android.*` or `java.*` imports (it also builds for iOS). `composeApp/src/commonMain` has no `android.*`, `platform.*` or `java.*` either.
 - **A wrong-color tap is rejected with no state change.** The save log is an ordered list of placed cell indices.
 - **UI follows `docs/design-system.md`.** Ask the user before departing from it. When reviewing or QA-ing UI, flag code that doesn't match it.
 - **Every PR shows what it changes.** Its body carries emulator screenshots of each screen or state it adds or changes, before and after where something existed (how in [docs/agents/workflow.md](docs/agents/workflow.md)). When the change has no screen of ours (a system or Play sheet, a background job), say so in the body and show the nearest thing that can be captured.
