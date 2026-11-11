@@ -23,6 +23,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
+      # The ios-gate status logic (T60): every branch, with a stub gh.
+      - name: ios-gate script test
+        run: .github/scripts/ios-gate-test.sh
+
       # The runner's preinstalled SDK has accepted licenses; AGP downloads the pinned platform if missing.
       - name: Purity check, tests, app unit tests, debug build, lint
         run: ./gradlew :shared:checkCommonMainPurity :shared:allTests :composeApp:checkCommonMainPurity :composeApp:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug

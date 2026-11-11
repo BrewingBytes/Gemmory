@@ -1,0 +1,380 @@
+# iOS CI (T60, eng D19, D24, D25; plan docs/designs/gemmory-ios.md). Three parts:
+#  - `ios`: on every PR and every push to main, with no path filter (shared code changes iOS too). It runs the
+#    `:shared` and `:composeApp` tests on the iOS simulator, builds GemmoryKit and the app, runs the XCTests on one
+#    pinned iPhone and one pinned iPad, and uploads the simulator screenshots for PR bodies (`ios-screenshots`).
+#  - the `ios-gate` commit status, the required check on main (eng D25): it follows the `ios` job, except on a PR
+#    labelled `android-hotfix`, where it passes at once and the `ios` job still runs and reports
+#    (.github/scripts/ios-gate.sh). No job is named `ios-gate`: a green job of that name would satisfy the check.
+#  - `testflight`: an `ios-v<marketing>+<build>` tag (e.g. `ios-v0.1.0+1`) archives, signs and uploads to TestFlight,
+#    then sends the dSYMs to Crashlytics. `v*` tags stay Android (testlab.yml).
+# Pins: the macos-26 image's Xcode 26.6 and its iOS 26.5 simulators. Moving either is its own PR (workflow.md → iOS).
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    tags: ['ios-v*']
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+  SIM_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
+  SIM_IPHONE: iPhone 17 Pro
+  SIM_IPAD: iPad Air 11-inch (M4)
+  PROJECT: iosApp/iosApp.xcodeproj
+  SCHEME: iosApp
+
+jobs:
+  ios:
+    name: ios
+    # Label changes only re-post the gate; they never rebuild.
+    if: ${{ !startsWith(github.ref, 'refs/tags/') && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    # PRs: a new push cancels the old build. main: one group per commit, so a third push can't replace a pending one.
+    concurrency:
+      group: ios-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # A runner image update can drop the pinned Xcode or runtime; say so plainly instead of failing in simctl.
+      - name: Select Xcode
+        run: |
+          if [ ! -d "$XCODE_APP" ] || ! xcrun simctl list runtimes -j | jq -e --arg id "$SIM_RUNTIME" '.runtimes[] | select(.identifier == $id and .isAvailable)' >/dev/null; then
+            echo "::error::The macos-26 image no longer has $XCODE_APP or $SIM_RUNTIME. Move the pins in ios.yml (workflow.md → iOS); until then, android-hotfix lets Android-only PRs merge."
+            ls -d /Applications/Xcode_*.app; xcrun simctl list runtimes
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      # Kotlin/Native's compiler and its dependencies (about 1 GB), keyed on the Kotlin version.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      # Fresh simulators on the pinned runtime, so a runner image update can't move the device or the iOS version.
+      # The iPhone is booted here: a cold runtime boot can hang the first test run (lessons, 2026-11-05).
+      - name: Create the simulators
+        timeout-minutes: 5
+        run: |
+          iphone=$(xcrun simctl create "Gemmory iPhone" "$SIM_IPHONE" "$SIM_RUNTIME")
+          ipad=$(xcrun simctl create "Gemmory iPad" "$SIM_IPAD" "$SIM_RUNTIME")
+          echo "IPHONE_UDID=$iphone" >> "$GITHUB_ENV"
+          echo "IPAD_UDID=$ipad" >> "$GITHUB_ENV"
+          xcrun simctl bootstatus "$iphone" -b
+
+      - name: Kotlin tests on the simulator (:shared, :composeApp)
+        timeout-minutes: 20
+        run: ./gradlew -Pgemmory.iosSimulator="$IPHONE_UDID" :shared:iosSimulatorArm64Test :composeApp:iosSimulatorArm64Test
+
+      # The scheme's test action uses Release, so this also links the Release GemmoryKit an archive ships.
+      - name: Build GemmoryKit, the app and the UI tests
+        timeout-minutes: 20
+        run: |
+          xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-dd CODE_SIGNING_ALLOWED=NO
+
+      - name: XCTests on the iPhone
+        timeout-minutes: 15
+        run: |
+          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
+            -destination "id=$IPHONE_UDID" -derivedDataPath build/ios-dd \
+            -resultBundlePath build/ios-results/iphone.xcresult
+
+      # One simulator at a time: the runner has 7 GB of memory.
+      - name: XCTests on the iPad
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: |
+          xcrun simctl shutdown "$IPHONE_UDID" || true
+          xcrun simctl bootstatus "$IPAD_UDID" -b
+          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
+            -destination "id=$IPAD_UDID" -derivedDataPath build/ios-dd \
+            -resultBundlePath build/ios-results/ipad.xcresult
+
+      # ScreenshotTests attaches each screen as `screen-<n>-<name>`; failure screenshots come along too.
+      - name: Export the screenshots
+        if: ${{ !cancelled() }}
+        timeout-minutes: 5
+        run: |
+          for device in iphone ipad; do
+            bundle="build/ios-results/$device.xcresult"
+            [ -d "$bundle" ] || continue
+            raw="build/ios-shots-raw/$device"
+            # Screenshots are evidence, not a gate: a partial bundle or an odd manifest must not fail a green run.
+            xcrun xcresulttool export attachments --path "$bundle" --output-path "$raw" || { echo "::warning::no attachments exported from $device"; continue; }
+            mkdir -p "build/ios-screenshots/$device"
+            jq -r '.[].attachments[]? | [.exportedFileName, .suggestedHumanReadableName] | @tsv' "$raw/manifest.json" |
+              while IFS=$'\t' read -r file name; do
+                # Xcode suggests `<name>_<n>_<uuid>.<ext>`; keep `<name>.<ext>` so a shot has the same name every run.
+                name=$(sed -E 's/_[0-9]+_[0-9A-Fa-f-]{36}(\.[A-Za-z]+)$/\1/' <<<"$name")
+                case "$file" in *.png|*.jpeg|*.jpg|*.heic) cp "$raw/$file" "build/ios-screenshots/$device/$name" ;; esac
+              done
+          done
+          {
+            echo '### iOS screenshots'
+            echo "Artifact \`ios-screenshots\` (one folder per simulator: $SIM_IPHONE and $SIM_IPAD, iOS ${SIM_RUNTIME##*iOS-}):"
+            echo
+            (cd build/ios-screenshots 2>/dev/null && find . -type f | sort | sed 's|^\./|- |') || echo '- none'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: ios-screenshots
+          path: build/ios-screenshots/
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: ios-reports
+          path: |
+            build/ios-results/
+            shared/build/reports/
+            composeApp/build/reports/
+
+  # The gate when a PR opens or moves, and when `android-hotfix` is added or removed: pending until the `ios` job
+  # finishes, or success at once with the label.
+  gate:
+    name: gate status
+    if: ${{ github.event_name == 'pull_request' && ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'android-hotfix') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Post ios-gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/ios-gate.sh "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.head.sha }}"
+
+  # The gate once the `ios` job has a result (also after a re-run).
+  gate-result:
+    name: gate status after build
+    needs: ios
+    if: ${{ always() && github.event_name == 'pull_request' && needs.ios.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Post ios-gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/ios-gate.sh "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.head.sha }}" "${{ needs.ios.result }}"
+
+  testflight:
+    name: testflight
+    if: ${{ startsWith(github.ref, 'refs/tags/ios-v') }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    concurrency:
+      group: testflight
+      cancel-in-progress: false
+    env:
+      KEYCHAIN: ${{ github.workspace }}/build/signing.keychain-db
+      ARCHIVE: build/Gemmory.xcarchive
+    steps:
+      # ios-v<marketing>+<build>: CFBundleShortVersionString and CFBundleVersion. App Store Connect refuses a build
+      # number it has seen for that version, so a failed upload is retried with the next build number.
+      - name: Read the version from the tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^ios-v([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
+            echo "::error::Tag '$tag' isn't ios-v<major>.<minor>.<patch>+<build> (e.g. ios-v0.1.0+1)"
+            exit 1
+          fi
+          echo "MARKETING_VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=${BASH_REMATCH[2]}" >> "$GITHUB_ENV"
+
+      - name: Check the signing and upload secrets
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_DIST_CERT_P12: ${{ secrets.IOS_DIST_CERT_P12 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=()
+          for name in IOS_TEAM_ID IOS_DIST_CERT_P12 IOS_DIST_CERT_PASSWORD IOS_PROVISIONING_PROFILE ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]} (docs/play-compliance.md → iOS signing and TestFlight)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Only reviewed code is signed: the tagged commit must be on main (the signing secrets are read after this).
+      - name: Check the tag is on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main ||
+            { echo "::error::$GITHUB_REF_NAME points at ${GITHUB_SHA::7}, which isn't on main. Tag a main commit."; exit 1; }
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      # A throwaway keychain with the Apple Distribution certificate, and the App Store profile where Xcode looks.
+      - name: Install the certificate and the profile
+        env:
+          IOS_DIST_CERT_P12: ${{ secrets.IOS_DIST_CERT_P12 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          mkdir -p build
+          password=$(uuidgen)
+          echo "::add-mask::$password"
+          echo "KEYCHAIN_PASSWORD=$password" >> "$GITHUB_ENV"
+          security create-keychain -p "$password" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$password" "$KEYCHAIN"
+          base64 --decode <<<"$IOS_DIST_CERT_P12" > build/dist.p12
+          security import build/dist.p12 -k "$KEYCHAIN" -P "$IOS_DIST_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm build/dist.p12
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$KEYCHAIN" >/dev/null
+          read -r -a existing <<<"$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')"
+          security list-keychains -d user -s "$KEYCHAIN" "${existing[@]}"
+
+          base64 --decode <<<"$IOS_PROVISIONING_PROFILE" > build/profile.mobileprovision
+          security cms -D -i build/profile.mobileprovision > build/profile.plist
+          uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' build/profile.plist)
+          name=$(/usr/libexec/PlistBuddy -c 'Print :Name' build/profile.plist)
+          for dir in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$dir"
+            cp build/profile.mobileprovision "$dir/$uuid.mobileprovision"
+          done
+          echo "PROFILE_NAME=$name" >> "$GITHUB_ENV"
+          echo "Profile: $name ($uuid)"
+
+      - name: Archive
+        timeout-minutes: 30
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          xcodebuild archive -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" -derivedDataPath build/ios-dd \
+            MARKETING_VERSION="$MARKETING_VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN"
+          /usr/libexec/PlistBuddy -c 'Print :ApplicationProperties' "$ARCHIVE/Info.plist"
+
+      - name: Upload to TestFlight
+        timeout-minutes: 15
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          key="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key"
+          cat > build/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$IOS_TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict><key>com.brewingbytes.gemmory</key><string>$PROFILE_NAME</string></dict>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath build/export \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -authenticationKeyPath "$key" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          rm -f "$key"
+
+      # Crashlytics symbolicates with the archive's dSYMs (the app's, which hold the statically linked Kotlin code).
+      # Firebase's upload-symbols is fetched at a pinned firebase-ios-sdk commit and checked against its git blob id.
+      # Until the iOS Firebase app exists (Stage 2) there is no GoogleService-Info.plist and the upload is skipped.
+      # After a successful TestFlight upload the build number is spent, so a failure here must not fail the release:
+      # the dSYMs are kept as an artifact and can be sent by hand (upload-symbols -gsp … -p ios <dSYMs>).
+      - name: Upload the dSYMs to Crashlytics
+        continue-on-error: true
+        env:
+          IOS_GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST }}
+          FIREBASE_SDK_COMMIT: dc6dfd442b1f3ec215ed62b8beb2623ffab010d6 # tag 13.1.1
+          UPLOAD_SYMBOLS_BLOB: 6ac5ec0e48e1a0d23c8010132bd71c39caffc036
+        run: |
+          ls "$ARCHIVE/dSYMs"
+          (cd "$ARCHIVE" && zip -qr "$GITHUB_WORKSPACE/build/dSYMs.zip" dSYMs)
+          if [ -z "$IOS_GOOGLE_SERVICE_INFO_PLIST" ]; then
+            echo "::warning::dSYMs not sent to Crashlytics: no IOS_GOOGLE_SERVICE_INFO_PLIST secret (the iOS Firebase app comes in Stage 2). They're in the ios-dsyms artifact."
+            exit 0
+          fi
+          base64 --decode <<<"$IOS_GOOGLE_SERVICE_INFO_PLIST" > build/GoogleService-Info.plist
+          curl -fsSL -o build/upload-symbols \
+            "https://raw.githubusercontent.com/firebase/firebase-ios-sdk/$FIREBASE_SDK_COMMIT/Crashlytics/upload-symbols"
+          [ "$(git hash-object build/upload-symbols)" = "$UPLOAD_SYMBOLS_BLOB" ] || { echo '::error::upload-symbols changed'; exit 1; }
+          chmod +x build/upload-symbols
+          build/upload-symbols -gsp build/GoogleService-Info.plist -p ios "$ARCHIVE/dSYMs"
+
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: ios-dsyms-${{ env.MARKETING_VERSION }}-${{ env.BUILD_NUMBER }}
+          path: build/dSYMs.zip
+          if-no-files-found: warn
+
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### TestFlight ${MARKETING_VERSION} (${BUILD_NUMBER})"
+            echo "From \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::7}, Xcode $(xcodebuild -version | head -1 | cut -d' ' -f2)."
+            echo "The build shows in App Store Connect → TestFlight once Apple has processed it (usually 5-30 min)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the keychain
+        if: ${{ always() }}
+        run: security delete-keychain "$KEYCHAIN" || true
