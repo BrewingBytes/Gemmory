@@ -1,9 +1,10 @@
 # iOS CI (T60, eng D19, D24, D25; plan docs/designs/gemmory-ios.md). Three parts:
-#  - `ios`: on every PR and every push to main, with no path filter (shared code changes iOS too). It runs the
-#    `:shared` and `:composeApp` tests on the iOS simulator, builds GemmoryKit and the app, runs the XCTests on one
-#    pinned iPhone and one pinned iPad, and uploads the simulator screenshots for PR bodies (`ios-screenshots`).
-#  - the `ios-gate` commit status, the required check on main (eng D25): it follows the `ios` job, except on a PR
-#    labelled `android-hotfix`, where it passes at once and the `ios` job still runs and reports
+#  - `ios-kotlin` and `ios`, side by side on every PR and every push to main, with no path filter (shared code changes
+#    iOS too). `ios-kotlin` runs the `:shared` and `:composeApp` tests on the iOS simulator; `ios` builds GemmoryKit and
+#    the app, runs the XCTests on one pinned iPhone and one pinned iPad, and uploads the simulator screenshots for PR
+#    bodies (`ios-screenshots`).
+#  - the `ios-gate` commit status, the required check on main (eng D25): it follows both jobs, except on a PR
+#    labelled `android-hotfix`, where it passes at once and the jobs still run and report
 #    (.github/scripts/ios-gate.sh). No job is named `ios-gate`: a green job of that name would satisfy the check.
 #  - `testflight`: an `ios-v<marketing>+<build>` tag (e.g. `ios-v0.1.0+1`) archives, signs and uploads to TestFlight,
 #    then sends the dSYMs to Crashlytics. `v*` tags stay Android (testlab.yml).
@@ -29,6 +30,78 @@ env:
   SCHEME: iosApp
 
 jobs:
+  # The two macOS jobs run side by side, each under its own 45-min cap (a cold run is about 16 min here and 30 in `ios`);
+  # `ios-gate` waits for both. Cold-run timings: workflow.md → iOS.
+  ios-kotlin:
+    name: ios-kotlin
+    # Label changes only re-post the gate; they never rebuild.
+    if: ${{ !startsWith(github.ref, 'refs/tags/') && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    # PRs: a new push cancels the old build. main: one group per commit, so a third push can't replace a pending one.
+    concurrency:
+      group: ios-kotlin-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # A runner image update can drop the pinned Xcode or runtime; say so plainly instead of failing in simctl.
+      - name: Select Xcode
+        run: |
+          if [ ! -d "$XCODE_APP" ] || ! xcrun simctl list runtimes -j | jq -e --arg id "$SIM_RUNTIME" '.runtimes[] | select(.identifier == $id and .isAvailable)' >/dev/null; then
+            echo "::error::The macos-26 image no longer has $XCODE_APP or $SIM_RUNTIME. Move the pins in ios.yml (workflow.md → iOS); until then, android-hotfix lets Android-only PRs merge."
+            ls -d /Applications/Xcode_*.app; xcrun simctl list runtimes
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      # Kotlin/Native's compiler and its dependencies (about 1 GB), keyed on the Kotlin version.
+      - name: Restore the Kotlin/Native cache
+        id: konan
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      # A fresh simulator on the pinned runtime, booted first: a cold runtime boot can hang the first test run
+      # (lessons, 2026-11-05).
+      - name: Create the simulator
+        timeout-minutes: 5
+        run: |
+          iphone=$(xcrun simctl create "Gemmory iPhone" "$SIM_IPHONE" "$SIM_RUNTIME")
+          echo "IPHONE_UDID=$iphone" >> "$GITHUB_ENV"
+          xcrun simctl bootstatus "$iphone" -b
+
+      - name: Kotlin tests on the simulator (:shared, :composeApp)
+        timeout-minutes: 30
+        run: ./gradlew -Pgemmory.iosSimulator="$IPHONE_UDID" :shared:iosSimulatorArm64Test :composeApp:iosSimulatorArm64Test
+
+      # Saved as soon as Kotlin has filled it, so a later failure or the job's time limit can't lose it. When both jobs
+      # miss, the second save only warns that the key exists.
+      - name: Save the Kotlin/Native cache
+        if: ${{ !cancelled() && steps.konan.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.konan
+          key: ${{ steps.konan.outputs.cache-primary-key }}
+
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: ios-kotlin-reports
+          path: |
+            shared/build/reports/
+            composeApp/build/reports/
+
   ios:
     name: ios
     # Label changes only re-post the gate; they never rebuild.
@@ -69,46 +142,43 @@ jobs:
           key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
 
       # Fresh simulators on the pinned runtime, so a runner image update can't move the device or the iOS version.
-      # The iPhone is booted here: a cold runtime boot can hang the first test run (lessons, 2026-11-05).
       - name: Create the simulators
         timeout-minutes: 5
         run: |
-          iphone=$(xcrun simctl create "Gemmory iPhone" "$SIM_IPHONE" "$SIM_RUNTIME")
-          ipad=$(xcrun simctl create "Gemmory iPad" "$SIM_IPAD" "$SIM_RUNTIME")
-          echo "IPHONE_UDID=$iphone" >> "$GITHUB_ENV"
-          echo "IPAD_UDID=$ipad" >> "$GITHUB_ENV"
-          xcrun simctl bootstatus "$iphone" -b
+          echo "IPHONE_UDID=$(xcrun simctl create "Gemmory iPhone" "$SIM_IPHONE" "$SIM_RUNTIME")" >> "$GITHUB_ENV"
+          echo "IPAD_UDID=$(xcrun simctl create "Gemmory iPad" "$SIM_IPAD" "$SIM_RUNTIME")" >> "$GITHUB_ENV"
 
-      - name: Kotlin tests on the simulator (:shared, :composeApp)
-        timeout-minutes: 20
-        run: ./gradlew -Pgemmory.iosSimulator="$IPHONE_UDID" :shared:iosSimulatorArm64Test :composeApp:iosSimulatorArm64Test
+      # Release, as the scheme's test action says: Debug Kotlin/Native runs the app so slowly on the runner's simulator
+      # that a launch took 4 min (#168). The Release link is the long part of this job.
+      - name: Build GemmoryKit, the app and the UI tests
+        timeout-minutes: 30
+        run: |
+          xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-dd CODE_SIGNING_ALLOWED=NO
+          ./gradlew --stop
 
-      # Saved as soon as Kotlin has filled it, so a later failure or the job's time limit can't lose it.
+      # Saved as soon as Kotlin has filled it, so a later failure or the job's time limit can't lose it. When both jobs
+      # miss, the second save only warns that the key exists.
       - name: Save the Kotlin/Native cache
         if: ${{ !cancelled() && steps.konan.outputs.cache-hit != 'true' }}
+        continue-on-error: true
         uses: actions/cache/save@v4
         with:
           path: ~/.konan
           key: ${{ steps.konan.outputs.cache-primary-key }}
 
-      # Debug, not the scheme's Release: Kotlin's optimized Release link takes 12 min on the runner, and Debug reuses the
-      # klibs the step above compiled. The Release GemmoryKit is built by every ios-v* archive (testflight below).
-      - name: Build GemmoryKit, the app and the UI tests
-        timeout-minutes: 20
-        run: |
-          xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-dd CODE_SIGNING_ALLOWED=NO
-          ./gradlew --stop
-
-      # A new iPad's first boot takes about 6 min on the runner, so it boots while the iPhone tests run. Gradle is
+      # Both boot now: a new iPad's first boot takes about 6 min, so it boots while the iPhone tests run. Gradle is
       # stopped above, which leaves room for two simulators in the runner's 7 GB.
-      - name: Start booting the iPad
-        run: xcrun simctl boot "$IPAD_UDID"
+      - name: Boot the simulators
+        timeout-minutes: 10
+        run: |
+          xcrun simctl boot "$IPAD_UDID"
+          xcrun simctl bootstatus "$IPHONE_UDID" -b
 
       - name: XCTests on the iPhone
         timeout-minutes: 15
         run: |
-          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" -configuration Debug \
+          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
             -destination "id=$IPHONE_UDID" -derivedDataPath build/ios-dd \
             -resultBundlePath build/ios-results/iphone.xcresult
 
@@ -118,7 +188,7 @@ jobs:
         run: |
           xcrun simctl shutdown "$IPHONE_UDID" || true
           xcrun simctl bootstatus "$IPAD_UDID" -b
-          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" -configuration Debug \
+          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
             -destination "id=$IPAD_UDID" -derivedDataPath build/ios-dd \
             -resultBundlePath build/ios-results/ipad.xcresult
 
@@ -161,8 +231,6 @@ jobs:
           name: ios-reports
           path: |
             build/ios-results/
-            shared/build/reports/
-            composeApp/build/reports/
 
   # The gate when a PR opens or moves, and when `android-hotfix` is added or removed: pending until the `ios` job
   # finishes, or success at once with the label.
@@ -183,10 +251,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: .github/scripts/ios-gate.sh "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.head.sha }}"
 
-  # The gate once the `ios` job has a result (also after a re-run).
+  # The gate once both macOS jobs have a result (also after a re-run).
   gate-result:
     name: gate status after build
-    needs: ios
+    needs: [ios, ios-kotlin]
     if: ${{ always() && github.event_name == 'pull_request' && needs.ios.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -200,7 +268,7 @@ jobs:
       - name: Post ios-gate
         env:
           GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/ios-gate.sh "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.head.sha }}" "${{ needs.ios.result }}"
+        run: .github/scripts/ios-gate.sh "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.head.sha }}" "${{ needs.ios.result }}" "${{ needs.ios-kotlin.result }}"
 
   testflight:
     name: testflight

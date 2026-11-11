@@ -8,8 +8,9 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/bin"
 
-# The stub answers `gh pr view` with $STUB_LABELS (one per line), `gh api …/check-runs` by running the script's --jq
-# filter over $STUB_RUNS, and records `gh api --method POST …/statuses` in $work/posted.
+# The stub answers `gh pr view` with $STUB_LABELS (one per line), `gh api …/check-runs?check_name=ios…` by running the
+# script's --jq filter over $STUB_RUNS (and `ios-kotlin` over $STUB_KOTLIN), and records `gh api --method POST
+# …/statuses` in $work/posted.
 cat > "$work/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -19,8 +20,9 @@ if [ "$1" = api ] && [ "$2" = --method ]; then
   exit 0
 fi
 if [ "$1" = api ]; then
+  case "$2" in *check_name=ios-kotlin*) runs=$STUB_KOTLIN ;; *) runs=$STUB_RUNS ;; esac
   shift 2
-  [ "$1" = --jq ] && jq -r "$2" <<<"$STUB_RUNS"
+  [ "$1" = --jq ] && jq -r "$2" <<<"$runs"
   exit 0
 fi
 echo "unexpected gh call: $*" >&2; exit 1
@@ -31,12 +33,13 @@ export PATH="$work/bin:$PATH" GITHUB_REPOSITORY=o/r GITHUB_SERVER_URL=https://gi
 export STUB_POSTED="$work/posted"
 failures=0
 
-# check <name> <expected state or "none"> <labels> <runs json> [result arg]
+# check <name> <expected state or "none"> <labels> <ios runs json> [ios result] [ios-kotlin result]
+# `ios-kotlin` is green unless $KOTLIN (its runs json) says otherwise.
 check() {
   local name=$1 want=$2
-  export STUB_LABELS=$3 STUB_RUNS=$4
+  export STUB_LABELS=$3 STUB_RUNS=$4 STUB_KOTLIN=${KOTLIN:-$(runs "$green")}
   : > "$STUB_POSTED"
-  "$here/ios-gate.sh" 7 0123456789abcdef ${5:+"$5"} > /dev/null
+  "$here/ios-gate.sh" 7 0123456789abcdef "${5:-}" "${6:-}" > /dev/null
   local got
   got=$(sed -n 's/^state=//p' "$STUB_POSTED")
   got=${got:-none}
@@ -64,12 +67,20 @@ check 'only skips is pending'                    pending ''  "$(runs "$label_ski
 check 'the newest real run wins'                 pending ''  "$(runs "$green" "$building")"
 check 'a timed-out run (newest, cancelled) fails' failure ''  "$(runs "$cancelled")"
 check 'a run replaced by a newer one waits'      pending ''  "$(runs "$cancelled" "$building")"
-check 'job result success'                       success ''  "$none" success
-check 'job result failure'                       failure ''  "$none" failure
-check 'job cancelled by its time limit fails'    failure ''  "$(runs "$cancelled")" cancelled
-check 'job cancelled by a newer run waits'       pending ''  "$(runs "$cancelled" "$building")" cancelled
-check 'job cancelled, newer run already green'   success ''  "$(runs "$cancelled" "$(run completed '"success"' 2026-11-11T10:20:00Z)")" cancelled
-check 'hotfix label over a cancelled job result' success 'android-hotfix' "$none" cancelled
+check 'job results both success'                success ''  "$none" success success
+check 'job result failure'                       failure ''  "$none" failure success
+check 'job cancelled by its time limit fails'    failure ''  "$(runs "$cancelled")" cancelled success
+check 'job cancelled by a newer run waits'       pending ''  "$(runs "$cancelled" "$building")" cancelled success
+check 'job cancelled, newer run already green'   success ''  "$(runs "$cancelled" "$(run completed '"success"' 2026-11-11T10:20:00Z)")" cancelled success
+check 'hotfix label over a cancelled job result' success 'android-hotfix' "$none" cancelled cancelled
+
+# The second job, ios-kotlin.
+check 'kotlin job failure fails a green app'     failure ''  "$none" success failure
+KOTLIN=$(runs "$cancelled") check 'kotlin timed out fails'       failure ''  "$none" success cancelled
+KOTLIN=$(runs "$building") check 'kotlin still running waits'     pending ''  "$(runs "$green")"
+KOTLIN=$(runs "$red")      check 'kotlin red fails, app green'    failure ''  "$(runs "$green")"
+KOTLIN=$(runs "$red")      check 'hotfix label beats a red kotlin' success 'android-hotfix' "$(runs "$green")"
+KOTLIN=$none               check 'no kotlin run yet waits'        pending ''  "$(runs "$green")"
 
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }
 echo 'all passed'
