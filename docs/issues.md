@@ -4,7 +4,7 @@ Source: `docs/designs/gemmory.md` → "Implementation Tasks" (T1-T12) and "Decis
 Created on GitHub on 2026-10-13 as issues #1-#14 (T*n* = #*n*, https://github.com/BrewingBytes/Gemmory/issues). The issues are the live source; this file is the snapshot they were created from. Each section is one issue: the `##` line is the title, `Labels:` lists its labels, and the rest is the body.
 Updated after the Phase 5 design review (2026-10-13, D3-D27): T2, T3, T4, T7, T8 and T10 gained UI scope, and T13 (app shell and screens) and T14 (accessibility and large screens) were added. UI specs and exact copy live in `docs/design-system.md`.
 Later issues break the T*n* = #*n* mapping: T15 = #18 (plan step S6, which had no issue), T16 = #19 and T17 = #20 (both from playing #18 on the emulator), T18 = #29 (founder request during #19), T19-T24 = #31-#36 (from an app review after #19), T25 = #38 (founder request), T26 = #40 (follow-up of #12), T27 = #43 (founder request during #5), T28 = #49 (Play Console suggestion, founder request during the 0.3.0 release), T29 = #50 (an existing device-check failure found during #32), T30 = #54 and T31 = #55 (both from #11), T32 = #57 and T33 = #58 (both founder requests during #35), T34 = #74 (ad mediation design, 2026-10-18).
-Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)). After round 3's planning: #144 (clip store CTA, founder request after T47, no T-number) and T53 = #145 (share video ad, from T50's /plan-design-review), both on 2026-10-23, at the end. Round 4 (T54-T57, plan `docs/designs/gemmory-round4.md`, office hours 2026-10-24, CEO, eng and design reviews 2026-10-24/25) is at the very end, created on GitHub on 2026-10-25 as T54 = #155, T55 = #156, T56 = #157, T57 = #158 (T*n* = #(*n*+101)); T58 was cut at the CEO review (C2). After that, #163 (build warnings, founder request, 2026-10-26, no T-number) is at the end.
+Round 2 (T35-T44, eng review 2026-10-19) is at the end of this file, created on 2026-10-19 as #76-#85 (T*n* = #(*n*+41)). Issues filed after that carry no T-number (#86-#88, #90-#91 and #100 are PRs): #89 (founder request, 2026-10-20), then the Duolingo-style streak, #101-#104 (founder request, 2026-10-21; plan `docs/designs/streak-screen.md`), at the end. Round 3 (T45-T52, eng review 2026-10-22) is at the end of this file, created on GitHub as T45 = #132, T46 = #133, T47 = #134, T48 = #135, T49 = #136, T50 = #137, T51 = #138, T52 = #139 (T*n* = #(*n*+87)). After round 3's planning: #144 (clip store CTA, founder request after T47, no T-number) and T53 = #145 (share video ad, from T50's /plan-design-review), both on 2026-10-23, at the end. Round 4 (T54-T57, plan `docs/designs/gemmory-round4.md`, office hours 2026-10-24, CEO, eng and design reviews 2026-10-24/25) is at the very end, created on GitHub on 2026-10-25 as T54 = #155, T55 = #156, T56 = #157, T57 = #158 (T*n* = #(*n*+101)); T58 was cut at the CEO review (C2). After that, #163 (build warnings, founder request, 2026-10-26, no T-number) is at the end. The iOS port (T59-T68, plan `docs/designs/gemmory-ios.md`, office hours and the CEO, eng and design reviews on 2026-11-05) is at the very end, created on GitHub on 2026-11-05 as #167-#176 (T*n* = #(*n*+108)).
 
 ---
 
@@ -1491,3 +1491,281 @@ Founder request (2026-10-26, during T56 (where found), PR #160): list every buil
 Effort: human ~1d / CC ~1.5h (most of it is the connected run after the v2 migration).
 
 **Built in PR (2026-10-26, branch `fix/163-build-warnings`):** re-counted on `main` at `74617d7`: 23 Kotlin warnings (two more `OPT_IN_USAGE` in `InstallReferrerReaderTest`) and lint as above. The deprecated compose rules were in 44 androidTest files, not 15: Gradle's problem report showed only some of them. All 25 PluralsCandidate strings became `<plurals>` in the 12 languages (founder: all of them, no `tools:ignore`), each counted by the number its words agree with (`left`, `finished`, `coming`, the palette size, the fills); translations that used a label form to dodge the plural ("kolorów: %d") now say it. The TalkBack collection heading joins its two counted parts (`a11y_collection` + `collection_coming`), and pt-BR's collection counts keep a label form ("Concluídos: 0 de 3"), because CLDR's Portuguese "one" also takes 0 (review round 1). `MainActivity` reads `GemmoryApp.celebrationsOn`. Kotlin `allWarningsAsErrors` (both modules, every compilation) and lint `warningsAsErrors` keep the list at zero, with no baseline (founder). The AGP `Configuration.setVisible` deprecation stays the one expected Gradle warning.
+
+---
+
+# iOS port (T59-T68), created 2026-11-05 as #167-#176
+
+## T59: iOS Stage 0: spike, toolchain and the renderer golden baseline
+Labels: P1, ios, spike
+
+iOS (staged parity, one shared Compose Multiplatform UI): plan `docs/designs/gemmory-ios.md`, from office hours and the CEO, eng and design reviews on 2026-11-05. Later sections win; eng decisions are "eng D*n*" and design decisions "design D*n*". Snapshot: `docs/issues.md`.
+
+**Gate: don't start until the Apple Developer Program enrollment is active** (individual, or organization with a D-U-N-S number). The founder dropped the 5-named-testers gate on 2026-11-05: Apple has no tester requirement, and it was our own demand check (CEO D12). Stage 0 only adds code and never touches the Android release path.
+
+**Why:** prove that the shared UI can draw and play a canvas on iPhone before Android moves onto it (premise 4, D4).
+
+**Scope**
+- Modules (eng D1): `:shared` gains `iosArm64` and `iosSimulatorArm64`; a new `:composeApp` module; `iosApp/` (Xcode project, static framework `GemmoryKit`).
+  - A purity check fails `:composeApp` `commonMain` on any `android.*`, `platform.*` or `java.*` import.
+  - `kotlin.native.ignoreDisabledTargets=true`, so the Ubuntu CI line stays green.
+- Toolchain (R10-5): Kotlin 2.4.21, AGP 9.4.1, and the Compose release whose Jetpack base equals `compose-bom` 2026.09.00. Check whether Compose 1.12's iOS artifacts on Google Maven can replace the separate JetBrains line.
+- Spike renderer in common `DrawScope`:
+  - one bundled picture with pinch zoom, pan, and tap to place (a wrong color rejected with no state change);
+  - save and resume;
+  - one Compose Resources string;
+  - `drawCellBatch` over raw platform `drawVertices`, and `bakedBitmap` updated in place (R3-12, OV-8).
+- Golden baseline (R3-1): a test-only androidTest in `:androidApp` draws today's renderers into `goldens/renderer/`, covering the play canvas per zoom bucket and highlight style, plus one `FrameArt` end-card frame. The `:composeApp` device test compares the spike against them.
+- Things to check (they decide later stages):
+  - CMP plurals picked by the app language through `ResourceEnvironment`, and `%%` rendering. If either fails, Stage 1b uses our own XML reader (eng D23).
+  - The CMP iOS back gesture can be turned off per screen (design D2).
+  - `customActions` and live region map to VoiceOver.
+  - Dynamic Type follows live.
+
+**Done when**
+- `:shared` tests pass on the iOS simulator.
+- The spike runs on the simulator and on the founder's iPhone 17 Pro.
+- **Gate (eng D12):** p95 frame time ≤ 8.3 ms at 120 Hz while panning and zooming the largest canvas on the 17 Pro. Info.plist sets `CADisableMinimumFrameDurationOnPhone`, and frame time is measured with signposts and an XCTest metric. The 60 Hz figure is recorded.
+- The spike passes the golden bar on Android.
+- `./gradlew :androidApp:dependencies` shows no Compose downgrade, and the iOS targets compile under `allWarningsAsErrors`.
+- The check results are written in this issue.
+- A miss redesigns and re-runs the spike; two misses go back to the CEO review.
+
+Effort: human ~3d / CC ~1.5h
+
+---
+
+## T60: iOS CI: required ios.yml and ios-v* TestFlight uploads
+Labels: P1, ios, ci
+
+Plan `docs/designs/gemmory-ios.md` (eng D19, D24, D25, R3-7). Depends on #167 (T59).
+
+**Scope**
+- `.github/workflows/ios.yml` on a pinned macOS runner image with Xcode 26.6 pinned, on every PR and every push to main, with no path filter.
+  - It builds `GemmoryKit` and the app, runs the `:shared` and `:composeApp` `iosSimulatorArm64Test` tasks, and runs the XCTests on one pinned iPhone and one pinned iPad simulator (iOS 26 runtime).
+  - Time limits: `timeout-minutes: 45` on the job and `timeout` on every simulator step (AGENTS.md).
+  - Simulator screenshots are uploaded as artifacts for PR bodies.
+- A required check in main's branch protection. A PR labelled `android-hotfix` passes a small `ios-gate` job without waiting for the macOS build, which still runs and reports (premise 2: iOS never blocks Android).
+- `ios-v<marketing>+<build>` tags (e.g. `ios-v0.1.0+1`) run a signed archive and the TestFlight upload, with the App Store Connect API key as CI secrets, and upload the app's dSYM. `v*` stays Android-only.
+- `docs/agents/workflow.md` gets:
+  - an iOS section (simulator screenshots, tags, the hotfix label);
+  - the Test Lab quota rule: the eng D13 checks run inside each phone's encoder-smoke run, iOS runs go on a day with no Android candidate, and re-checks use the one-phone input.
+
+**Done when:** a PR that breaks iOS compilation fails; an `android-hotfix` PR merges on `ci.yml` alone; a test tag produces a TestFlight build with symbols in Crashlytics.
+
+Effort: human ~2d / CC ~45min
+
+---
+
+## T61: iOS design rules and compliance docs
+Labels: P1, ios, ui, documentation
+
+Plan `docs/designs/gemmory-ios.md`: "Design review" (design D2-D9 and the founder directive table: iOS copies Android) and eng E9. Must land before #172 (T64) moves any screen.
+
+**Scope**
+- An iOS section in `docs/design-system.md`. **iOS copies Android's rules**; where iOS forces a difference, this section records the closest iOS equivalent. It covers:
+  - the per-screen back table (design D2);
+  - centered sheets from 600 wide and keyboard behaviour (design D3);
+  - background-encode copy and states (design D4);
+  - share-sheet anchors and the Photos add string (design D5);
+  - "Getting your photo…" (design D6);
+  - Paywall/Restore/family copy and the 3.1.2 items (design D7);
+  - ATT at launch right after UMP, with no sheet of ours (design D8);
+  - Game Center sign-in like Play Games (design D9);
+  - store-neutral strings, the neutral lockup, large screens (rail needs height ≥ 480), audio (`.ambient`), the haptics mapping, Language via iOS Settings, Dynamic Type clamped at 2.0, safe areas, Liquid Glass for system UI only, the widget;
+  - VoiceOver, Reduce Motion, pointer and keyboard, and Smart Invert restated from the TalkBack and Android rules.
+- Decision-log entries: Liquid Glass (system UI only), the iPad centered sheet.
+- `docs/play-compliance.md`: an App Store section (honest age rating, no Kids category, privacy manifest and labels, CI-secret rotation).
+- `docs/privacy-policy.md`: an iOS section (photos excluded from backup and encrypted to this device, eng D11).
+- `docs/reading-first-30-days.md`: a platform split and the after-launch bars (eng D18, D26).
+- `docs/channel-links.md`: an iOS column (App Store Connect campaign links).
+
+**Done when:** every row of the plan's design directive table and design D2-D9 is in `docs/design-system.md`, and the four other docs name their decisions.
+
+Effort: human ~1d / CC ~30min
+
+---
+
+## T62: iOS Stage 1a: shared renderers on Android
+Labels: P1, ios, renderer
+
+Plan `docs/designs/gemmory-ios.md` (Stage 1a; R10-3, R10-6, R10-8; eng D13, D24). Depends on #167 (T59).
+
+**Gate: don't start until all of these hold (CEO D12):** Apple enrollment is active; Android production is live with #74 (T34); Android's 30-day readout meets the round-1 success criteria; and the owed #163 connected-suite run is green.
+
+**Scope**
+- `CanvasRenderer`, `GemRenderer`, `TableCut`, `FrameArt`, `StreakShareCard` and the `AppFonts` text are rewritten to common `DrawScope` in `:composeApp`. Text moves to `TextMeasurer`.
+- They take fonts and drawn strings through an interim `RenderAssets` interface, filled from `R.font` and `Messages`; Stage 1b deletes it.
+- `BuildConfig.SHARED_RENDERER`, from the Gradle property `gemmory.sharedRenderer`, defaults to true. A hotfix sets it to false to pick the old renderers.
+- The old renderers, the constant and its branch are deleted together after one Android release ships on the new ones.
+- Goldens:
+  - the full renderer golden bar (geometry; text and blur regions);
+  - `StreakShareCard` per streak tier, in en and ja;
+  - a Japanese wrap fixture matching today's `wrapFor` output;
+  - `GlyphCheckTest` stays green.
+- Hardware checks, folded into each phone's encoder-smoke run (4 runs per candidate, as today):
+  - `PlayScreen` captured through the hardware path on the 3 Test Lab phones vs the software goldens, SSIM ≥ 0.97;
+  - the produced MP4 decoded at the intro, mid and end-card timestamps vs the composited goldens, SSIM ≥ 0.95.
+- A JVM test asserts the release variant's `SHARED_RENDERER` value.
+
+**Done when:** the golden bar passes, the hardware checks pass, the connected suite is green, and Test Lab frame timing is no worse than v1.0.0. The release goes out at 100% (D11).
+
+Effort: human ~1w / CC ~3h
+
+---
+
+## T63: iOS Stage 1b: strings, fonts, pictures and music move to shared resources
+Labels: P1, ios, build
+
+Plan `docs/designs/gemmory-ios.md` (Stage 1b; eng D9, D10, D23). Depends on #170 (T62).
+
+**Scope**
+- Strings:
+  - The `strings.xml` files of all 11 locales move to `:composeApp` `composeResources`.
+  - The T48 sealed message types stay. `Messages` moves to common code, mapping to `Res.string`/`Res.plurals` with the exhaustive `when` kept.
+  - `Strings` stays synchronous: a suspend preload in the app language, at startup and on a language change, so the ~232 call sites are unchanged.
+  - An `expect` `LocaleFormats` handles numbers and dates.
+  - Notifications and the Glance widget use `suspend getString`. Only the app label and launcher name stay in minimal Android `res`.
+  - If T59 showed CMP can't pick plurals by the app language, or mangles `%%`, use our own XML reader over the same files instead, with Android `res` generated from them.
+- Fonts and bundled pictures move.
+- The iOS `InfoPlist.xcstrings` and widget strings are generated from the same XML, with a staleness test.
+- Music: 6 × `music_<n>.m4a` (AAC-LC 96 kbps, −20 LUFS / −2 dBTP), transcoded from the original sources, used on both platforms. The `.ogg` files are deleted and `tools/sounds/PROVENANCE.md` is updated.
+- `RenderAssets` is deleted.
+- Repointed and green: `BundledGridToolTest`, `freezeBundledGrid`, `publishRemotePicture`/`publishPictureBatch`, `frameStoreShots`, `GlyphCheckTest`, the arg-count test.
+
+**Done when:** new tests pass (the "21 fills" plural in every locale, `%%` renders as `%`, the preload finishes before the first frame, every `music_*` has a PROVENANCE row), the repointed tools are green, music plays on a device, and Android's size growth is measured and written here.
+
+Effort: human ~1w / CC ~3h
+
+---
+
+## T64: iOS Stage 1c: core-loop screens to shared UI, with the state and storage seams
+Labels: P1, ios, ui, persistence
+
+Plan `docs/designs/gemmory-ios.md` (Stage 1c, eng D21: core loop only before Stage 2; eng D5-D8, OV-4, OV-5, OV-9; design D2, D3). Depends on #171 (T63) and #169 (T61).
+
+**Scope**
+- Seams in `:composeApp` `commonMain`:
+  - `androidx.lifecycle` ViewModel + `SavedStateHandle` (KMP) for the 7 `AndroidViewModel` files (eng D5).
+  - `AppGraph(PlatformServices)`, built once per shell, with `LocalAppGraph` and `viewModelFactory` (eng D6).
+  - `KeyValueStore` wrapping the **same** SharedPreferences file names and keys (eng D7). **No Android player data is ever migrated.**
+  - `FileStore`: read, writeAtomic (fsync, rename, dir sync), list, delete, exists, mkdirs, moveDir, copy, deleteRecursive. On Android it's today's `AtomicFiles` code (eng D8).
+  - `StorageLayout.neverBackedUp`, covering paths and prefs files (OV-9).
+- Screens that move: Gallery, Photo flow, Play, Completion, share and the minimal Settings. The rest move in the stage that needs them.
+- The per-screen back table (design D2) and the centered sheet from 600 wide (design D3) are in place, in shared UI.
+
+**Done when**
+- A golden test lists every prefs file name and key.
+- A connected test seeds today's prefs XML and save files and reads them back value for value.
+- The existing `AtomicFiles` tests, disk-full included, run against the new seam.
+- Each PR passes the `ScreenParity` gate: every `StoreScreenshots` state, in en and ja, at font scale 1.0 and 2.0, fails above 0.5% of pixels differing by more than 8/255. Baselines live in `goldens/screens/` (eng D14).
+- The connected suite is green, and Android stays releasable at every merge.
+
+Effort: human ~1w / CC ~3h
+
+---
+
+## T65: iOS Stage 2: the core loop on TestFlight
+Labels: P1, ios, timelapse, ui
+
+Plan `docs/designs/gemmory-ios.md` (Stage 2; eng D2-D4, D11, D12, D15, D20, D22, OV-1/2/3/5; design D4-D6, directive table). Depends on #172 (T64) and #168 (T60).
+
+**Scope**
+- App: universal iPhone + iPad, iOS 18 minimum.
+- iOS services:
+  - `FileStore` with POSIX `F_FULLFSYNC` and backup exclusion.
+  - `PhotoCipher`: AES-GCM with a this-device-only Keychain key for `canvases/photo`. A file is deleted only when the key loaded and authentication then fails; a locked device never deletes. `tmp/` and `Caches/timelapse` are swept at launch.
+  - Photo readers get bytes, never paths.
+  - `PhotoDecoder` (`CGImageSource`) and Vision faces.
+  - PHPicker: one image; "Getting your photo…" with Cancel (design D6).
+  - `RemoteSource` on `NSURLSession`, using the common timeouts.
+  - The share sheet: a popover anchored on iPad, and the Photos add string (design D5).
+- Encode:
+  - Core Image/Metal compositor and AVAssetWriter.
+  - Background lifecycle: `BGContinuedProcessingTask` asking for `.gpu` on iOS 26, `beginBackgroundTask` on 18-25.
+  - Expiry, termination or a lost GPU go through `expire()`: marker kept, partial deleted, the notice re-checked on `ON_START`.
+  - iOS copy and states (design D4): screen awake, the 18-25 hint, the iOS stopped line, "Your video is ready", system card copy.
+- The `ON_STOP` save flush runs inside `beginBackgroundTask`.
+- Crashlytics + CrashKiOS with the app's dSYM (eng D15). Analytics only after UMP consent; Crashlytics always on.
+- Store-neutral strings plus a JVM test that fails on "Google Play", "Play Store", "Play Games" or "Android" in any iOS string. The neutral lockup on the end card and the feed cut, with a badge-off golden.
+- Copied from Android: haptics, audio (`.ambient`), safe areas, Dynamic Type, VoiceOver, Reduce Motion, pointer and keyboard (`docs/design-system.md` iOS section from #169 (T61)).
+
+**Done when**
+- XCTests pass: expiry → notice once; a locked Keychain doesn't delete; a wrong key deletes; a rotated JPEG decodes right; the save flush completes.
+- An iOS BackupRules mirror test passes. `performAccessibilityAudit()` runs in the UI test.
+- A forced Kotlin crash shows Kotlin file:line in Crashlytics.
+- **Gates:**
+  - the iOS cross-platform golden bar, SSIM ≥ 0.97;
+  - encode on the 17 Pro ≤ the Pixel encoder-smoke time, with peak memory ≤ 400 MB (eng D20; on a miss, a Metal surface straight into the `CVPixelBuffer`);
+  - p95 ≤ 16.7 ms on the oldest Test Lab iPhone (eng D12).
+- Internal, then external TestFlight.
+- Read once there are ≥ 10 testers with a session (finish and share rates from ≥ 10 consented testers): ≥ 60% finish their first picture, ≥ 30% share a time-lapse, ≥ 99% crash-free sessions.
+
+Effort: human ~2w / CC ~6h
+
+---
+
+## T66: iOS Stage 3: ads, ATT and VIP (StoreKit 2 with Family Sharing)
+Labels: P2, ios, ads, billing
+
+Plan `docs/designs/gemmory-ios.md` (Stage 3; CEO D4, D9; eng D16, D17, D26; design D7, D8). Depends on #173 (T65).
+
+**Scope**
+- Ads:
+  - Google Mobile Ads iOS, UMP, and Unity bidding through AdMob mediation.
+  - The ATT system prompt at first launch right after UMP, the same moment as Android's UMP, with **no sheet of ours** (design D8). Denied or restricted → non-personalized ads.
+  - A common test of the order rule (UMP denied → no ATT; ATT denied → non-personalized ads).
+  - Child-directed flags off. Never on the canvas. Interstitials within the caps.
+  - Settings → Privacy choices adds "Tracking", which opens iOS Settings.
+- VIP:
+  - The StoreKit 2 `BillingBackend` covering VIP, `remove_ads`, restore and `Transaction.updates` revocation.
+  - Family Sharing on for both products, **switched on only at the Stage 5 submission** (permanent per product).
+  - Grant on `.familyShared`, revoke when family access ends; tag `entitlement_source=family`.
+- The Paywall moves with the iOS copy and the 3.1.2 items (design D7): the state copy, the fine print, Terms + Privacy links, a quiet Restore button, the billed price as the larger figure.
+- The privacy manifest and nutrition labels match observed SDK traffic (GMA, Unity, Firebase).
+
+**Done when:** a StoreKit configuration test covers buy, restore, refund revoke, and family-shared grant and revoke; sandbox purchase and restore work; a test-labelled rewarded ad fills on a registered device in a TestFlight build; and ATT, the manifest and the labels agree with the traffic.
+
+Effort: human ~1w / CC ~3h
+
+---
+
+## T67: iOS Stage 4: retention parity
+Labels: P2, ios
+
+Plan `docs/designs/gemmory-ios.md` (Stage 4; CEO D2, D3; R3-9; design directive). Depends on #174 (T66).
+
+**Scope**
+- These screens move to shared UI with the iOS mappings from #169 (T61):
+  - Streaks: celebration, screen, nudge, repair, freezes and share card;
+  - collections, the weekly event, the mystery picture, scheduled drops;
+  - sounds and music, the review prompt (`AppStore.requestReview`).
+- Reminders on `UNUserNotificationCenter`, with an attachment thumbnail (never a photo).
+- Shared-picture landing through universal links and `apple-app-site-association`. A fresh install opens to the gallery (CEO D7).
+- Game Center as a `GamesBackend`: started at the Play Games moment, with its sign-in shown like Play Games (design D9). Achievements in App Store Connect in 11 languages.
+- WidgetKit streak widget (`systemSmall`, the Glance look in our fonts), reading only a streak snapshot from an App Group. Photos never enter the App Group.
+
+**Done when:** every Stage 4 parity-checklist row is ticked (same, replaced, or dropped with a reason), with its shared tests passing on iOS. With ≥ 10 external testers, ≥ 25% are active on day 7.
+
+Effort: human ~2w / CC ~6h
+
+---
+
+## T68: iOS Stage 5: full parity and the first App Store release
+Labels: P2, ios, release
+
+Plan `docs/designs/gemmory-ios.md` (Stage 5; CEO C5/D13, D8, D9; eng D17, D18, D26). Depends on #175 (T67).
+
+**Scope**
+- The remaining screens move.
+- Every parity-checklist row is ticked.
+- The iOS end card adds the App Store badge, and the T50 landing page adds the App Store button.
+- One App Store Connect campaign link per channel (`docs/channel-links.md`).
+- An App Store listing in 11 languages with iPhone and iPad screenshots (the T49 frames adapted).
+- The honest age rating, no Kids category.
+- Family Sharing switched on for VIP and `remove_ads`.
+- The first submission and release.
+
+**Done when:** App Review approves within two submissions; a third rejection goes to the CEO review. The after-launch bars are written in `docs/reading-first-30-days.md`: iOS D7 ≥ Android's D7 minus 3 points; iOS ARPDAU ≥ 1.0× Android's, excluding family-shared-only users, read at ≥ 100 iOS daily users. If they're missed after 60 days, iOS-only work pauses.
+
+Effort: human ~1w / CC ~3h
