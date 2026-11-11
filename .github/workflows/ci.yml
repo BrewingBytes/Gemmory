@@ -25,7 +25,7 @@ jobs:
 
       # The runner's preinstalled SDK has accepted licenses; AGP downloads the pinned platform if missing.
       - name: Purity check, tests, app unit tests, debug build, lint
-        run: ./gradlew :shared:checkCommonMainPurity :shared:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug
+        run: ./gradlew :shared:checkCommonMainPurity :shared:allTests :composeApp:checkCommonMainPurity :composeApp:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug
 
       - name: Upload reports
         if: failure()
@@ -34,4 +34,5 @@ jobs:
           name: reports
           path: |
             shared/build/reports/
+            composeApp/build/reports/
             androidApp/build/reports/

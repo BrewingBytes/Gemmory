@@ -48,7 +48,7 @@ class EndCardGoldenTest {
         val failures = mutableListOf<String>()
 
         val band = spike.band(pattern).asAndroidBitmap()
-        band.compress(Bitmap.CompressFormat.PNG, 100, File(out, "endcard-band.png").outputStream())
+        File(out, "endcard-band.png").outputStream().use { band.compress(Bitmap.CompressFormat.PNG, 100, it) }
         val bandDiff = GoldenMath.diff(pixels(golden("endcard-band.png")), pixels(band))
         report("endcard-band differing=${GoldenMath.pct(bandDiff.differingShare)} maxDiff=${bandDiff.maxDiff} geometry=${pass(bandDiff.geometryPasses)}")
         if (!bandDiff.geometryPasses) failures += "band"
@@ -57,7 +57,7 @@ class EndCardGoldenTest {
         val card = layout.card!!
         val icon = Res.readBytes("files/share/app_icon.png").let { BitmapFactory.decodeByteArray(it, 0, it.size).asImageBitmap() }
         val actual = spike.card(card, icon, "Gemmory", "Your photos in gems").asAndroidBitmap()
-        actual.compress(Bitmap.CompressFormat.PNG, 100, File(out, "endcard-card.png").outputStream())
+        File(out, "endcard-card.png").outputStream().use { actual.compress(Bitmap.CompressFormat.PNG, 100, it) }
         val goldenCard = golden("endcard-card.png")
         val w = goldenCard.width
         val h = goldenCard.height
@@ -85,8 +85,9 @@ class EndCardGoldenTest {
             "endcard-card textSsim=${GoldenMath.fmt(textSsim)} shadowSsim=${GoldenMath.fmt(shadowSsim)} " +
                 "nonText differing=${GoldenMath.pct(layerDiff.differingShare)} maxDiff=${layerDiff.maxDiff}",
         )
-        if (textSsim < 0.98) failures += "card text"
-        if (shadowSsim < 0.98) failures += "card shadow"
+        // Written as !(≥) so a NaN (no window inside the mask) fails too.
+        if (!(textSsim >= 0.98)) failures += "card text"
+        if (!(shadowSsim >= 0.98)) failures += "card shadow"
         assertTrue(failures.isEmpty(), "over the golden bar: $failures")
     }
 

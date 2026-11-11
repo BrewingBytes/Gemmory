@@ -80,7 +80,20 @@ final class SpikeFlowTests: XCTestCase {
             if now == last { break }
             last = now
         }
-        circle.tap()
+        // The accessibility frame can lag a Compose fling, so a tap may only stop the scroll (as a touch does on
+        // Android too). Tap again until the status line shows the slot; the selection itself isn't being tested here.
+        for attempt in 1...3 {
+            circle.tap()
+            let deadline = Date().addingTimeInterval(2)
+            while Date() < deadline {
+                if status()["slot"] == Double(slot) {
+                    if attempt > 1 { print("pick(slot: \(slot)) needed \(attempt) taps") }
+                    return
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            }
+        }
+        XCTFail("couldn't select slot \(slot); status: \(app.descendants(matching: .any)["status"].label)")
     }
 
     private func status() -> [String: Double] {

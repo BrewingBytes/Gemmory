@@ -57,7 +57,7 @@ class SpikeRendererGoldenTest {
             val golden = BitmapFactory.decodeByteArray(png, 0, png.size).copy(Bitmap.Config.ARGB_8888, false)
             val (image, numberBoxes) = GoldenRender.render(pattern, measurer, mono, case)
             val actual = image.asAndroidBitmap()
-            actual.compress(Bitmap.CompressFormat.PNG, 100, File(out, "$name.png").outputStream())
+            File(out, "$name.png").outputStream().use { actual.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val result = compare(golden, actual, numberBoxes)
             val figures = "$name differing=${GoldenMath.pct(result.diff.differingShare)} maxDiff=${result.diff.maxDiff} textSsim=${GoldenMath.fmt(result.textSsim)} " +
                 "geometry=${if (result.geometryPasses) "pass" else "FAIL"} text=${if (result.textPasses) "pass" else "FAIL"}"
@@ -69,8 +69,8 @@ class SpikeRendererGoldenTest {
         // (GoldenIosTest reads them from composeApp/build/android-w700/ once pulled; README → iOS spike).
         val mono700 = FontFamily(Font(font, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))))
         for (case in cases.filter { it.zoomDp >= 16f }) {
-            GoldenRender.render(pattern, measurer, mono700, case).first.asAndroidBitmap()
-                .compress(Bitmap.CompressFormat.PNG, 100, File(out, "w700-${case.name}.png").outputStream())
+            val w700 = GoldenRender.render(pattern, measurer, mono700, case).first.asAndroidBitmap()
+            File(out, "w700-${case.name}.png").outputStream().use { w700.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
         assertTrue(failures.isEmpty(), "over the golden bar:\n" + failures.joinToString("\n"))
     }

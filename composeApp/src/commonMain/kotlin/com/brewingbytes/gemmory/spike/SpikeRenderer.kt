@@ -44,7 +44,7 @@ internal class SpikeRenderer(
 ) {
     private val colors = CellColors(pattern, mystery)
     private val labels = Array(pattern.palette.size) { (it + 1).toString() }
-    val bake = bakedBitmap(pattern.width, pattern.height)
+    private val bake = bakedBitmap(pattern.width, pattern.height)
     private val canvasBake = CanvasBake(pattern, colors, bake)
     private var density = 0f
     private var style = HighlightStyle.DEFAULT

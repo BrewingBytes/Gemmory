@@ -40,7 +40,10 @@ object GoldenMath {
         return masked
     }
 
-    /** Mean SSIM of 8×8 luma windows: all of them, or only those with at least half their pixels in [region]. */
+    /**
+     * Mean SSIM of 8×8 luma windows: all of them, or only those with at least half their pixels in [region]. NaN when
+     * no window qualifies, so a mask that misses its text or shadow fails a `>=` bar instead of passing as 1.0.
+     */
     fun ssim(a: IntArray, b: IntArray, w: Int, region: BooleanArray? = null): Double {
         val h = a.size / w
         val c1 = (0.01 * 255) * (0.01 * 255)
@@ -81,14 +84,14 @@ object GoldenMath {
             }
             y += 8
         }
-        return if (windows == 0) 1.0 else total / windows
+        return if (windows == 0) Double.NaN else total / windows
     }
 
     private fun luma(p: Int) = 0.299 * ((p shr 16) and 0xFF) + 0.587 * ((p shr 8) and 0xFF) + 0.114 * (p and 0xFF)
 
     private val SHIFTS = intArrayOf(16, 8, 0)
 
-    fun fmt(v: Double): String = ((v * 10000).toLong() / 10000.0).toString()
+    fun fmt(v: Double): String = if (v.isNaN()) "no windows" else ((v * 10000).toLong() / 10000.0).toString()
 
     fun pct(share: Double): String = "${(share * 10000).toLong() / 100.0}%"
 }

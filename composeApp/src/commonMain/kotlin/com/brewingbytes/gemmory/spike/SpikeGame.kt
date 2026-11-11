@@ -45,10 +45,6 @@ internal class SpikeGame private constructor(
 
     override fun isPlaced(cell: Int): Boolean = state.isPlaced(cell)
 
-    fun remaining(slot: Int): Int = state.remaining(slot)
-
-    fun log(): IntArray = state.log()
-
     fun select(slot: Int) {
         if (slot in pattern.palette.indices) selectedSlot = slot
     }
@@ -69,9 +65,9 @@ internal class SpikeGame private constructor(
         const val SAVE = "spike.gmrs"
 
         /** Opens [gridBytes] and resumes its save from [files], if one is there and valid; otherwise starts empty. */
-        fun open(gridBytes: ByteArray, files: SpikeFiles?, log: IntArray? = null): SpikeGame {
+        fun open(gridBytes: ByteArray, files: SpikeFiles?): SpikeGame {
             val grid = (GridCodec.decode(gridBytes) as Decoded.Ok).value
-            val saved = log ?: files?.read(SAVE)?.let { (SaveCodec().decode(it, grid.binding) as? Decoded.Ok)?.value }
+            val saved = files?.read(SAVE)?.let { (SaveCodec().decode(it, grid.binding) as? Decoded.Ok)?.value }
             val state = saved?.let { CanvasState.restore(grid.pattern, it) } ?: CanvasState.empty(grid.pattern)
             return SpikeGame(grid, state, files)
         }
