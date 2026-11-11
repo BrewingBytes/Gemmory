@@ -8,6 +8,9 @@ build/
 local.properties
 
 # IDE
+# Xcode per-user state (iosApp, T59); the project and its shared scheme are committed.
+xcuserdata/
+*.xcodeproj/project.xcworkspace/
 .idea/
 *.iml
 captures/

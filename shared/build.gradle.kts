@@ -22,6 +22,11 @@ kotlin {
     // Host JVM target: runs commonTest fast on CI and hosts build-time tools (converter goldens, starter grid).
     jvm()
 
+    // iOS (T59, eng D1): the same logic on iPhone. Apple-silicon Macs only, so no iosX64. Linux CI skips these
+    // targets (kotlin.native.ignoreDisabledTargets in gradle.properties); the macOS job builds them.
+    iosArm64()
+    iosSimulatorArm64()
+
     sourceSets {
         // Local dates and time zones for the daily ledger and ad caps (midnight, DST). Pure Kotlin.
         commonMain.dependencies {

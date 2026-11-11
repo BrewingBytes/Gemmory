@@ -1,0 +1,16 @@
+# name zoomDp style log (T59 renderer goldens: pictures/deco-peacock.gmrg, 720x1280 px, density 2.0)
+fit-tint-checker 0.0 tint checker
+fit-outline-checker 0.0 outline checker
+fit-dim-checker 0.0 dim checker
+z10-tint-checker 10.0 tint checker
+z10-outline-checker 10.0 outline checker
+z10-dim-checker 10.0 dim checker
+z18-tint-checker 18.0 tint checker
+z18-outline-checker 18.0 outline checker
+z18-dim-checker 18.0 dim checker
+z28-tint-checker 28.0 tint checker
+z28-outline-checker 28.0 outline checker
+z28-dim-checker 28.0 dim checker
+z18-tint-empty 18.0 tint empty
+z18-tint-full 18.0 tint full
+# endcard 1080x1920 en non-VIP player share, finished: endcard-band.png, endcard-card.png (card layer, Play badge included)

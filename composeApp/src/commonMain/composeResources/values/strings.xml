@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- T59 Stage 0 spike only. The app's real strings move here in Stage 1b (or to our own reader, eng D23). -->
+<resources>
+    <string name="spike_title">Art Deco Peacock</string>
+    <!-- The %% probe (eng D23): Android shows "40% done". -->
+    <string name="probe_percent">%1$d%% done</string>
+    <!-- The plural probe (eng D23): each quantity says which category was picked. -->
+    <plurals name="probe_plural">
+        <item quantity="one">one:%1$d</item>
+        <item quantity="other">other:%1$d</item>
+    </plurals>
+</resources>

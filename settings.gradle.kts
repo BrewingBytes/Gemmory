@@ -18,3 +18,5 @@ dependencyResolutionManagement {
 
 include(":shared")
 include(":androidApp")
+// iOS (T59): the shared Compose UI; Stage 0 holds only the spike, and :androidApp doesn't depend on it yet.
+include(":composeApp")
