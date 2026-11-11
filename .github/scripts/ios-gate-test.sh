@@ -62,10 +62,13 @@ check 'a label-change skip is not a verdict'     success ''  "$(runs "$green" "$
 check 'a label-change skip over a red build'     failure ''  "$(runs "$red" "$label_skip")"
 check 'only skips is pending'                    pending ''  "$(runs "$label_skip")"
 check 'the newest real run wins'                 pending ''  "$(runs "$green" "$building")"
-check 'a cancelled run alone is pending'         pending ''  "$(runs "$cancelled")"
+check 'a timed-out run (newest, cancelled) fails' failure ''  "$(runs "$cancelled")"
+check 'a run replaced by a newer one waits'      pending ''  "$(runs "$cancelled" "$building")"
 check 'job result success'                       success ''  "$none" success
 check 'job result failure'                       failure ''  "$none" failure
-check 'job result cancelled posts nothing'       none    ''  "$none" cancelled
+check 'job cancelled by its time limit fails'    failure ''  "$(runs "$cancelled")" cancelled
+check 'job cancelled by a newer run waits'       pending ''  "$(runs "$cancelled" "$building")" cancelled
+check 'job cancelled, newer run already green'   success ''  "$(runs "$cancelled" "$(run completed '"success"' 2026-11-11T10:20:00Z)")" cancelled
 check 'hotfix label over a cancelled job result' success 'android-hotfix' "$none" cancelled
 
 [ "$failures" -eq 0 ] || { echo "$failures failed"; exit 1; }

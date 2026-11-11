@@ -9,8 +9,9 @@
 # latest `ios` check run on the commit (pending while it runs). The label is read live, so adding or removing it while
 # the build runs is honoured by whichever of the two callers posts last.
 #
-# Two results are not verdicts: a `skipped` check run is the `ios` job of a label-change run (it never builds), and a
-# `cancelled` one was replaced by a newer run on the same commit (a reopen or "Re-run all jobs"), which posts its own.
+# A `skipped` check run is never a verdict: it is the `ios` job of a label-change run, which never builds. A `cancelled`
+# job is looked up: if a newer `ios` run exists on the commit (a reopen or "Re-run all jobs" replaced it), that run
+# decides; if it is still the newest, it hit the job's time limit or was stopped by hand, and that is a failure.
 # ios-gate-test.sh (next to this file, run by ci.yml) covers every branch with a stub `gh`.
 set -euo pipefail
 
@@ -25,21 +26,19 @@ if grep -qx 'android-hotfix' <<<"$labels"; then
   state=success
   description='android-hotfix: merges on ci.yml alone; the iOS build still runs and reports'
 else
+  # A cancelled job's own result can't tell a time-out from being replaced; the check runs on the commit can.
+  [ "$result" = cancelled ] && result=
   if [ -z "$result" ]; then
     run=$(gh api "repos/$repo/commits/$sha/check-runs?check_name=ios&filter=all" \
       --jq '.check_runs | map(select(.conclusion != "skipped")) | sort_by(.started_at) | last | "\(.status) \(.conclusion)"')
     case "$run" in
       'completed success') result=success ;;
-      'completed cancelled') result=pending ;;
+      'completed cancelled') result='cancelled or timed out' ;;
       completed\ *) result=${run#completed } ;;
       *) result=pending ;;
     esac
   fi
   case "$result" in
-    cancelled | skipped)
-      echo "ios-gate on ${sha::7}: unchanged (the ios job was $result; a newer run posts the verdict)"
-      exit 0
-      ;;
     success) state=success description='iOS build and tests passed' ;;
     pending) state=pending description='Waiting for the iOS build (ios job)' ;;
     *) state=failure description="iOS build or tests: $result" ;;

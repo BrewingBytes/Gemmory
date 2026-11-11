@@ -61,7 +61,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       # Kotlin/Native's compiler and its dependencies (about 1 GB), keyed on the Kotlin version.
-      - uses: actions/cache@v4
+      - name: Restore the Kotlin/Native cache
+        id: konan
+        uses: actions/cache/restore@v4
         with:
           path: ~/.konan
           key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
@@ -81,28 +83,42 @@ jobs:
         timeout-minutes: 20
         run: ./gradlew -Pgemmory.iosSimulator="$IPHONE_UDID" :shared:iosSimulatorArm64Test :composeApp:iosSimulatorArm64Test
 
-      # The scheme's test action uses Release, so this also links the Release GemmoryKit an archive ships.
+      # Saved as soon as Kotlin has filled it, so a later failure or the job's time limit can't lose it.
+      - name: Save the Kotlin/Native cache
+        if: ${{ !cancelled() && steps.konan.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.konan
+          key: ${{ steps.konan.outputs.cache-primary-key }}
+
+      # Debug, not the scheme's Release: Kotlin's optimized Release link takes 12 min on the runner, and Debug reuses the
+      # klibs the step above compiled. The Release GemmoryKit is built by every ios-v* archive (testflight below).
       - name: Build GemmoryKit, the app and the UI tests
         timeout-minutes: 20
         run: |
-          xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" \
+          xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-dd CODE_SIGNING_ALLOWED=NO
+          ./gradlew --stop
+
+      # A new iPad's first boot takes about 6 min on the runner, so it boots while the iPhone tests run. Gradle is
+      # stopped above, which leaves room for two simulators in the runner's 7 GB.
+      - name: Start booting the iPad
+        run: xcrun simctl boot "$IPAD_UDID"
 
       - name: XCTests on the iPhone
         timeout-minutes: 15
         run: |
-          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
+          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" -configuration Debug \
             -destination "id=$IPHONE_UDID" -derivedDataPath build/ios-dd \
             -resultBundlePath build/ios-results/iphone.xcresult
 
-      # One simulator at a time: the runner has 7 GB of memory.
       - name: XCTests on the iPad
         if: ${{ !cancelled() }}
         timeout-minutes: 15
         run: |
           xcrun simctl shutdown "$IPHONE_UDID" || true
           xcrun simctl bootstatus "$IPAD_UDID" -b
-          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
+          xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" -configuration Debug \
             -destination "id=$IPAD_UDID" -derivedDataPath build/ios-dd \
             -resultBundlePath build/ios-results/ipad.xcresult
 
