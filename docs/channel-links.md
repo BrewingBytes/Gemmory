@@ -4,11 +4,11 @@ One tagged Play Store link per place Gemmory is posted, so every install from it
 
 ## The links
 
-| Channel | `utm_source` | `utm_campaign` | Link |
-|---|---|---|---|
-| TikTok bio | `tiktok` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dtiktok%26utm_campaign%3Dbio` |
-| Instagram bio | `instagram` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dinstagram%26utm_campaign%3Dbio` |
-| YouTube channel (About and Shorts description) | `youtube` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dyoutube%26utm_campaign%3Dbio` |
+| Channel | `utm_source` | `utm_campaign` | Link | iOS `ct` (from Stage 5) |
+|---|---|---|---|---|
+| TikTok bio | `tiktok` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dtiktok%26utm_campaign%3Dbio` | `tiktok-bio` |
+| Instagram bio | `instagram` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dinstagram%26utm_campaign%3Dbio` | `instagram-bio` |
+| YouTube channel (About and Shorts description) | `youtube` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dyoutube%26utm_campaign%3Dbio` | `youtube-bio` |
 
 Add a row here before you post somewhere new, with the rule below. A link is never reused for another community: two places on one link read as one channel.
 
@@ -44,3 +44,14 @@ The app acts on some referrer values, so a channel link carries `utm_source` and
 ## Clips: most installs arrive untagged
 
 Feed posts (the clip itself) carry no link, and TikTok, Instagram and YouTube open bio links in in-app browsers that often drop Play's referrer. So most installs a clip drives arrive as `google-play / organic`. They're read through the organic bucket, split by T56's "where did you find us" answer (`video`), not through the bio links alone. The readout also has a row for players' own feed-cut shares (`share_completed` with `cut` = `feed`).
+
+## iOS: App Store campaign links
+
+From Stage 5 (the App Store release), each channel also gets one App Store Connect campaign link (plan `docs/designs/gemmory-ios.md`, CEO D8). No SDK and nothing in the app reads it: Apple counts the installs in App Store Connect → App Analytics → Sources → Campaigns, in aggregate, from people who share analytics with developers.
+
+`https://apps.apple.com/app/apple-store/id<app id>?pt=<provider token>&ct=<campaign token>&mt=8`
+
+- `<app id>` is the App Store app's Apple ID (App Store Connect → the app → App Information). `<provider token>` is the team's, shown in App Store Connect's campaign link generator (App Analytics → Sources → Campaigns → Generate a campaign link). Both are filled in here once the app record exists.
+- **`ct` is the Play link's `utm_source` and `utm_campaign` joined by a hyphen** (`reddit` + `r-diamondpainting-1024` → `reddit-r-diamondpainting-1024`), so one name reads the same on both stores. Apple allows at most 40 characters: trim the community name, never the platform or the `-MMDD`.
+- The reserved values above have no iOS counterpart (there's no `utm_content` or `utm_medium` on an App Store link), and a fresh iOS install never opens a shared picture (CEO D7).
+- The iOS readout is per campaign only: App Store Connect can't follow an install into Firebase, so the funnel per channel ([reading-first-30-days.md](reading-first-30-days.md) → iOS) stays Android's.

@@ -1,6 +1,6 @@
 # Reading the first 30 days
 
-How to read every success criterion of rounds 1-3 once Gemmory is in production: which event or report answers it, and how much the number can be trusted. The criteria themselves live in the design docs ([round 1](designs/gemmory.md) → Success Criteria, [round 2](designs/gemmory-round2.md), [streak](designs/streak-screen.md) O5, [round 3](designs/gemmory-round3.md), [ads](designs/ad-mediation.md)); the events and their params are listed in round 1's Analytics section. Built with T46 (launch funnel, #133).
+How to read every success criterion of rounds 1-3 (and iOS's after-launch bars) once Gemmory is in production: which event or report answers it, and how much the number can be trusted. The criteria themselves live in the design docs ([round 1](designs/gemmory.md) → Success Criteria, [round 2](designs/gemmory-round2.md), [streak](designs/streak-screen.md) O5, [round 3](designs/gemmory-round3.md), [ads](designs/ad-mediation.md)); the events and their params are listed in round 1's Analytics section. Built with T46 (launch funnel, #133).
 
 ## Before you read a number
 
@@ -108,6 +108,28 @@ Organic has no tag, so it has no Play Console column of its own. A row with 100 
 ## Ads (production launch)
 
 The production-launch checks (AdMob linked to the listing, app-ads.txt verified, non-zero earnings within 7 days) are a checklist, not a 30-day rate: [designs/ad-mediation.md](designs/ad-mediation.md) → Success Criteria and #74.
+
+## iOS: the platform split and the after-launch bars
+
+Plan `docs/designs/gemmory-ios.md` (eng D18, D26, R3-6). iOS sends the same events with the same params into the same Firebase project, as its own app.
+
+**The platform split.**
+- **Every rate is read per platform.** In Explore, add **Platform** (or the iOS app's data stream) as the first breakdown or a segment comparison. Never pool Android and iOS into one rate: they differ in consent, attribution and store, so a pooled number hides both.
+- **The floor of 100 applies per platform.** Below 100 consented iOS players, write iOS as counts, even when Android reads as rates. Localized markets are pooled per platform, as above.
+- **Consent works the same way.** iOS Analytics starts only after UMP consent where UMP shows, exactly as on Android; the ATT answer gates ads, not Analytics.
+- **Play Console's iOS counterpart is App Store Connect → App Analytics** (first-time downloads, sources, campaigns, retention) and Ratings and Reviews. Its usage numbers count only people who share analytics with developers (an opt-in in iOS), so they are lower than the true totals; downloads count everyone.
+- **Where installs come from (round 4) has no Firebase channel on iOS.** There is no install referrer: an iOS install's first user source is the App Store or (direct). Tagged channels are read from App Store Connect → App Analytics → Sources → Campaigns, per campaign link ([channel-links.md](channel-links.md) → iOS), in aggregate only, never linked to a funnel. T56's answer still splits the untagged installs, as for Android's organic bucket. Fresh-install shared-picture opens (T50) don't exist on iOS (CEO D7): skip that row.
+- **TestFlight reads before launch** (Stages 2 and 4): the tester floor (≥ 10) counts App Store Connect TestFlight testers with at least one session; finish and share rates use consented testers and need ≥ 10 of them; crash-free uses Crashlytics, which counts everyone. These are signals, not significance.
+
+**The after-launch bars** (first 30 days of the App Store release; eng D18, amended by D26). Both compare iOS with Android's own 30-day production readout, the one this doc produces; the plan records Android's numbers when that readout meets round 1.
+
+| Bar | How to read it |
+|---|---|
+| iOS D7 retention ≥ Android's D7 minus 3 points | The round 1 cohort exploration (inclusion `first_launch`, return any event, day 7), split by platform. Android's D7 is its readout's number, not a live one. |
+| iOS ARPDAU ≥ 1.0× Android's | Revenue per daily user over the same 30 days, computed the same way on both platforms: ad earnings (AdMob, per app, Unity included through mediation) plus store proceeds (Play Console → Earnings; App Store Connect → Sales and Trends → Proceeds), divided by the summed daily active users (Firebase, per platform). **On iOS the denominator leaves out users whose only entitlement is family-shared**: users whose purchases carry `entitlement_source` = family and who bought nothing themselves (D26). Read only with **≥ 100 iOS daily users**; below that, keep collecting until day 60. |
+
+- Register `entitlement_source` as a custom dimension before the App Store release; registration doesn't apply to the past.
+- **Pause rule:** if iOS misses either bar after 60 days, iOS-only work stops and the shared UI stays.
 
 ## Checking that the events arrive
 

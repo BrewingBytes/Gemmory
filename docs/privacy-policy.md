@@ -1,6 +1,6 @@
 # Gemmory privacy policy
 
-Effective date: 23 October 2026
+Effective date: 11 November 2026
 
 Gemmory: Photo Diamond Art ("Gemmory", "the app") is made by BrewingBytes ("we", "us"). This policy explains what data the app handles, why, who receives it and how long it is kept. Contact: andrei.serban@brewingbytes.com.
 
@@ -96,9 +96,25 @@ When the app is opened for the first time after it's installed, it reads the **i
 
 If Android backup is on, Android may include some of it in your own Google backup and restore it on a new phone: your settings (the evening reminder's on/off and time included), your progress on the built-in pictures (including the ones downloaded from GitHub), your inventory (fills, kept photo canvases, unlock tokens and streak freezes), your daily streak and its calendar (which picture's id you finished first each day, never the picture or a photo, and the days you last used a repair), your achievements progress (what you earned and which Play Games player ID it was sent for), and your consent choice. **Never included:** photo canvases and their progress, the daily photo canvas counter, ad limits, your purchase status, the downloaded list of new pictures (it's fetched again), the install referrer and the time of the first launch, whether you were asked where you found the app, and the Crashlytics and Analytics identifiers.
 
+## On iPhone and iPad
+
+Gemmory is being made for iPhone and iPad too. Once that version is available, everything above applies to it, with these differences.
+
+- **Your photos.** You pick a photo with Apple's photo picker, which gives the app only the one photo you choose; the app can't see the rest of your library. The app's temporary copy of it is deleted as soon as it has been read. Your photo canvases, their grids and your progress on them are kept in the app's private storage, **excluded from iCloud and computer backups**, and **encrypted with a key that stays on this device** (it is kept in the iOS Keychain for this device only and is never synced). If a copy of these files ever reaches another device, for example when you move to a new iPhone, it can't be read there, and the app deletes it.
+- **Face detection** uses Apple's Vision framework on your device. The photo is not sent anywhere. (ML Kit is used only on Android.)
+- **Saving to Photos.** If you choose "Save Video" or "Save Image" in the share sheet, iOS asks whether Gemmory may add to your photo library. That permission lets the app add the file; it can't read your photos.
+- **Sharing** goes through the iOS share sheet. The share text links to the app's page, never to anything of yours.
+- **Ads and tracking.** At first launch, right after the consent form where it applies, iOS asks whether Gemmory may track you across apps and websites. If you said no to personalized ads in the consent form, iOS doesn't ask, and the ads aren't personalized. If you allow it, AdMob and Unity Ads may use your device's advertising identifier (IDFA) as described in "Ads". If you don't, or tracking is restricted, the app doesn't give them the advertising identifier and the ads aren't personalized. You can change this any time in iOS Settings → Privacy & Security → Tracking.
+- **Purchases** go through Apple's App Store, under Apple's privacy policy. We never see your payment details, your Apple Account or your email. If you share VIP or Ads removed with your family through Family Sharing, Apple tells the app that the purchase is family-shared. The app keeps that on your phone and, if you allowed usage statistics, includes "family-shared" with them; it never learns or sends who shared it. Purchases made on Google Play don't carry over to iPhone, and the other way round.
+- **Achievements** use Apple's Game Center instead of Google Play Games, in the same way: which achievement you unlocked, or how far you are with one, linked to your Game Center profile, never your photos or pictures. If you don't use Game Center, nothing is sent.
+- **Where you found the app.** iOS has no install referrer, so the app reads nothing about how it was installed. Apple may count installs from our tagged App Store links in App Store Connect, in totals only.
+- **The streak widget** reads your streak number and its line from a small shared space between the app and the widget on your phone. Your photos are never put there.
+- **What iCloud backup may include.** iOS includes an app's data in your own iCloud or computer backup unless the app excludes it. Gemmory excludes photo canvases and their progress, the daily photo canvas counter, ad limits, your purchase status and the downloaded list of new pictures. Everything else the app keeps on your phone may be included: your settings, your progress on the built-in pictures, your inventory, your streak and its calendar, your achievements progress and your consent choice, as on Android, and also the time of the first launch, whether you were asked where you found the app, and the Crashlytics and Analytics identifiers.
+- **Your choices.** Delete a canvas, use Settings → Delete all photo canvases, or delete the app. Deleting the app removes its files from your phone. iOS may keep the app's encryption key in the Keychain after that, but with the files gone it has nothing left to open.
+
 ## Who receives data
 
-Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Unity Technologies for ads (see "Ads"); Google Play for purchases; Google Play Games for achievements, only if you use Play Games. And GitHub (Microsoft), which receives your IP address and user agent when the app downloads new pictures (see "New pictures"). We don't sell your data, and we don't give it to anyone else. Google, Unity and GitHub may process data outside your country, including in the United States, with the safeguards described in their privacy policies and data processing terms. All of it is sent encrypted (HTTPS/TLS).
+Google, as described above: Firebase Crashlytics and Google Analytics for Firebase process data for us; AdMob and ML Kit as described in their sections; Unity Technologies for ads (see "Ads"); Google Play for purchases; Google Play Games for achievements, only if you use Play Games (on iPhone and iPad, Apple instead: the App Store for purchases and Game Center for achievements, see "On iPhone and iPad"). And GitHub (Microsoft), which receives your IP address and user agent when the app downloads new pictures (see "New pictures"). We don't sell your data, and we don't give it to anyone else. Google, Unity and GitHub may process data outside your country, including in the United States, with the safeguards described in their privacy policies and data processing terms. All of it is sent encrypted (HTTPS/TLS).
 
 ## Your choices and rights
 
