@@ -118,4 +118,6 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimu
     val root = rootProject.layout.projectDirectory
     environment("SIMCTL_CHILD_GEMMORY_ROOT", root.asFile.path)
     inputs.dir(root.dir("goldens")).withPathSensitivity(PathSensitivity.RELATIVE)
+    // T60: CI pins the simulator (device and runtime) by passing its UDID; locally Kotlin picks one.
+    providers.gradleProperty("gemmory.iosSimulator").orNull?.let { device.set(it) }
 }

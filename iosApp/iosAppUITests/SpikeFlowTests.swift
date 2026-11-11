@@ -68,9 +68,13 @@ final class SpikeFlowTests: XCTestCase {
         let circle = app.descendants(matching: .any)["slot-\(slot - 1)"]
         let tray = app.descendants(matching: .any)["tray"]
         var swipes = 0
-        while !(circle.exists && circle.isHittable) && swipes < 12 {
+        while !onScreen(circle, in: tray) && swipes < 12 {
             tray.swipeLeft(velocity: .slow)
             swipes += 1
+        }
+        guard onScreen(circle, in: tray) else {
+            XCTFail("slot \(slot) never scrolled into the tray: circle \(circle.frame), tray \(tray.frame)")
+            return
         }
         // A tap during the fling only stops the scroll, so wait until the circle stops moving.
         var last = circle.frame
@@ -94,6 +98,15 @@ final class SpikeFlowTests: XCTestCase {
             }
         }
         XCTFail("couldn't select slot \(slot); status: \(app.descendants(matching: .any)["status"].label)")
+    }
+
+    /// Whether [element] lies across the tray's width (1 pt slack for rounding). Not `isHittable`: on the iPad's wider
+    /// tray Compose lays out circles past the edge, and asking one of those for hittability fails the test
+    /// ("Activation point invalid"). Only the horizontal extent counts, since the tray scrolls sideways.
+    private func onScreen(_ element: XCUIElement, in tray: XCUIElement) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame, bounds = tray.frame
+        return !frame.isEmpty && frame.minX >= bounds.minX - 1 && frame.maxX <= bounds.maxX + 1
     }
 
     private func status() -> [String: Double] {

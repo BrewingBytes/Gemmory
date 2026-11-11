@@ -166,6 +166,27 @@ The encoder smoke job (`.github/workflows/testlab.yml`, #11; README → "Encoder
 
 To revoke: delete the provider (or the `test-lab-ci` account); the secrets are then useless.
 
+## iOS signing and TestFlight (T60)
+
+An `ios-v<marketing>+<build>` tag runs the `testflight` job in `.github/workflows/ios.yml` (eng D19; workflow.md → iOS): a signed Release archive, the upload to TestFlight, and the dSYMs to Crashlytics. It needs a paid Apple Developer Program membership (a free Personal Team can't upload) and these one-time steps. Nothing here touches a player's photo.
+
+1. **App record.** App Store Connect → Apps → **+ New App**: platform iOS, name Gemmory, bundle ID `com.brewingbytes.gemmory` (register it under Certificates, Identifiers & Profiles → Identifiers first if it isn't listed), SKU `gemmory-ios`.
+2. **Distribution certificate.** developer.apple.com → Certificates → **+** → **Apple Distribution**, from a CSR made on the Mac (Keychain Access → Certificate Assistant → Request a Certificate From a Certificate Authority, saved to disk). Download it, double-click it into the login keychain, then in Keychain Access select the certificate *with its private key* → Export → `.p12` with a strong password.
+3. **Profile.** Profiles → **+** → Distribution → **App Store Connect** → App ID `com.brewingbytes.gemmory` → the certificate from step 2 → name it `Gemmory App Store` → download the `.mobileprovision`.
+4. **API key.** App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → **+**: name `github-testflight`, access **App Manager** (enough to upload; signing is done with the certificate, not by Apple's cloud). Download the `.p8` once (it can't be downloaded again), and note the Key ID and the Issuer ID above the table.
+5. **GitHub secrets.** github.com/BrewingBytes/Gemmory → Settings → Secrets and variables → Actions → New repository secret:
+   - `IOS_TEAM_ID` = the 10-character team ID (Membership details).
+   - `IOS_DIST_CERT_P12` = `base64 -i dist.p12 | pbcopy`, and `IOS_DIST_CERT_PASSWORD` = its export password.
+   - `IOS_PROVISIONING_PROFILE` = `base64 -i Gemmory_App_Store.mobileprovision | pbcopy`.
+   - `ASC_KEY_ID`, `ASC_ISSUER_ID`, and `ASC_KEY_P8` = the whole `.p8` file's text.
+   - From Stage 2, when the iOS app is added to Firebase project `gemmory-3e776`: `IOS_GOOGLE_SERVICE_INFO_PLIST` = `base64 -i GoogleService-Info.plist | pbcopy`. Until then the job skips the Crashlytics upload with a warning and keeps the dSYMs as the `ios-dsyms-…` artifact.
+6. **TestFlight group.** App Store Connect → the app → TestFlight → Internal Testing → **+** a group with yourself, so each processed build reaches your phone.
+7. **Check it worked:** `git tag ios-v0.0.1+1 && git push origin ios-v0.0.1+1`. The job goes green, the build shows under TestFlight after Apple processes it, and (once step 5's plist exists) Crashlytics → dSYMs lists the build's UUID.
+
+Delete the local `.p12`, `.mobileprovision` and `.p8` copies once the secrets are saved; keep the `.p12` and its password in the password manager.
+
+**Rotation.** The API key doesn't expire. Revoke it (Integrations → the key → Revoke) and make a new one when anyone who saw it leaves or a secret may have leaked, then replace the three `ASC_*` secrets. The distribution certificate and the profile expire after a year: about a month before (Apple emails), repeat steps 2-3 and replace `IOS_DIST_CERT_P12`, `IOS_DIST_CERT_PASSWORD` and `IOS_PROVISIONING_PROFILE`. Installed TestFlight and App Store builds keep working when a distribution certificate expires.
+
 ## Production gate (D18)
 
 Production opens only when both checks pass. Everything else from the closed test (percentages, retention, share rate) is informational: about 6-10 consented people each, too few to decide anything.

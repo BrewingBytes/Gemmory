@@ -271,3 +271,10 @@ tasks.register<JavaExec>("checkDropCalendar") {
     mainClass.set("com.brewingbytes.gemmory.tools.DropCalendar")
     args(rootProject.layout.projectDirectory.dir("pictures/v1").asFile.path)
 }
+
+// T60: CI pins the iOS simulator (device and runtime) by passing its UDID; locally Kotlin picks one.
+providers.gradleProperty("gemmory.iosSimulator").orNull?.let { simulator ->
+    tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest>().configureEach {
+        device.set(simulator)
+    }
+}

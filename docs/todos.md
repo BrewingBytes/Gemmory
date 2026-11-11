@@ -139,10 +139,17 @@ Each of these shipped as Claude's draft, with no native-speaker review yet (foun
 
 ### Test hooks and backup exclusion in the iOS app (from the #167 review)
 - **What:** (c) `-reset` (deletes the save) and `-bench` work in Release builds, because the UI tests run against Release; gate them before the app ships. (d) Check whether `NSURLIsExcludedFromBackupKey` also keeps files out of iPhone-to-iPhone transfer (AGENTS.md: photo data stays out of backup and device transfer).
-- **Context:** Stage 1c (T64), before photo files are stored on iOS.
+- **Context:** Stage 1c (T64), before photo files are stored on iOS. Since T60 the Release build is what an `ios-v*` tag sends to TestFlight; testers can't pass launch arguments, so (c) stays P3 until the App Store release.
 - **Priority:** P1 for (d), P3 for (c)
 
 ### Linker warnings from Kotlin/Native's caches under Xcode 27
 - **What:** linking the iOS test binaries prints `warning: could not open …/klib/cache/ios_simulator_arm64-gSTATIC-system/…-cache.a(….a.o)` for each platform cache (Xcode 27.2, Kotlin 2.4.21). The tests link and pass.
 - **Context:** recheck on the next Kotlin update; if it persists, report it to JetBrains or turn off the native cache for the test link.
+- **Priority:** P3
+
+### iOS CI hardening (from the #168 review)
+- **What:** (a) put the `IOS_*`/`ASC_*` secrets in an `ios-release` GitHub Environment with you as required reviewer, and set `environment: ios-release` on the `testflight` job; (b) pin the actions in `ios.yml`'s `testflight` job (at least `gradle/actions/setup-gradle`) to commit SHAs, with Dependabot keeping them current; (c) post `ios-gate` from the base branch's script (`workflow_run` or `pull_request_target`) so fork PRs get it and a PR can't grade itself.
+- **Why:** today anyone with push access can tag a main commit and get it signed, mutable action tags run beside the signing secrets, and a fork PR can't merge (workflow.md → iOS → What the gate can't do).
+- **Context:** a second collaborator, an outside contributor's PR, or the first App Store release, whichever comes first.
+- **Effort estimate:** human S / CC S
 - **Priority:** P3
