@@ -1476,6 +1476,7 @@ Accepted scope:
 - `ios.yml` is a required check in main's branch protection.
 - A PR labelled `android-hotfix` passes a small `ios-gate` job without waiting for the macOS build, which still runs and reports.
 - Documented in `docs/agents/workflow.md`. Premise 2 holds.
+- Implementation note (T60, #168, 2026-11-11): the required `ios-gate` is a commit status posted by `.github/scripts/ios-gate.sh`, not a job. A job can't stay pending until another finishes without waiting for it, and a green job named `ios-gate` would satisfy the required check by itself, so no job carries that name.
 
 ### OV-12: Family Sharing against the revenue bar (outside voice, Medium)
 Finding: OV-12, Medium, confidence 8/10. Eng D17 (Family Sharing on, permanent) adds daily users who pay nothing, while eng D18 sets iOS ARPDAU ≥ 1.0× Android's, with no adjustment and no minimum cohort.
