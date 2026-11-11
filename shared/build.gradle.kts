@@ -22,6 +22,11 @@ kotlin {
     // Host JVM target: runs commonTest fast on CI and hosts build-time tools (converter goldens, starter grid).
     jvm()
 
+    // iOS (T59, eng D1): the same logic on iPhone. Apple-silicon Macs only, so no iosX64. Linux CI skips these
+    // targets (kotlin.native.ignoreDisabledTargets in gradle.properties); they are built and tested on a Mac (docs/agents/workflow.md).
+    iosArm64()
+    iosSimulatorArm64()
+
     sourceSets {
         // Local dates and time zones for the daily ledger and ad caps (midnight, DST). Pure Kotlin.
         commonMain.dependencies {
@@ -34,7 +39,7 @@ kotlin {
 }
 
 /**
- * AGENTS.md: `shared/src/commonMain` is pure Kotlin. Fails on any `android.*` or `java.awt` import
+ * AGENTS.md: `shared/src/commonMain` is pure Kotlin. Fails on any `android.*` or `java.*` import
  * or fully qualified use, so a violation breaks `check` and `allTests` (and therefore CI).
  */
 abstract class CheckCommonMainPurity : DefaultTask() {
@@ -47,7 +52,7 @@ abstract class CheckCommonMainPurity : DefaultTask() {
 
     @TaskAction
     fun run() {
-        val banned = Regex("""(^|[^\w.])(android|java\.awt)\.\w""")
+        val banned = Regex("""(^|[^\w.])(android|java)\.\w""")
         val violations = sources.files.sortedBy { it.path }.flatMap { file ->
             file.readLines().mapIndexedNotNull { i, line ->
                 val code = line.substringBefore("//").trim()
@@ -58,7 +63,7 @@ abstract class CheckCommonMainPurity : DefaultTask() {
         report.get().asFile.writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {
             throw GradleException(
-                "shared/src/commonMain must stay pure Kotlin (no android.* / java.awt):\n" +
+                "shared/src/commonMain must stay pure Kotlin (no android.* / java.*; it also builds for iOS):\n" +
                     violations.joinToString("\n"),
             )
         }
@@ -67,7 +72,7 @@ abstract class CheckCommonMainPurity : DefaultTask() {
 
 val checkCommonMainPurity = tasks.register<CheckCommonMainPurity>("checkCommonMainPurity") {
     group = "verification"
-    description = "Fails on android.* / java.awt imports under shared/src/commonMain."
+    description = "Fails on android.* / java.* imports under shared/src/commonMain."
     sources.from(fileTree("src/commonMain") { include("**/*.kt") })
     report.set(layout.buildDirectory.file("reports/commonMainPurity.txt"))
 }

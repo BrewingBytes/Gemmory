@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="spike_title">Paw art déco</string>
+    <string name="probe_percent">gotowe w %1$d%%</string>
+    <plurals name="probe_plural">
+        <item quantity="one">one:%1$d</item>
+        <item quantity="few">few:%1$d</item>
+        <item quantity="many">many:%1$d</item>
+        <item quantity="other">other:%1$d</item>
+    </plurals>
+</resources>

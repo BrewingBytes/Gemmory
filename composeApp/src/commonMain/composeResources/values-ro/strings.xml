@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="spike_title">Păun art deco</string>
+    <string name="probe_percent">gata în proporție de %1$d%%</string>
+    <plurals name="probe_plural">
+        <item quantity="one">one:%1$d</item>
+        <item quantity="few">few:%1$d</item>
+        <item quantity="other">other:%1$d</item>
+    </plurals>
+</resources>

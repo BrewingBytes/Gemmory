@@ -1,6 +1,6 @@
 # Gemmory
 
-Android diamond-painting game ("Gemmory: Photo Diamond Art"): turn your own photo into a finishable gem canvas, then share a 9:16 sparkle time-lapse. Kotlin Multiplatform, `:shared` (pure commonMain) + `:androidApp` (Compose). Monetized with AdMob + a VIP subscription.
+Android diamond-painting game ("Gemmory: Photo Diamond Art"): turn your own photo into a finishable gem canvas, then share a 9:16 sparkle time-lapse. Kotlin Multiplatform, `:shared` (pure commonMain) + `:androidApp` (Compose); iOS is being built on a shared Compose Multiplatform UI (`:composeApp` + the `iosApp/` Xcode shell, T59-T68). Monetized with AdMob + a VIP subscription.
 
 This file is an index. Details live in `docs/`; read the relevant doc before working in that area. How changes are made, verified and shipped is in [docs/agents/workflow.md](docs/agents/workflow.md); read it before your first change, and add what you learn to [docs/agents/lessons.md](docs/agents/lessons.md).
 
@@ -9,7 +9,7 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 - **Adults only.** The app is not directed at children (Play Families / AdMob child-directed rules stay off).
 - **User photos never leave the phone.** No upload, no backend for user content, and photo data is excluded from cloud backup and device transfer.
 - **No ads on the play canvas.** Interstitials only after leaving the completion screen, under the caps in the design doc.
-- **`shared/src/commonMain` is pure Kotlin.** No `android.*` or `java.awt` imports.
+- **`shared/src/commonMain` is pure Kotlin.** No `android.*` or `java.*` imports (it also builds for iOS). `composeApp/src/commonMain` has no `android.*`, `platform.*` or `java.*` either.
 - **A wrong-color tap is rejected with no state change.** The save log is an ordered list of placed cell indices.
 - **UI follows `docs/design-system.md`.** Ask the user before departing from it. When reviewing or QA-ing UI, flag code that doesn't match it.
 - **Every PR shows what it changes.** Its body carries emulator screenshots of each screen or state it adds or changes, before and after where something existed (how in [docs/agents/workflow.md](docs/agents/workflow.md)). When the change has no screen of ours (a system or Play sheet, a background job), say so in the body and show the nearest thing that can be captured.
@@ -19,14 +19,15 @@ This file is an index. Details live in `docs/`; read the relevant doc before wor
 
 | Doc | What's in it |
 |---|---|
-| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, making clips with the debug Clips screen (T47), where the copy lives and how to add a string (T48), the eleven languages, fonts, translated titles and store listing frames (T49), how to add a bundled picture and how to publish a remote one (#43), a dated batch from ChatGPT sheets (#85), and why the catalog has no switches since T52 (review prompt always on) |
+| [README.md](README.md) | What the app is, module layout, a docs index, build/test/release commands, debug `-P` switches, making clips with the debug Clips screen (T47), the iOS spike (T59: building iosApp, the frame gate on a phone, recapturing the renderer goldens), where the copy lives and how to add a string (T48), the eleven languages, fonts, translated titles and store listing frames (T49), how to add a bundled picture and how to publish a remote one (#43), a dated batch from ChatGPT sheets (#85), and why the catalog has no switches since T52 (review prompt always on) |
 | [docs/designs/gemmory.md](docs/designs/gemmory.md) | Product design doc: problem, scope, tiers, ad rules, sizes, success criteria, timeline, plus the CEO and eng review decision ledgers (E1-E7, D1-D20) |
 | [docs/designs/ad-mediation.md](docs/designs/ad-mediation.md) | Real ads design (T34, #74): production AdMob IDs from committed build config, Unity Ads via AdMob mediation bidding, Unity and US-states consent, app-ads.txt, closed-test vs production-launch criteria |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, fonts, components, navigation map, canvas zoom/gesture/haptics rules, copy for every state, accessibility (TalkBack, font scale, reduced motion, large screens) (`DESIGN.md` at the root is a symlink to it) |
 | [docs/designs/gemmory-round2.md](docs/designs/gemmory-round2.md) | Round 2 design doc (T35-T44: evening reminder, scheduled drops, collections, weekly event, review prompt, gems, sounds, music, mystery picture, picture pipeline) with the CEO, eng, design consultation and design review ledgers |
 | [docs/designs/gemmory-round3.md](docs/designs/gemmory-round3.md) | Round 3 design doc "strangers in the door" (T45-T52: first run clear, launch funnel, founder clip tool, strings to resources, 11 languages, shared picture landing, feed-tuned share, review prompt always on) with the CEO, eng, design consultation (bg/ja fonts) and design review ledgers |
+| [docs/designs/gemmory-ios.md](docs/designs/gemmory-ios.md) | Gemmory on iOS (T59-T68): staged parity on one shared Compose UI, Stage 0 spike → 1a renderers → 1b resources → 1c screens → 2-5 iOS, with the office hours, CEO, eng (E-R*) and design review ledgers; the Stage 0 results are on #167 |
 | [docs/designs/streak-screen.md](docs/designs/streak-screen.md) | Duolingo-style streak design doc (celebration, streak screen and calendar, nudge, repair, freezes, widget, share card) with the CEO, eng and design review ledgers, the approved spec tables and the mockup (`docs/designs/mockups/streak-screen/`) |
-| [docs/issues.md](docs/issues.md) | Snapshot of every task, T1-T52, with the task-to-issue mapping at its top (round 2: T*n* = #(*n*+41); round 3: T*n* = #(*n*+87)) |
+| [docs/issues.md](docs/issues.md) | Snapshot of every task, T1-T68, with the task-to-issue mapping at its top (round 2: T*n* = #(*n*+41); round 3: T*n* = #(*n*+87); iOS: T*n* = #(*n*+108)) |
 | [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers (Data safety, content rating, target audience, ads), Firebase and API key settings, the Test Lab CI credentials (#11), and how the production gate (D18) is checked; [docs/privacy-policy.md](docs/privacy-policy.md) is the published policy |
 | [docs/reading-first-30-days.md](docs/reading-first-30-days.md) | How to read every success criterion of rounds 1-3 in production: the event or Play Console report behind each, the consented-only caveat, the floor of 100 players, localized markets pooled, the custom definitions to register (T46); round 4's T56 buckets and the per-channel readout, a saved "T55 channels" exploration (T55) |
 | [docs/channel-links.md](docs/channel-links.md) | One tagged Play Store link per channel (clip bios now, communities by the naming rule), the reserved referrer values (`utm_source=share`, `utm_content`, `utm_medium`), the clip caveat (T55) |

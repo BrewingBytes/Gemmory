@@ -8,8 +8,11 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 
 | Module | What's in it |
 |---|---|
-| `shared` | Kotlin Multiplatform, pure `commonMain` (no `android.*` or `java.awt`): the photo-to-grid converter, game rules, the save and grid codecs, the ad policy and the daily ledger. Build-time tools live in `jvmMain` |
+| `shared` | Kotlin Multiplatform, pure `commonMain` (no `android.*` or `java.*`; it also builds for iOS): the photo-to-grid converter, game rules, the save and grid codecs, the ad policy and the daily ledger. Build-time tools live in `jvmMain` |
 | `androidApp` | Jetpack Compose app: gallery, photo flow (ML Kit face check), play canvas, time-lapse encoder, AdMob + UMP, Play Billing, Firebase Crashlytics/Analytics |
+| `composeApp` | Compose Multiplatform UI shared by Android and iOS (iOS plan, eng D1). Stage 0 (T59) holds only the spike: the play canvas and one time-lapse end card drawn in common code. `commonMain` has no `android.*`, `platform.*` or `java.*` (`:composeApp:checkCommonMainPurity`). Android doesn't depend on it yet (Stage 1a) |
+| `iosApp` | The Xcode shell (Swift): shows `:composeApp`'s `GemmoryKit` framework, plus the UI tests (frame gate, play loop, Stage 0 checks) |
+| `goldens/renderer` | The renderer golden baseline: today's Android renderers drawn for fixed inputs, read by both platforms' tests (T59, R3-1) |
 | `tools/bundled` | Source images, review PNGs and `PROVENANCE.md` for every bundled picture |
 | `pictures/v1` | The remote pictures' signed catalog and grids, which the app downloads from GitHub (created by the first publish) |
 | `tools/remote` | Source images, review PNGs and `PROVENANCE.md` for every remote picture |
@@ -24,6 +27,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | [docs/designs/gemmory-round2.md](docs/designs/gemmory-round2.md) | Round 2 design doc (T35-T44) and its review ledgers |
 | [docs/designs/gemmory-round3.md](docs/designs/gemmory-round3.md) | Round 3 design doc (T45-T52) and its review ledgers |
 | [docs/designs/streak-screen.md](docs/designs/streak-screen.md) | Streak screen design doc, its review ledgers and mockup |
+| [docs/designs/gemmory-ios.md](docs/designs/gemmory-ios.md) | Gemmory on iOS: staged parity on one shared Compose UI (T59-T68), with the office hours, CEO, eng and design review ledgers |
 | [docs/design-system.md](docs/design-system.md) | Design system "The Sorting Tray": tokens, components, navigation, canvas gestures, copy, accessibility |
 | [docs/play-compliance.md](docs/play-compliance.md) | Play Console answers, Firebase and API key settings, Test Lab CI credentials, the production gate |
 | [docs/reading-first-30-days.md](docs/reading-first-30-days.md) | How to read each success criterion of rounds 1-3 in production: its event or report, the consented-only caveat, the floor of 100 (T46); round 4's T56 buckets and the per-channel readout (T55) |
@@ -44,7 +48,7 @@ You need JDK 17 and the Android SDK (compile/target SDK 37, min SDK 29).
 ./gradlew :androidApp:connectedDebugAndroidTest   # emulator; wrap in `timeout`, a full run takes 3-4 min
 ```
 
-CI runs `:shared:checkCommonMainPurity :shared:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug` on every PR. The check is named `build` and `main` requires it.
+CI runs `:shared:checkCommonMainPurity :shared:allTests :composeApp:checkCommonMainPurity :composeApp:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug` on every PR. The check is named `build` and `main` requires it. CI is Linux, so it skips the iOS targets; the iOS tests run on a Mac (docs/agents/workflow.md).
 
 Debug build switches (`-P…`):
 
@@ -55,6 +59,23 @@ Debug build switches (`-P…`):
 - `gemmory.fakeReferrer=<utm string>` (T46) makes a fresh install read that string instead of Play's install referrer, e.g. `-Pgemmory.fakeReferrer='utm_source=share&utm_medium=bundled&utm_campaign=timelapse&utm_content=lighthouse'` (quote it for the shell). Logcat `Gemmory` prints `install referrer Referrer(…)` once it's parsed. Only a fresh install reads it (`adb shell pm clear com.brewingbytes.gemmory`). With a picture's id in `utm_content`, the first launch lands on that picture (T50, shared picture landing): a bundled id opens its canvas once the gallery is up, a remote one is offered after the first catalog check.
 - `gemmory.firebaseInPerf=true` (T46) makes the `perf` build send to Firebase, for the launch funnel's DebugView check: `./gradlew :androidApp:assemblePerf -Pgemmory.firebaseInPerf=true`, install it on a fresh emulator, `adb shell setprop debug.firebase.analytics.app com.brewingbytes.gemmory`, and watch Firebase console → Analytics → DebugView (or `adb shell setprop log.tag.FA VERBOSE` and logcat `FA`). It keeps Google's test ad IDs. How to read the events afterwards: [docs/reading-first-30-days.md](docs/reading-first-30-days.md).
 - `android.testInstrumentationRunnerArguments.deviceChecks=true` runs the `@DeviceCheck` walkthroughs. `@PerfTest` classes (canvas frame timing, gallery load timing) run only on request via `am instrument -e class …`. The canvas frame-timing test fails past its pass line (Frame timing on Firebase Test Lab below).
+
+## iOS (Stage 0 spike, T59)
+
+Gemmory on iOS shares one Compose Multiplatform UI with Android ([docs/designs/gemmory-ios.md](docs/designs/gemmory-ios.md)). Stage 0 is a spike: the largest bundled picture (Art Deco Peacock, 106×142) on the play canvas with pinch zoom, pan, tap to place (a wrong color is rejected with no change), save and resume, a timed pan-and-zoom run (**Bench**) and a screen of checks (**Checks**). It never touches the Android release path.
+
+You need a Mac with Apple silicon, Xcode (Xcode 27 for a phone on iOS 27; Xcode 27 needs macOS 26.6+) and an iOS simulator runtime (`xcodebuild -downloadPlatform iOS`).
+
+```sh
+./gradlew :shared:iosSimulatorArm64Test        # the shared logic on the iOS simulator
+./gradlew :composeApp:iosSimulatorArm64Test    # the bake, and the common renderers against the Android goldens
+open iosApp/iosApp.xcodeproj                   # run the iosApp scheme on a simulator or a phone
+```
+
+- The Xcode project builds the Kotlin framework itself (its "Compile Kotlin framework" phase runs `:composeApp:embedAndSignAppleFrameworkForXcode`). From the command line: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/ios-dd CODE_SIGNING_ALLOWED=NO build`, and `test` instead of `build` runs the UI tests (`-only-testing:iosAppUITests/SpikeFlowTests`, say). New test files in `iosAppUITests/` join the target by themselves (a synchronized folder).
+- The first simulator test run after installing a runtime can hang while the runtime cold-boots; run it again (lessons).
+- **Frame gate (eng D12):** `FrameGateTests` launches the app with `-bench`, which zooms from fit to 48dp cells and back while panning for 10 s, and asserts p95 frame interval ≤ one 120 Hz period and p95 canvas draw ≤ 8.3 ms. On a simulator (60 Hz) it only checks the harness and skips. On the phone: put your team in a local xcconfig outside the repo (`DEVELOPMENT_TEAM = <team id>`, and with a free Personal Team also `PRODUCT_BUNDLE_IDENTIFIER = <your prefix>.gemmory.$(TARGET_NAME:rfc1034identifier)`), then `XCODE_XCCONFIG_FILE=<that file> xcodebuild … -destination 'platform=iOS,id=<udid>' -allowProvisioningUpdates test -only-testing:iosAppUITests/FrameGateTests`. A free team needs 2 of its 3 app slots on the phone and the certificate trusted under Settings → General → VPN & Device Management; the report is attached to the test result and printed (`GemmoryBench …`). For the 60 Hz figure, run it again with Low Power Mode on.
+- **Renderer goldens (R3-1):** `goldens/renderer/` holds today's Android renderers drawn for fixed inputs (`cases.txt`: four zooms × three highlight styles on a checkerboard save, an empty and a full canvas, and one end card's band and card layers). To recapture after an intended change to the Android renderers, install the debug and androidTest APKs on gemmory_pixel and run `adb shell am instrument -w -e class com.brewingbytes.gemmory.goldens.RendererGoldenCapture -e deviceChecks true com.brewingbytes.gemmory.test/androidx.test.runner.AndroidJUnitRunner`, then `adb pull /sdcard/Android/data/com.brewingbytes.gemmory/files/goldens/renderer goldens/` (Gradle's connected run uninstalls the app and deletes them). `./gradlew :composeApp:connectedAndroidDeviceTest` compares the spike with them on Android (geometry and text bars). `:composeApp:iosSimulatorArm64Test` compares the iOS drawing at the cross-platform bar and prints its figures (`GemmoryGolden …` in the test result). Its renders land in `composeApp/build/goldens-ios/`.
 
 ## Encoder smoke on Firebase Test Lab
 

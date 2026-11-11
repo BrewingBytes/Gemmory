@@ -104,3 +104,45 @@ Each of these shipped as Claude's draft, with no native-speaker review yet (foun
 - **Effort estimate:** human S / CC S
 - **Priority:** P3
 - **Depends on / blocked by:** closed-test feedback asking for session stats, or D7 retention data showing long canvases are abandoned.
+
+## iOS (from the Stage 0 spike, T59)
+
+### Canvas numbers at the design's 700 on Android
+- **What:** draw the play canvas's numbers (and the streak share card's and widget's) at Atkinson Hyperlegible Mono 700 by setting the variable font's `wght` axis, not `Typeface.create(font, 700)`.
+- **Why:** shipped Android draws them at the font's default 200 with a synthetic bold, off the design system (`design-system.md`, Atkinson 700). Founder, 2026-11-06: the shared renderer draws 700.
+- **Context:** happens in Stage 1a (T62), when the shared renderer replaces `CanvasRenderer`; the goldens in `goldens/renderer/` are recaptured at 700 then, and the Stage 0 test's weight-200 font goes. The share card and widget follow in their stages.
+- **Priority:** P2 (with 1a)
+
+### Dynamic Type while the app is open
+- **What:** observe `UIContentSizeCategory.didChangeNotification` in `iosMain` and re-provide the font scale, since Compose 1.12.1 reads it only at launch.
+- **Context:** Stage 1c (T64), with the first shared screens; re-check on each Compose update first.
+- **Priority:** P2
+
+### Strings: `%%` and the in-app language
+- **What:** Compose Resources 1.12.1 shows `%%` literally and can't take the app's chosen language, so Stage 1b (T63) uses our own XML reader (eng D23's fallback).
+- **Context:** `StageZeroChecksTests.testPercentSign` is an expected failure; it fails (and says so) once a release fixes `%%`.
+- **Priority:** P1 (with 1b)
+
+### Cross-platform text at small cells
+- **What:** numbers from 16dp rasterize differently on iOS and Android (SSIM 0.90-0.96 at 700 against the 0.97 bar). Try matching font hinting and edging on both before Stage 2's gate.
+- **Priority:** P2 (before Stage 2)
+
+### ICU data built for iOS 18.5
+- **What:** linking warns that skiko's ICU object was built for iOS 18.5 while the app's minimum is 18.0 (eng D2). Decide in Stage 2 whether the minimum moves to 18.5 or the warning is harmless.
+- **Priority:** P3
+
+### Renderer memory and batch size on iOS (from the #167 review)
+- **What:** (a) the spike's `SpikeRenderer` ignores the evicted bucket's atlas (`newBucket = { spec, _ -> … }`), so every zoom bucket a pinch crosses allocates a new atlas, where Android's `CanvasRenderer` reuses it (`Atlas.of(…, recycled)`); (b) iOS `drawCellBatch` passes the whole capacity arrays (up to 16k quads) to `drawVertices` on every batch, zeroing the tail instead of copying.
+- **Why:** both cost native memory and per-frame marshalling that the 120 Hz gate (draw p95 0.67 ms on the 15 Pro Max) didn't catch.
+- **Context:** Stage 1a (T62), when the shared renderer replaces `CanvasRenderer`: carry the recycling over, and measure `copyOf(count)` against the zeroed tail on the phone.
+- **Priority:** P2 (with 1a)
+
+### Test hooks and backup exclusion in the iOS app (from the #167 review)
+- **What:** (c) `-reset` (deletes the save) and `-bench` work in Release builds, because the UI tests run against Release; gate them before the app ships. (d) Check whether `NSURLIsExcludedFromBackupKey` also keeps files out of iPhone-to-iPhone transfer (AGENTS.md: photo data stays out of backup and device transfer).
+- **Context:** Stage 1c (T64), before photo files are stored on iOS.
+- **Priority:** P1 for (d), P3 for (c)
+
+### Linker warnings from Kotlin/Native's caches under Xcode 27
+- **What:** linking the iOS test binaries prints `warning: could not open …/klib/cache/ios_simulator_arm64-gSTATIC-system/…-cache.a(….a.o)` for each platform cache (Xcode 27.2, Kotlin 2.4.21). The tests link and pass.
+- **Context:** recheck on the next Kotlin update; if it persists, report it to JetBrains or turn off the native cache for the test link.
+- **Priority:** P3

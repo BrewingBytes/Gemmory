@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="spike_title">アール・デコの孔雀</string>
+    <string name="probe_percent">%1$d%%完成</string>
+    <plurals name="probe_plural">
+        <item quantity="other">other:%1$d</item>
+    </plurals>
+</resources>

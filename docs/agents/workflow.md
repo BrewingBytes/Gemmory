@@ -17,8 +17,11 @@ How changes are made, verified and shipped in this repo. The product rules that 
 Run before handing work back, and report every warning and error:
 
 ```sh
-./gradlew :shared:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug :androidApp:bundleRelease
+./gradlew :shared:allTests :composeApp:allTests :androidApp:testDebugUnitTest :androidApp:assembleDebug :androidApp:lintDebug :androidApp:bundleRelease
 ```
+
+- On the Mac, `allTests` includes the iOS simulator tests (`:shared` and `:composeApp`); Linux CI skips the iOS targets (`kotlin.native.ignoreDisabledTargets`).
+- A change under `composeApp/` or `iosApp/` also runs `:composeApp:connectedAndroidDeviceTest` (the renderer goldens on Android) and the iOS UI tests on the iPhone 17 Pro simulator (README → iOS).
 
 - Add `:androidApp:connectedDebugAndroidTest` on the emulator whenever app code changes.
 - Smoke-test the R8 release build on an emulator after any dependency or keep-rule change.
@@ -29,6 +32,7 @@ Run before handing work back, and report every warning and error:
 ## Emulator and device work
 
 - Every long-running command has a hard time limit: wrap `connectedDebugAndroidTest`, `am instrument` and adb wait loops in `timeout` (about 5-8 minutes; a full instrumented run normally takes 3-4). When one times out, kill it, check the emulator's load (`adb shell cat /proc/loadavg`) and report what happened instead of retrying blindly.
+- The pinned emulator image (the renderer goldens, T59): `gemmory_pixel` = `system-images;android-36;google_apis;arm64-v8a`, device `pixel_7`, booted with `-gpu host -memory 4096 -no-audio -no-snapshot`. Recreate it with `avdmanager create avd -n gemmory_pixel -k "system-images;android-36;google_apis;arm64-v8a" -d pixel_7` if it's gone.
 - Before booting, check free disk (`df -h`) and RAM (`sysctl vm.swapusage`). Boot with `-no-audio`, and run one emulator at a time. On a host short of RAM, boot with `-memory 4096 -no-snapshot`, stop the Gradle daemons first (`./gradlew --stop`) and run connected tests one class at a time.
 - Gradle `-Pandroid.testInstrumentationRunnerArguments.class=` takes one class; a comma list runs only the first.
 - `@DeviceCheck` tests run with `-Pandroid.testInstrumentationRunnerArguments.deviceChecks=true`. `@PerfTest` classes (`CanvasFrameTimingTest`, `GalleryLoadTimingTest`) are left out of `connectedDebugAndroidTest`; run them with `am instrument -w -e class …`.
