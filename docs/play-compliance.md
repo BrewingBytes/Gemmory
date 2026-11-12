@@ -1,6 +1,6 @@
 # Play compliance and the production gate
 
-What Gemmory declares in Play Console, Firebase and Google Cloud, why, and how the founder decides when production can open (#5 T5, design doc D10, D17, D18). The founder enters every Console answer by hand. Keep this file in step with the app: when an SDK, an event, a permission or a backup rule changes, update the matching row here, then [privacy-policy.md](privacy-policy.md), then the Console.
+What Gemmory declares in Play Console, Firebase and Google Cloud (and, for iOS, in App Store Connect: App Store below), why, and how the founder decides when production can open (#5 T5, design doc D10, D17, D18). The founder enters every Console answer by hand. Keep this file in step with the app: when an SDK, an event, a permission or a backup rule changes, update the matching row here, then [privacy-policy.md](privacy-policy.md), then the Console.
 
 Facts the answers rest on (checked 2026-10-15 on 0.2.4 (6), Firebase BOM 34.19.0, Google Mobile Ads 25.5.0, UMP 4.0.0, ML Kit face detection 16.1.7, Play Billing 9.1.0, targetSdk 37; Play Games Services v2 22.1.0 added 2026-10-18, #49):
 
@@ -165,6 +165,60 @@ The encoder smoke job (`.github/workflows/testlab.yml`, #11; README → "Encoder
 9. **Check it worked:** GitHub → Actions → **Test Lab** → Run workflow → tick "Only print the physical-device catalog" → Run. It must go green with the device table in the run summary. `Permission 'iam.serviceAccounts.getAccessToken' denied` means step 5 is missing; `unauthorized_client` means the condition in step 4 doesn't match the repo name.
 
 To revoke: delete the provider (or the `test-lab-ci` account); the secrets are then useless.
+
+## App Store (iOS)
+
+What Gemmory declares in App Store Connect, and why (plan `docs/designs/gemmory-ios.md`: CEO D9, eng D11, D17, design D8). The founder enters every answer by hand. The same rule as Play applies: when an iOS SDK, an event, a permission or a backup rule changes, update the matching row here, then [privacy-policy.md](privacy-policy.md) → On iPhone and iPad, then App Store Connect. iOS ships in stages, so each row names the stage that first needs it.
+
+**Age rating** (CEO D9, "honest rating"; App Store Connect → the app → App Information → Age Rating):
+- Answer the questionnaire honestly for what the app contains: no violence, fear, sexual content, profanity, drugs, gambling, contests, loot boxes or paid random items (the gift wheel is free), no unrestricted web access and no user-to-user communication (sharing goes out through the iOS share sheet). Mark that the app contains ads. Take the tier Apple gives; don't raise it to look "adult", don't lower it.
+- **Not the Kids category**, and "Made for Kids" stays off. The category is Games → Puzzle, as on Play.
+- Child-directed ad flags stay off: AdMob `tagForChildDirectedTreatment` and `tagForUnderAgeOfConsent` unset, Unity not child-directed. The AdMob iOS app's settings say "not directed at children".
+- The audience is adults, as on Play's "18 and over" (AGENTS.md). The listing must not court children: no cartoon mascots, no "kids" wording, the same rule as Play's Store listing check.
+
+**App Privacy** (the nutrition labels; App Store Connect → App Privacy). The answers mirror Play's Data safety above, read against Apple's categories. They are entered at Stage 2 (Firebase) and redone at Stage 3 (ads, StoreKit), and the Stage 3 gate is that the labels, the privacy manifest and the ATT prompt agree with the traffic the SDKs actually send.
+
+| Apple data type | Linked to the user | Used to track | Purposes | Which SDK, and why |
+|---|---|---|---|---|
+| Diagnostics → Crash data, Performance data, Other diagnostic data | No | No | App functionality, Analytics, Third-party advertising | Crashlytics, always on (D17); AdMob and Unity ad performance (Stage 3) |
+| Usage data → Product interaction | No | Yes | Analytics, Third-party advertising | Firebase Analytics events, only after UMP consent (Stage 2); Unity's declared app-interaction use (Stage 3) |
+| Usage data → Advertising data | Yes | Yes | Third-party advertising | AdMob, Unity (Stage 3) |
+| Identifiers → Device ID | Yes | Yes | Third-party advertising, Analytics, App functionality | the IDFA (read only when ATT is allowed), the IDFV and the Firebase installation ID (Stage 2-3) |
+| Identifiers → User ID | Yes | No | App functionality | Unity's declared "personal identifiers", as on Play (Stage 3) |
+| Location → Coarse location | Yes | Yes | Third-party advertising, Analytics | IP-derived region (AdMob, Unity, Analytics) |
+| Purchases → Purchase history | Yes | Yes | Analytics, Third-party advertising | Analytics purchase events, our `vip_purchased` / `remove_ads_purchased` and the family-shared tag (`entitlement_source`, eng D26); Unity's declared purchase-history use (Stage 3) |
+
+- **"Used to track" is a plain Yes in App Store Connect** wherever the ad SDKs use the data across other companies' apps; the ATT prompt is what makes that allowed, it doesn't change the answer. "Linked" follows Apple's definition (the ad SDKs tie it to a device identifier), so it is Yes there; our own Crashlytics and Analytics data stays not linked (no user ID, `setUserId` never called).
+- **Not declared:** Photos or Videos (read and converted on the phone, never sent; a share is the player's own transfer), contact info, user content, browsing and search history, precise location, health, financial info (Apple handles payment). Game Center is Apple's own service, so its data is Apple's, not ours.
+- **Check at Stage 3** against each SDK's own privacy manifest (GMA, UMP, Unity, Firebase) and Apple's generated privacy report (Xcode → the archive → Generate Privacy Report). Where an SDK declares more than this table, the table widens; it never narrows below what an SDK declares.
+
+**Privacy manifest** (`iosApp/…/PrivacyInfo.xcprivacy`, Stage 2, widened at Stage 3):
+- `NSPrivacyTracking` is true from Stage 3 (ads). Our own `NSPrivacyTrackingDomains` stays empty: our code contacts no tracking domain, and the ad SDKs' manifests declare theirs. Copying their domains into ours would let iOS block them for ATT-denied players, who should still get non-personalized ads.
+- `NSPrivacyCollectedDataTypes` lists exactly the App Privacy table above.
+- `NSPrivacyAccessedAPITypes` lists the required-reason API uses in our binary with their reason codes: `UserDefaults` (CA92.1, the app's own settings), file timestamps (C617.1, the save and sweep code), and system boot time or disk space if the binary calls them. Kotlin/Native and Compose (Skiko) are linked statically into the app, so their calls count as ours: decide from the archive's symbols and App Store Connect's ITMS-91053 warnings, not from our Kotlin alone. Third-party SDKs bring their own manifests; the archive's privacy report must show them all aggregated.
+
+**ATT** (design D8). `NSUserTrackingUsageDescription` in `InfoPlist.xcstrings`, all 11 languages plus English (required: without it the prompt can't show and App Review rejects the build). No IDFA is read unless the player allows tracking. Timing and the UMP-declined rule: design-system → iOS → App Tracking Transparency.
+
+**Photos stay on this device** (eng D11; AGENTS.md "photo data is excluded from cloud backup and device transfer"):
+- PHPicker needs no photo-library permission. The only Photos string is the add-only `NSPhotoLibraryAddUsageDescription`, for "Save Video" in the share sheet.
+- Photo canvases live under `Application Support/canvases/photo/`, are `isExcludedFromBackup` from creation (no iCloud or computer backup), and are AES-GCM encrypted with a Keychain key that is `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` and never synchronizable. A copy that reaches another iPhone (Quick Start, an encrypted computer backup) can't be decrypted, and the app deletes it there. The ledger (`ledger`: allowance counter, ad caps, entitlement cache) and the downloaded catalog (`remote`) are excluded from backup too.
+- The picked photo's temporary copy (`tmp/`) is deleted right after decode; exported videos (`Caches/timelapse/`) aren't backed up by iOS. Both are swept at launch.
+- The widget's App Group container holds only the streak snapshot, never photo data.
+- Tests: an XCTest (wrong key → unreadable → deleted; a locked device leaves files alone) and the iOS BackupRules mirror test (every photo-derived path excluded, those under `canvases/photo` encrypted).
+
+**Purchases** (eng D17, design D7). Family Sharing is switched on in App Store Connect for the VIP subscription and `remove_ads` only at the Stage 5 submission: once on, Apple never lets it be turned off. Entitlements are per store, with no carry-over from Google Play. The Paywall carries working Terms of Use (Apple's standard EULA unless we write our own) and Privacy Policy links, plus Restore (App Review 3.1.2).
+
+**Other App Store Connect answers:**
+
+| Field | Answer | Why |
+|---|---|---|
+| Privacy Policy URL | the same URL as Play (Privacy policy above) | One policy, with its iOS section |
+| Export compliance (`ITSAppUsesNonExemptEncryption`) | `false` in Info.plist | Only Apple's built-in encryption (HTTPS, CryptoKit for photo files on the device), which is exempt |
+| Sign-in required | No | No accounts; App Review can open everything, the Paywall included |
+| Content rights | Contains third-party content: Yes, with the rights to use it | Bundled and remote pictures: `tools/bundled/PROVENANCE.md`, `tools/remote/PROVENANCE.md`; sounds and music: `tools/sounds/PROVENANCE.md` |
+| Store listing | the Play listing check applies: title, honest claims, ads and VIP named, no children's appeal, 11 languages | Guideline 2.3.10: no Google Play, Android or Play badge in the screenshots, text or preview video |
+
+**CI secrets and their rotation:** iOS signing and TestFlight (T60) below. Add a row there for any new secret, with its rotation.
 
 ## iOS signing and TestFlight (T60)
 
