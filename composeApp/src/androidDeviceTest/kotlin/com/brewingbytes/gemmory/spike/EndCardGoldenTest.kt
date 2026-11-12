@@ -16,14 +16,15 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.compose.res.Res
+import com.brewingbytes.gemmory.render.GoldenMath
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.timelapse.ShareLayout
+import java.io.File
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import kotlin.test.assertTrue
 
 /**
  * One time-lapse end card (T59 Stage 0): the common [EndCardSpike]'s band and card layer against androidApp's

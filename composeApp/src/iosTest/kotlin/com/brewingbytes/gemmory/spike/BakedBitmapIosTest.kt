@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.spike
 
+import com.brewingbytes.gemmory.render.bakedBitmap
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

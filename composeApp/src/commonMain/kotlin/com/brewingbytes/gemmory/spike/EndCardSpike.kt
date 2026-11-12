@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.render.bakedBitmap
+import com.brewingbytes.gemmory.render.blurMask
 import com.brewingbytes.gemmory.timelapse.ShareLayout
 import kotlin.math.max
 import kotlin.math.roundToInt

@@ -12,9 +12,15 @@ import androidx.compose.ui.text.font.createFontFamilyResolver
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.render.GoldenMath
+import com.brewingbytes.gemmory.render.GoldenRender
+import com.brewingbytes.gemmory.render.RenderAssets
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.timelapse.ShareLayout
+import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -25,12 +31,10 @@ import platform.Foundation.create
 import platform.Foundation.dataWithContentsOfFile
 import platform.Foundation.writeToFile
 import platform.posix.memcpy
-import kotlin.test.Test
-import kotlin.test.assertTrue
 
 /**
- * The renderer golden bar's cross-platform check (T59 Stage 0; Stage 2 makes it a gate): the common renderers drawn
- * on iOS against the Android goldens in `goldens/renderer/`, SSIM ≥ 0.97 per image (glyph rasterization differs
+ * The renderer golden bar's cross-platform check (T59 Stage 0, the full T62 set; Stage 2 makes it a gate): the shared
+ * renderers drawn on iOS against the Android goldens in `goldens/renderer/`, SSIM ≥ 0.97 per image (glyph rasterization differs
  * between platforms). Asserted where it holds today (cells without numbers, the end card's band and card); the
  * numbered zooms are printed for the eng review, with the geometry figures.
  */
@@ -41,35 +45,31 @@ class GoldenIosTest {
 
     @Test
     fun spikeMatchesTheAndroidGoldens() {
-        val pattern = (GridCodec.decode(file("composeApp/src/commonMain/composeResources/files/pictures/deco-peacock.gmrg")) as Decoded.Ok).value.pattern
+        val pattern = (GridCodec.decode(file("goldens/renderer/pictures/deco-peacock.gmrg")) as Decoded.Ok).value.pattern
         val measurer = TextMeasurer(createFontFamilyResolver(), Density(1f), LayoutDirection.Ltr)
         val failures = mutableListOf<String>()
-        // Today's shipped weight, as the Android test draws it (see SpikeRendererGoldenTest).
-        val mono = FontFamily(font("atkinson_hyperlegible_mono.ttf", FontWeight.ExtraLight, 200))
+        val assets = object : RenderAssets {
+            override val numbers = FontFamily(font("atkinson_hyperlegible_mono.ttf", FontWeight.Bold, 700))
+        }
+        val patterns = HashMap<String, Pattern>()
         for (case in GoldenRender.cases(file("goldens/renderer/cases.txt").decodeToString())) {
-            val (image, boxes) = GoldenRender.render(pattern, measurer, mono, case)
+            val picture = patterns.getOrPut(case.picture) {
+                (GridCodec.decode(file("goldens/renderer/pictures/${case.picture}.gmrg")) as Decoded.Ok).value.pattern
+            }
+            val (image, boxes) = when (case) {
+                is GoldenRender.CanvasCase -> GoldenRender.render(picture, measurer, assets, case)
+                is GoldenRender.GemsCase -> GoldenRender.gems(picture, case) to emptyList()
+            }
             save(image, "${case.name}.png")
-            val golden = png("goldens/renderer/${case.name}.png")
-            val a = pixels(golden)
+            val a = pixels(png("goldens/renderer/${case.name}.png"))
             val b = pixels(image)
             val ssim = GoldenMath.ssim(a, b, image.width)
             val diff = GoldenMath.diff(a, b, GoldenMath.mask(image.width, image.height, boxes))
             report("ios ${case.name} ssim=${GoldenMath.fmt(ssim)} geometry differing=${GoldenMath.pct(diff.differingShare)} maxDiff=${diff.maxDiff}")
             // Numbers (from 16dp) rasterize differently per platform (T59 figures: SSIM 0.90-0.96 at 700): reported for
-            // the eng review, gated from Stage 2. Below 16dp the bar holds today.
-            if (case.zoomDp < 16f && ssim < CROSS_PLATFORM) failures += case.name
-        }
-
-        // The design's weight (700) drawn by the same common code on both platforms, when the Android renders were
-        // pulled into composeApp/build/android-w700/: figures only (Stage 2 sets this gate).
-        val mono700 = FontFamily(font("atkinson_hyperlegible_mono.ttf", FontWeight.Bold, 700))
-        for (case in GoldenRender.cases(file("goldens/renderer/cases.txt").decodeToString()).filter { it.zoomDp >= 16f }) {
-            val android = fileOrNull("composeApp/build/android-w700/w700-${case.name}.png") ?: continue
-            val (image, boxes) = GoldenRender.render(pattern, measurer, mono700, case)
-            val a = pixels(Image.makeFromEncoded(android).toComposeImageBitmap())
-            val b = pixels(image)
-            val text = GoldenMath.mask(image.width, image.height, boxes)
-            report("ios w700 ${case.name} ssim=${GoldenMath.fmt(GoldenMath.ssim(a, b, image.width))} textSsim=${GoldenMath.fmt(GoldenMath.ssim(a, b, image.width, text))}")
+            // the eng review, gated from Stage 2. Below 16dp, and for the gem tiles, the bar holds today.
+            val numbered = case is GoldenRender.CanvasCase && case.zoomDp >= 16f
+            if (!numbered && ssim < CROSS_PLATFORM) failures += case.name
         }
 
         val display = FontFamily(font("bricolage_grotesque.ttf", FontWeight.SemiBold, 600))

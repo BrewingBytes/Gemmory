@@ -3,12 +3,18 @@ package com.brewingbytes.gemmory.ui
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.graphics.createBitmap
+import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.render.GemRenderer as SharedGemRenderer
 
 /**
  * Draws a pattern as square table-cut gems (design system, Shapes, T40) for the size picker, Preview, gallery tiles,
  * the completion screen and the time-lapse. The play canvas has its own renderer; both draw the gem with [TableCut].
+ *
+ * Since iOS Stage 1a (T62) [render] hands over to the shared `render.GemRenderer` while `BuildConfig.SHARED_RENDERER`
+ * is on; this code is the hotfix fallback, deleted with the switch after one release ships on the shared one.
  */
 object GemRenderer {
     private const val FELT_DEEP = 0xFF3E4741.toInt()
@@ -21,6 +27,13 @@ object GemRenderer {
      * and an unplaced cell gets its 1px seam on the right and bottom.
      */
     fun render(pattern: Pattern, cellPx: Int, placed: ((Int) -> Boolean)? = null): Bitmap {
+        // iOS Stage 1a (T62): the shared renderer draws, unless a hotfix switched back to this one (R10-8).
+        if (BuildConfig.SHARED_RENDERER) return SharedGemRenderer.render(pattern, cellPx, placed).asAndroidBitmap()
+        return renderOld(pattern, cellPx, placed)
+    }
+
+    /** The old renderer whatever the switch says: the hotfix path, and what the renderer goldens are captured from. */
+    internal fun renderOld(pattern: Pattern, cellPx: Int, placed: ((Int) -> Boolean)? = null): Bitmap {
         val bitmap = createBitmap(pattern.width * cellPx, pattern.height * cellPx)
         val canvas = Canvas(bitmap)
         canvas.drawColor(FELT_DEEP)

@@ -17,6 +17,7 @@ import com.brewingbytes.gemmory.game.Rejection
 import com.brewingbytes.gemmory.game.Sweep
 import com.brewingbytes.gemmory.game.ToolCells
 import com.brewingbytes.gemmory.game.nextRemainingCell
+import com.brewingbytes.gemmory.render.CanvasGame
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.ui.A11yText
@@ -50,14 +51,14 @@ class PlaySession internal constructor(
     /** The monotonic clock the batch cues wait on (#20). */
     private val uptimeMillis: () -> Long = { System.nanoTime() / 1_000_000 },
     private val onClosed: (lastWrite: Job, playMillis: Long) -> Unit,
-) {
+) : CanvasGame {
     val viewport = CanvasViewport(pattern.width, pattern.height).apply { restore(view) }
 
-    var selectedSlot by mutableIntStateOf(state.initialSlot(view?.slot))
+    override var selectedSlot by mutableIntStateOf(state.initialSlot(view?.slot))
         private set
 
     /** Bumps on every placement; the canvas, tray and progress read it to redraw. */
-    var placedCount by mutableIntStateOf(state.placedCount)
+    override var placedCount by mutableIntStateOf(state.placedCount)
         private set
 
     /** Bumps on every wrong-color tap; the selected trough nudges once per bump. */
@@ -175,12 +176,12 @@ class PlaySession internal constructor(
     val isFinished: Boolean get() = state.isFinished
     val diskFull: StateFlow<Boolean> get() = saver.diskFull
 
-    fun isPlaced(cell: Int): Boolean = state.isPlaced(cell)
+    override fun isPlaced(cell: Int): Boolean = state.isPlaced(cell)
 
     fun remaining(slot: Int): Int = state.remaining(slot)
 
     /** The [index]th placement, oldest first; the renderer catches up on new gems with it. */
-    fun placedAt(index: Int): Int = state.placedAt(index)
+    override fun placedAt(index: Int): Int = state.placedAt(index)
 
     /** Find (design D24) shows while the selected color has 1 to 20 cells left. */
     val findVisible: Boolean

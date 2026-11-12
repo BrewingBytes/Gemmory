@@ -606,6 +606,7 @@ The architecture graph is in Section 1. Sequencing:
 ```
 Assignment (5 iPhone names) ──► Stage 0 spike (additive)
 Android prod live + #74 + 30-day readout meets round 1 + Assignment ──► Stage 1a (100% release, hotfix rollback)
+   (gate waived by the founder on 2026-11-12, see "Stage 1a gate waived")
    ──► 1b resources ──► 1c screens (per PR) ──► Stage 2 TestFlight (≥10 testers gate)
    ──► 3 money ──► 4 retention (widget, Game Center kept) ──► 5 parity → App Store (App Store badge swap)
 Pause: readout misses ──► Stage 1 never starts
@@ -1906,6 +1907,13 @@ Unresolved decisions: none.
 - The **5-named-iPhone-testers gate is dropped**. The founder asked whether Apple needs testers; it doesn't (the only tester rule is Google Play's, for new personal accounts). It was our own demand check (the Assignment, CEO D12).
 - Stage 0 now waits only for an active Apple Developer Program enrollment (individual, or organization with a D-U-N-S number). Stage 1a keeps its other gates: Android launch, #74, the 30-day readout and the #163 suite.
 - The Stage 2 TestFlight read (≥ 10 testers) stays as the first demand signal.
+
+### Founder decision: Stage 1a gate waived (2026-11-12)
+
+- The founder waived the whole CEO D12 gate for Stage 1a (T62, #170): "waive the gate".
+- State on that day: Apple enrollment started, not yet active. #74's production-launch checklist was unticked. The 30-day readout was not possible yet (v1.0.0 is from 2026-10-26, so the earliest date is 2026-11-25). The #163 connected run was still owed.
+- What still holds: the 1a release goes out at 100% with a hotfix rollback (D11). `SHARED_RENDERER` stays the switch that hotfix flips (R10-8). The Stage 1a done-when is unchanged: the golden bar, the hardware checks, a green connected suite, and Test Lab frame timing no worse than v1.0.0.
+- Stage 2 still needs an active enrollment. The Stage 2 TestFlight read stays the first demand signal.
 
 ## GSTACK REVIEW REPORT
 

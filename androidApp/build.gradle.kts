@@ -69,6 +69,10 @@ android {
         // The install referrer (T46): Play's, unless a debug build sets `-Pgemmory.fakeReferrer=<utm string>`
         // (`utm_source=share&utm_medium=bundled&utm_content=<id>`, say), which a fresh install reads instead.
         buildConfigField("String", "FAKE_REFERRER", "\"\"")
+        // The shared renderers (iOS Stage 1a, T62, eng R10-8): on from the 1a release. A hotfix build sets
+        // `-Pgemmory.sharedRenderer=false` to draw with the old ones. Set here only, never per build type, so debug and
+        // release always agree; SharedRendererSwitchTest pins the value that ships.
+        buildConfigField("boolean", "SHARED_RENDERER", providers.gradleProperty("gemmory.sharedRenderer").getOrElse("true"))
     }
 
     signingConfigs {
@@ -175,6 +179,8 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    // The shared renderers (iOS Stage 1a, T62); Stage 1c moves the screens there too.
+    implementation(project(":composeApp"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
