@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasState
 import com.brewingbytes.gemmory.game.PlaceResult
+import com.brewingbytes.gemmory.play.CanvasViewport
+import com.brewingbytes.gemmory.render.CanvasGame
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.save.GridFile
@@ -27,7 +29,7 @@ internal class SpikeGame private constructor(
     val grid: GridFile,
     private val state: CanvasState,
     private val files: SpikeFiles?,
-) : SpikeRenderer.Game {
+) : CanvasGame {
     val pattern: Pattern get() = grid.pattern
     val viewport = CanvasViewport(pattern.width, pattern.height)
 

@@ -35,8 +35,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 22
-        versionName = "1.0.0"
+        versionCode = 23
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
@@ -69,6 +69,10 @@ android {
         // The install referrer (T46): Play's, unless a debug build sets `-Pgemmory.fakeReferrer=<utm string>`
         // (`utm_source=share&utm_medium=bundled&utm_content=<id>`, say), which a fresh install reads instead.
         buildConfigField("String", "FAKE_REFERRER", "\"\"")
+        // The shared renderers (iOS Stage 1a, T62, eng R10-8): on from the 1a release. A hotfix build sets
+        // `-Pgemmory.sharedRenderer=false` to draw with the old ones. Set here only, never per build type, so debug and
+        // release always agree; SharedRendererSwitchTest pins the value that ships.
+        buildConfigField("boolean", "SHARED_RENDERER", providers.gradleProperty("gemmory.sharedRenderer").getOrElse("true"))
     }
 
     signingConfigs {
@@ -175,6 +179,8 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    // The shared renderers (iOS Stage 1a, T62); Stage 1c moves the screens there too.
+    implementation(project(":composeApp"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

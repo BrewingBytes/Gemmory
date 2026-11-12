@@ -8,9 +8,9 @@ plugins {
 }
 
 /**
- * The shared Compose UI (iOS plan, eng D1). Stage 0 (T59, #167) holds only the spike: the play canvas drawn in common
- * `DrawScope` code, run on the iOS simulator, the iPhone and (for the renderer golden bar) an Android device.
- * `:androidApp` doesn't depend on it until Stage 1a.
+ * The shared Compose UI (iOS plan, eng D1). Stage 0 (T59, #167) added the spike: the play canvas drawn in common
+ * `DrawScope` code, run on the iOS simulator, the iPhone and (for the renderer golden bar) an Android device. Since
+ * Stage 1a (T62) `:androidApp` depends on it and draws with its shared renderers (package `render`).
  */
 kotlin {
     jvmToolchain(17)
@@ -22,7 +22,9 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
         androidResources { enable = true }
-        // The renderer golden bar's Android side (R3-1): compares the spike with goldens/renderer/.
+        // commonTest on the JVM too (T62): the render caches' tests moved here from androidApp, and Linux CI skips iOS.
+        withHostTest {}
+        // The renderer golden bar's Android side (R3-1): compares the shared renderers with goldens/renderer/.
         withDeviceTest {
             instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         }

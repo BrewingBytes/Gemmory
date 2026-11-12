@@ -1,16 +1,103 @@
-# name zoomDp style log (T59 renderer goldens: pictures/deco-peacock.gmrg, 720x1280 px, density 2.0)
-fit-tint-checker 0.0 tint checker
-fit-outline-checker 0.0 outline checker
-fit-dim-checker 0.0 dim checker
-z10-tint-checker 10.0 tint checker
-z10-outline-checker 10.0 outline checker
-z10-dim-checker 10.0 dim checker
-z18-tint-checker 18.0 tint checker
-z18-outline-checker 18.0 outline checker
-z18-dim-checker 18.0 dim checker
-z28-tint-checker 28.0 tint checker
-z28-outline-checker 28.0 outline checker
-z28-dim-checker 28.0 dim checker
-z18-tint-empty 18.0 tint empty
-z18-tint-full 18.0 tint full
+# canvas name picture zoomDp style log flag (720x1280 px, density 2.0; log: empty, half or full; flag: -, mystery or effects)
+# gems name picture cellPx (every palette color placed, top row, and unplaced, bottom row)
+# T62 renderer goldens from the old renderers; pictures in pictures/
+canvas puppy-fit-tint-empty puppy 0.0 tint empty -
+canvas puppy-fit-outline-empty puppy 0.0 outline empty -
+canvas puppy-fit-dim-empty puppy 0.0 dim empty -
+canvas puppy-fit-tint-half puppy 0.0 tint half -
+canvas puppy-fit-outline-half puppy 0.0 outline half -
+canvas puppy-fit-dim-half puppy 0.0 dim half -
+canvas puppy-fit-full puppy 0.0 tint full -
+canvas puppy-z10-tint-empty puppy 10.0 tint empty -
+canvas puppy-z10-outline-empty puppy 10.0 outline empty -
+canvas puppy-z10-dim-empty puppy 10.0 dim empty -
+canvas puppy-z10-tint-half puppy 10.0 tint half -
+canvas puppy-z10-outline-half puppy 10.0 outline half -
+canvas puppy-z10-dim-half puppy 10.0 dim half -
+canvas puppy-z10-full puppy 10.0 tint full -
+canvas puppy-z18-tint-empty puppy 18.0 tint empty -
+canvas puppy-z18-outline-empty puppy 18.0 outline empty -
+canvas puppy-z18-dim-empty puppy 18.0 dim empty -
+canvas puppy-z18-tint-half puppy 18.0 tint half -
+canvas puppy-z18-outline-half puppy 18.0 outline half -
+canvas puppy-z18-dim-half puppy 18.0 dim half -
+canvas puppy-z18-full puppy 18.0 tint full -
+canvas puppy-z28-tint-empty puppy 28.0 tint empty -
+canvas puppy-z28-outline-empty puppy 28.0 outline empty -
+canvas puppy-z28-dim-empty puppy 28.0 dim empty -
+canvas puppy-z28-tint-half puppy 28.0 tint half -
+canvas puppy-z28-outline-half puppy 28.0 outline half -
+canvas puppy-z28-dim-half puppy 28.0 dim half -
+canvas puppy-z28-full puppy 28.0 tint full -
+canvas deco-peacock-fit-tint-empty deco-peacock 0.0 tint empty -
+canvas deco-peacock-fit-outline-empty deco-peacock 0.0 outline empty -
+canvas deco-peacock-fit-dim-empty deco-peacock 0.0 dim empty -
+canvas deco-peacock-fit-tint-half deco-peacock 0.0 tint half -
+canvas deco-peacock-fit-outline-half deco-peacock 0.0 outline half -
+canvas deco-peacock-fit-dim-half deco-peacock 0.0 dim half -
+canvas deco-peacock-fit-full deco-peacock 0.0 tint full -
+canvas deco-peacock-z10-tint-empty deco-peacock 10.0 tint empty -
+canvas deco-peacock-z10-outline-empty deco-peacock 10.0 outline empty -
+canvas deco-peacock-z10-dim-empty deco-peacock 10.0 dim empty -
+canvas deco-peacock-z10-tint-half deco-peacock 10.0 tint half -
+canvas deco-peacock-z10-outline-half deco-peacock 10.0 outline half -
+canvas deco-peacock-z10-dim-half deco-peacock 10.0 dim half -
+canvas deco-peacock-z10-full deco-peacock 10.0 tint full -
+canvas deco-peacock-z18-tint-empty deco-peacock 18.0 tint empty -
+canvas deco-peacock-z18-outline-empty deco-peacock 18.0 outline empty -
+canvas deco-peacock-z18-dim-empty deco-peacock 18.0 dim empty -
+canvas deco-peacock-z18-tint-half deco-peacock 18.0 tint half -
+canvas deco-peacock-z18-outline-half deco-peacock 18.0 outline half -
+canvas deco-peacock-z18-dim-half deco-peacock 18.0 dim half -
+canvas deco-peacock-z18-full deco-peacock 18.0 tint full -
+canvas deco-peacock-z28-tint-empty deco-peacock 28.0 tint empty -
+canvas deco-peacock-z28-outline-empty deco-peacock 28.0 outline empty -
+canvas deco-peacock-z28-dim-empty deco-peacock 28.0 dim empty -
+canvas deco-peacock-z28-tint-half deco-peacock 28.0 tint half -
+canvas deco-peacock-z28-outline-half deco-peacock 28.0 outline half -
+canvas deco-peacock-z28-dim-half deco-peacock 28.0 dim half -
+canvas deco-peacock-z28-full deco-peacock 28.0 tint full -
+canvas japanese-garden-fit-tint-empty japanese-garden 0.0 tint empty -
+canvas japanese-garden-fit-outline-empty japanese-garden 0.0 outline empty -
+canvas japanese-garden-fit-dim-empty japanese-garden 0.0 dim empty -
+canvas japanese-garden-fit-tint-half japanese-garden 0.0 tint half -
+canvas japanese-garden-fit-outline-half japanese-garden 0.0 outline half -
+canvas japanese-garden-fit-dim-half japanese-garden 0.0 dim half -
+canvas japanese-garden-fit-full japanese-garden 0.0 tint full -
+canvas japanese-garden-z10-tint-empty japanese-garden 10.0 tint empty -
+canvas japanese-garden-z10-outline-empty japanese-garden 10.0 outline empty -
+canvas japanese-garden-z10-dim-empty japanese-garden 10.0 dim empty -
+canvas japanese-garden-z10-tint-half japanese-garden 10.0 tint half -
+canvas japanese-garden-z10-outline-half japanese-garden 10.0 outline half -
+canvas japanese-garden-z10-dim-half japanese-garden 10.0 dim half -
+canvas japanese-garden-z10-full japanese-garden 10.0 tint full -
+canvas japanese-garden-z18-tint-empty japanese-garden 18.0 tint empty -
+canvas japanese-garden-z18-outline-empty japanese-garden 18.0 outline empty -
+canvas japanese-garden-z18-dim-empty japanese-garden 18.0 dim empty -
+canvas japanese-garden-z18-tint-half japanese-garden 18.0 tint half -
+canvas japanese-garden-z18-outline-half japanese-garden 18.0 outline half -
+canvas japanese-garden-z18-dim-half japanese-garden 18.0 dim half -
+canvas japanese-garden-z18-full japanese-garden 18.0 tint full -
+canvas japanese-garden-z28-tint-empty japanese-garden 28.0 tint empty -
+canvas japanese-garden-z28-outline-empty japanese-garden 28.0 outline empty -
+canvas japanese-garden-z28-dim-empty japanese-garden 28.0 dim empty -
+canvas japanese-garden-z28-tint-half japanese-garden 28.0 tint half -
+canvas japanese-garden-z28-outline-half japanese-garden 28.0 outline half -
+canvas japanese-garden-z28-dim-half japanese-garden 28.0 dim half -
+canvas japanese-garden-z28-full japanese-garden 28.0 tint full -
+canvas deco-peacock-fit-mystery deco-peacock 0.0 tint half mystery
+canvas deco-peacock-z18-mystery deco-peacock 18.0 tint half mystery
+canvas deco-peacock-z28-effects deco-peacock 28.0 tint half effects
+gems gems-puppy-6 puppy 6
+gems gems-puppy-12 puppy 12
+gems gems-puppy-18 puppy 18
+gems gems-puppy-24 puppy 24
+gems gems-deco-peacock-6 deco-peacock 6
+gems gems-deco-peacock-12 deco-peacock 12
+gems gems-deco-peacock-18 deco-peacock 18
+gems gems-deco-peacock-24 deco-peacock 24
+gems gems-japanese-garden-6 japanese-garden 6
+gems gems-japanese-garden-12 japanese-garden 12
+gems gems-japanese-garden-18 japanese-garden 18
+gems gems-japanese-garden-24 japanese-garden 24
 # endcard 1080x1920 en non-VIP player share, finished: endcard-band.png, endcard-card.png (card layer, Play badge included)

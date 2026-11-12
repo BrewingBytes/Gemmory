@@ -94,6 +94,7 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,6 +106,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.copy.strings
@@ -118,11 +120,13 @@ import com.brewingbytes.gemmory.game.Rejection
 import com.brewingbytes.gemmory.game.Sweep
 import com.brewingbytes.gemmory.game.TapAction
 import com.brewingbytes.gemmory.game.TapOutcome
+import com.brewingbytes.gemmory.render.CanvasRenderer as SharedCanvasRenderer
 import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.timelapse.ProgressShare
 import com.brewingbytes.gemmory.ui.A11yText
+import com.brewingbytes.gemmory.ui.AppRenderAssets
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
 import com.brewingbytes.gemmory.ui.GemToast
@@ -130,17 +134,17 @@ import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.QuietButton
-import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.TableCut
+import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import com.brewingbytes.gemmory.ui.withFullMotion
+import kotlin.math.ceil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlin.math.ceil
 
 /**
  * The play canvas (design system, Play canvas): top bar with back, title and mono progress; the canvas on
@@ -555,7 +559,12 @@ private fun GemCanvas(
     val context = LocalContext.current
     val density = LocalDensity.current.density
     val mystery = session.hiddenAs != null
-    val renderer = remember(session.pattern, mystery) { CanvasRenderer(context, session.pattern, mystery) }
+    // iOS Stage 1a (T62): the shared renderer, unless a hotfix switched back to the old one (R10-8).
+    val textMeasurer = rememberTextMeasurer()
+    val shared = remember(session.pattern, mystery) {
+        if (BuildConfig.SHARED_RENDERER) SharedCanvasRenderer(session.pattern, textMeasurer, AppRenderAssets, mystery) else null
+    }
+    val renderer = remember(session.pattern, mystery) { if (shared == null) CanvasRenderer(context, session.pattern, mystery) else null }
     // Read in the draw block, so a change in Settings redraws an open canvas at once (#19).
     val highlight by (context.applicationContext as GemmoryApp).settings.highlight.collectAsStateWithLifecycle()
 
@@ -622,7 +631,10 @@ private fun GemCanvas(
             session.selectedSlot
             val now = controller.frameNanos
             val style = highlight
-            drawIntoCanvas { renderer.draw(it.nativeCanvas, session, density, style, controller.effects, now) }
+            drawIntoCanvas {
+                shared?.draw(it, session, viewport, density, style, controller.effects, now)
+                renderer?.draw(it.nativeCanvas, session, density, style, controller.effects, now)
+            }
         }
         Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
             if (shown != null) HintChip(stringResource(shown.text))

@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
@@ -63,10 +64,16 @@ import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.game.PlaceResult
 import com.brewingbytes.gemmory.game.TapAction
 import com.brewingbytes.gemmory.game.nextRemainingCell
+import com.brewingbytes.gemmory.play.CanvasEffects
+import com.brewingbytes.gemmory.play.CanvasViewport
+import com.brewingbytes.gemmory.play.CellColors
+import com.brewingbytes.gemmory.play.HighlightStyle
+import com.brewingbytes.gemmory.render.CanvasRenderer
+import com.brewingbytes.gemmory.render.RenderAssets
+import kotlin.time.TimeSource
 import org.jetbrains.compose.resources.Font
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.TimeSource
 
 /**
  * Brackets each canvas draw, so the iOS shell can wrap it in an `os_signpost` interval that an XCTest metric reads
@@ -103,8 +110,13 @@ internal fun SpikeApp(files: SpikeFiles, probe: FrameProbe? = null, autoBench: B
 private fun PlayScreen(game: SpikeGame, probe: FrameProbe?, autoBench: Boolean, onChecks: () -> Unit) {
     val density = LocalDensity.current.density
     val measurer = rememberTextMeasurer()
-    val mono = FontFamily(Font(Res.font.atkinson_hyperlegible_mono, FontWeight.Bold))
-    val renderer = remember(game, mono) { SpikeRenderer(game.pattern, measurer, mono) }
+    val mono = FontFamily(
+        Font(Res.font.atkinson_hyperlegible_mono, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    )
+    val renderer = remember(game, mono) {
+        CanvasRenderer(game.pattern, measurer, object : RenderAssets { override val numbers = mono })
+    }
+    val effects = remember { CanvasEffects() }
     val bench = remember { Bench() }
     var benchRun by remember { mutableStateOf(if (autoBench) 1 else 0) }
     val viewport = game.viewport
@@ -162,7 +174,7 @@ private fun PlayScreen(game: SpikeGame, probe: FrameProbe?, autoBench: Boolean, 
                 drawIntoCanvas { canvas ->
                     probe?.beginDraw()
                     val start = TimeSource.Monotonic.markNow()
-                    renderer.draw(canvas, game, viewport, density, HighlightStyle.TINT)
+                    renderer.draw(canvas, game, viewport, density, HighlightStyle.TINT, effects, 0L)
                     bench.drew(start.elapsedNow().inWholeNanoseconds)
                     probe?.endDraw()
                 }

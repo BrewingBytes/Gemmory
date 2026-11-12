@@ -323,10 +323,17 @@ class RemotePicturesTest {
         val r = remote()
         r.checkIfDue()
         withTimeout(10_000) { r.updates.first { it == 1 } }
+        withTimeout(10_000) { r.checksEnded.first { it == 1 } }
         day()
-        r.checkIfDue()
-        // Unchanged (a 304): no reload. A forced check queues behind the background one on the io dispatcher.
-        withTimeout(10_000) { while (source.requests.size < 4) yield() }
+        // Unchanged (a 304): no reload. A forced check queues behind the background one on the io dispatcher. The first
+        // check's job can still be finishing after it counts itself ended, and checkIfDue skips while it's active, so
+        // ask again until the day's check has started (once it has, it's no longer due).
+        withTimeout(10_000) {
+            while (source.requests.size < 4) {
+                r.checkIfDue()
+                yield()
+            }
+        }
         r.check(force = true)
         delay(200)
         assertEquals(1, r.updates.value)

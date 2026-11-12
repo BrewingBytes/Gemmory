@@ -131,10 +131,10 @@ Each of these shipped as Claude's draft, with no native-speaker review yet (foun
 - **What:** linking warns that skiko's ICU object was built for iOS 18.5 while the app's minimum is 18.0 (eng D2). Decide in Stage 2 whether the minimum moves to 18.5 or the warning is harmless.
 - **Priority:** P3
 
-### Renderer memory and batch size on iOS (from the #167 review)
-- **What:** (a) the spike's `SpikeRenderer` ignores the evicted bucket's atlas (`newBucket = { spec, _ -> … }`), so every zoom bucket a pinch crosses allocates a new atlas, where Android's `CanvasRenderer` reuses it (`Atlas.of(…, recycled)`); (b) iOS `drawCellBatch` passes the whole capacity arrays (up to 16k quads) to `drawVertices` on every batch, zeroing the tail instead of copying.
-- **Why:** both cost native memory and per-frame marshalling that the 120 Hz gate (draw p95 0.67 ms on the 15 Pro Max) didn't catch.
-- **Context:** Stage 1a (T62), when the shared renderer replaces `CanvasRenderer`: carry the recycling over, and measure `copyOf(count)` against the zeroed tail on the phone.
+### Renderer batch size on iOS (from the #167 review)
+- **What:** iOS `drawCellBatch` passes the whole capacity arrays (up to 16k quads) to `drawVertices` on every batch, zeroing the tail instead of copying. (The other half, the atlas not reusing the evicted bucket's bitmap, was fixed in T62's PR A, #182: `render.CanvasRenderer`'s `Atlas.of(…, recycled)`.)
+- **Why:** it costs per-frame marshalling that the 120 Hz gate (draw p95 0.67 ms on the 15 Pro Max) didn't catch.
+- **Context:** Stage 1a (T62): measure `copyOf(count)` against the zeroed tail on the phone.
 - **Priority:** P2 (with 1a)
 
 ### Test hooks and backup exclusion in the iOS app (from the #167 review)

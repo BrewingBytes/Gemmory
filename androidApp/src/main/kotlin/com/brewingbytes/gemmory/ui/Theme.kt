@@ -84,7 +84,7 @@ data class Felt(val ground: Color, val deep: Color, val raised: Color)
 
 val LocalFelt = staticCompositionLocalOf { Felt(GemColors.Felt, GemColors.FeltDeep, GemColors.FeltRaised) }
 
-private val AtkinsonMono = FontFamily(
+internal val AtkinsonMono = FontFamily(
     Font(R.font.atkinson_hyperlegible_mono, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
 )
 

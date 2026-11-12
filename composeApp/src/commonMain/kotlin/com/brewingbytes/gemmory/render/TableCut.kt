@@ -1,0 +1,87 @@
+package com.brewingbytes.gemmory.render
+
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Path
+import kotlin.math.max
+
+/**
+ * The square table-cut gem (design system, Shapes, T40) in common code (iOS Stage 1a, T62): the whole cell in the
+ * exact color with four bevel overlays from a flat table to the cell edge, top 24% white, left 9% white, right 14%
+ * black, bottom 24% black, and from 20dp a 0.8dp catchlight at 38% white along the table's top edge. The lit and
+ * shaded bevels cancel out, so the gem averages to its true color when zoomed out. The shared [CanvasRenderer] and
+ * [GemRenderer] draw it from here; androidApp's `ui.TableCut` is the old renderers' copy, kept for the
+ * `SHARED_RENDERER` hotfix until one release has shipped on these.
+ */
+object TableCut {
+    /** Below this a gem is a flat square in its exact color. */
+    const val MIN_DP = 8f
+
+    /** From this the bevel is 20% of the cell instead of 24%. */
+    const val NARROW_DP = 16f
+
+    /** From this the catchlight shows. */
+    const val CATCHLIGHT_DP = 20f
+
+    const val WIDE_BEVEL = 0.24f
+    const val NARROW_BEVEL = 0.20f
+    private const val MIN_BEVEL_DP = 1.2f
+    private const val CATCHLIGHT_THICK_DP = 0.8f
+
+    const val TOP = 0x3DFFFFFF
+    const val LEFT = 0x17FFFFFF
+    const val RIGHT = 0x24000000
+    const val BOTTOM = 0x3D000000
+    const val CATCHLIGHT = 0x61FFFFFF
+
+    /** The bevel's share of a [cellDp] cell: 24% from 8 to 15dp, 20% from 16dp. */
+    fun bevelShare(cellDp: Float): Float = if (cellDp >= NARROW_DP) NARROW_BEVEL else WIDE_BEVEL
+
+    /** The bevel width of a [cellPx] cell shown at [cellDp], never under 1.2dp; 0 below 8dp (a flat square). */
+    fun bevelPx(cellPx: Float, cellDp: Float, density: Float): Float =
+        if (cellDp < MIN_DP) 0f else max(MIN_BEVEL_DP * density, cellPx * bevelShare(cellDp))
+
+    /** The catchlight's thickness at [cellDp] (0.8dp, at least 1px), or 0 below 20dp. */
+    fun catchlightPx(cellDp: Float, density: Float): Float =
+        if (cellDp < CATCHLIGHT_DP) 0f else max(1f, CATCHLIGHT_THICK_DP * density)
+
+    /**
+     * Draws the bevels and catchlight of a [size] px gem at ([left], [top]) whose face is already filled, all
+     * anti-aliased: the old renderer's plain `Paint()` catchlight matched only with anti-aliasing (T62 goldens).
+     */
+    class Painter {
+        private val path = Path()
+        private val top = Paint().apply { color = Color(TOP) }
+        private val left = Paint().apply { color = Color(LEFT) }
+        private val right = Paint().apply { color = Color(RIGHT) }
+        private val bottom = Paint().apply { color = Color(BOTTOM) }
+        private val catchlight = Paint().apply { color = Color(CATCHLIGHT) }
+
+        fun draw(canvas: Canvas, left: Float, top: Float, size: Float, bevel: Float, catchlightPx: Float) {
+            if (bevel <= 0f) return
+            val r = left + size
+            val b = top + size
+            quad(canvas, left, top, r, top, r - bevel, top + bevel, left + bevel, top + bevel, this.top)
+            quad(canvas, left, top, left + bevel, top + bevel, left + bevel, b - bevel, left, b, this.left)
+            quad(canvas, r, top, r, b, r - bevel, b - bevel, r - bevel, top + bevel, right)
+            quad(canvas, left, b, left + bevel, b - bevel, r - bevel, b - bevel, r, b, bottom)
+            if (catchlightPx > 0f) canvas.drawRect(left + bevel, top + bevel, r - bevel, top + bevel + catchlightPx, catchlight)
+        }
+
+        @Suppress("LongParameterList")
+        private fun quad(
+            canvas: Canvas,
+            x0: Float, y0: Float, x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float,
+            paint: Paint,
+        ) {
+            path.reset()
+            path.moveTo(x0, y0)
+            path.lineTo(x1, y1)
+            path.lineTo(x2, y2)
+            path.lineTo(x3, y3)
+            path.close()
+            canvas.drawPath(path, paint)
+        }
+    }
+}
