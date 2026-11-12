@@ -75,7 +75,7 @@ class CanvasRenderer(
     private var style = HighlightStyle.DEFAULT
     private val sprites = SpriteCache<Atlas, Int>(
         pattern.palette.size,
-        newBucket = { spec, _ -> Atlas.of(spec.px, pattern.palette.size) },
+        newBucket = { spec, recycled -> Atlas.of(spec.px, pattern.palette.size, recycled) },
         make = { atlas, spec, slot, kind -> drawSprite(atlas, spec, slot, kind) },
     )
     private val quads = CellQuads()
@@ -342,11 +342,19 @@ class CanvasRenderer(
         companion object {
             const val COLUMNS = 12
 
-            fun of(px: Int, slots: Int): Atlas {
+            /**
+             * An atlas for [slots] colors' sprites at [px]. It draws into the dropped bucket's bitmap ([recycled]) when
+             * that's big enough, as the old Android renderer did with `Bitmap.reconfigure`, so a pinch across zoom
+             * buckets doesn't allocate a new atlas every step. Texture coordinates are atlas pixels, so a bigger bitmap
+             * works as is, and its old pixels are never sampled: each sprite fills its spot and padding before use.
+             */
+            fun of(px: Int, slots: Int, recycled: Atlas?): Atlas {
                 val count = slots * SpriteCache.KINDS
                 val width = minOf(count, COLUMNS) * (px + 2)
                 val height = (count + COLUMNS - 1) / COLUMNS * (px + 2)
-                return Atlas(ImageBitmap(width, height), px)
+                val old = recycled?.image
+                val image = if (old != null && old.width >= width && old.height >= height) old else ImageBitmap(width, height)
+                return Atlas(image, px)
             }
         }
     }
