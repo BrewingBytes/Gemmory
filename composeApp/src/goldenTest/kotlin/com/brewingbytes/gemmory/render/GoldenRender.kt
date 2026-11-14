@@ -53,6 +53,15 @@ object GoldenRender {
 
     /** The rendered case and the boxes where numbers are drawn (masked out of the geometry bar). */
     fun render(pattern: Pattern, measurer: TextMeasurer, assets: RenderAssets, case: CanvasCase): Pair<ImageBitmap, List<IntArray>> {
+        val image = ImageBitmap(WIDTH, HEIGHT)
+        return image to draw(Canvas(image), pattern, measurer, assets, case)
+    }
+
+    /**
+     * Draws [case] onto [canvas], [WIDTH]×[HEIGHT] px: a software bitmap ([render]), or the hardware canvas a Compose
+     * `Canvas` draws on (androidApp's `HardwareCanvasGoldenTest`, eng D13). Returns the boxes where numbers are drawn.
+     */
+    fun draw(canvas: Canvas, pattern: Pattern, measurer: TextMeasurer, assets: RenderAssets, case: CanvasCase): List<IntArray> {
         val state = CanvasState.restore(pattern, log(pattern, case.log))!!
         val viewport = CanvasViewport(pattern.width, pattern.height)
         viewport.onLayout(WIDTH, HEIGHT, DENSITY)
@@ -67,14 +76,12 @@ object GoldenRender {
         }
         val effects = CanvasEffects()
         val now = if (case.flag == "effects") effects(pattern, effects) else 0L
-        val image = ImageBitmap(WIDTH, HEIGHT)
-        val canvas = Canvas(image)
         canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), Paint().apply { color = Color(FELT) })
         CanvasRenderer(pattern, measurer, assets, mystery = case.flag == "mystery")
             .draw(canvas, game, viewport, DENSITY, HighlightStyle.fromKey(case.style), effects, now)
         val boxes = numberBoxes(pattern, viewport, state)
         if (case.flag == "effects") boxes += effectBoxes(pattern, viewport)
-        return image to boxes
+        return boxes
     }
 
     /**
