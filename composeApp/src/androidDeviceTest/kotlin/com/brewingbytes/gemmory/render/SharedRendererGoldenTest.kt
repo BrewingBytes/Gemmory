@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.render
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -17,6 +18,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.compose.res.Res
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.play.CanvasEffects
+import com.brewingbytes.gemmory.play.CanvasViewport
+import com.brewingbytes.gemmory.play.HighlightStyle
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
 import kotlinx.coroutines.runBlocking
@@ -44,11 +48,8 @@ class SharedRendererGoldenTest {
     fun sharedRenderersMatchTheGoldens() = runBlocking<Unit> {
         val cases = GoldenRender.cases(resource("renderer/cases.txt").decodeToString())
         assertTrue(cases.size > 80, "goldens/renderer/cases.txt holds ${cases.size} cases: recapture them (README → iOS)")
-        val font = File(context.cacheDir, "mono.ttf").apply { writeBytes(Res.readBytes("font/atkinson_hyperlegible_mono.ttf")) }
-        val assets = object : RenderAssets {
-            override val numbers = FontFamily(Font(font, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))))
-        }
-        val measurer = TextMeasurer(createFontFamilyResolver(context), Density(GoldenRender.DENSITY), LayoutDirection.Ltr)
+        val assets = assets()
+        val measurer = measurer()
         val out = File(context.getExternalFilesDir(null), "goldens-actual").apply { mkdirs() }
         val patterns = HashMap<String, Pattern>()
         val failures = mutableListOf<String>()
@@ -69,6 +70,42 @@ class SharedRendererGoldenTest {
         }
         assertTrue(failures.isEmpty(), "over the golden bar:\n" + failures.joinToString("\n"))
     }
+
+    /**
+     * #54: a pinch draws a whole zoom bucket's sprites in one frame, and laying each number out again per bucket missed
+     * 12-14% of the Galaxy A06's pinch frames. Every bucket draws from one layout per color.
+     */
+    @Test
+    fun numbersAreLaidOutOncePerColorAcrossZoomBuckets() = runBlocking<Unit> {
+        val pattern = (GridCodec.decode(resource("renderer/pictures/deco-peacock.gmrg")) as Decoded.Ok).value.pattern
+        val renderer = CanvasRenderer(pattern, measurer(), assets())
+        val game = object : CanvasGame {
+            override val selectedSlot = 0
+            override val placedCount = 0
+
+            override fun placedAt(index: Int) = error("nothing placed")
+
+            override fun isPlaced(cell: Int) = false
+        }
+        val canvas = Canvas(ImageBitmap(GoldenRender.WIDTH, GoldenRender.HEIGHT))
+        val viewport = CanvasViewport(pattern.width, pattern.height)
+        viewport.onLayout(GoldenRender.WIDTH, GoldenRender.HEIGHT, GoldenRender.DENSITY)
+        val zooms = listOf(16f, 18f, 21f, 24f, 28f, 32f, 37f, 42f, 48f, 37f, 28f, 21f, 16f)
+        for (zoom in zooms) {
+            viewport.set(zoom, pattern.width / 2f, pattern.height / 2f)
+            renderer.draw(canvas, game, viewport, GoldenRender.DENSITY, HighlightStyle.DEFAULT, CanvasEffects(), 0L)
+        }
+        assertTrue(renderer.numberLayoutsMade in 1..pattern.palette.size, "${renderer.numberLayoutsMade} number layouts over ${zooms.size} zooms")
+    }
+
+    private suspend fun assets(): RenderAssets {
+        val font = File(context.cacheDir, "mono.ttf").apply { writeBytes(Res.readBytes("font/atkinson_hyperlegible_mono.ttf")) }
+        return object : RenderAssets {
+            override val numbers = FontFamily(Font(font, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))))
+        }
+    }
+
+    private fun measurer() = TextMeasurer(createFontFamilyResolver(context), Density(GoldenRender.DENSITY), LayoutDirection.Ltr)
 
     private fun pass(ok: Boolean) = if (ok) "pass" else "FAIL"
 

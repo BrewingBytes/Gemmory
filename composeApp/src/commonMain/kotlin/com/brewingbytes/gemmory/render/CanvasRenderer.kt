@@ -58,8 +58,9 @@ interface CanvasGame {
  * other colors dimmed. On top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). A tool's batch (#20)
  * is placed at once and revealed ring by ring: its cells keep their unplaced look until their ring's time.
  *
- * Numbers are laid out by [textMeasurer] in [RenderAssets.numbers] at 700, centered on the font's ascent and descent
- * as Android's `Paint` centers them. Main thread only.
+ * Numbers are laid out by [textMeasurer] in [RenderAssets.numbers] at 700, once per color at [NUMBER_LAYOUT_PX] and
+ * drawn scaled to each bucket's size, centered on the font's ascent and descent as Android's `Paint` centers them.
+ * Main thread only.
  */
 class CanvasRenderer(
     private val pattern: Pattern,
@@ -69,6 +70,17 @@ class CanvasRenderer(
 ) {
     private val colors = CellColors(pattern, mystery)
     private val labels = Array(pattern.palette.size) { (it + 1).toString() }
+
+    /**
+     * Each color's number, laid out once for every zoom bucket: a layout costs as much as the rest of its sprite, and a
+     * pinch draws a whole bucket's sprites in one frame (#54: laying them out per bucket missed 12-14% of the Galaxy
+     * A06's pinch frames in 1.0.1-1.0.2).
+     */
+    private val numberLayouts = arrayOfNulls<TextLayoutResult>(pattern.palette.size)
+
+    /** Numbers laid out so far, for tests: at most one per color, whatever zoom buckets were drawn. */
+    var numberLayoutsMade = 0
+        private set
     private val bake = bakedBitmap(pattern.width, pattern.height)
     private val canvasBake = CanvasBake(pattern, colors, bake)
     private var density = 0f
@@ -259,28 +271,35 @@ class CanvasRenderer(
             canvas.drawRect(0f, px - line, px - line, px, seam)
         }
         if (ringed) drawRing(canvas, px)
-        if (spec.numbers) drawNumber(atlas, canvas, slot, colors.number(slot, look), px)
+        if (spec.numbers) drawNumber(canvas, slot, colors.number(slot, look), px)
         canvas.restore()
         return index
     }
 
-    private fun drawNumber(atlas: Atlas, canvas: Canvas, slot: Int, argb: Int, px: Float) {
+    private fun drawNumber(canvas: Canvas, slot: Int, argb: Int, px: Float) {
         val size = px * NUMBER_SCALE
-        // Laid out once per slot in this bucket, in px (density 1), as Android's Paint.textSize is.
-        val layout = atlas.numbers.getOrPut(slot) {
-            textMeasurer.measure(
-                labels[slot],
-                TextStyle(fontFamily = assets.numbers, fontWeight = FontWeight.Bold, fontSize = size.sp),
-                density = PX,
-            )
+        // Laid out in px (density 1), as Android's Paint.textSize is, and scaled: glyphs are drawn from the font's
+        // outlines at the scaled size, and the advance scales with them.
+        val layout = numberLayouts[slot] ?: textMeasurer.measure(
+            labels[slot],
+            TextStyle(fontFamily = assets.numbers, fontWeight = FontWeight.Bold, fontSize = NUMBER_LAYOUT_PX.sp),
+            density = PX,
+        ).also {
+            numberLayouts[slot] = it
+            numberLayoutsMade++
         }
+        val scale = size / NUMBER_LAYOUT_PX
         // The baseline goes where Android's Paint puts it, centered on the font's float ascent and descent: Compose's
         // line metrics are whole pixels, which put ~17 px digits a pixel low at 18dp.
         val baseline = px / 2f + (NUMBER_ASCENT - NUMBER_DESCENT) / 2f * size
-        val width = layout.advance()
-        numberScope.draw(PX, LayoutDirection.Ltr, canvas, Size(px, px)) {
-            drawText(layout, color = Color(argb), topLeft = Offset((px - width) / 2f, baseline - layout.firstBaseline))
+        val width = layout.advance() * scale
+        canvas.save()
+        canvas.translate((px - width) / 2f, baseline)
+        canvas.scale(scale, scale)
+        numberScope.draw(PX, LayoutDirection.Ltr, canvas, Size(px / scale, px / scale)) {
+            drawText(layout, color = Color(argb), topLeft = Offset(0f, -layout.firstBaseline))
         }
+        canvas.restore()
     }
 
     /**
@@ -308,12 +327,6 @@ class CanvasRenderer(
      */
     private class Atlas(val image: ImageBitmap, private val px: Int) {
         val canvas = Canvas(image)
-
-        /**
-         * The numbers laid out for this bucket's sprites, by slot: they go with the bucket, so a pinch across zoom
-         * buckets keeps only the two buckets' layouts (#182 review), not every size it passed through.
-         */
-        val numbers = HashMap<Int, TextLayoutResult>()
 
         private val paint = Paint().apply { filterQuality = FilterQuality.Low }
         private var stale = true
@@ -369,6 +382,9 @@ class CanvasRenderer(
         const val RING_RADIUS = 0.04f
         const val SEAM_DP = 0.5f
         const val NUMBER_SCALE = 0.46f
+
+        /** The font size every number is laid out at: about the biggest it's drawn (48dp at density 3.5 is ~77 px). */
+        const val NUMBER_LAYOUT_PX = 64f
         const val PULSE_GROW = 0.3f
 
         /** Atkinson Hyperlegible Mono's hhea ascender and descender per em (984 and -316 of 1000; typo metrics agree). */
