@@ -20,7 +20,7 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.EncodeState
-import com.brewingbytes.gemmory.timelapse.FrameArt
+import com.brewingbytes.gemmory.timelapse.FrameAssets
 import com.brewingbytes.gemmory.ui.GemRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -111,7 +111,7 @@ private fun thumbs(request: EncodeRequest): Pair<ImageBitmap, ImageBitmap> {
     val cellPx = (720 / pattern.width).coerceIn(4, 24)
     val placed = BooleanArray(pattern.cells.size).also { for (cell in request.log) it[cell] = true }
     val now = GemRenderer.render(pattern, cellPx) { placed[it] }
-    val before = request.source?.let { FrameArt.decodeSource(it, now.width, now.height) }
+    val before = request.source?.let { FrameAssets.decodeSource(it, now.width, now.height) }
         ?: GemRenderer.render(pattern, cellPx) { false }
     return before.asImageBitmap() to now.asImageBitmap()
 }

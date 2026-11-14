@@ -22,7 +22,15 @@ import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.WriteResult
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
+import com.brewingbytes.gemmory.timelapse.Frame
 import com.brewingbytes.gemmory.timelapse.FrameArt
+import com.brewingbytes.gemmory.render.JapaneseWrap
+import com.brewingbytes.gemmory.streak.StreakShareCardRenderer
+import com.brewingbytes.gemmory.ui.AppFonts
+import com.brewingbytes.gemmory.ui.wrapFor
+import android.graphics.Paint
+import android.text.StaticLayout
+import android.text.TextPaint
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemRenderer
 import java.io.File
@@ -36,9 +44,12 @@ import org.junit.runner.RunWith
 /**
  * The renderer golden baseline (iOS Stage 0, T59, R3-1; the full set since Stage 1a, T62): the old play canvas renderer
  * and `GemRenderer` drawn into software bitmaps for fixed inputs, written as `goldens/renderer/<case>.png` plus
- * `cases.txt` and the input pictures (`pictures/`), and one time-lapse end card's two layers (`endcard-band.png`,
- * `endcard-card.png`). `:composeApp`'s device test draws the same cases with the shared renderers and compares
- * (design doc, Success Criteria → Renderer golden bar).
+ * `cases.txt` and the input pictures (`pictures/`), one time-lapse end card's two layers (`endcard-band.png`,
+ * `endcard-card.png`), and the time-lapse frames, before/after pictures and streak cards of [ArtGoldens] with the
+ * Japanese wrap table (`ja-wrap.txt`). `:composeApp`'s device tests draw the canvas, gem and end card cases with the
+ * shared renderers and compare; androidApp's `render.SharedArtGoldenTest` does the frames, before/after pictures,
+ * streak cards and wrap table, which need the app's fonts and words (design doc, Success Criteria → Renderer golden
+ * bar).
  *
  * A capture tool, not a check: run it on the pinned emulator image (workflow.md) with `-e deviceChecks true`, then
  * pull `files/goldens/renderer/` from the app's external files into the repo's `goldens/renderer/` (README → iOS).
@@ -99,8 +110,64 @@ class RendererGoldenCapture {
             art.release()
         }
         lines += "# endcard ${END_WIDTH}x$END_HEIGHT en non-VIP player share, finished: endcard-band.png, endcard-card.png (card layer, Play badge included)"
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { captureArt(context, out, lines) }
+        File(out, "ja-wrap.txt").writeText(JapaneseWrap.format(japaneseWrap(context)))
+        lines += "# ja-wrap.txt: Japanese title line starts (T62, R10-3)"
         File(out, "cases.txt").writeText(lines.joinToString("\n", postfix = "\n"))
         scope.cancel()
+    }
+
+    /**
+     * The time-lapse frame's layers, the before/after pictures and the streak cards ([ArtGoldens], T62), each drawn by
+     * the old `FrameArt` and `StreakShareCardRenderer` in its language.
+     */
+    private fun captureArt(context: android.content.Context, out: File, lines: MutableList<String>) {
+        val patterns = ArtGoldens.patterns(context)
+        fun save(bitmap: Bitmap, name: String) = File(out, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        for (case in ArtGoldens.FRAMES) {
+            val localized = ArtGoldens.localized(context, case.language)
+            val request = ArtGoldens.request(localized, patterns.getValue(case.picture), case.picture, case.frame, case.watermark, case.log, case.title)
+            val art = FrameArt(localized, request, END_WIDTH, END_HEIGHT)
+            art.apply(Frame.Hold)
+            val layers = mutableListOf("canvas")
+            save(art.canvas, "${case.name}-canvas")
+            if (case.band) save(art.background, "${case.name}-band").also { layers += "band" }
+            art.overlay?.let { save(it, "${case.name}-overlay").also { layers += "overlay" } }
+            art.card?.let { save(it, "${case.name}-card").also { layers += "card" } }
+            art.source?.let { save(it, "${case.name}-source").also { layers += "source" } }
+            art.release()
+            lines += "# frame ${case.name}: ${layers.joinToString()}"
+        }
+        for (case in ArtGoldens.BEFORE_AFTER) {
+            val localized = ArtGoldens.localized(context, case.language)
+            val request = ArtGoldens.request(localized, patterns.getValue(case.picture), case.picture, case.frame, case.watermark, case.log, null)
+            FrameArt.beforeAfter(localized, request).also { save(it, case.name) }.recycle()
+            lines += "# beforeafter ${case.name}"
+        }
+        for (case in ArtGoldens.STREAKS) {
+            val localized = ArtGoldens.localized(context, case.language)
+            val card = StreakShareCardRenderer(localized).renderOld(
+                case.length, ArtGoldens.milestone(localized, case.length), ArtGoldens.WEEK, ArtGoldens.letters(localized), ArtGoldens.thumbnail(patterns),
+            )
+            save(card, case.name)
+            card.recycle()
+            lines += "# streak ${case.name}"
+        }
+    }
+
+    /** Every Japanese picture title at [JapaneseWrap.WIDTHS], laid out as the old frame's title was. */
+    private fun japaneseWrap(context: android.content.Context): List<JapaneseWrap.Row> {
+        val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = AppFonts.JAPANESE.display.typeface(context)
+            textSize = JapaneseWrap.SIZE.toFloat()
+            letterSpacing = -0.01f
+        }
+        return ArtGoldens.japaneseTitles(context).flatMap { title ->
+            JapaneseWrap.WIDTHS.map { width ->
+                val layout = StaticLayout.Builder.obtain(title, 0, title.length, paint, width).wrapFor("ja").build()
+                JapaneseWrap.Row(width, title, (0 until layout.lineCount).map(layout::getLineStart))
+            }
+        }
     }
 
     private fun draw(context: android.content.Context, pattern: Pattern, case: GoldenCases.Case, canvas: Canvas, scope: CoroutineScope) {

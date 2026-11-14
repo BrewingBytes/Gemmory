@@ -14,7 +14,9 @@ import com.brewingbytes.gemmory.render.GemRenderer as SharedGemRenderer
  * the completion screen and the time-lapse. The play canvas has its own renderer; both draw the gem with [TableCut].
  *
  * Since iOS Stage 1a (T62) [render] hands over to the shared `render.GemRenderer` while `BuildConfig.SHARED_RENDERER`
- * is on; this code is the hotfix fallback, deleted with the switch after one release ships on the shared one.
+ * is on (R10-8). The rest is the old renderer: [renderOld] and [GemPainter] draw only for a hotfix that turns the
+ * switch off (here, and in the old time-lapse `FrameArt`) and for the renderer goldens' capture. [render] stays as the
+ * app's entry point; the old code is deleted with the switch after one release ships on the shared renderers.
  */
 object GemRenderer {
     private const val FELT_DEEP = 0xFF3E4741.toInt()

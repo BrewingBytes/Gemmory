@@ -11,15 +11,21 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withClip
+import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.render.StreakCard
+import com.brewingbytes.gemmory.timelapse.FrameLayers
+import com.brewingbytes.gemmory.ui.AppArtAssets
 import com.brewingbytes.gemmory.policy.CardDay
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -34,6 +40,9 @@ import kotlin.math.min
  * flame, the streak-hero number, the milestone line, the milestone week (the picture finished each day, else the lit
  * flame; empty outlines after the milestone) and "Gemmory". Sizes are the mockup's at ×4. It is public, so the only
  * art it draws is what its thumbnail loader gives for a [CardDay.Picture], which is never a photo canvas.
+ *
+ * Since iOS Stage 1a (T62) composeApp's `render.StreakCard` draws it; [renderOld] is the hotfix path while
+ * `BuildConfig.SHARED_RENDERER` exists (R10-8), deleted with the switch.
  */
 class StreakShareCardRenderer(private val context: Context) {
     private val mono = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono) ?: Typeface.MONOSPACE
@@ -47,6 +56,14 @@ class StreakShareCardRenderer(private val context: Context) {
      * their weekday letters. [thumbnail] loads a picture's finished art (null draws the flame).
      */
     fun render(length: Int, title: String, days: List<CardDay>, letters: List<String>, thumbnail: (CanvasRef) -> Bitmap?): Bitmap {
+        // iOS Stage 1a (T62): the shared card draws, unless a hotfix switched back to this one (R10-8).
+        if (!BuildConfig.SHARED_RENDERER) return renderOld(length, title, days, letters, thumbnail)
+        val card = StreakCard(AppArtAssets(context), FrameLayers.measurer(context))
+        return card.render(length, title, days, letters) { picture -> artOf(picture, thumbnail)?.asImageBitmap() }.asAndroidBitmap()
+    }
+
+    /** The old card whatever the switch says: the hotfix path, and what the renderer goldens are captured from. */
+    internal fun renderOld(length: Int, title: String, days: List<CardDay>, letters: List<String>, thumbnail: (CanvasRef) -> Bitmap?): Bitmap {
         val out = createBitmap(WIDTH, HEIGHT)
         val canvas = Canvas(out)
         canvas.drawColor(GemColors.FeltDeep.toArgb())
@@ -103,10 +120,7 @@ class StreakShareCardRenderer(private val context: Context) {
             return
         }
         canvas.drawRoundRect(box, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GemColors.Felt.toArgb() })
-        // A photo canvas is never asked for, whatever the days or the loader say.
-        val art = (day as? CardDay.Picture)?.let { picture ->
-            CardPictures.refOf(picture.canvas)?.takeIf { it.kind != CanvasKind.PHOTO }?.let(thumbnail)
-        }
+        val art = (day as? CardDay.Picture)?.let { artOf(it, thumbnail) }
         if (art == null) {
             val size = CELL_FLAME.toFloat()
             drawFlame(canvas, length, box.centerX() - size / 2, box.centerY() - size / 2, size)
@@ -119,6 +133,10 @@ class StreakShareCardRenderer(private val context: Context) {
             drawBitmap(art, src, box, Paint(Paint.FILTER_BITMAP_FLAG))
         }
     }
+
+    /** A picture day's art: a photo canvas is never asked for, whatever the days or the loader say. */
+    private fun artOf(picture: CardDay.Picture, thumbnail: (CanvasRef) -> Bitmap?): Bitmap? =
+        CardPictures.refOf(picture.canvas)?.takeIf { it.kind != CanvasKind.PHOTO }?.let(thumbnail)
 
     /** The lit flame in [length]'s tier color (G1), from the widget's drawables (the same paths as [Flame]). */
     private fun drawFlame(canvas: Canvas, length: Int, left: Float, top: Float, size: Float) {

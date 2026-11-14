@@ -29,9 +29,9 @@ class PlayBadgesTest {
 
     @Test
     fun everyLanguageHasGooglesBadgeUnchanged() {
-        assertEquals(FrameStyle.BADGE_LANGUAGES, sha1.keys)
+        assertEquals(FrameAssets.BADGE_LANGUAGES, sha1.keys)
         for ((language, expected) in sha1) {
-            val file = File("src/main/assets/${FrameStyle.badgeAsset(language)}")
+            val file = File("src/main/assets/${FrameAssets.badgeAsset(language)}")
             val digest = MessageDigest.getInstance("SHA-1").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
             assertEquals(expected, digest, file.name)
             val image = ImageIO.read(file)
@@ -41,7 +41,7 @@ class PlayBadgesTest {
 
     @Test
     fun anOtherLanguageGetsTheEnglishBadge() {
-        assertEquals(FrameStyle.BADGE_ASSET, FrameStyle.badgeAsset("nl"))
-        assertEquals("share/play_badge_pt.png", FrameStyle.badgeAsset("pt"))
+        assertEquals(FrameAssets.BADGE_ASSET, FrameAssets.badgeAsset("nl"))
+        assertEquals("share/play_badge_pt.png", FrameAssets.badgeAsset("pt"))
     }
 }

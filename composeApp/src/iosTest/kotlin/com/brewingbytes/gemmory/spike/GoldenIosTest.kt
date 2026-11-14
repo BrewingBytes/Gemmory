@@ -13,8 +13,13 @@ import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.render.FrameArt
+import com.brewingbytes.gemmory.render.FrameRequest
+import com.brewingbytes.gemmory.render.FrameStyle
+import com.brewingbytes.gemmory.render.GoldenAssets
 import com.brewingbytes.gemmory.render.GoldenMath
 import com.brewingbytes.gemmory.render.GoldenRender
+import com.brewingbytes.gemmory.render.JapaneseWrap
 import com.brewingbytes.gemmory.render.RenderAssets
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
@@ -72,20 +77,24 @@ class GoldenIosTest {
             if (!numbered && ssim < CROSS_PLATFORM) failures += case.name
         }
 
-        val display = FontFamily(font("bricolage_grotesque.ttf", FontWeight.SemiBold, 600))
-        val body = FontFamily(font("figtree.ttf", FontWeight.Light, 300))
-        val spike = EndCardSpike(1080, 1920, measurer, display, body)
-        val band = spike.band(pattern)
+        // The shared FrameArt's end card (T62), as the Android goldens' finished, non-VIP 1080×1920 player share.
+        val icon = png("composeApp/src/commonMain/composeResources/files/share/app_icon.png")
+        val art = FrameArt(
+            FrameRequest(pattern, IntArray(pattern.cells.size) { it }, "Art Deco Peacock", watermark = true),
+            GoldenAssets.english(::font, assets.numbers, icon),
+            measurer, 1080, 1920,
+        ) { _, _ -> null }
+        val band = art.background
+        save(band, "endcard-band.png")
         val bandSsim = GoldenMath.ssim(pixels(png("goldens/renderer/endcard-band.png")), pixels(band), band.width)
         val bandDiff = GoldenMath.diff(pixels(png("goldens/renderer/endcard-band.png")), pixels(band))
         report("ios endcard-band ssim=${GoldenMath.fmt(bandSsim)} differing=${GoldenMath.pct(bandDiff.differingShare)} maxDiff=${bandDiff.maxDiff}")
         if (bandSsim < CROSS_PLATFORM) failures += "endcard-band"
-        val layout = ShareLayout.of(1080, 1920, pattern.width, pattern.height, branded = true)
-        val card = layout.card!!
-        val icon = png("composeApp/src/commonMain/composeResources/files/share/app_icon.png")
-        val actual = spike.card(card, icon, "Gemmory", "Your photos in gems")
+        val card = ShareLayout.of(1080, 1920, pattern.width, pattern.height, branded = true).card!!
+        val actual = art.card!!
+        save(actual, "endcard-card.png")
         val golden = pixels(png("goldens/renderer/endcard-card.png"))
-        val top = spike.cardTop(card)
+        val top = card.top - FrameStyle.CARD_SHADOW_ROOM
         val badge = GoldenMath.mask(actual.width, actual.height, listOf(intArrayOf(card.badge.left - 4, card.badge.top - top - 4, card.badge.right + 4, card.badge.bottom - top + 4)))
         val mine = pixels(actual)
         // The Play badge is Android's alone (CEO D13): compare with it painted out of both.
@@ -96,6 +105,18 @@ class GoldenIosTest {
         val cardSsim = GoldenMath.ssim(golden, mine, actual.width)
         report("ios endcard-card ssim=${GoldenMath.fmt(cardSsim)}")
         if (cardSsim < CROSS_PLATFORM) failures += "endcard-card"
+        // Japanese titles (T62, R10-3): the Android table of phrase breaks, reported here until iOS ships (Stage 2).
+        val zen = FontFamily(
+            Font(
+                identity = "zen_kaku_gothic_new_bold.ttf",
+                data = file("androidApp/src/main/res/font/zen_kaku_gothic_new_bold.ttf"),
+                weight = FontWeight.SemiBold,
+            ),
+        )
+        val rows = JapaneseWrap.parse(file("goldens/renderer/ja-wrap.txt").decodeToString())
+        val wrong = JapaneseWrap.check(rows, measurer, zen)
+        report("ios ja-wrap rows=${rows.size} wrong=${wrong.size}")
+        wrong.take(10).forEach { report("ios ja-wrap $it") }
         assertTrue(failures.isEmpty(), "under the cross-platform bar: $failures")
     }
 

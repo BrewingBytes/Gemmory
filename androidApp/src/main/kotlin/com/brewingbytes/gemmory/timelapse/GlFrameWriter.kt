@@ -17,7 +17,7 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 /**
- * Puts [FrameArt]'s layers onto the encoder's input surface through EGL, one frame at a time, each with its own
+ * Puts [FrameLayers]' layers onto the encoder's input surface through EGL, one frame at a time, each with its own
  * presentation time (`eglPresentationTimeANDROID`).
  *
  * Why not `Surface.lockHardwareCanvas`: its producer runs with swap interval 0, so a frame posted before the encoder
