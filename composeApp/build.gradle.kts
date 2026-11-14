@@ -49,14 +49,19 @@ kotlin {
             implementation(libs.cmp.components.resources)
             implementation(libs.cmp.navigationevent.compose)
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
+        commonTest {
+            // The golden bar's arithmetic and checks (T62), shared with androidApp's instrumented golden tests.
+            kotlin.srcDir("src/goldenTest/kotlin")
+            dependencies {
+                implementation(kotlin("test"))
+            }
         }
         getByName("androidDeviceTest") {
             // One directory of goldens read by both platforms (Success Criteria, Storage).
             resources.srcDir(rootProject.layout.projectDirectory.dir("goldens"))
             // The golden bar's arithmetic (GoldenMath) is shared with the iOS tests; device tests don't see commonTest.
             kotlin.srcDir("src/commonTest/kotlin")
+            kotlin.srcDir("src/goldenTest/kotlin")
             dependencies {
                 implementation(libs.androidx.test.runner)
                 implementation(libs.androidx.test.ext.junit)

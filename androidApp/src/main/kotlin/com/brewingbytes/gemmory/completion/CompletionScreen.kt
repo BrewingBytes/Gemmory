@@ -92,12 +92,12 @@ import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.EncodeState
-import com.brewingbytes.gemmory.timelapse.FrameArt
+import com.brewingbytes.gemmory.timelapse.FrameAssets
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemRenderer
 import com.brewingbytes.gemmory.ui.GemSheet
-import com.brewingbytes.gemmory.ui.TableCut
+import com.brewingbytes.gemmory.render.TableCut
 import com.brewingbytes.gemmory.ui.GemTextButton
 import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.LocalFelt
@@ -301,7 +301,7 @@ class CompletionViewModel(application: Application, private val savedState: Save
         val cellPx = (720 / pattern.width).coerceIn(4, 24)
         val bitmap = GemRenderer.render(pattern, cellPx)
         val source = store.repository.sourceFile(ref).takeIf { ref.kind == CanvasKind.PHOTO && it.isFile }
-        val before = source?.let { FrameArt.decodeSource(it, bitmap.width, bitmap.height) }
+        val before = source?.let { FrameAssets.decodeSource(it, bitmap.width, bitmap.height) }
             ?: GemRenderer.render(pattern, cellPx) { false }
         val strings = getApplication<GemmoryApp>().strings
         val meta = strings.text(R.string.completion_meta, opened.title, strings.number(pattern.cells.size), playTime(strings, opened.record?.playMillis ?: 0L))

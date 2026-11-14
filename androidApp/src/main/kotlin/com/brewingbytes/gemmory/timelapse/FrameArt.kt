@@ -19,7 +19,6 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
 import androidx.core.graphics.createBitmap
-import androidx.core.graphics.scale
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import com.brewingbytes.gemmory.copy.Messages
@@ -29,7 +28,6 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.ui.AppFonts
 import com.brewingbytes.gemmory.ui.wrapFor
 import com.brewingbytes.gemmory.ui.GemRenderer
-import java.io.File
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -48,8 +46,12 @@ import kotlin.math.roundToInt
  *
  * Built once per attempt. The canvas lives in one bitmap that starts as the empty tint grid and gets each frame's
  * new gems drawn onto it, so a whole video costs O(gems + frames) draws (eng finding 12).
+ *
+ * Since iOS Stage 1a (T62) this is the old renderer: composeApp's `render.FrameArt` draws the frame, and this one only
+ * when a hotfix turns `BuildConfig.SHARED_RENDERER` off ([FrameLayers.of], R10-8). It draws with the old
+ * [GemRenderer] throughout, and is deleted with the switch after one release ships on the shared one.
  */
-class FrameArt(context: Context, private val request: EncodeRequest, val width: Int, val height: Int) {
+class FrameArt(context: Context, private val request: EncodeRequest, val width: Int, val height: Int) : FrameLayers {
     private val style = FrameStyle(context, width)
     private val pattern = request.pattern
     private val share: ShareLayout? =
@@ -62,7 +64,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     private val board: Bitmap = createBitmap(layout.width, layout.height)
     private val boardCanvas = Canvas(board)
     private val chrome: Bitmap = createBitmap(width, height)
-    private val photo: Bitmap? = request.source?.let { decodeSource(it, layout.width, layout.height) }
+    private val photo: Bitmap? = request.source?.let { FrameAssets.decodeSource(it, layout.width, layout.height) }
 
     /** A founder clip's hook (#144, H1): the finished canvas, shown in the photo's slot over the tint grid. */
     private val hook: Bitmap? = clip?.takeUnless { feed }?.let {
@@ -82,32 +84,32 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     private var revealed = false
 
     /** The canvas's place in the frame ([ShareLayout] for the player's share, [ClipLayout] for a founder clip). */
-    val boardRect = Rect(layout.left, layout.top, layout.right, layout.bottom)
+    override val boardRect = Rect(layout.left, layout.top, layout.right, layout.bottom)
 
     /** The static frame behind the canvas: the band. */
-    val background: Bitmap get() = chrome
+    override val background: Bitmap get() = chrome
 
     /** The canvas as of the last [apply]: the tint grid plus every gem placed so far. */
-    val canvas: Bitmap get() = board
+    override val canvas: Bitmap get() = board
 
     /**
      * Drawn over the canvas at the photo's opacity: the cropped source photo for a photo canvas's intro, or a founder
      * clip's finished canvas for its hook (#144); the feed cut's photo over its hook (T51); null otherwise.
      */
-    val source: Bitmap? get() = photo ?: hook
+    override val source: Bitmap? get() = photo ?: hook
 
     /**
      * Drawn over the canvas at [overlayRect]: the player's share's fade, title, app line and (non-VIP) Gemmory row, or a
      * founder clip's title and store lockup (#144).
      */
-    val overlay: Bitmap? get() = overlayBitmap
-    val overlayRect: Rect? = overlayBitmap?.let { Rect(0, overlayTop, width, height) }
+    override val overlay: Bitmap? get() = overlayBitmap
+    override val overlayRect: Rect? = overlayBitmap?.let { Rect(0, overlayTop, width, height) }
 
     /**
      * The end card's layer: the shadow, icon, name, tagline and badge (non-VIP player share), or the shadow, lockup and
      * promise (founder clip, #144); null without an end card.
      */
-    val card: Bitmap? get() = cardBitmap
+    override val card: Bitmap? get() = cardBitmap
 
     init {
         drawTints()
@@ -139,7 +141,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
      * Where the end card draws at [alpha]: the canvas at its picture rect, the [card] layer at its rect, both slid
      * down by the part of the 30px slide still to go. Null without an end card.
      */
-    fun endCard(alpha: Float): EndCardRects? {
+    override fun endCard(alpha: Float): EndCardRects? {
         clip?.takeUnless { feed }?.let {
             // A founder clip's card crossfades in place, over the band darkened a further 20% (#144, E2b).
             val p = it.card.picture
@@ -161,7 +163,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
      * (so it needs uploading again) and the opacity of [source] over it: 1 in a founder clip's hook. The feed cut's
      * hook (T51) draws the whole log at once, and its first build frame starts again from the tint grid.
      */
-    fun apply(frame: Frame): Pair<Boolean, Float> {
+    override fun apply(frame: Frame): Pair<Boolean, Float> {
         val before = drawn
         var reset = false
         when (frame) {
@@ -190,7 +192,7 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
         return (reset || drawn != before) to alpha
     }
 
-    fun release() {
+    override fun release() {
         board.recycle()
         chrome.recycle()
         photo?.recycle()
@@ -211,14 +213,6 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
     }
 
     companion object {
-        /** The cropped source at the canvas's size; null if it's missing or unreadable (the intro is then tints only). */
-        fun decodeSource(file: File, width: Int, height: Int): Bitmap? {
-            if (!file.isFile) return null
-            val decoded = BitmapFactory.decodeFile(file.path) ?: return null
-            if (decoded.width == width && decoded.height == height) return decoded
-            return decoded.scale(width, height).also { if (it !== decoded) decoded.recycle() }
-        }
-
         /**
          * The before/after picture (eng E1 fallback), 1080×1920: the cropped photo (or, for a bundled picture, the
          * empty tint grid) above the finished canvas, on the same band with the same text. A progress share (#36)
@@ -235,9 +229,9 @@ class FrameArt(context: Context, private val request: EncodeRequest, val width: 
             val pattern = request.pattern
             val cellPx = max(4, (width + pattern.width - 1) / pattern.width)
             val placed = BooleanArray(pattern.cells.size).also { for (cell in request.log) it[cell] = true }
-            val after = GemRenderer.render(pattern, cellPx) { placed[it] }
-            val before = request.source?.let { decodeSource(it, after.width, after.height) }
-                ?: GemRenderer.render(pattern, cellPx) { false }
+            val after = GemRenderer.renderOld(pattern, cellPx) { placed[it] }
+            val before = request.source?.let { FrameAssets.decodeSource(it, after.width, after.height) }
+                ?: GemRenderer.renderOld(pattern, cellPx) { false }
             val player = request.frame == ShareFrame.PLAYER
             val boxW = width - 2 * style.px(FrameStyle.MARGIN)
             val boxH = if (player) 620 else 640
@@ -283,14 +277,14 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
     private val display = fonts.display.typeface(context)
     private val body = fonts.body.typeface(context)
     private val bodyStrong = fonts.bodyStrong.typeface(context)
-    private val icon: Bitmap? by lazy { asset(ICON_ASSET) }
-    private val badge: Bitmap? by lazy { asset(badgeAsset(strings.locale.language)) ?: asset(BADGE_ASSET) }
+    private val icon: Bitmap? by lazy { asset(FrameAssets.ICON_ASSET) }
+    private val badge: Bitmap? by lazy { asset(FrameAssets.badgeAsset(strings.locale.language)) ?: asset(FrameAssets.BADGE_ASSET) }
 
     fun px(at1080: Int): Int = (at1080 * s).roundToInt()
 
     /** The finished canvas scaled to cover the frame, blurred (~40px at 1080) and darkened to 45% brightness. */
     fun drawBand(canvas: Canvas, pattern: Pattern, height: Int) {
-        val finished = GemRenderer.render(pattern, cellPx = 2)
+        val finished = GemRenderer.renderOld(pattern, cellPx = 2)
         // Blur at 1/8 scale: a 5px box there is ~40px at full size, and upscaling with filtering smooths it.
         val sw = max(1, width / 8)
         val sh = max(1, height / 8)
@@ -490,7 +484,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
             storePaint = taglinePaint(38).apply {
                 textSize *= scale
                 typeface = bodyStrong
-                fontVariationSettings = fonts.bodyStrong.variation?.let { "'wght' $LOCKUP_STORE_WEIGHT" }
+                fontVariationSettings = fonts.bodyStrong.variation?.let { "'wght' ${FrameAssets.LOCKUP_STORE_WEIGHT}" }
             },
         )
         val full = build(1f)
@@ -648,19 +642,6 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         /** The overlay layer starts this far above a founder clip's title, for the glyphs above its line box. */
         const val CLIP_TEXT_ROOM = 40
         const val LOCKUP_LINE_GAP = 6
-
-        /** "Google Play" in the lockup's store line (Figtree 700; a static face draws as is). */
-        const val LOCKUP_STORE_WEIGHT = 700
-        const val ICON_ASSET = "share/app_icon.png"
-
-        /** Google's official "Get it on Google Play" badge (play.google.com/intl/en_us/badges), the file unchanged. */
-        const val BADGE_ASSET = "share/play_badge_en.png"
-
-        /** The languages with Google's badge in their own words (T49), each file unchanged; named by language code. */
-        val BADGE_LANGUAGES = setOf("en", "de", "es", "pt", "fr", "it", "ro", "pl", "tr", "hu", "bg", "ja")
-
-        /** The badge for the app's [language] (`Locale.language`; Brazil's `pt_br` badge is `pt`), English otherwise. */
-        fun badgeAsset(language: String): String = if (language in BADGE_LANGUAGES) "share/play_badge_$language.png" else BADGE_ASSET
         private const val FRAME_TEXT = 0xFFF2EEE4.toInt()
         private const val SCRIM = 0xFF141815.toInt()
 

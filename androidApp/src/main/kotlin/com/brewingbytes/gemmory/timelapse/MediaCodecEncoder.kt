@@ -21,7 +21,7 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * [EncodeBackend] on MediaCodec (eng E1): AVC with Surface input. [FrameArt] keeps the canvas in one bitmap and adds
+ * [EncodeBackend] on MediaCodec (eng E1): AVC with Surface input. [FrameLayers] keeps the canvas in one bitmap and adds
  * each frame's new gems to it; [GlFrameWriter] puts each frame on the input surface with its [FramePlan] time (a
  * founder clip's: [ClipFramePlan]; the feed cut's: [FeedFramePlan]), and
  * the encoder's output goes to MediaMuxer on a callback thread. B-frames are off ([MediaFormat.KEY_MAX_B_FRAMES]),
@@ -64,7 +64,7 @@ class MediaCodecEncoder(
         val sink = MuxSink(output)
         var mediaCodec: MediaCodec? = null
         var surface: Surface? = null
-        var art: FrameArt? = null
+        var art: FrameLayers? = null
         var writer: GlFrameWriter? = null
         try {
             val format = MediaFormat.createVideoFormat(MIME, target.width, target.height).apply {
@@ -99,7 +99,12 @@ class MediaCodecEncoder(
             } catch (e: Exception) {
                 throw EncodeFailure(EncodeStage.CONFIGURE, e)
             }
-            art = FrameArt(context, request, target.width, target.height)
+            // The frame's text layout and fonts run here (the shared renderer since T62): a failure is the setup's.
+            art = try {
+                FrameLayers.of(context, request, target.width, target.height)
+            } catch (e: Exception) {
+                throw EncodeFailure(EncodeStage.CONFIGURE, e)
+            }
             // Held before the upload, so `finally` releases its context and textures when an upload fails.
             val gl = try {
                 GlFrameWriter(surface, target.width, target.height).also { writer = it }
@@ -148,7 +153,7 @@ class MediaCodecEncoder(
     override fun renderPicture() {
         val out = partialOf(null)
         out.parentFile?.mkdirs()
-        val bitmap = FrameArt.beforeAfter(context, request)
+        val bitmap = FrameLayers.beforeAfter(context, request)
         try {
             out.outputStream().use { stream ->
                 if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) throw IOException("PNG encode failed")

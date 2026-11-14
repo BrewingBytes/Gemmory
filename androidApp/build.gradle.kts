@@ -147,6 +147,11 @@ android {
         getByName("perf") {
             kotlin.directories.add("src/debug/kotlin")
         }
+        getByName("androidTest") {
+            // The shared renderers' golden checks (T62): composeApp's golden bar code, and goldens/ on the classpath.
+            kotlin.directories.add("../composeApp/src/goldenTest/kotlin")
+            resources.directories.add("../goldens")
+        }
     }
 
     // Connected tests run against debug; `-Pgemmory.testBuildType=perf` runs them against the release-like build (#117).
@@ -158,6 +163,9 @@ android {
     androidResources {
         generateLocaleConfig = true
         localeFilters += listOf("en", "de", "es", "pt-rBR", "fr", "it", "ro", "pl", "tr", "hu", "bg", "ja")
+        // composeApp's Compose resources are the iOS spike's and its tests' (T59): the app draws with its own fonts,
+        // strings and assets until Stage 1b moves them, so they stay out of the APK (#182 review, T62).
+        ignoreAssetsPatterns += "<dir>composeResources"
     }
     bundle {
         language {

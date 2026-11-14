@@ -9,8 +9,11 @@ import kotlin.math.max
  * The square table-cut gem (design system, Shapes, T40): the whole cell in the exact color with four bevel overlays
  * from a flat table to the cell edge, top 24% white, left 9% white, right 14% black, bottom 24% black, and from 20dp
  * a 0.8dp catchlight at 38% white along the table's top edge. The lit and shaded bevels cancel out, so the gem
- * averages to its true color when zoomed out. The play canvas, [GemRenderer], the confetti and the tray heaps all
- * draw it from here.
+ * averages to its true color when zoomed out.
+ *
+ * Since iOS Stage 1a (T62) this is the old renderers' copy: the old play canvas renderer and [GemRenderer]'s old
+ * painter draw it when a hotfix turns `BuildConfig.SHARED_RENDERER` off (R10-8). Everything else draws composeApp's
+ * `render.TableCut`. It's deleted with the switch, after one release ships on the shared renderers.
  */
 object TableCut {
     /** Below this a gem is a flat square in its exact color. */
@@ -78,36 +81,5 @@ object TableCut {
             path.close()
             canvas.drawPath(path, paint)
         }
-    }
-
-    /**
-     * A unit gem's bevels (and catchlight) centered on the origin, for Compose: [bevel] and the catchlight are shares of
-     * the gem's size ([catchlightShare]: 0 for none). Each path pairs with its overlay color ([TOP], [LEFT], [RIGHT], [BOTTOM], [CATCHLIGHT]).
-     */
-    class UnitPaths(bevel: Float, catchlightShare: Float = 0f) {
-        private val l = -0.5f
-        private val r = 0.5f
-        private val i = bevel
-        val top = quad(l, l, r, l, r - i, l + i, l + i, l + i)
-        val left = quad(l, l, l + i, l + i, l + i, r - i, l, r)
-        val right = quad(r, l, r, r, r - i, r - i, r - i, l + i)
-        val bottom = quad(l, r, l + i, r - i, r - i, r - i, r, r)
-        val catchlight: androidx.compose.ui.graphics.Path? =
-            if (catchlightShare <= 0f) null else quad(l + i, l + i, r - i, l + i, r - i, l + i + catchlightShare, l + i, l + i + catchlightShare)
-
-        /** Each path with its overlay color as ARGB. */
-        val layers: List<Pair<androidx.compose.ui.graphics.Path, Int>> =
-            listOfNotNull<Pair<androidx.compose.ui.graphics.Path, Int>>(
-                top to TOP, left to LEFT, right to RIGHT, bottom to BOTTOM, catchlight?.let { it to CATCHLIGHT },
-            )
-
-        private fun quad(x0: Float, y0: Float, x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) =
-            androidx.compose.ui.graphics.Path().apply {
-                moveTo(x0, y0)
-                lineTo(x1, y1)
-                lineTo(x2, y2)
-                lineTo(x3, y3)
-                close()
-            }
     }
 }

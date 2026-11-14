@@ -101,3 +101,20 @@ gems gems-japanese-garden-12 japanese-garden 12
 gems gems-japanese-garden-18 japanese-garden 18
 gems gems-japanese-garden-24 japanese-garden 24
 # endcard 1080x1920 en non-VIP player share, finished: endcard-band.png, endcard-card.png (card layer, Play badge included)
+# frame frame-en-player: canvas, overlay, card
+# frame frame-en-player-vip: canvas, band, overlay
+# frame frame-en-clip: canvas, band, overlay, card, source
+# frame frame-en-feed: canvas, overlay
+# frame frame-ja-player: canvas, overlay, card
+# frame frame-ja-clip: canvas, overlay, card, source
+# frame frame-ja-clip-truncated: canvas, overlay, card, source
+# beforeafter beforeafter-en-player
+# beforeafter beforeafter-en-clip
+# beforeafter beforeafter-ja-player
+# streak streak-en-7
+# streak streak-en-30
+# streak streak-en-100
+# streak streak-ja-7
+# streak streak-ja-30
+# streak streak-ja-100
+# ja-wrap.txt: Japanese title line starts (T62, R10-3)

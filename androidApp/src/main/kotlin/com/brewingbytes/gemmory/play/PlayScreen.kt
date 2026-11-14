@@ -134,7 +134,7 @@ import com.brewingbytes.gemmory.ui.GemType
 import com.brewingbytes.gemmory.ui.IconAction
 import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.QuietButton
-import com.brewingbytes.gemmory.ui.TableCut
+import com.brewingbytes.gemmory.render.TableCut
 import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import com.brewingbytes.gemmory.ui.withFullMotion

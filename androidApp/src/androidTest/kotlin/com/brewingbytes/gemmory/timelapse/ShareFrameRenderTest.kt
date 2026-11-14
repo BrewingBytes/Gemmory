@@ -206,7 +206,7 @@ class ShareFrameRenderTest {
 
     @Test
     fun theBadgeIsGooglesFileUnchanged() {
-        val bytes = context.assets.open(FrameStyle.BADGE_ASSET).use { it.readBytes() }
+        val bytes = context.assets.open(FrameAssets.BADGE_ASSET).use { it.readBytes() }
         // SHA-1 of en_badge_web_generic.png from play.google.com/intl/en_us/badges (docs/designs/mockups/share-video-ad/badge/).
         val sha1 = java.security.MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }
         assertEquals("cb8126b32c2274e0394246b40bd0b7f9f847e44c", sha1)

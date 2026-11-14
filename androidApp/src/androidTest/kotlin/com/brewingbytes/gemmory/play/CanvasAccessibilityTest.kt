@@ -87,6 +87,10 @@ class CanvasAccessibilityTest {
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()
+        // A finish here starts a streak, and its celebration (#101) would cover the next test's gallery.
+        context.getSharedPreferences("streak", Context.MODE_PRIVATE).edit().clear().commit()
+        File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
+        (context.applicationContext as GemmoryApp).resetStreakForTest(celebrations = false)
     }
 
     @After
@@ -96,6 +100,9 @@ class CanvasAccessibilityTest {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear().commit()
         (context.applicationContext as GemmoryApp).settings.setMilestones(true)
+        context.getSharedPreferences("streak", Context.MODE_PRIVATE).edit().clear().commit()
+        File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
+        (context.applicationContext as GemmoryApp).resetStreakForTest()
     }
 
     private fun shell(command: String): String =

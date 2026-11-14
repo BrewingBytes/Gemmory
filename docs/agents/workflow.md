@@ -21,7 +21,7 @@ Run before handing work back, and report every warning and error:
 ```
 
 - On the Mac, `allTests` includes the iOS simulator tests (`:shared` and `:composeApp`); Linux CI skips the iOS targets (`kotlin.native.ignoreDisabledTargets`).
-- A change under `composeApp/` or `iosApp/` also runs `:composeApp:connectedAndroidDeviceTest` (the renderer goldens on Android) and the iOS UI tests on the iPhone 17 Pro simulator (README → iOS). CI runs the iOS side on every PR anyway (iOS below).
+- A change under `composeApp/` or `iosApp/` also runs `:composeApp:connectedAndroidDeviceTest` (the canvas, gem and end card renderer goldens on Android), androidApp's connected `render.SharedArtGoldenTest` (`am instrument -e class com.brewingbytes.gemmory.render.SharedArtGoldenTest …`: the time-lapse frame, before/after, streak card and Japanese wrap goldens, and the Bold text check) and the iOS UI tests on the iPhone 17 Pro simulator (README → iOS). CI runs the iOS side on every PR anyway (iOS below).
 
 - Add `:androidApp:connectedDebugAndroidTest` on the emulator whenever app code changes.
 - Smoke-test the R8 release build on an emulator after any dependency or keep-rule change.

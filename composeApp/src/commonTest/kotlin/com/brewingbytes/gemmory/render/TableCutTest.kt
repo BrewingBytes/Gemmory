@@ -1,7 +1,7 @@
-package com.brewingbytes.gemmory.ui
+package com.brewingbytes.gemmory.render
 
-import org.junit.Test
 import kotlin.math.abs
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

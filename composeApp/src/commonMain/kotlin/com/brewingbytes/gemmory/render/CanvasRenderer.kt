@@ -94,7 +94,6 @@ class CanvasRenderer(
         style = PaintingStyle.Stroke
         color = Color(LAMP)
     }
-    private val numberLayouts = HashMap<Long, TextLayoutResult>()
     private val numberScope = CanvasDrawScope()
 
     // Glint: a soft white band swept diagonally across the gem. The gradient spans x 0..1 and is drawn scaled to the
@@ -260,16 +259,15 @@ class CanvasRenderer(
             canvas.drawRect(0f, px - line, px - line, px, seam)
         }
         if (ringed) drawRing(canvas, px)
-        if (spec.numbers) drawNumber(canvas, slot, colors.number(slot, look), px)
+        if (spec.numbers) drawNumber(atlas, canvas, slot, colors.number(slot, look), px)
         canvas.restore()
         return index
     }
 
-    private fun drawNumber(canvas: Canvas, slot: Int, argb: Int, px: Float) {
+    private fun drawNumber(atlas: Atlas, canvas: Canvas, slot: Int, argb: Int, px: Float) {
         val size = px * NUMBER_SCALE
-        // Laid out once per slot and size, in px (density 1), as Android's Paint.textSize is.
-        val key = (slot.toLong() shl 32) or size.toRawBits().toLong().and(0xFFFFFFFFL)
-        val layout = numberLayouts.getOrPut(key) {
+        // Laid out once per slot in this bucket, in px (density 1), as Android's Paint.textSize is.
+        val layout = atlas.numbers.getOrPut(slot) {
             textMeasurer.measure(
                 labels[slot],
                 TextStyle(fontFamily = assets.numbers, fontWeight = FontWeight.Bold, fontSize = size.sp),
@@ -279,7 +277,7 @@ class CanvasRenderer(
         // The baseline goes where Android's Paint puts it, centered on the font's float ascent and descent: Compose's
         // line metrics are whole pixels, which put ~17 px digits a pixel low at 18dp.
         val baseline = px / 2f + (NUMBER_ASCENT - NUMBER_DESCENT) / 2f * size
-        val width = layout.multiParagraph.intrinsics.maxIntrinsicWidth
+        val width = layout.advance()
         numberScope.draw(PX, LayoutDirection.Ltr, canvas, Size(px, px)) {
             drawText(layout, color = Color(argb), topLeft = Offset((px - width) / 2f, baseline - layout.firstBaseline))
         }
@@ -310,6 +308,12 @@ class CanvasRenderer(
      */
     private class Atlas(val image: ImageBitmap, private val px: Int) {
         val canvas = Canvas(image)
+
+        /**
+         * The numbers laid out for this bucket's sprites, by slot: they go with the bucket, so a pinch across zoom
+         * buckets keeps only the two buckets' layouts (#182 review), not every size it passed through.
+         */
+        val numbers = HashMap<Int, TextLayoutResult>()
 
         private val paint = Paint().apply { filterQuality = FilterQuality.Low }
         private var stale = true
