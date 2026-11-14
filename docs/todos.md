@@ -113,6 +113,24 @@ Each of these shipped as Claude's draft, with no native-speaker review yet (foun
 - **Context:** happens in Stage 1a (T62), when the shared renderer replaces `CanvasRenderer`; the goldens in `goldens/renderer/` are recaptured at 700 then, and the Stage 0 test's weight-200 font goes. The share card and widget follow in their stages.
 - **Priority:** P2 (with 1a)
 
+### Japanese phrase breaks on iOS
+- **What:** break Japanese titles at phrases on iOS as Android 13+ does (the time-lapse frame's title and the founder clip's promise), for example with a phrase segmenter run in common code that inserts break opportunities before layout.
+- **Why:** Compose on iOS has no `LineBreak.WordBreak.Phrase` (it's Android-only API in 1.12.1), so the shared frame breaks Japanese between characters there. `GoldenIosTest` reports how many rows of `goldens/renderer/ja-wrap.txt` differ (eng R10-3).
+- **Context:** due before Stage 2's Japanese TestFlight build; re-check on each Compose update first.
+- **Priority:** P2 (Stage 2)
+
+### German and Hungarian hyphens in the drawn titles
+- **What:** hyphenate the time-lapse frame's German and Hungarian titles at the old frame's frequency again (`StaticLayout`'s `HYPHENATION_FREQUENCY_NORMAL`).
+- **Why:** since T62 the shared frame wraps through Compose, whose `Hyphens.Auto` is Android's full frequency; Compose 1.12.1 has no normal one, so a long German or Hungarian title may break with a hyphen where the old frame moved the word down. Accepted by the founder on 2026-11-14 (PR B review); the goldens cover only English and Japanese.
+- **Context:** re-check on each Compose update; if it gains a normal frequency, switch to it and add a German frame golden.
+- **Priority:** P3
+
+### The founder clip stills on the shared frame
+- **What:** move the debug Clips screen's stills (`clips/ClipStills.kt`: its before/after and labelled stills) from androidApp's old `FrameStyle` to composeApp's `render.FrameStyle`.
+- **Why:** T62 PR B moved every shipped drawing of the time-lapse frame to the shared one; this debug-only founder tool (T47) still draws the old one, so it blocks deleting the old renderers.
+- **Context:** due with the deletion of the old renderers and `SHARED_RENDERER`, after one Android release ships on the shared ones (Stage 1a rule).
+- **Priority:** P2 (with the old renderers' deletion)
+
 ### Dynamic Type while the app is open
 - **What:** observe `UIContentSizeCategory.didChangeNotification` in `iosMain` and re-provide the font scale, since Compose 1.12.1 reads it only at launch.
 - **Context:** Stage 1c (T64), with the first shared screens; re-check on each Compose update first.
