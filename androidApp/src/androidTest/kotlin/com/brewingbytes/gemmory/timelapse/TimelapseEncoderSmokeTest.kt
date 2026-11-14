@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.render.GoldenMath
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
@@ -135,10 +136,82 @@ class TimelapseEncoderSmokeTest {
         }
     }
 
+    /**
+     * The shipped video looks like its frame (T62, eng D13, R3-2): [file], from this phone's encoder, decoded at the
+     * [checked] frames, against the same frames composited in software from [FrameLayers] the way [GlFrameWriter] draws
+     * them, at SSIM ≥ 0.95 (video compression). The layers themselves are held to the renderer goldens; this checks
+     * the GL composite and the encoder on real hardware. A frame under the bar is saved, expected and decoded, to the
+     * app's external files (`goldens-video/`), which Test Lab pulls (`testlab.yml`).
+     */
+    private fun assertFramesMatch(request: EncodeRequest, file: File, target: EncodeTarget, checked: Map<Int, String>) {
+        val plan = FramePlan(request.log.size, photoIntro = request.source?.isFile == true, endCard = request.endCard)
+        val layers = FrameLayers.of(context, request, target.width, target.height)
+        val retriever = MediaMetadataRetriever()
+        val failures = mutableListOf<String>()
+        try {
+            retriever.setDataSource(file.path)
+            for (i in 0..checked.keys.max()) {
+                val frame = plan.frame(i)
+                val (_, photoAlpha) = layers.apply(frame)
+                val name = checked[i] ?: continue
+                val expected = composite(layers, target, photoAlpha, (frame as? Frame.EndCard)?.let { layers.endCard(it.alpha) })
+                val decoded = assertNotNull(retriever.getFrameAtTime(plan.presentationTimeUs(i), MediaMetadataRetriever.OPTION_CLOSEST), "frame $i")
+                val actual = decoded.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                val w = target.width
+                val h = target.height
+                assertEquals(w, actual.width)
+                assertEquals(h, actual.height)
+                val a = IntArray(w * h).also { expected.getPixels(it, 0, w, 0, 0, w, h) }
+                val b = IntArray(w * h).also { actual.getPixels(it, 0, w, 0, 0, w, h) }
+                val ssim = GoldenMath.ssim(a, b, w)
+                val label = "${request.ref.id} $target $name (frame $i)"
+                Log.i("GemmoryVideo", "$label ssim=${GoldenMath.fmt(ssim)} ${if (ssim >= VIDEO_SSIM) "pass" else "FAIL"}")
+                if (ssim < VIDEO_SSIM) {
+                    failures += "$label ssim=${GoldenMath.fmt(ssim)}"
+                    val out = File(context.getExternalFilesDir(null), "goldens-video").apply { mkdirs() }
+                    val stem = "${request.ref.id}-${target.width}-$i"
+                    File(out, "$stem-expected.png").outputStream().use { expected.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    File(out, "$stem-decoded.png").outputStream().use { actual.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                }
+                listOf(expected, decoded, actual).forEach { it.recycle() }
+            }
+        } finally {
+            retriever.release()
+            layers.release()
+        }
+        assertTrue(failures.isEmpty(), "the video is under the bar: $failures")
+    }
+
+    /** One frame as [GlFrameWriter.write] draws it, on a software canvas: premultiplied source-over, filtered quads. */
+    private fun composite(layers: FrameLayers, target: EncodeTarget, photoAlpha: Float, endCard: EndCardRects?): android.graphics.Bitmap {
+        val out = android.graphics.Bitmap.createBitmap(target.width, target.height, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(out)
+        val full = android.graphics.Rect(0, 0, target.width, target.height)
+        fun quad(bitmap: android.graphics.Bitmap?, rect: android.graphics.Rect, alpha: Float) {
+            if (bitmap == null || alpha <= 0f) return
+            canvas.drawBitmap(bitmap, null, rect, android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG).apply { this.alpha = (alpha * 255).toInt().coerceIn(0, 255) })
+        }
+        quad(layers.background, full, 1f)
+        quad(layers.canvas, layers.boardRect, 1f)
+        quad(layers.source, layers.boardRect, photoAlpha)
+        layers.overlayRect?.let { quad(layers.overlay, it, 1f) }
+        if (endCard != null) {
+            quad(layers.background, full, endCard.alpha)
+            canvas.drawRect(full, android.graphics.Paint().apply { color = android.graphics.Color.BLACK; alpha = (endCard.dim * endCard.alpha * 255).toInt().coerceIn(0, 255) })
+            quad(layers.card, endCard.content, endCard.alpha)
+            quad(layers.canvas, endCard.picture, endCard.alpha)
+        }
+        return out
+    }
+
     @Test
     fun starterByChain() {
-        val (file, target) = encodeByChain(starter())
+        val request = starter()
+        val (file, target) = encodeByChain(request)
         assertPlayable(file, target)
+        // From frame 458 the end card is opaque and every frame the same; not the last sample, the riskiest seek.
+        val endCard = FramePlan(request.log.size, photoIntro = false, endCard = true).frameCount - 10
+        assertFramesMatch(request, file, target, mapOf(FramePlan.INTRO_FRAMES / 2 to "intro", FramePlan.INTRO_FRAMES + FramePlan.BUILD_FRAMES / 2 to "build", endCard to "end card"))
     }
 
     @Test
@@ -154,8 +227,11 @@ class TimelapseEncoderSmokeTest {
 
     @Test
     fun quickPhotoCanvasWithIntroByChain() {
-        val (file, target) = encodeByChain(quickPhoto())
+        val request = quickPhoto()
+        val (file, target) = encodeByChain(request)
         assertPlayable(file, target)
+        // The photo half faded over the tint grid: the blended photo quad.
+        assertFramesMatch(request, file, target, mapOf(FramePlan.INTRO_FRAMES * 2 / 3 to "photo intro"))
     }
 
     @Test
@@ -178,5 +254,10 @@ class TimelapseEncoderSmokeTest {
         BitmapFactory.decodeFile(out.path, options)
         assertEquals(1080, options.outWidth)
         assertEquals(1920, options.outHeight)
+    }
+
+    private companion object {
+        /** The decoded video against its composite (eng D13): compression costs a little, a wrong frame a lot. */
+        const val VIDEO_SSIM = 0.95
     }
 }

@@ -1,5 +1,5 @@
-# Encoder smoke on real phones (#11, design doc D7): TimelapseEncoderSmokeTest + EncodeCancelTest on Firebase Test
-# Lab, one matrix over three chip families. Frame timing (#54): CanvasFrameTimingTest on the low-end phone alone, a
+# Encoder smoke on real phones (#11, design doc D7): TimelapseEncoderSmokeTest + EncodeCancelTest, and the shared
+# renderers' hardware checks (T62), on Firebase Test Lab, one matrix over three chip families. Frame timing (#54): CanvasFrameTimingTest on the low-end phone alone, a
 # second matrix. A release candidate is a pushed `v*` tag and runs both (4 of the 5 daily runs); each also runs by
 # hand from the Actions tab. Setup, quota and results: README → "Encoder smoke on Firebase Test Lab" and
 # "Frame timing on Firebase Test Lab".
@@ -40,8 +40,10 @@ env:
   PIXEL: model=tokay,version=35
   SAMSUNG: model=a52sxq,version=34
   MEDIATEK: model=a06,version=35
+  # Plus the shared renderers' hardware checks (T62, eng D13), folded into the same run per phone (D24): the play canvas
+  # on the GPU against the software goldens, and the encoded video against its composite (in the smoke test).
   TEST_TARGETS: >-
-    class com.brewingbytes.gemmory.timelapse.TimelapseEncoderSmokeTest,class com.brewingbytes.gemmory.timelapse.EncodeCancelTest
+    class com.brewingbytes.gemmory.timelapse.TimelapseEncoderSmokeTest,class com.brewingbytes.gemmory.timelapse.EncodeCancelTest,class com.brewingbytes.gemmory.render.HardwareCanvasGoldenTest
   # @PerfTest is left out of connectedDebugAndroidTest by a runner argument, which Test Lab doesn't get: name the class.
   FRAME_TARGETS: class com.brewingbytes.gemmory.play.CanvasFrameTimingTest
   # Both runs use --no-auto-google-login: no test needs a Google account, and with one signed in Play Games'
@@ -108,6 +110,7 @@ jobs:
             --app androidApp/build/outputs/apk/debug/androidApp-debug.apk \
             --test androidApp/build/outputs/apk/androidTest/debug/androidApp-debug-androidTest.apk \
             --test-targets "$TEST_TARGETS" \
+            --directories-to-pull /sdcard/Android/data/com.brewingbytes.gemmory/files/goldens-hardware,/sdcard/Android/data/com.brewingbytes.gemmory/files/goldens-video \
             "${devices[@]}" \
             --timeout 15m \
             --num-flaky-test-attempts 0 \
@@ -151,6 +154,8 @@ jobs:
                 name=$(basename "$device")
                 mkdir -p "$dir/$name"
                 gcloud storage cp "${device}video.mp4" "${device}logcat" "$dir/$name/" || true
+                # The hardware checks' captures (T62): the GPU canvas, and any video frame under the bar.
+                gcloud storage cp -r "${device}artifacts" "$dir/$name/" 2>/dev/null || true
               done
             fi
             {
