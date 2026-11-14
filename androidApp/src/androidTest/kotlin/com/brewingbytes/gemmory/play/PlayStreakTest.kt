@@ -27,6 +27,7 @@ import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.CoveredDay
 import com.brewingbytes.gemmory.policy.DayKind
 import com.brewingbytes.gemmory.policy.HistoryDay
+import com.brewingbytes.gemmory.policy.DailyStreak
 import com.brewingbytes.gemmory.policy.InventoryCodec
 import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.StreakHistoryCodec
@@ -54,9 +55,9 @@ import kotlin.test.assertTrue
 
 /**
  * The daily play streak (#33): finishing a picture today extends yesterday's streak (a gem alone doesn't), and the
- * gallery shows it from two days on; a streak that broke shows nothing. #101: the new day is committed with its
- * pending celebration, which survives a recreate and a restart, and logged in the day log with any covered day; the
- * chip shows from day 1 and opens the streak screen.
+ * gallery shows it from two days on; a streak that broke shows nothing once its repair has passed. #101: the new day
+ * is committed with its pending celebration, which survives a recreate and a restart, and logged in the day log with
+ * any covered day; the chip shows from day 1 and opens the streak screen.
  */
 @RunWith(AndroidJUnit4::class)
 class PlayStreakTest {
@@ -250,12 +251,16 @@ class PlayStreakTest {
         compose.waitUntil(5_000) { exists(STREAK_TAG) }
     }
 
+    /**
+     * A broken streak past its repair shows nothing. Within [DailyStreak.REPAIR_WINDOW] days of its end it reads a grey
+     * "0 ›" instead (#102, G4, `StreakNudgeFlowTest`), and the day off covers one missed day, so it ended long ago.
+     */
     @Test
     fun aBrokenStreakShowsNothing() {
-        seed(length = 5, daysAgo = 3)
+        seed(length = 5, daysAgo = 4L + DailyStreak.REPAIR_WINDOW)
         launchOnMyPhotos()
         compose.waitForIdle()
-        assertFalse(exists(STREAK_TAG), "two days missed: no chip, and no message about it")
+        assertFalse(exists(STREAK_TAG), "past its repair: no chip, and no message about it")
     }
 
     private fun finishAndLeave() {

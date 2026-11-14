@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.brewingbytes.gemmory.R
@@ -106,7 +107,8 @@ class MainActivity : ComponentActivity() {
     private fun celebrations() = app.celebrationsOn
 
     /** An evening reminder was tapped (T35): routed once the screen is up. */
-    private var reminderTap by mutableStateOf<ReminderTap?>(null)
+    // By reference: the same notification tapped again while the first tap is handled is a new tap (T35).
+    private var reminderTap by mutableStateOf<ReminderTap?>(null, referentialEqualityPolicy())
 
     /** The home-screen streak widget was tapped (#103): the streak screen opens over the gallery. */
     private var widgetTap by mutableStateOf(false)
@@ -356,15 +358,18 @@ class MainActivity : ComponentActivity() {
             if (stack.top == Route.Gallery) stack.openTile(open.ref, CanvasEntry.SHARE_LINK, app.store::isFinished)
             app.sharedLanding.opened()
         }
-        // A reminder tap (T35): its canvas, or the gallery when it's stale (design system, navigation map).
+        // A reminder tap (T35): its canvas, or the gallery when it's stale (design system, navigation map). Cleared only
+        // once handled: clearing it first changed this effect's key, which cancelled it in `reminderTarget`'s file read
+        // whenever a frame came first, and the tap was lost on the gallery.
         val tap = reminderTap
         LaunchedEffect(tap) {
             if (tap == null) return@LaunchedEffect
-            reminderTap = null
             app.analytics.log(AnalyticsEvent.reminderOpened(tap.reason))
             val ref = app.reminderTarget(tap.reason, tap.pictureId, tap.canvasKey, tap.day)
             if (stack.top is Route.Canvas) play.close()
             if (ref == null) stack.popToGallery() else stack.openTile(ref, CanvasEntry.REMINDER, app.store::isFinished)
+            // A newer tap that came in meanwhile is its own effect's to clear.
+            if (reminderTap === tap) reminderTap = null
         }
         // A streak widget tap (#103): the streak screen with the gallery under it, so back goes to the gallery.
         LaunchedEffect(widgetTap) {
