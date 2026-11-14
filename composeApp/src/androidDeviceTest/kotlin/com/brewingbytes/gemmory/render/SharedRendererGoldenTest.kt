@@ -44,6 +44,15 @@ import kotlin.test.assertTrue
 class SharedRendererGoldenTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
+    private val nothingPlaced = object : CanvasGame {
+        override val selectedSlot = 0
+        override val placedCount = 0
+
+        override fun placedAt(index: Int) = error("nothing placed")
+
+        override fun isPlaced(cell: Int) = false
+    }
+
     @Test
     fun sharedRenderersMatchTheGoldens() = runBlocking<Unit> {
         val cases = GoldenRender.cases(resource("renderer/cases.txt").decodeToString())
@@ -79,23 +88,32 @@ class SharedRendererGoldenTest {
     fun numbersAreLaidOutOncePerColorAcrossZoomBuckets() = runBlocking<Unit> {
         val pattern = (GridCodec.decode(resource("renderer/pictures/deco-peacock.gmrg")) as Decoded.Ok).value.pattern
         val renderer = CanvasRenderer(pattern, measurer(), assets())
-        val game = object : CanvasGame {
-            override val selectedSlot = 0
-            override val placedCount = 0
-
-            override fun placedAt(index: Int) = error("nothing placed")
-
-            override fun isPlaced(cell: Int) = false
-        }
         val canvas = Canvas(ImageBitmap(GoldenRender.WIDTH, GoldenRender.HEIGHT))
         val viewport = CanvasViewport(pattern.width, pattern.height)
         viewport.onLayout(GoldenRender.WIDTH, GoldenRender.HEIGHT, GoldenRender.DENSITY)
         val zooms = listOf(16f, 18f, 21f, 24f, 28f, 32f, 37f, 42f, 48f, 37f, 28f, 21f, 16f)
         for (zoom in zooms) {
             viewport.set(zoom, pattern.width / 2f, pattern.height / 2f)
-            renderer.draw(canvas, game, viewport, GoldenRender.DENSITY, HighlightStyle.DEFAULT, CanvasEffects(), 0L)
+            renderer.draw(canvas, nothingPlaced, viewport, GoldenRender.DENSITY, HighlightStyle.DEFAULT, CanvasEffects(), 0L)
         }
         assertTrue(renderer.numberLayoutsMade in 1..pattern.palette.size, "${renderer.numberLayoutsMade} number layouts over ${zooms.size} zooms")
+    }
+
+    /** A pinch from fit reaches 16dp with every number laid out: the frames before it lay them out a few at a time. */
+    @Test
+    fun numbersAreLaidOutAheadOfTheFirstBucketThatShowsThem() = runBlocking<Unit> {
+        val pattern = (GridCodec.decode(resource("renderer/pictures/deco-peacock.gmrg")) as Decoded.Ok).value.pattern
+        val renderer = CanvasRenderer(pattern, measurer(), assets())
+        val canvas = Canvas(ImageBitmap(GoldenRender.WIDTH, GoldenRender.HEIGHT))
+        val viewport = CanvasViewport(pattern.width, pattern.height)
+        viewport.onLayout(GoldenRender.WIDTH, GoldenRender.HEIGHT, GoldenRender.DENSITY)
+        viewport.set(viewport.minZoomDp, pattern.width / 2f, pattern.height / 2f)
+        renderer.draw(canvas, nothingPlaced, viewport, GoldenRender.DENSITY, HighlightStyle.DEFAULT, CanvasEffects(), 0L)
+        assertTrue(renderer.numberLayoutsMade in 1..2, "the first frame lays out ${renderer.numberLayoutsMade} numbers")
+        repeat(pattern.palette.size) {
+            renderer.draw(canvas, nothingPlaced, viewport, GoldenRender.DENSITY, HighlightStyle.DEFAULT, CanvasEffects(), 0L)
+        }
+        assertTrue(renderer.numberLayoutsMade == pattern.palette.size, "${renderer.numberLayoutsMade} of ${pattern.palette.size} laid out at fit")
     }
 
     private suspend fun assets(): RenderAssets {

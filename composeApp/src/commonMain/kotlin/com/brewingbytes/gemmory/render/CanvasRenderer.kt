@@ -81,6 +81,9 @@ class CanvasRenderer(
     /** Numbers laid out so far, for tests: at most one per color, whatever zoom buckets were drawn. */
     var numberLayoutsMade = 0
         private set
+
+    /** Colors whose number [warmNumbers] has laid out, in palette order. */
+    private var warmed = 0
     private val bake = bakedBitmap(pattern.width, pattern.height)
     private val canvasBake = CanvasBake(pattern, colors, bake)
     private var density = 0f
@@ -132,6 +135,7 @@ class CanvasRenderer(
         canvasBake.sync(game.placedCount, game::placedAt, game::isPlaced, selectedSlot, style)
         val cell = viewport.cellPx
         if (cell <= 0f) return
+        warmNumbers()
         if (density != this.density || style != this.style) {
             this.density = density
             this.style = style
@@ -276,18 +280,33 @@ class CanvasRenderer(
         return index
     }
 
+    private fun numberLayout(slot: Int): TextLayoutResult = numberLayouts[slot] ?: textMeasurer.measure(
+        labels[slot],
+        TextStyle(fontFamily = assets.numbers, fontWeight = FontWeight.Bold, fontSize = NUMBER_LAYOUT_PX.sp),
+        density = PX,
+    ).also {
+        numberLayouts[slot] = it
+        numberLayoutsMade++
+    }
+
+    /**
+     * Lays out up to [WARM_PER_FRAME] numbers not laid out yet, from the canvas's first frame on, so a pinch reaches the
+     * first bucket with numbers (16dp) with all of them ready: laid out there, the 36 numbers and the font's first load
+     * took one frame of up to 120 ms on the Galaxy A06 (#54).
+     */
+    private fun warmNumbers() {
+        var budget = WARM_PER_FRAME
+        while (warmed < numberLayouts.size && budget > 0) {
+            numberLayout(warmed++)
+            budget--
+        }
+    }
+
     private fun drawNumber(canvas: Canvas, slot: Int, argb: Int, px: Float) {
         val size = px * NUMBER_SCALE
         // Laid out in px (density 1), as Android's Paint.textSize is, and scaled: glyphs are drawn from the font's
         // outlines at the scaled size, and the advance scales with them.
-        val layout = numberLayouts[slot] ?: textMeasurer.measure(
-            labels[slot],
-            TextStyle(fontFamily = assets.numbers, fontWeight = FontWeight.Bold, fontSize = NUMBER_LAYOUT_PX.sp),
-            density = PX,
-        ).also {
-            numberLayouts[slot] = it
-            numberLayoutsMade++
-        }
+        val layout = numberLayout(slot)
         val scale = size / NUMBER_LAYOUT_PX
         // The baseline goes where Android's Paint puts it, centered on the font's float ascent and descent: Compose's
         // line metrics are whole pixels, which put ~17 px digits a pixel low at 18dp.
@@ -385,6 +404,9 @@ class CanvasRenderer(
 
         /** The font size every number is laid out at: about the biggest it's drawn (48dp at density 3.5 is ~77 px). */
         const val NUMBER_LAYOUT_PX = 64f
+
+        /** Numbers laid out ahead per frame: a few ms on a low-end phone, the first one with the font's load. */
+        const val WARM_PER_FRAME = 2
         const val PULSE_GROW = 0.3f
 
         /** Atkinson Hyperlegible Mono's hhea ascender and descender per em (984 and -316 of 1000; typo metrics agree). */
