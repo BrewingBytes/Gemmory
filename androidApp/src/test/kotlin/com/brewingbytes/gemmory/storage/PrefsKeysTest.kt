@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 /**
  * Every key-value file and key the app writes, pinned (eng D7, T64): Android player data is never migrated, so a
  * renamed, removed or added key fails here until `goldens/storage/prefs.txt` says so on purpose. The code side is read
- * from the classes that own each file: their string constants (a `+` after one makes it a prefix) and the coach
+ * from the classes that own each file, in androidApp or the shared composeApp: their string constants (a `+` after one makes it a prefix) and the coach
  * hints' keys.
  */
 class PrefsKeysTest {
@@ -20,6 +20,12 @@ class PrefsKeysTest {
         .mapValues { it.value.toSet() }
 
     private val sources = File("src/main/kotlin/com/brewingbytes/gemmory")
+
+    /** The shared code's sources (T64): owners move here as their screens move to shared UI. */
+    private val shared = File("../composeApp/src/commonMain/kotlin/com/brewingbytes/gemmory")
+
+    /** [path] in whichever module owns it now. */
+    private fun source(path: String): File = File(sources, path).takeIf { it.isFile } ?: File(shared, path)
 
     /** Which class keeps which files. */
     private val owners = mapOf(
@@ -45,7 +51,7 @@ class PrefsKeysTest {
     @Test
     fun everyKeyInTheCodeIsInTheGoldenAndBack() {
         for ((path, files) in owners) {
-            val text = File(sources, path).readText()
+            val text = source(path).readText()
             val consts = CONST.findAll(text).map { it.groupValues[1] to it.groupValues[2] }.filter { it.first !in NOT_KEYS }.toList()
             val keys = consts.map { (name, value) -> if (Regex("""\b$name\s*\+""").containsMatchIn(text)) "$value*" else value }.toSet() +
                 HINT.findAll(text).map { it.groupValues[1] }
@@ -56,7 +62,7 @@ class PrefsKeysTest {
     /** Each file is opened by its [StorageLayout.Prefs] name; the one literal is the consent SDK's own file, read only. */
     @Test
     fun noPrefsFileIsOpenedByAnotherName() {
-        val opened = sources.walkTopDown().filter { it.extension == "kt" }
+        val opened = (sources.walkTopDown() + shared.walkTopDown()).filter { it.extension == "kt" }
             .flatMap { f -> OPEN.findAll(f.readText()).map { it.groupValues[1] } }
             .filter { it.startsWith("\"") }
             .toSet()

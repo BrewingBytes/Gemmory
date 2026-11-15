@@ -10,7 +10,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 |---|---|
 | `shared` | Kotlin Multiplatform, pure `commonMain` (no `android.*` or `java.*`; it also builds for iOS): the photo-to-grid converter, game rules, the save and grid codecs, the ad policy and the daily ledger. Build-time tools live in `jvmMain` |
 | `androidApp` | Jetpack Compose app: gallery, photo flow (ML Kit face check), play canvas, time-lapse encoder, AdMob + UMP, Play Billing, Firebase Crashlytics/Analytics |
-| `composeApp` | Compose Multiplatform UI shared by Android and iOS (iOS plan, eng D1). Stage 0 (T59) holds only the spike: the play canvas and one time-lapse end card drawn in common code. `commonMain` has no `android.*`, `platform.*` or `java.*` (`:composeApp:checkCommonMainPurity`). Android doesn't depend on it yet (Stage 1a) |
+| `composeApp` | Compose Multiplatform UI shared by Android and iOS (iOS plan, eng D1). Stage 0 (T59) added the spike, Stage 1a (T62) the shared renderers, and Stage 1c (T64) the storage seams and the app's services (`AppGraph`, below). `commonMain` has no `android.*`, `platform.*` or `java.*` (`:composeApp:checkCommonMainPurity`). `androidApp` depends on it |
 | `iosApp` | The Xcode shell (Swift): shows `:composeApp`'s `GemmoryKit` framework, plus the UI tests (frame gate, play loop, Stage 0 checks) |
 | `goldens/renderer` | The renderer golden baseline: the old Android renderers drawn for fixed inputs, read by both platforms' tests (T59, R3-1; full set T62) |
 | `tools/bundled` | Source images, review PNGs and `PROVENANCE.md` for every bundled picture |
@@ -194,6 +194,15 @@ Shared code reaches the phone's data through two seams in `composeApp/src/common
 **Android player data is never migrated, renamed or re-encoded** (eng D7):
 - `goldens/storage/prefs.txt` lists every prefs file and key. `PrefsKeysTest` fails on a key the code adds, renames or drops until that list changes on purpose, and a change there is a data migration that needs its own plan.
 - `KeyValueSeedTest` (connected) writes every listed key as SharedPreferences' XML, plus a canvas's and the policies' save files, and reads them back value for value through the seams.
+
+## The shared app's services (T64)
+
+Shared screens get their services from one `AppGraph` (`composeApp/src/commonMain/kotlin/com/brewingbytes/gemmory/app/`, eng D6), with no DI library:
+
+- Each shell builds it once from a `PlatformServices`: the key-value files, the `FileStore`, the crash reporter and the clock. On Android, `GemmoryApp` builds it first thing in `onCreate`, and its own `settings` and `dayClock` read through to it. On iOS, `MainViewController(services)` will build it in Stage 2.
+- Composables read it from `LocalAppGraph`, which `MainActivity` provides at the root. A composable outside it fails at once, so a test that hosts a screen on its own provides it too.
+- A screen's ViewModel is a KMP `androidx.lifecycle.ViewModel` (eng D5), made by `graphViewModel { handle -> MyViewModel(settings, handle) }`. Its services come in through the constructor, never from a `Context`. On Android, `SavedStateHandle` keeps restoring after rotation and process death as before. On iOS it lives in memory.
+- A service moves into the graph when the first shared screen needs it. So far: `NonFatalReporter`, `DayClock` and `AppSettings` (on `KeyValueStore`, the same `settings` file and keys).
 
 ## Copy and strings (T48)
 

@@ -7,6 +7,9 @@ compose-bom = "2026.09.00"
 compose-multiplatform = "1.12.1"
 # What CMP 1.12.1's ui pulls in; the per-screen back handler (design D2) is its NavigationBackHandler.
 navigationevent = "1.1.0"
+# The KMP ViewModel and SavedStateHandle for :composeApp (iOS eng D5): the JetBrains build CMP 1.12.1 itself pulls in.
+# On Android it resolves to androidx lifecycle (above), so the app runs the same ViewModel code as before.
+cmp-lifecycle = "2.9.6"
 activity-compose = "1.13.0"
 core-ktx = "1.19.1"
 lifecycle = "2.11.0"
@@ -74,6 +77,8 @@ cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = 
 cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
 cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 cmp-navigationevent-compose = { module = "org.jetbrains.androidx.navigationevent:navigationevent-compose", version.ref = "navigationevent" }
+cmp-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "cmp-lifecycle" }
+cmp-lifecycle-viewmodel-savedstate = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-savedstate", version.ref = "cmp-lifecycle" }
 cmp-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-multiplatform" }
 
 [plugins]

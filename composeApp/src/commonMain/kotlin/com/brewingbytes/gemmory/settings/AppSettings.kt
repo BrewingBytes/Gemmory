@@ -1,11 +1,8 @@
 package com.brewingbytes.gemmory.settings
 
-import android.content.Context
-import android.content.SharedPreferences
-import androidx.annotation.VisibleForTesting
-import androidx.core.content.edit
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.play.HighlightStyle
+import com.brewingbytes.gemmory.storage.KeyValueStore
 import com.brewingbytes.gemmory.storage.StorageLayout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,9 +14,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * section is expanded (#89). Also the first-music flags (T42, D24): whether a canvas has opened yet and whether the
  * "Music is playing" chip has shown, and whether Play Games' turn has come (T45). Kept in shared preferences, which
  * hold no user content and may be backed up.
+ *
+ * [prefs] is the [StorageLayout.Prefs.SETTINGS] file ([FILE]); common since iOS Stage 1c (T64), on the same file and
+ * keys as before (eng D7), and the [com.brewingbytes.gemmory.app.AppGraph] opens it.
  */
-class AppSettings(private val prefs: SharedPreferences) {
-    constructor(context: Context) : this(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))
+class AppSettings(private val prefs: KeyValueStore) {
 
     private val _sound = MutableStateFlow(prefs.getBoolean(SOUND, true))
     private val _haptics = MutableStateFlow(prefs.getBoolean(HAPTICS, true))
@@ -77,9 +76,11 @@ class AppSettings(private val prefs: SharedPreferences) {
         prefs.edit { putBoolean(MUSIC_CHIP, true) }
     }
 
-    /** Connected tests only (T42): Music on at 30%, no canvas opened yet and the chip not shown, as on a fresh install. */
-    @VisibleForTesting
-    internal fun resetMusicForTest() {
+    /**
+     * Connected tests only (T42): Music on at 30%, no canvas opened yet and the chip not shown, as on a fresh install.
+     * Public because the tests live in androidApp.
+     */
+    fun resetMusicForTest() {
         setMusic(true)
         setMusicVolume(MusicRules.DEFAULT_VOLUME)
         _musicUnlocked.value = false
@@ -108,20 +109,22 @@ class AppSettings(private val prefs: SharedPreferences) {
         if (!playGamesReady) prefs.edit { putBoolean(PLAY_GAMES_READY, true) }
     }
 
-    private companion object {
-        fun finishedKey(tab: Int) = if (tab == 0) FINISHED_PICTURES else FINISHED_PHOTOS
-
+    companion object {
+        /** The key-value file the settings live in. */
         const val FILE = StorageLayout.Prefs.SETTINGS
-        const val SOUND = "sound"
-        const val HAPTICS = "haptics"
-        const val MILESTONES = "milestones"
-        const val HIGHLIGHT = "highlight"
-        const val MUSIC = "music"
-        const val MUSIC_VOLUME = "music_volume"
-        const val MUSIC_UNLOCKED = "music_unlocked"
-        const val MUSIC_CHIP = "music_chip_shown"
-        const val FINISHED_PICTURES = "finished_open_pictures"
-        const val FINISHED_PHOTOS = "finished_open_photos"
-        const val PLAY_GAMES_READY = "play_games_ready"
+
+        private fun finishedKey(tab: Int) = if (tab == 0) FINISHED_PICTURES else FINISHED_PHOTOS
+
+        private const val SOUND = "sound"
+        private const val HAPTICS = "haptics"
+        private const val MILESTONES = "milestones"
+        private const val HIGHLIGHT = "highlight"
+        private const val MUSIC = "music"
+        private const val MUSIC_VOLUME = "music_volume"
+        private const val MUSIC_UNLOCKED = "music_unlocked"
+        private const val MUSIC_CHIP = "music_chip_shown"
+        private const val FINISHED_PICTURES = "finished_open_pictures"
+        private const val FINISHED_PHOTOS = "finished_open_photos"
+        private const val PLAY_GAMES_READY = "play_games_ready"
     }
 }

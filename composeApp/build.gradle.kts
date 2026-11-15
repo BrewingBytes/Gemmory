@@ -48,6 +48,9 @@ kotlin {
             implementation(libs.cmp.ui)
             implementation(libs.cmp.components.resources)
             implementation(libs.cmp.navigationevent.compose)
+            // eng D5: screen state in KMP ViewModels with SavedStateHandle, created through the AppGraph (graphViewModel).
+            api(libs.cmp.lifecycle.viewmodel.compose)
+            api(libs.cmp.lifecycle.viewmodel.savedstate)
         }
         commonTest {
             // The golden bar's arithmetic and checks (T62), shared with androidApp's instrumented golden tests.
