@@ -64,30 +64,22 @@ final class SpikeFlowTests: XCTestCase {
     }
 
     /// Selects color [slot] (1-based), scrolling the tray until its circle is on screen.
+    ///
+    /// On Compose iOS a `LazyRow`'s accessibility frames stop changing before its fling does (lessons, 2026-11-11), so
+    /// a circle seen on screen can still slide past the tray's edge before the tap. Each attempt therefore brings the
+    /// circle back on screen first (swiping whichever way it went past) and taps the point where it is now: a
+    /// coordinate tap, which misses harmlessly where `circle.tap()` throws "Activation point invalid" on a circle that
+    /// has left the screen (#187's iOS run). The status line says whether the slot was taken.
     private func pick(slot: Int) {
         let circle = app.descendants(matching: .any)["slot-\(slot - 1)"]
         let tray = app.descendants(matching: .any)["tray"]
-        var swipes = 0
-        while !onScreen(circle, in: tray) && swipes < 12 {
-            tray.swipeLeft(velocity: .slow)
-            swipes += 1
-        }
-        guard onScreen(circle, in: tray) else {
-            XCTFail("slot \(slot) never scrolled into the tray: circle \(circle.frame), tray \(tray.frame)")
-            return
-        }
-        // A tap during the fling only stops the scroll, so wait until the circle stops moving.
-        var last = circle.frame
-        for _ in 0..<30 {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            let now = circle.frame
-            if now == last { break }
-            last = now
-        }
-        // The accessibility frame can lag a Compose fling, so a tap may only stop the scroll (as a touch does on
-        // Android too). Tap again until the status line shows the slot; the selection itself isn't being tested here.
-        for attempt in 1...3 {
-            circle.tap()
+        for attempt in 1...4 {
+            guard bringIntoView(circle, in: tray) else {
+                XCTFail("slot \(slot) never stayed in the tray: circle \(circle.frame), tray \(tray.frame)")
+                return
+            }
+            let frame = circle.frame
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
             let deadline = Date().addingTimeInterval(2)
             while Date() < deadline {
                 if status()["slot"] == Double(slot) {
@@ -98,6 +90,35 @@ final class SpikeFlowTests: XCTestCase {
             }
         }
         XCTFail("couldn't select slot \(slot); status: \(app.descendants(matching: .any)["status"].label)")
+    }
+
+    /// Scrolls the tray until [circle] is on screen and has stopped there: swipes left while it's past the right edge
+    /// and right once a fling carried it past the left one. False if it never settles on screen.
+    private func bringIntoView(_ circle: XCUIElement, in tray: XCUIElement) -> Bool {
+        for _ in 0..<16 {
+            settle(circle)
+            if onScreen(circle, in: tray) { return true }
+            if circle.exists && !circle.frame.isEmpty && circle.frame.minX < tray.frame.minX {
+                tray.swipeRight(velocity: .slow)
+            } else {
+                tray.swipeLeft(velocity: .slow)
+            }
+        }
+        settle(circle)
+        return onScreen(circle, in: tray)
+    }
+
+    /// Waits until [element]'s frame holds still for a while. The frame can freeze before the fling ends, so a still
+    /// frame is read again after a pause before it counts.
+    private func settle(_ element: XCUIElement) {
+        var last = element.frame
+        var still = 0
+        for _ in 0..<40 where still < 3 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            let now = element.frame
+            still = now == last ? still + 1 : 0
+            last = now
+        }
     }
 
     /// Whether [element] lies across the tray's width (1 pt slack for rounding). Not `isHittable`: on the iPad's wider
