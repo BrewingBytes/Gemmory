@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.clips
 
+import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.timelapse.ClipOrder
 import java.io.File
 import java.util.Locale
@@ -22,8 +23,7 @@ class ClipFilesTest {
     /** The chips are the app's languages: every `values*` folder's `app_locale`, and nothing else. */
     @Test
     fun theLanguagesAreTheAppsTwelve() {
-        val res = listOf(File("src/main/res"), File("androidApp/src/main/res")).first { it.isDirectory }
-        val tags = res.listFiles().orEmpty()
+        val tags = XmlStrings.STRINGS.listFiles().orEmpty()
             .mapNotNull { File(it, "strings.xml").takeIf(File::isFile) }
             .mapNotNull { Regex("""<string name="app_locale">([^<]+)</string>""").find(it.readText())?.groupValues?.get(1) }
             .toSet()

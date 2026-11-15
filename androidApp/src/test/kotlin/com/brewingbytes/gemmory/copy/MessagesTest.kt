@@ -271,7 +271,7 @@ class MessagesTest {
     }
 
     private val folders: List<File>
-        get() = File("src/main/res").listFiles { f -> f.isDirectory && f.name.startsWith("values") && File(f, "strings.xml").isFile }.orEmpty().toList()
+        get() = XmlStrings.STRINGS.listFiles { f -> f.isDirectory && f.name.startsWith("values") && File(f, "strings.xml").isFile }.orEmpty().toList()
 
     private fun args(text: String): List<String> = ARG.findAll(text).map { it.value }.sorted().toList()
 

@@ -87,7 +87,9 @@ tasks.named<Test>("jvmTest") {
     // BundledGridToolTest pins the shipped starter grid's CRC.
     inputs.dir("../composeApp/src/commonMain/composeResources/files/pictures").withPathSensitivity(PathSensitivity.RELATIVE)
     // GlyphCheckTest (T49, eng O-E6): every language's strings against the fonts that draw them, and the store listings.
-    inputs.dir("../androidApp/src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("../composeApp/src/commonMain/composeResources/files/strings").withPathSensitivity(PathSensitivity.RELATIVE)
+    // IosStringsTest: the generated iOS InfoPlist.xcstrings is up to date.
+    inputs.file("../iosApp/iosApp/InfoPlist.xcstrings").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("../composeApp/src/commonMain/composeResources/font").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("../tools/store/listing").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("../tools/store/fonts").withPathSensitivity(PathSensitivity.RELATIVE)
@@ -192,6 +194,21 @@ listOf(
  * filled; `publishPictureBatch` publishes a batch folder (sheets + batch.csv) in one signed catalog; `checkDropCalendar`
  * fails when fewer than 7 days of drops are scheduled (the daily CI job). README → Publishing a batch of pictures.
  */
+/** The iOS app's InfoPlist.xcstrings from the app's strings files (T63); IosStringsTest fails when it's stale. */
+tasks.register<JavaExec>("generateIosStrings") {
+    group = "build"
+    description = "Writes iosApp/iosApp/InfoPlist.xcstrings from composeApp's strings files (T63)."
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    dependsOn(jvmMain.compileTaskProvider)
+    classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("com.brewingbytes.gemmory.tools.IosStrings")
+    val root = rootProject.layout.projectDirectory
+    args(
+        root.dir("composeApp/src/commonMain/composeResources/files/strings").asFile.path,
+        root.file("iosApp/iosApp/InfoPlist.xcstrings").asFile.path,
+    )
+}
+
 tasks.register<JavaExec>("splitPictureSheet") {
     group = "build"
     description = "Splits a 2×3 picture sheet into six tile images (T44)."

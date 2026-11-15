@@ -59,7 +59,7 @@
 - **Depends on / blocked by:** T48 and T49 shipped; about 30 days of production data per country.
 
 ### Languages shipped unreviewed (T49, #136, CEO C10)
-Each of these shipped as Claude's draft, with no native-speaker review yet (founder, 2026-10-24: no reviewers lined up). Delete a line once a native speaker has read the app (`androidApp/src/main/res/<folder>/strings.xml`, played through once), the listing (`tools/store/listing/<locale>/`) and the drafted live titles (`tools/remote/titles/2026-10-24-live.csv`), and their fixes have shipped. Priority P2: a clumsy line in a stranger's first session costs installs and ratings (CEO O8 accepted the risk).
+Each of these shipped as Claude's draft, with no native-speaker review yet (founder, 2026-10-24: no reviewers lined up). Delete a line once a native speaker has read the app (`composeApp/src/commonMain/composeResources/files/strings/<folder>/strings.xml`, played through once), the listing (`tools/store/listing/<locale>/`) and the drafted live titles (`tools/remote/titles/2026-10-24-live.csv`), and their fixes have shipped. Priority P2: a clumsy line in a stranger's first session costs installs and ratings (CEO O8 accepted the risk).
 - **Romanian** (`values-ro`, listing `ro`): the founder reviews it.
 - **German** (`values-de`, listing de-DE).
 - **Spanish** (`values-es`, listing es-ES and es-419).

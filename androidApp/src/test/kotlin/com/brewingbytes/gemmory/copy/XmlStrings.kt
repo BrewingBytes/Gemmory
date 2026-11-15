@@ -7,7 +7,7 @@ import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
 
 /**
- * [Strings] read from `res/values[-xx]/strings.xml` on disk (T48, #135): JVM tests have no Android resources (no
+ * [Strings] read from `values[-xx]/strings.xml` on disk (in composeApp's `composeResources/files/strings/` since T63) (T48, #135): JVM tests have no Android resources (no
  * Robolectric), so the copy tests run against the real XML and pin the English word for word. Ids map to names through
  * the generated `R` class. Unescapes the way aapt does for what our file uses (`\'`, `\"`, `\n`, `\@`, `\?`, `\\`,
  * `\uXXXX`) and refuses anything it doesn't model (leading or trailing spaces, quoted strings).
@@ -17,7 +17,7 @@ class XmlStrings(folder: String = "values", override val locale: Locale = Locale
     val plurals: Map<String, Map<String, String>>
 
     init {
-        val root = parse(File("src/main/res/$folder/strings.xml"))
+        val root = parse(File(STRINGS, "$folder/strings.xml"))
         strings = root.children("string").associate { it.getAttribute("name") to unescape(it.textContent) }
         plurals = root.children("plurals").associate { p ->
             p.getAttribute("name") to p.children("item").associate { it.getAttribute("quantity") to unescape(it.textContent) }
@@ -38,6 +38,9 @@ class XmlStrings(folder: String = "values", override val locale: Locale = Locale
     }
 
     companion object {
+        /** The app's copy: Android reads this folder as res, iOS through `StringsXml` (T63). */
+        val STRINGS = File("../composeApp/src/commonMain/composeResources/files/strings")
+
         /** The English copy, read once. */
         val en: XmlStrings by lazy { XmlStrings() }
 
