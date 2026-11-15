@@ -202,12 +202,6 @@ class SpriteCache<B : Any, T : Any>(
         return make(bucket.payload, spec, slot, kind).also { bucket.sprites[index] = it }
     }
 
-    /** Whether [slot]'s [kind] sprite is already made in [spec]'s bucket, without making it or moving to that bucket. */
-    fun has(spec: SpriteSpec, slot: Int, kind: SpriteKind): Boolean {
-        val bucket = current?.takeIf { it.spec == spec } ?: previous?.takeIf { it.spec == spec } ?: return false
-        return bucket.sprites[slot * KINDS + kind.ordinal] != null
-    }
-
     /** Drops every sprite (the screen's density or the highlight style changed). */
     fun clear() {
         current = null

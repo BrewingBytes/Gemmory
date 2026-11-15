@@ -342,19 +342,12 @@ private class CanvasController(
 ) : CanvasInputHandler {
     val effects = CanvasEffects()
 
-    /** The frame clock while an effect runs, or for one frame on request; the canvas redraws on every change. */
+    /** The frame clock while an effect runs; the canvas redraws on every change. */
     var frameNanos by mutableLongStateOf(System.nanoTime())
         private set
     private val viewport = session.viewport
     private var animation: Job? = null
     private var ticker: Job? = null
-    private var frameRequest: Job? = null
-
-    /** One more frame, for the renderer to finish the zoom bucket it's building (the shared renderer's [draw] said so). */
-    fun requestFrame() {
-        if (frameRequest?.isActive == true) return
-        frameRequest = scope.launch { withFrameNanos { frameNanos = it } }
-    }
 
     override fun onTouch() {
         animation?.cancel()
@@ -639,7 +632,7 @@ private fun GemCanvas(
             val now = controller.frameNanos
             val style = highlight
             drawIntoCanvas {
-                if (shared?.draw(it, session, viewport, density, style, controller.effects, now) == true) controller.requestFrame()
+                shared?.draw(it, session, viewport, density, style, controller.effects, now)
                 renderer?.draw(it.nativeCanvas, session, density, style, controller.effects, now)
             }
         }

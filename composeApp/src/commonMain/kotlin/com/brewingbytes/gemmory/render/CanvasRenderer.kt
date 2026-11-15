@@ -36,7 +36,6 @@ import com.brewingbytes.gemmory.play.SpriteSpec
 import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.sin
-import kotlin.time.TimeSource
 
 /** What [CanvasRenderer.draw] reads from the game: the play session on Android, the spike's game on iOS. */
 interface CanvasGame {
@@ -59,11 +58,6 @@ interface CanvasGame {
  * other colors dimmed. On top: the placement glint (180ms, from 20dp) and the Find pulse (400ms). A tool's batch (#20)
  * is placed at once and revealed ring by ring: its cells keep their unplaced look until their ring's time.
  *
- * A pinch into a new zoom bucket keeps drawing the bucket on screen (scaled, at most a step or two) while the new
- * one's visible sprites are drawn into its atlas within [buildBudgetNanos] per frame, and moves to it once they're all
- * there: a whole bucket in one frame missed the Galaxy A06's frame deadline (#54). [draw] returns true while it owes
- * such a frame. The first sprite frame, and the first after a style change or the flat zoom, builds in one go.
- *
  * Numbers are laid out by [textMeasurer] in [RenderAssets.numbers] at 700, once per color at [NUMBER_LAYOUT_PX] and
  * drawn scaled to each bucket's size, centered on the font's ascent and descent as Android's `Paint` centers them.
  * Main thread only.
@@ -73,7 +67,6 @@ class CanvasRenderer(
     private val textMeasurer: TextMeasurer,
     private val assets: RenderAssets,
     mystery: Boolean = false,
-    private val buildBudgetNanos: Long = BUILD_BUDGET_NANOS,
 ) {
     private val colors = CellColors(pattern, mystery)
     private val labels = Array(pattern.palette.size) { (it + 1).toString() }
@@ -101,9 +94,6 @@ class CanvasRenderer(
         make = { atlas, spec, slot, kind -> drawSprite(atlas, spec, slot, kind) },
     )
     private val quads = CellQuads()
-
-    /** The bucket the last sprite frame drew from; null before one, and after the flat zoom or a style change. */
-    private var shown: SpriteSpec? = null
     private val src = IntArray(2)
 
     private val bakePaint = Paint().apply { filterQuality = FilterQuality.None }
@@ -140,17 +130,16 @@ class CanvasRenderer(
         style: HighlightStyle,
         effects: CanvasEffects,
         nowNanos: Long,
-    ): Boolean {
+    ) {
         val selectedSlot = game.selectedSlot
         canvasBake.sync(game.placedCount, game::placedAt, game::isPlaced, selectedSlot, style)
         val cell = viewport.cellPx
-        if (cell <= 0f) return false
+        if (cell <= 0f) return
         warmNumbers()
         if (density != this.density || style != this.style) {
             this.density = density
             this.style = style
             sprites.clear()
-            shown = null
         }
         val ox = viewport.offsetX
         val oy = viewport.offsetY
@@ -162,18 +151,13 @@ class CanvasRenderer(
             canvas.scale(cell, cell)
             canvas.drawImage(bake.image, Offset.Zero, bakePaint)
             canvas.restore()
-            shown = null
-            return false
+            return
         }
-        val target = SpriteSpec.of(zoomDp, cell)
+        val spec = SpriteSpec.of(zoomDp, cell)
         val col0 = maxOf(0, floor(-ox / cell).toInt())
         val col1 = minOf(pattern.width - 1, floor((viewport.width - ox) / cell).toInt())
         val row0 = maxOf(0, floor(-oy / cell).toInt())
         val row1 = minOf(pattern.height - 1, floor((viewport.height - oy) / cell).toInt())
-        val old = shown
-        val ready = old == null || old == target || build(target, game, effects, nowNanos, col0..col1, row0..row1)
-        val spec = if (ready) target else old
-        shown = spec
         val cells = pattern.cells
         for (row in row0..row1) {
             val top = oy + row * cell
@@ -191,33 +175,6 @@ class CanvasRenderer(
         drawQuads(canvas)
         if (spec.facets) drawGlints(canvas, viewport, effects, nowNanos)
         drawPulse(canvas, game, viewport, spec, effects, nowNanos)
-        return !ready
-    }
-
-    /**
-     * Draws [target]'s missing sprites for the visible cells into its atlas until [buildBudgetNanos] is spent (at least
-     * one per frame, so it always gets there). True when every visible cell's sprite is in it.
-     */
-    @Suppress("LongParameterList")
-    private fun build(target: SpriteSpec, game: CanvasGame, effects: CanvasEffects, nowNanos: Long, cols: IntRange, rows: IntRange): Boolean {
-        val start = TimeSource.Monotonic.markNow()
-        val cells = pattern.cells
-        val selectedSlot = game.selectedSlot
-        var drew = false
-        for (row in rows) {
-            var index = row * pattern.width + cols.first
-            for (col in cols) {
-                val slot = cells[index]
-                val kind = if (effects.hidden(index, nowNanos)) SpriteKind.SELECTED else kindOf(game.isPlaced(index), slot, selectedSlot)
-                if (!sprites.has(target, slot, kind)) {
-                    if (drew && start.elapsedNow().inWholeNanoseconds >= buildBudgetNanos) return false
-                    sprites.get(target, slot, kind)
-                    drew = true
-                }
-                index++
-            }
-        }
-        return true
     }
 
     private fun kindOf(placed: Boolean, slot: Int, selectedSlot: Int): SpriteKind = when {
@@ -450,9 +407,6 @@ class CanvasRenderer(
 
         /** Numbers laid out ahead per frame: a few ms on a low-end phone, the first one with the font's load. */
         const val WARM_PER_FRAME = 2
-
-        /** Sprite drawing a pinch frame may spend on a new bucket: what a low-end phone's frame has spare. */
-        const val BUILD_BUDGET_NANOS = 3_000_000L
         const val PULSE_GROW = 0.3f
 
         /** Atkinson Hyperlegible Mono's hhea ascender and descender per em (984 and -316 of 1000; typo metrics agree). */

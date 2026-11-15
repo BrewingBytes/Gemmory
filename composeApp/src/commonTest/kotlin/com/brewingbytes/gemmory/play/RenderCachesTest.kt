@@ -93,25 +93,6 @@ class RenderCachesTest {
     }
 
     @Test
-    fun hasLooksWithoutMakingOrMovingBuckets() {
-        val cache = SpriteCache<Unit, Int>(2, { _, _ -> }) { _, _, slot, _ -> slot }
-        val small = SpriteSpec.of(20f, 52.5f)
-        val big = SpriteSpec.of(30f, 78.75f)
-        assertFalse(cache.has(small, 0, SpriteKind.PLACED), "nothing made yet")
-        cache.get(small, 0, SpriteKind.PLACED)
-        assertTrue(cache.has(small, 0, SpriteKind.PLACED))
-        assertFalse(cache.has(small, 1, SpriteKind.PLACED), "another color")
-        assertFalse(cache.has(small, 0, SpriteKind.UNPLACED), "another kind")
-        assertFalse(cache.has(big, 0, SpriteKind.PLACED), "a bucket not made yet")
-        assertEquals(1, cache.made)
-        assertEquals(1, cache.buckets, "has() makes no bucket")
-        cache.get(big, 0, SpriteKind.PLACED)
-        assertTrue(cache.has(small, 0, SpriteKind.PLACED), "the last bucket is still there")
-        cache.get(small, 1, SpriteKind.PLACED)
-        assertEquals(2, cache.buckets, "has() didn't drop it")
-    }
-
-    @Test
     fun anEvictedBucketsPayloadIsOfferedForReuse() {
         val offered = mutableListOf<String?>()
         var n = 0
