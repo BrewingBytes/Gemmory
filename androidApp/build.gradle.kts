@@ -169,9 +169,8 @@ android {
     androidResources {
         generateLocaleConfig = true
         localeFilters += listOf("en", "de", "es", "pt-rBR", "fr", "it", "ro", "pl", "tr", "hu", "bg", "ja")
-        // The strings files reach the APK as res (sourceSets above); their copy under composeResources/…/files/strings
-        // is for iOS, so it stays out of the assets (T63). aapt's default patterns are kept.
-        ignoreAssetsPatterns += listOf("!.svn", "!.git", "!.ds_store", "!*.scc", ".*", "<dir>_*", "!CVS", "!thumbs.db", "!picasa.ini", "!*~", "<dir>strings")
+        // The strings files reach the APK twice: as res (sourceSets above) for Android code, and as composeResources
+        // assets, read by shared code through Words (T64; the same reader iOS uses).
     }
     bundle {
         language {
@@ -188,6 +187,8 @@ android {
         // #163: no lint warning ships, and there is no baseline.
         warningsAsErrors = true
         abortOnError = true
+        // One scoped ignore, with the test that covers it (T64): see the file.
+        lintConfig = file("lint.xml")
     }
 }
 

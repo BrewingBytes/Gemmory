@@ -13,6 +13,11 @@ import javax.xml.parsers.DocumentBuilderFactory
  * `\uXXXX`) and refuses anything it doesn't model (leading or trailing spaces, quoted strings).
  */
 class XmlStrings(folder: String = "values", override val locale: Locale = Locale.ENGLISH) : Strings {
+    /** The same folder through the shared reader, as the app reads it from its assets (T64). */
+    override val words: Words by lazy {
+        Words.load(StringsXml.tagOf(folder)) { File(STRINGS, it.removePrefix("${Words.FOLDER}/")).readText() }
+    }
+
     val strings: Map<String, String>
     val plurals: Map<String, Map<String, String>>
 

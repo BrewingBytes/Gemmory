@@ -25,7 +25,7 @@ class StreakText(private val s: Strings) {
     private fun inARow(n: Int): String = s.plural(R.plurals.streak_in_a_row, n, n)
 
     /** The weekday [day] (local epoch day) falls on, in the app's language: "Tuesday". */
-    fun weekday(day: Long): String = Messages.weekday(s, day)
+    fun weekday(day: Long): String = Messages.weekday(s.words, day)
 
     /** A milestone's title, on the celebration and the share card (#104): "A week of gems"; null on other days. */
     fun milestone(length: Int): String? = when (length) {
