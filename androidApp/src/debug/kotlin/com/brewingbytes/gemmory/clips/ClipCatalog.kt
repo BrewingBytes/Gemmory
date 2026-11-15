@@ -5,6 +5,7 @@ import com.brewingbytes.gemmory.copy.Messages
 import com.brewingbytes.gemmory.copy.Strings
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.save.Decoded
@@ -36,7 +37,7 @@ fun clipPictures(app: GemmoryApp): List<ClipPicture> {
     val strings = app.strings
     val bundled = BundledPictures.ALL.map { picture ->
         ClipPicture(CanvasRef(CanvasKind.BUNDLED, picture.id), picture.title(strings), BundledPictures.canvasSizeOf(picture.id)?.let { Messages.size(strings, it) }, picture::title) {
-            app.assets.open(picture.asset).use { it.readBytes() }
+            app.assets.open(SharedResources.file(picture.asset)).use { it.readBytes() }
         }
     }
     val remote = app.remote.storedPictures().map { picture ->
