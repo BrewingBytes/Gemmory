@@ -75,7 +75,7 @@ final class SpikeFlowTests: XCTestCase {
         let tray = app.descendants(matching: .any)["tray"]
         for attempt in 1...4 {
             guard bringIntoView(circle, in: tray) else {
-                XCTFail("slot \(slot) never stayed in the tray: circle \(circle.frame), tray \(tray.frame)")
+                XCTFail("slot \(slot) never stayed in the tray: circle \(String(describing: frame(of: circle))), tray \(tray.frame)")
                 return
             }
             let frame = circle.frame
@@ -98,7 +98,7 @@ final class SpikeFlowTests: XCTestCase {
         for _ in 0..<16 {
             settle(circle)
             if onScreen(circle, in: tray) { return true }
-            if circle.exists && !circle.frame.isEmpty && circle.frame.minX < tray.frame.minX {
+            if let frame = frame(of: circle), !frame.isEmpty, frame.minX < tray.frame.minX {
                 tray.swipeRight(velocity: .slow)
             } else {
                 tray.swipeLeft(velocity: .slow)
@@ -109,16 +109,22 @@ final class SpikeFlowTests: XCTestCase {
     }
 
     /// Waits until [element]'s frame holds still for a while. The frame can freeze before the fling ends, so a still
-    /// frame is read again after a pause before it counts.
+    /// frame is read again after a pause before it counts. A circle the tray hasn't laid out yet has no element, and
+    /// reading its frame throws, so a missing one reads as no frame.
     private func settle(_ element: XCUIElement) {
-        var last = element.frame
+        var last = frame(of: element)
         var still = 0
         for _ in 0..<40 where still < 3 {
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
-            let now = element.frame
+            let now = frame(of: element)
             still = now == last ? still + 1 : 0
             last = now
         }
+    }
+
+    /// [element]'s frame, or nil while it doesn't exist (reading a missing element's frame fails the test).
+    private func frame(of element: XCUIElement) -> CGRect? {
+        element.exists ? element.frame : nil
     }
 
     /// Whether [element] lies across the tray's width (1 pt slack for rounding). Not `isHittable`: on the iPad's wider
