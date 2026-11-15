@@ -10,7 +10,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 |---|---|
 | `shared` | Kotlin Multiplatform, pure `commonMain` (no `android.*` or `java.*`; it also builds for iOS): the photo-to-grid converter, game rules, the save and grid codecs, the ad policy and the daily ledger. Build-time tools live in `jvmMain` |
 | `androidApp` | Jetpack Compose app: gallery, photo flow (ML Kit face check), play canvas, time-lapse encoder, AdMob + UMP, Play Billing, Firebase Crashlytics/Analytics |
-| `composeApp` | Compose Multiplatform UI shared by Android and iOS (iOS plan, eng D1). Stage 0 (T59) holds only the spike: the play canvas and one time-lapse end card drawn in common code. `commonMain` has no `android.*`, `platform.*` or `java.*` (`:composeApp:checkCommonMainPurity`). Android doesn't depend on it yet (Stage 1a) |
+| `composeApp` | Compose Multiplatform UI shared by Android and iOS (iOS plan, eng D1). The shared renderers (T62) and, from T63, the app's resources in `src/commonMain/composeResources/`: the fonts (`font/`), the bundled pictures (`files/pictures/`) and the share images (`files/share/`). Android reads them as assets under `composeResources/com.brewingbytes.gemmory.compose.res/` through androidApp's `SharedResources`; iOS through `Res`. `commonMain` has no `android.*`, `platform.*` or `java.*` (`:composeApp:checkCommonMainPurity`) |
 | `iosApp` | The Xcode shell (Swift): shows `:composeApp`'s `GemmoryKit` framework, plus the UI tests (frame gate, play loop, Stage 0 checks) |
 | `goldens/renderer` | The renderer golden baseline: the old Android renderers drawn for fixed inputs, read by both platforms' tests (T59, R3-1; full set T62) |
 | `tools/bundled` | Source images, review PNGs and `PROVENANCE.md` for every bundled picture |
@@ -197,7 +197,7 @@ Every word the app shows is in `androidApp/src/main/res/values/strings.xml`, gro
 
 Gemmory ships in English plus de, es (one Spanish), pt-BR, fr, it, ro, pl, tr, hu, bg and ja. Every install carries all of them (language splits off), and on Android 13+ the system lists Gemmory under Settings → Apps → Language; Settings → Language in the app opens that page. Below 13 the app follows the phone.
 
-- **Adding a language:** a `values-xx` folder with every string and its own `app_locale` tag, the tag in `localeFilters` (`androidApp/build.gradle.kts`), in `MessagesTest.TAGS` and `PluralRules`, in `Titles.LANGUAGES` (catalog titles and the batch columns), a listing folder and `StoreFrames.LOCALES`, Google's badge in `assets/share/play_badge_<language>.png` (pinned in `PlayBadgesTest`), and, for a script Figtree and Bricolage can't draw, faces in `res/font`, `AppFonts` and `GlyphCheck.faces`.
+- **Adding a language:** a `values-xx` folder with every string and its own `app_locale` tag, the tag in `localeFilters` (`androidApp/build.gradle.kts`), in `MessagesTest.TAGS` and `PluralRules`, in `Titles.LANGUAGES` (catalog titles and the batch columns), a listing folder and `StoreFrames.LOCALES`, Google's badge in `composeApp/src/commonMain/composeResources/files/share/play_badge_<language>.png` (pinned in `PlayBadgesTest`), and, for a script Figtree and Bricolage can't draw, faces in `composeResources/font`, `AppFonts` and `GlyphCheck.faces`.
 - **Fonts:** `ui/AppFonts.kt` picks the faces by the app's language: Bricolage Grotesque and Figtree for Latin scripts, Geologica and Onest for Bulgarian, Zen Kaku Gothic New for Japanese (licenses in `androidApp/fonts-licenses/`). `GlyphCheckTest` (`:shared:jvmTest`) fails when a string has a character its language's faces can't draw; `FrameTextFitTest` fails when a line the share frame or the streak card draws on one line is too wide in any language.
 - **Romanian** is written with ș and ț (comma below) only; `GlyphCheckTest` refuses ş / ţ, and the batch tool normalizes them (`Romanian.normalize`).
 - **Bundled picture titles** are `title_<id>` strings (the id with `-` as `_`) in every language; a new bundled picture needs one in each.
@@ -220,7 +220,7 @@ Grids are frozen once and never re-converted. Re-freezing a shipped picture chan
 2. Freeze it (`spec` is `quick|medium|big-1:1|3:4|4:3`; `focus` places the crop, 0 = left/top, 1 = right/bottom):
    ```sh
    ./gradlew :shared:freezeBundledGrid -Psource=tools/bundled/<id>.jpg -Pspec=medium-4:3 -Pfocus=0.5 \
-     -Pout=androidApp/src/main/assets/pictures/<id>.gmrg -Preview=tools/bundled/<id>.review.png
+     -Pout=composeApp/src/commonMain/composeResources/files/pictures/<id>.gmrg -Preview=tools/bundled/<id>.review.png
    ```
 3. Add it to its size group (`QUICK`, `MEDIUM` or `BIG`) in `androidApp/src/main/kotlin/com/brewingbytes/gemmory/bundled/BundledPictures.kt`, with the CRC pinned and its title as `R.string.title_<id>`: add that string to `values/strings.xml` and every `values-xx` (T49). The CRC is the grid file's last 4 bytes: `tail -c 4 <file> | xxd -p`.
 4. Add a row to `tools/bundled/PROVENANCE.md` (source link, author and date, license or terms URL, spec and focus). `BundledPicturesTest` fails without it.

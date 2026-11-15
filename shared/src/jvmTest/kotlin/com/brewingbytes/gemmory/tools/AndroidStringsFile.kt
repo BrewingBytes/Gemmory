@@ -28,6 +28,9 @@ class AndroidStringsFile(val folder: File) {
     companion object {
         val RES = File("../androidApp/src/main/res")
 
+        /** The app's fonts, in composeApp's Compose resources since T63. */
+        val FONTS = File("../composeApp/src/commonMain/composeResources/font")
+
         /** Every language's strings file, English first. */
         fun all(): List<AndroidStringsFile> = RES.listFiles { f -> f.isDirectory && f.name.startsWith("values") && File(f, "strings.xml").exists() }!!
             .sortedBy { it.name }

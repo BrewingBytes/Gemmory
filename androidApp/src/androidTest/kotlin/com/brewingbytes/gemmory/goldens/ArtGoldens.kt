@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.play.CanvasStore
@@ -84,7 +85,7 @@ object ArtGoldens {
         context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) })
 
     fun patterns(context: Context): Map<String, Pattern> = GoldenCases.PICTURES.associateWith { name ->
-        val bytes = context.assets.open("pictures/$name.gmrg").use { it.readBytes() }
+        val bytes = context.assets.open(SharedResources.file("pictures/$name.gmrg")).use { it.readBytes() }
         (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
     }
 

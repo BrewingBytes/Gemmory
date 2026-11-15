@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.strings
@@ -68,7 +69,7 @@ class RendererGoldenCapture {
         }
         val pictures = File(out, "pictures").apply { mkdirs() }
         val patterns = GoldenCases.PICTURES.associateWith { name ->
-            val bytes = context.assets.open("pictures/$name.gmrg").use { it.readBytes() }
+            val bytes = context.assets.open(SharedResources.file("pictures/$name.gmrg")).use { it.readBytes() }
             File(pictures, "$name.gmrg").writeBytes(bytes)
             (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         }

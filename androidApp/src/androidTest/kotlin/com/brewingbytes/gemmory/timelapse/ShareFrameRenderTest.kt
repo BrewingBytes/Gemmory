@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.timelapse
 
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.copy.strings
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -40,7 +41,7 @@ class ShareFrameRenderTest {
     }
 
     private fun request(picture: BundledPicture = BundledPictures.STARTER, logSize: Int? = null, watermark: Boolean = true, frame: ShareFrame = ShareFrame.PLAYER): EncodeRequest {
-        val bytes = context.assets.open(picture.asset).use { it.readBytes() }
+        val bytes = context.assets.open(SharedResources.file(picture.asset)).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         val log = pattern.cells.indices.shuffled(Random(7)).toIntArray()
         return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(logSize ?: log.size), picture.title(context.strings), source = null, watermark = watermark, frame = frame)
@@ -206,7 +207,7 @@ class ShareFrameRenderTest {
 
     @Test
     fun theBadgeIsGooglesFileUnchanged() {
-        val bytes = context.assets.open(FrameAssets.BADGE_ASSET).use { it.readBytes() }
+        val bytes = context.assets.open(SharedResources.file(FrameAssets.BADGE_ASSET)).use { it.readBytes() }
         // SHA-1 of en_badge_web_generic.png from play.google.com/intl/en_us/badges (docs/designs/mockups/share-video-ad/badge/).
         val sha1 = java.security.MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }
         assertEquals("cb8126b32c2274e0394246b40bd0b7f9f847e44c", sha1)

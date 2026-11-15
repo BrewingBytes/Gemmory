@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.timelapse
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
@@ -43,7 +44,7 @@ class EncodeCancelTest {
     )
 
     private val request: EncodeRequest by lazy {
-        val bytes = context.assets.open(BundledPictures.STARTER.asset).use { it.readBytes() }
+        val bytes = context.assets.open(SharedResources.file(BundledPictures.STARTER.asset)).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         EncodeRequest(ref, pattern, pattern.cells.indices.toList().toIntArray(), "The Starry Night", source = null, watermark = true)
     }

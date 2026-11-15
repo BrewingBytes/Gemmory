@@ -21,6 +21,7 @@ import android.text.TextUtils
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.copy.Messages
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.R
@@ -609,7 +610,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
         canvas.drawBitmap(bitmap, null, Rect(at.left, at.top, at.right, at.bottom), Paint(Paint.FILTER_BITMAP_FLAG))
     }
 
-    private fun asset(path: String): Bitmap? = runCatching { context.assets.open(path).use(BitmapFactory::decodeStream) }.getOrNull()
+    private fun asset(path: String): Bitmap? = runCatching { context.assets.open(SharedResources.file(path)).use(BitmapFactory::decodeStream) }.getOrNull()
 
     fun labelPaint(): TextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         body()
