@@ -23,6 +23,11 @@ Run before handing work back, and report every warning and error:
 - On the Mac, `allTests` includes the iOS simulator tests (`:shared` and `:composeApp`); Linux CI skips the iOS targets (`kotlin.native.ignoreDisabledTargets`).
 - A change under `composeApp/` or `iosApp/` also runs `:composeApp:connectedAndroidDeviceTest` (the canvas, gem and end card renderer goldens on Android), androidApp's connected `render.SharedArtGoldenTest` (`am instrument -e class com.brewingbytes.gemmory.render.SharedArtGoldenTest …`: the time-lapse frame, before/after, streak card and Japanese wrap goldens, and the Bold text check) and the iOS UI tests on the iPhone 17 Pro simulator (README → iOS). CI runs the iOS side on every PR anyway (iOS below).
 
+- **ScreenParity gate (iOS Stage 1c, eng D14):** a PR that moves a screen to shared UI, or changes how a shared screen draws, runs `app.ScreenParityTest` on the pinned `gemmory_pixel` image:
+  - Command: `am instrument -w -e class com.brewingbytes.gemmory.app.ScreenParityTest -e deviceChecks true com.brewingbytes.gemmory.test/androidx.test.runner.AndroidJUnitRunner`.
+  - It covers every `StoreScreenshots.capture()` state in en and ja at font scale 1.0 and 2.0, and fails when more than 0.5% of a screen's pixels differ by more than 8/255.
+  - The baselines in `goldens/screens/` come from main. To record them, add `-e recordScreens true`, then `adb pull /data/local/tmp/screens/. goldens/screens/`.
+  - Re-record only for a change meant to look different, and say so in the PR with the before and after.
 - Add `:androidApp:connectedDebugAndroidTest` on the emulator whenever app code changes.
 - Smoke-test the R8 release build on an emulator after any dependency or keep-rule change.
 - The converter goldens, the pinned starter grid CRC and every pinned bundled-picture CRC must stay green. Never re-freeze a shipped picture.
