@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The merge queue (workflow.md → Branches): `build` must pass on the queue's commit too.
+  merge_group:
 
 concurrency:
   group: ci-${{ github.ref }}
