@@ -144,6 +144,12 @@ android {
     }
 
     sourceSets {
+        getByName("main") {
+            // The copy of all twelve languages lives in composeApp's Compose resources since T63 (one source for
+            // Android and iOS). The folder is laid out as res (values-xx/strings.xml), so aapt reads it as it is and
+            // R.string / R.plurals stay unchanged.
+            res.directories.add("../composeApp/src/commonMain/composeResources/files/strings")
+        }
         getByName("perf") {
             kotlin.directories.add("src/debug/kotlin")
         }
@@ -163,6 +169,9 @@ android {
     androidResources {
         generateLocaleConfig = true
         localeFilters += listOf("en", "de", "es", "pt-rBR", "fr", "it", "ro", "pl", "tr", "hu", "bg", "ja")
+        // The strings files reach the APK as res (sourceSets above); their copy under composeResources/…/files/strings
+        // is for iOS, so it stays out of the assets (T63). aapt's default patterns are kept.
+        ignoreAssetsPatterns += listOf("!.svn", "!.git", "!.ds_store", "!*.scc", ".*", "<dir>_*", "!CVS", "!thumbs.db", "!picasa.ini", "!*~", "<dir>strings")
     }
     bundle {
         language {
@@ -270,3 +279,8 @@ androidComponents {
     }
 }
 tasks.matching { it.name == "bundleRelease" || it.name == "assembleRelease" }.configureEach { dependsOn("checkReleaseManifestNoClips") }
+
+// The copy tests (XmlStrings) read the strings files from disk: editing a word must rerun them (T63).
+tasks.withType<Test>().configureEach {
+    inputs.dir("../composeApp/src/commonMain/composeResources/files/strings").withPathSensitivity(PathSensitivity.RELATIVE)
+}

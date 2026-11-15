@@ -185,12 +185,13 @@ Uninstalling the app deletes the folder. For a remote picture that isn't on the 
 
 ## Copy and strings (T48)
 
-Every word the app shows is in `androidApp/src/main/res/values/strings.xml`, grouped by screen, and in each language's `values-xx/strings.xml` (T49, below); no user-facing English is written in Kotlin. To add or change copy:
+Every word the app shows is in `composeApp/src/commonMain/composeResources/files/strings/values/strings.xml`, grouped by screen, and in each language's `values-xx/strings.xml` there (T49, below); no user-facing English is written in Kotlin. Since T63 that folder is the one source for both platforms: androidApp adds it as a `res` directory, so `R.string`/`R.plurals` read it unchanged, and iOS reads the same files through `StringsXml` (`shared/copy/`: aapt's escapes, `%1$s`/`%1$d`/`%%`, CLDR plurals in `PluralRules`). Compose resources' own `Res.string` isn't used for the copy: it shows `%%` as it is (Stage 0, #167). To add or change copy:
 
 - Add a `<string>` (or a `<plurals>` where a count shows, with `one` and `other`) in English **and in all eleven languages** (lint's `MissingTranslation` and `MessagesTest` fail on a missing one), and read it with `stringResource(R.string.x)` in a composable, or through `copy/Strings.kt` (`strings()` in Compose, `context.strings` elsewhere) when it takes arguments. Arguments are positional (`%1$s`, `%1$d`) so a translation can reorder them; a percent sign is `%%`.
 - Numbers, percents and dates are formatted in the app's language (`app_locale`, each folder's own tag), never the phone's raw locale: pass `strings.number(n)` for a grouped count, and format dates with `strings.locale`.
 - `shared/commonMain` builds no English: it returns a message (`ReminderMsg`, `NudgeHint`, `Awaiting`, `ProgressLine`, `MysteryName`, `CanvasSize`), and `copy/Messages.kt` turns it into words with an exhaustive `when`, so a new message without words doesn't compile.
-- `NoHardcodedCopyTest` (in `testDebugUnitTest`, so CI) fails on a string literal in `src/main/kotlin` or `commonMain` that reads like words; a literal that's never shown goes in its `ALLOWED` list with why. `MessagesTest` checks that every string the code names exists, every string is used, every language has every string with English's arguments, and every `<plurals>` has exactly its language's quantities (`PluralRules`). The copy tests read the real `strings.xml` through `XmlStrings`, so they pin the English word for word.
+- `NoHardcodedCopyTest` (in `testDebugUnitTest`, so CI) fails on a string literal in `src/main/kotlin` or `commonMain` that reads like words; a literal that's never shown goes in its `ALLOWED` list with why. `MessagesTest` checks that every string the code names exists, every string is used, every language has every string with English's arguments, and every `<plurals>` has exactly its language's quantities (`PluralRules`). The copy tests read the real `strings.xml` through `XmlStrings`, so they pin the English word for word. `StringsXmlFilesTest` (`:shared:jvmTest`) checks that `StringsXml` reads and formats every word of every language as Android does.
+- iOS's own system-shown words (the name under the icon; the Photos permission text from Stage 2) are in `iosApp/iosApp/InfoPlist.xcstrings`, generated from the same files: add the key to `IosStrings.INFO_PLIST` and run `./gradlew :shared:generateIosStrings` (`IosStringsTest` fails while the file is stale).
 - Not translated by us: the debug-only Clips screen and the system's own screens (consent, ads, billing, review, Play Games, the share sheet).
 
 ## Languages (T49)
@@ -222,7 +223,7 @@ Grids are frozen once and never re-converted. Re-freezing a shipped picture chan
    ./gradlew :shared:freezeBundledGrid -Psource=tools/bundled/<id>.jpg -Pspec=medium-4:3 -Pfocus=0.5 \
      -Pout=composeApp/src/commonMain/composeResources/files/pictures/<id>.gmrg -Preview=tools/bundled/<id>.review.png
    ```
-3. Add it to its size group (`QUICK`, `MEDIUM` or `BIG`) in `androidApp/src/main/kotlin/com/brewingbytes/gemmory/bundled/BundledPictures.kt`, with the CRC pinned and its title as `R.string.title_<id>`: add that string to `values/strings.xml` and every `values-xx` (T49). The CRC is the grid file's last 4 bytes: `tail -c 4 <file> | xxd -p`.
+3. Add it to its size group (`QUICK`, `MEDIUM` or `BIG`) in `androidApp/src/main/kotlin/com/brewingbytes/gemmory/bundled/BundledPictures.kt`, with the CRC pinned and its title as `R.string.title_<id>`: add that string to `files/strings/values/strings.xml` and every `values-xx` (T49). The CRC is the grid file's last 4 bytes: `tail -c 4 <file> | xxd -p`.
 4. Add a row to `tools/bundled/PROVENANCE.md` (source link, author and date, license or terms URL, spec and focus). `BundledPicturesTest` fails without it.
 
 The gallery shows the starter first, then every Quick picture, then Medium, then Big (`BundledPicturesTest` checks the order).

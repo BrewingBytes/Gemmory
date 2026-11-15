@@ -5,7 +5,7 @@ import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
 /**
- * One `res/values[-xx]/strings.xml` of the app, read the way aapt reads ours (T49): every `<string>` and every
+ * One `values[-xx]/strings.xml` of the app (`composeResources/files/strings/`), read the way aapt reads ours (T49): every `<string>` and every
  * `<plurals>` item, unescaped, keyed by name (`name` or `name/quantity`). The app's own `XmlStrings` does the same for
  * its JVM tests; this one serves `:shared`'s tools tests, which can't see the app's classes.
  */
@@ -26,7 +26,8 @@ class AndroidStringsFile(val folder: File) {
     }
 
     companion object {
-        val RES = File("../androidApp/src/main/res")
+        /** The app's copy, `values[-xx]/strings.xml`, in composeApp's Compose resources since T63 (Android reads it as res). */
+        val RES = File("../composeApp/src/commonMain/composeResources/files/strings")
 
         /** The app's fonts, in composeApp's Compose resources since T63. */
         val FONTS = File("../composeApp/src/commonMain/composeResources/font")

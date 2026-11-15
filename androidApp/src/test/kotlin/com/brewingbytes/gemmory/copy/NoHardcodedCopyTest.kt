@@ -90,7 +90,10 @@ class NoHardcodedCopyTest {
             "not a JSON object",
         )
 
-        /** Whole files left out: ReleaseAdIds' messages are the release build's own checks, never on a phone. */
-        private val ALLOWED_FILES = listOf("policy/ReleaseAdIds.kt")
+        /**
+         * Whole files left out: ReleaseAdIds' messages are the release build's own checks, never on a phone; StringsXml's
+         * are why a strings file can't be read, thrown to the tests that read every file (T63).
+         */
+        private val ALLOWED_FILES = listOf("policy/ReleaseAdIds.kt", "copy/StringsXml.kt")
     }
 }
