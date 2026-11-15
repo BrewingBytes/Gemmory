@@ -1,0 +1,64 @@
+# Every key-value file the app writes and every key in it, as on Android phones today (eng D7, T64).
+# One line each: <file> <key> <type>. A key ending in * is a prefix (the rest is an id).
+# Android player data is never migrated, renamed or re-encoded: changing a line here is a data migration and needs
+# its own plan. PrefsKeysTest checks the code against this list; KeyValueSeedTest seeds each line on a device and
+# reads it back through KeyValueStore.
+collections done:* string
+collections earned:* string
+collections glint:* boolean
+consent firstLaunchDone boolean
+first_run first_launch_millis long
+first_run gem_logged boolean
+first_run landing_ended boolean
+first_run launch_logged boolean
+first_run referrer string
+first_run referrer_read boolean
+first_run shared_day long
+first_run shared_id string
+first_run where_found string
+first_run where_found_seed long
+hints pickColor boolean
+hints tapZoomed boolean
+hints zoomIn boolean
+new_player launched boolean
+played day long
+reminder ask string
+reminder finishes int
+reminder minutes int
+reminder on boolean
+reminder on_line_pending boolean
+reminder permission_asked boolean
+reminder scheduled_at long
+review first_finish_day long
+review last_attempt_day long
+review made int
+settings finished_open_photos boolean
+settings finished_open_pictures boolean
+settings haptics boolean
+settings highlight string
+settings milestones boolean
+settings music boolean
+settings music_chip_shown boolean
+settings music_unlocked boolean
+settings music_volume int
+settings play_games_ready boolean
+settings sound boolean
+streak brokenLastDay long
+streak brokenLength int
+streak lastDay long
+streak lastGraceRepairDay long
+streak lastVipRepairDay long
+streak length int
+streak nudgeShownDay long
+streak pendingCanvas string
+streak pendingCovered string
+streak pendingDay long
+streak pendingFinishedAt long
+streak pendingLength int
+streak restDay long
+streak vipFreezeDay long
+today before string
+today day long
+today picture string
+today vip boolean
+unlocks pictures stringset

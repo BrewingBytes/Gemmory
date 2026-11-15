@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.collections
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.brewingbytes.gemmory.storage.StorageLayout
 
 /**
  * Completed collections (T37), in the "collections" preferences: each one's local completion day (its row stays 7
@@ -41,7 +42,7 @@ class CollectionPrefs(private val prefs: SharedPreferences) {
 
     companion object {
         /** Backed up (BackupRulesTest). */
-        const val FILE = "collections"
+        const val FILE = StorageLayout.Prefs.COLLECTIONS
         private const val DONE = "done:"
         private const val GLINT = "glint:"
         private const val EARNED = "earned:"

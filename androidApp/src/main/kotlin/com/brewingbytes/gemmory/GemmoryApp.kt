@@ -67,6 +67,7 @@ import com.brewingbytes.gemmory.review.ReviewPrefs
 import com.brewingbytes.gemmory.review.Reviews
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.settings.AppSettings
@@ -625,7 +626,7 @@ class GemmoryApp : Application() {
         context = this,
         clock = dayClock,
         analytics = analytics,
-        history = FileStateStore(File(filesDir, StorageLayout.STREAK_HISTORY), StreakHistoryCodec::encode, StreakHistoryCodec::decode, reporter),
+        history = FileStateStore(AndroidFileStore(filesDir), StorageLayout.STREAK_HISTORY, StreakHistoryCodec::encode, StreakHistoryCodec::decode, reporter::report),
         scope = appScope,
         resolve = { monetization.streakDay(it) },
         resolveRepair = { monetization.repairStreak(it) },
@@ -635,7 +636,7 @@ class GemmoryApp : Application() {
         StreakView(streak, dayClock, billing.entitlements, monetization.inventory, appScope).also(streakWidgets::follow)
 
     private fun newAchievements(backend: GamesBackend, ids: (Achievement) -> String = { getString(achievementId(it)) }) = Achievements(
-        store = FileStateStore(File(filesDir, StorageLayout.ACHIEVEMENTS), AchievementCodec::encode, AchievementCodec::decode, reporter),
+        store = FileStateStore(AndroidFileStore(filesDir), StorageLayout.ACHIEVEMENTS, AchievementCodec::encode, AchievementCodec::decode, reporter::report),
         backend = backend,
         ids = ids,
         scope = appScope,
@@ -789,7 +790,7 @@ class GemmoryApp : Application() {
             backend = BillingBackends.create(this, reporter),
             cache = EntitlementCache(
                 System::currentTimeMillis,
-                FileStateStore(File(filesDir, StorageLayout.LEDGER_ENTITLEMENTS), EntitlementCodec::encode, EntitlementCodec::decode, reporter),
+                FileStateStore(AndroidFileStore(filesDir), StorageLayout.LEDGER_ENTITLEMENTS, EntitlementCodec::encode, EntitlementCodec::decode, reporter::report),
             ),
             scope = scope,
             worker = Dispatchers.IO.limitedParallelism(1),

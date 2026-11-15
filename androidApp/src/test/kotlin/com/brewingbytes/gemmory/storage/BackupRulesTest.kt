@@ -17,7 +17,13 @@ import kotlin.test.assertTrue
  * Firebase's identifiers (#5) and the remote pictures' download cache (#43).
  */
 class BackupRulesTest {
-    private val appData = setOf("file:${StorageLayout.PHOTO_CANVASES}/", "file:${StorageLayout.LEDGER}/", "file:${StorageLayout.REMOTE}/")
+    /** The shared list of what stays on the phone (OV-9, T64), which iOS reads too, as Android's rules name it. */
+    private val appData = StorageLayout.neverBackedUp.map {
+        when (it) {
+            is StorageLayout.Kept.Folder -> "file:${it.path}/"
+            is StorageLayout.Kept.PrefsFile -> "sharedpref:${it.name}.xml"
+        }
+    }.toSet()
 
     /**
      * Where Firebase BOM 34.19.0 keeps per-install state, read off a device: the Crashlytics installation UUID and
@@ -34,10 +40,18 @@ class BackupRulesTest {
         "database:com.google.android.datatransport.events",
     )
 
-    /** The launch funnel (T46): never restored, so a restored phone logs no first_launch or first_gem. */
-    private val funnel = setOf("sharedpref:${FirstRun.FUNNEL_FILE}.xml")
+    private val expected = appData + firebase
 
-    private val expected = appData + firebase + funnel
+    /** The launch funnel (T46): never restored, so a restored phone logs no first_launch or first_gem. */
+    @Test
+    fun theLaunchFunnelIsInTheSharedList() {
+        assertTrue("sharedpref:${FirstRun.FUNNEL_FILE}.xml" in appData)
+        assertEquals(
+            setOf("file:canvases/photo/", "file:ledger/", "file:remote/", "sharedpref:first_run.xml"),
+            appData,
+            "a change here changes what leaves the phone: the backup rules and the iOS exclusions follow it",
+        )
+    }
 
     private fun xml(name: String) =
         DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(File("src/main/res/xml/$name")).documentElement

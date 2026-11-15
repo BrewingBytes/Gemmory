@@ -9,7 +9,7 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 
 /** Writes [bytes] to [file] and fsyncs it. A parameter of [AtomicFiles] so tests can fail it (e.g. disk full). */
-internal fun interface SyncedWriter {
+fun interface SyncedWriter {
     @Throws(IOException::class)
     fun write(file: File, bytes: ByteArray)
 
@@ -24,7 +24,7 @@ internal fun interface SyncedWriter {
 }
 
 /** Temp + fsync + rename writes (eng E2): a reader sees the old file or the new one, never a torn mix. */
-internal class AtomicFiles(private val writer: SyncedWriter = SyncedWriter.Default) {
+class AtomicFiles(private val writer: SyncedWriter = SyncedWriter.Default) {
     @Throws(IOException::class)
     fun write(file: File, bytes: ByteArray) {
         val tmp = tempFor(file)

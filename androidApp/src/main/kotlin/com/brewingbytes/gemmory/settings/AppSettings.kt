@@ -6,6 +6,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.play.HighlightStyle
+import com.brewingbytes.gemmory.storage.StorageLayout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -110,7 +111,7 @@ class AppSettings(private val prefs: SharedPreferences) {
     private companion object {
         fun finishedKey(tab: Int) = if (tab == 0) FINISHED_PICTURES else FINISHED_PHOTOS
 
-        const val FILE = "settings"
+        const val FILE = StorageLayout.Prefs.SETTINGS
         const val SOUND = "sound"
         const val HAPTICS = "haptics"
         const val MILESTONES = "milestones"

@@ -146,10 +146,10 @@ class FirstRun(
 
     companion object {
         /** The marker's preferences, backed up (a restored phone isn't fresh). */
-        const val MARKER_FILE = "new_player"
+        const val MARKER_FILE = StorageLayout.Prefs.NEW_PLAYER
 
         /** The funnel's preferences, never backed up or transferred (backup_rules.xml, data_extraction_rules.xml). */
-        const val FUNNEL_FILE = "first_run"
+        const val FUNNEL_FILE = StorageLayout.Prefs.FIRST_RUN
 
         private const val LAUNCHED = "launched"
         private const val FIRST_LAUNCH = "first_launch_millis"

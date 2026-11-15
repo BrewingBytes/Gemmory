@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.review
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.brewingbytes.gemmory.storage.StorageLayout
 
 /**
  * The review prompt's counter (T39), in the "review" preferences: the attempts made, the local epoch day of the last
@@ -22,7 +23,7 @@ class ReviewPrefs(private val prefs: SharedPreferences) {
         set(value) = prefs.edit { if (value == null) remove(FIRST_DAY) else putLong(FIRST_DAY, value) }
 
     companion object {
-        const val FILE = "review"
+        const val FILE = StorageLayout.Prefs.REVIEW
         private const val MADE = "made"
         private const val LAST_DAY = "last_attempt_day"
         private const val FIRST_DAY = "first_finish_day"

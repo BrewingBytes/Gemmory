@@ -2,7 +2,7 @@
 <!-- Android 12+. Same exclusions for cloud backup and device-to-device transfer: photo canvases (grid, progress,
      view state, source), the ledger (the allowance counter, the ad caps and the entitlement cache) and Firebase's
      identifiers, the remote pictures' download cache (#43) and the launch funnel (T46). Anything else may be backed up or transferred.
-     Paths must match storage/StorageLayout.kt and the files Firebase writes (checked by BackupRulesTest). -->
+     Paths must match StorageLayout.neverBackedUp (composeApp, shared with iOS) and the files Firebase writes (checked by BackupRulesTest). -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="canvases/photo/" />

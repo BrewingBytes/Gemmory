@@ -6,6 +6,7 @@ import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.policy.Achievement
 import com.brewingbytes.gemmory.policy.AchievementCodec
 import com.brewingbytes.gemmory.policy.GameEvent
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import kotlinx.coroutines.CoroutineScope
@@ -67,7 +68,7 @@ class AchievementsBridgeTest {
     }
 
     private fun achievements() = Achievements(
-        store = FileStateStore(File(tmp.root, "achievements/state"), AchievementCodec::encode, AchievementCodec::decode, NonFatalReporter { }),
+        store = FileStateStore(AndroidFileStore(tmp.root), "achievements/state", AchievementCodec::encode, AchievementCodec::decode),
         backend = backend,
         ids = { it.name.lowercase() },
         scope = scope,
@@ -160,7 +161,7 @@ class AchievementsBridgeTest {
     @Test
     fun aMissingIdIsKeptUntilABuildHasIt() = runBlocking<Unit> {
         val a = Achievements(
-            store = FileStateStore(File(tmp.root, "achievements/state"), AchievementCodec::encode, AchievementCodec::decode, NonFatalReporter { }),
+            store = FileStateStore(AndroidFileStore(tmp.root), "achievements/state", AchievementCodec::encode, AchievementCodec::decode),
             backend = backend,
             ids = { if (it == Achievement.FIRST_SPARKLE) "" else it.name.lowercase() },
             scope = scope,

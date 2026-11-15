@@ -3,9 +3,10 @@ package com.brewingbytes.gemmory.telemetry
 import android.content.Context
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.policy.StateStore
+import com.brewingbytes.gemmory.storage.StorageLayout
 
 /** `day_played`'s preferences (T36): the local day the event was last logged, nothing else. */
-const val PLAYED_FILE = "played"
+const val PLAYED_FILE = StorageLayout.Prefs.PLAYED
 
 /** A local day (epoch days) in its own preferences file, e.g. for [com.brewingbytes.gemmory.policy.DayPlayed]. */
 class PrefsDayStore(context: Context, file: String) : StateStore<Long> {
