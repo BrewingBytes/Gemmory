@@ -109,7 +109,7 @@ class GoldenIosTest {
         val zen = FontFamily(
             Font(
                 identity = "zen_kaku_gothic_new_bold.ttf",
-                data = file("androidApp/src/main/res/font/zen_kaku_gothic_new_bold.ttf"),
+                data = file("composeApp/src/commonMain/composeResources/font/zen_kaku_gothic_new_bold.ttf"),
                 weight = FontWeight.SemiBold,
             ),
         )

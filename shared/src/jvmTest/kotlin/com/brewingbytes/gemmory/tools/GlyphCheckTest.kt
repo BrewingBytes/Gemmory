@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  * same strings into pictures, and the bundled picture titles (`title_<id>`). A character a face lacks fails the build.
  */
 class GlyphCheckTest {
-    private val glyphs = GlyphCheck(File(AndroidStringsFile.RES, "font"))
+    private val glyphs = GlyphCheck(AndroidStringsFile.FONTS)
 
     @Test
     fun everyStringDrawsInItsLanguagesFaces() {

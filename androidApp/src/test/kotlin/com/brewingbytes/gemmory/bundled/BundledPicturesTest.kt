@@ -25,7 +25,7 @@ class BundledPicturesTest {
     @Test
     fun everyAssetMatchesItsPinnedCrc() {
         for (picture in BundledPictures.ALL) {
-            val bytes = File("src/main/assets/${picture.asset}").readBytes()
+            val bytes = File("../composeApp/src/commonMain/composeResources/files/${picture.asset}").readBytes()
             val grid = assertIs<Decoded.Ok<GridFile>>(GridCodec.decode(bytes), picture.id).value
             assertEquals(picture.gridCrc32, grid.crc32, picture.id)
         }
@@ -33,7 +33,7 @@ class BundledPicturesTest {
 
     @Test
     fun theStarterIs24By32With8Colors() {
-        val bytes = File("src/main/assets/${BundledPictures.STARTER.asset}").readBytes()
+        val bytes = File("../composeApp/src/commonMain/composeResources/files/${BundledPictures.STARTER.asset}").readBytes()
         val pattern = assertIs<Decoded.Ok<GridFile>>(GridCodec.decode(bytes)).value.pattern
         assertEquals(GridSpec.STARTER.width to GridSpec.STARTER.height, pattern.width to pattern.height)
         assertEquals(8, pattern.palette.size)
@@ -44,7 +44,7 @@ class BundledPicturesTest {
     fun everyPictureHasAProvenanceRow() {
         val provenance = File("../tools/bundled/PROVENANCE.md").readText()
         for (picture in BundledPictures.ALL) {
-            assertTrue("| `androidApp/src/main/assets/${picture.asset}` |" in provenance, picture.id)
+            assertTrue("| `composeApp/src/commonMain/composeResources/files/${picture.asset}` |" in provenance, picture.id)
         }
     }
 
@@ -58,7 +58,7 @@ class BundledPicturesTest {
     /** The picker size whose grid this picture's asset has. */
     private fun sizeOf(picture: BundledPicture): CanvasSize {
         val pattern = assertIs<Decoded.Ok<GridFile>>(
-            GridCodec.decode(File("src/main/assets/${picture.asset}").readBytes()), picture.id,
+            GridCodec.decode(File("../composeApp/src/commonMain/composeResources/files/${picture.asset}").readBytes()), picture.id,
         ).value.pattern
         val size = CanvasSize.entries.firstOrNull { size ->
             AspectRatio.entries.any { GridSpec.of(size, it).let { s -> s.width == pattern.width && s.height == pattern.height } }

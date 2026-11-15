@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  */
 class ListingTest {
     private val root = File("../tools/store/listing")
-    private val glyphs = GlyphCheck(File(AndroidStringsFile.RES, "font"))
+    private val glyphs = GlyphCheck(AndroidStringsFile.FONTS)
 
     @Test
     fun everyLocaleFitsPlaysLimitsAndOurRules() {
@@ -43,7 +43,7 @@ class ListingTest {
         assertEquals(emptyList(), problems)
         // Every title (two lines; Japanese one), subtitle and feature line (one) fits, drawn as the frame tool draws it.
         val shot = java.awt.image.BufferedImage(1080, 1920, java.awt.image.BufferedImage.TYPE_INT_RGB)
-        val fonts = File(AndroidStringsFile.RES, "font")
+        val fonts = AndroidStringsFile.FONTS
         val static = File("../tools/store/fonts")
         val misfits = ArrayList<String>()
         fun draw(locale: String, block: () -> Unit) = try { block() } catch (e: IllegalArgumentException) { misfits += "$locale: ${e.message}" }

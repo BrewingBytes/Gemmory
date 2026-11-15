@@ -48,7 +48,7 @@ class BundledGridToolTest {
      */
     @Test
     fun shippedStarterGridIsStable() {
-        val bytes = File("../androidApp/src/main/assets/pictures/starter.gmrg").readBytes()
+        val bytes = File("../composeApp/src/commonMain/composeResources/files/pictures/starter.gmrg").readBytes()
         val grid = assertIs<Decoded.Ok<com.brewingbytes.gemmory.save.GridFile>>(GridCodec.decode(bytes)).value
         assertEquals(STARTER_CRC, grid.crc32, "starter CRC is %08x".format(grid.crc32))
         assertEquals(GridSpec.STARTER.width to GridSpec.STARTER.height, grid.pattern.width to grid.pattern.height)

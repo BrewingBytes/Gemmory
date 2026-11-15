@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.copy.strings
 import kotlin.random.Random
 
@@ -85,11 +85,14 @@ data class Felt(val ground: Color, val deep: Color, val raised: Color)
 val LocalFelt = staticCompositionLocalOf { Felt(GemColors.Felt, GemColors.FeltDeep, GemColors.FeltRaised) }
 
 internal val AtkinsonMono = FontFamily(
-    Font(R.font.atkinson_hyperlegible_mono, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+    AppFonts.MONO.font(FontWeight.Bold),
 )
 
-private fun AppFonts.Face.font(weight: FontWeight) =
-    if (variable) Font(res, weight, variationSettings = FontVariation.Settings(FontVariation.weight(this.weight))) else Font(res, weight)
+private fun AppFonts.Face.font(weight: FontWeight) = if (variable) {
+    Font(path, SharedResources.assets, weight, variationSettings = FontVariation.Settings(FontVariation.weight(this.weight)))
+} else {
+    Font(path, SharedResources.assets, weight)
+}
 
 /**
  * The type scale in one language's faces (T49): Latin is Bricolage Grotesque + Figtree as before, word for word the
