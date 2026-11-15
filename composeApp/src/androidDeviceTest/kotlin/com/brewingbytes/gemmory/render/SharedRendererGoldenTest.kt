@@ -23,6 +23,7 @@ import com.brewingbytes.gemmory.play.CanvasViewport
 import com.brewingbytes.gemmory.play.HighlightStyle
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec
+import kotlin.test.assertFalse
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -114,6 +115,36 @@ class SharedRendererGoldenTest {
             renderer.draw(canvas, nothingPlaced, viewport, GoldenRender.DENSITY, HighlightStyle.DEFAULT, CanvasEffects(), 0L)
         }
         assertTrue(renderer.numberLayoutsMade == pattern.palette.size, "${renderer.numberLayoutsMade} of ${pattern.palette.size} laid out at fit")
+    }
+
+    /**
+     * #54: a pinch into a new bucket keeps drawing the one on screen while the new one fills in, a few sprites a frame,
+     * and asks for frames until it's done; then it draws exactly what a renderer starting at that zoom draws.
+     */
+    @Test
+    fun aNewBucketFillsInOverFramesAndEndsAsIfDrawnAtOnce() = runBlocking<Unit> {
+        val pattern = (GridCodec.decode(resource("renderer/pictures/deco-peacock.gmrg")) as Decoded.Ok).value.pattern
+        val measurer = measurer()
+        val assets = assets()
+        val viewport = CanvasViewport(pattern.width, pattern.height)
+        viewport.onLayout(GoldenRender.WIDTH, GoldenRender.HEIGHT, GoldenRender.DENSITY)
+        fun draw(renderer: CanvasRenderer, image: ImageBitmap) =
+            renderer.draw(Canvas(image), nothingPlaced, viewport, GoldenRender.DENSITY, HighlightStyle.DEFAULT, CanvasEffects(), 0L)
+
+        val pinched = CanvasRenderer(pattern, measurer, assets, buildBudgetNanos = 0L)
+        val image = ImageBitmap(GoldenRender.WIDTH, GoldenRender.HEIGHT)
+        viewport.set(18f, pattern.width / 2f, pattern.height / 2f)
+        assertFalse(draw(pinched, image), "the first sprite frame builds its bucket at once")
+        viewport.set(28f, pattern.width / 2f, pattern.height / 2f)
+        var frames = 1
+        while (draw(pinched, image)) frames++
+        assertTrue(frames > 2, "one sprite a frame takes several frames, took $frames")
+
+        val direct = ImageBitmap(GoldenRender.WIDTH, GoldenRender.HEIGHT)
+        assertFalse(draw(CanvasRenderer(pattern, measurer, assets), direct))
+        val a = IntArray(GoldenRender.WIDTH * GoldenRender.HEIGHT).also { image.readPixels(it) }
+        val b = IntArray(GoldenRender.WIDTH * GoldenRender.HEIGHT).also { direct.readPixels(it) }
+        assertTrue(a.contentEquals(b), "the filled-in bucket draws the same pixels as one built at once")
     }
 
     private suspend fun assets(): RenderAssets {

@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -117,6 +118,7 @@ private fun PlayScreen(game: SpikeGame, probe: FrameProbe?, autoBench: Boolean, 
         CanvasRenderer(game.pattern, measurer, object : RenderAssets { override val numbers = mono })
     }
     val effects = remember { CanvasEffects() }
+    var owed by remember { mutableIntStateOf(0) }
     val bench = remember { Bench() }
     var benchRun by remember { mutableStateOf(if (autoBench) 1 else 0) }
     val viewport = game.viewport
@@ -171,10 +173,12 @@ private fun PlayScreen(game: SpikeGame, probe: FrameProbe?, autoBench: Boolean, 
                 viewport.zoomDp
                 viewport.centerX
                 viewport.centerY
+                owed
                 drawIntoCanvas { canvas ->
                     probe?.beginDraw()
                     val start = TimeSource.Monotonic.markNow()
-                    renderer.draw(canvas, game, viewport, density, HighlightStyle.TINT, effects, 0L)
+                    // A zoom bucket still being built asks for another frame.
+                    if (renderer.draw(canvas, game, viewport, density, HighlightStyle.TINT, effects, 0L)) owed++
                     bench.drew(start.elapsedNow().inWholeNanoseconds)
                     probe?.endDraw()
                 }
