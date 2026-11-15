@@ -20,19 +20,22 @@ A new or changed sound gets a row here in the same change.
 
 Six calm tracks from OpenGameArt, each dedicated to the public domain under
 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) on its page (checked 2026-10-21): no credit is required,
-and the authors are named here anyway. Picked by the founder ("all") from a listening page on 2026-10-21. Each was
-converted with ffmpeg 8 (libopus) from the file on its page:
-`ffmpeg -i <source> -af loudnorm=I=-20:TP=-2,aresample=48000 -c:a libopus -b:a 48k -map_metadata -1 music_<n>.ogg`
-(Ogg Opus, 48 kHz stereo, −20 LUFS integrated, −2 dBTP). Not edited otherwise. The app picks them at random, never the
+and the authors are named here anyway. Picked by the founder ("all") from a listening page on 2026-10-21. Since T63
+(#171, 2026-11-15) one file per track serves Android and iOS, in `composeApp/src/commonMain/composeResources/files/music/`:
+AVAudioPlayer can't decode Ogg (design doc R10-4), so each was converted again from the same file on its page (the SHA-256
+prefixes below checked on download) with ffmpeg 9's native AAC encoder:
+`ffmpeg -i <source> -af loudnorm=I=-20:TP=-2,aresample=48000 -c:a aac -profile:a aac_low -b:a 96k -ac 2 -map_metadata -1 -movflags +faststart music_<n>.m4a`
+(AAC-LC in MP4, 48 kHz stereo, 96 kbps, −20 LUFS integrated within 1 LU, −2 dBTP). Not edited otherwise. The `.ogg`
+Opus files of T42 are gone. Android plays them from the APK's assets, stored uncompressed. The app picks them at random, never the
 same one twice in a row; `music_1` plays three times in a row (`MusicController`).
 
 | File | Track | Author | Source page (downloaded file, SHA-256 prefix) | Length, size | License |
 |---|---|---|---|---|---|
-| `music_1.ogg` | Heavenly Loop | isaiah658 | [opengameart.org/content/heavenly-loop](https://opengameart.org/content/heavenly-loop) (`Heavenly Loop.flac`, `1324464c995635ce`) | 0:34, 385 KB | CC0 1.0 |
-| `music_2.ogg` | Contemplation | Joth | [opengameart.org/content/contemplation-0](https://opengameart.org/content/contemplation-0) (`Contemplation.mp3`, `283962d3a975c936`) | 2:00, 1.07 MB | CC0 1.0 |
-| `music_3.ogg` | Calm Piano 1 (Vaporware) | cynicmusic (The Cynic Project, cynicmusic.com, pixelsphere.org; credit requested, not required) | [opengameart.org/content/calm-piano-1-vaporware](https://opengameart.org/content/calm-piano-1-vaporware) (`003_Vaporware_2.mp3`, `1697fa1b7ed6f3fe`) | 2:45, 1.04 MB | CC0 1.0 |
-| `music_4.ogg` | Calm Ambient 3 (Lifewave 2k) | cynicmusic (The Cynic Project) | [opengameart.org/content/calm-ambient-3-lifewave-2k](https://opengameart.org/content/calm-ambient-3-lifewave-2k) (`006_lifeWave2k_0.mp3`, `f6a796483aee743d`) | 3:07, 1.20 MB | CC0 1.0 |
-| `music_5.ogg` | Calm Relax 1 (Synthwave 421k) | cynicmusic (The Cynic Project) | [opengameart.org/content/calm-relax-1-synthwave-421k](https://opengameart.org/content/calm-relax-1-synthwave-421k) (`007_Synthwave_421k.mp3`, `5d5cb73be5a1e3e4`) | 7:54, 2.91 MB | CC0 1.0 |
-| `music_6.ogg` | The Budding of Consciousness (Yoiyami Blue Series No. 4) | Yoiyami | [opengameart.org/content/the-budding-of-consciousness-…](https://opengameart.org/content/the-budding-of-consciousness-%E2%80%93-cc0-ambient-minimalist-theme-yoiyami-blue-series-%E2%80%93-no4) (`the_budding_of_consciousness.wav`, `c879c57f4353c169`) | 3:44, 1.46 MB | CC0 1.0 |
+| `music_1.m4a` | Heavenly Loop | isaiah658 | [opengameart.org/content/heavenly-loop](https://opengameart.org/content/heavenly-loop) (`Heavenly Loop.flac`, `1324464c995635ce`) | 0:34, 412 KB | CC0 1.0 |
+| `music_2.m4a` | Contemplation | Joth | [opengameart.org/content/contemplation-0](https://opengameart.org/content/contemplation-0) (`Contemplation.mp3`, `283962d3a975c936`) | 2:00, 1.47 MB | CC0 1.0 |
+| `music_3.m4a` | Calm Piano 1 (Vaporware) | cynicmusic (The Cynic Project, cynicmusic.com, pixelsphere.org; credit requested, not required) | [opengameart.org/content/calm-piano-1-vaporware](https://opengameart.org/content/calm-piano-1-vaporware) (`003_Vaporware_2.mp3`, `1697fa1b7ed6f3fe`) | 2:45, 2.00 MB | CC0 1.0 |
+| `music_4.m4a` | Calm Ambient 3 (Lifewave 2k) | cynicmusic (The Cynic Project) | [opengameart.org/content/calm-ambient-3-lifewave-2k](https://opengameart.org/content/calm-ambient-3-lifewave-2k) (`006_lifeWave2k_0.mp3`, `f6a796483aee743d`) | 3:07, 2.29 MB | CC0 1.0 |
+| `music_5.m4a` | Calm Relax 1 (Synthwave 421k) | cynicmusic (The Cynic Project) | [opengameart.org/content/calm-relax-1-synthwave-421k](https://opengameart.org/content/calm-relax-1-synthwave-421k) (`007_Synthwave_421k.mp3`, `5d5cb73be5a1e3e4`) | 7:54, 5.80 MB | CC0 1.0 |
+| `music_6.m4a` | The Budding of Consciousness (Yoiyami Blue Series No. 4) | Yoiyami | [opengameart.org/content/the-budding-of-consciousness-…](https://opengameart.org/content/the-budding-of-consciousness-%E2%80%93-cc0-ambient-minimalist-theme-yoiyami-blue-series-%E2%80%93-no4) (`the_budding_of_consciousness.wav`, `c879c57f4353c169`) | 3:44, 2.76 MB | CC0 1.0 |
 
 A new or changed track gets a row here in the same change.

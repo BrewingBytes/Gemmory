@@ -88,6 +88,9 @@ tasks.named<Test>("jvmTest") {
     inputs.dir("../composeApp/src/commonMain/composeResources/files/pictures").withPathSensitivity(PathSensitivity.RELATIVE)
     // GlyphCheckTest (T49, eng O-E6): every language's strings against the fonts that draw them, and the store listings.
     inputs.dir("../composeApp/src/commonMain/composeResources/files/strings").withPathSensitivity(PathSensitivity.RELATIVE)
+    // MusicFilesTest (T63): the shared music and its provenance rows.
+    inputs.dir("../composeApp/src/commonMain/composeResources/files/music").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file("../tools/sounds/PROVENANCE.md").withPathSensitivity(PathSensitivity.RELATIVE)
     // IosStringsTest: the generated iOS InfoPlist.xcstrings is up to date.
     inputs.file("../iosApp/iosApp/InfoPlist.xcstrings").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("../composeApp/src/commonMain/composeResources/font").withPathSensitivity(PathSensitivity.RELATIVE)
