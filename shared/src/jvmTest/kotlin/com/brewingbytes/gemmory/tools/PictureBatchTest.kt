@@ -117,7 +117,7 @@ class PictureBatchTest {
         val published = PictureBatch.run(PictureBatch.Settings(
             batchDir = batchDir, dir = dir, sourcesDir = sources, provenanceFile = provenance, signingKey = key,
             reservedIds = setOf("starter"), today = today, nowSeconds = 1_793_000_000, previewDir = previews, trustedKeys = trusted,
-            fontDir = File("../androidApp/src/main/res/font"), warn = { warnings += it },
+            fontDir = File("../composeApp/src/commonMain/composeResources/font"), warn = { warnings += it },
         ))
         assertEquals(mapOf("de" to "Garten 1", "ro" to "Grădină ț 1", "ja" to "庭園"), published.pictures.first().titles)
         assertEquals(mapOf("de" to "Garten 2", "ro" to "Grădină ț 2"), published.pictures[1].titles, "blank columns stay on English")
@@ -126,7 +126,7 @@ class PictureBatchTest {
         assertEquals(mapOf("fr" to "Jardins"), catalog.collections.single().titles)
         assertEquals(emptyList(), warnings, "every title draws in its language's faces")
 
-        val glyphs = GlyphCheck(File("../androidApp/src/main/res/font")).warnings(mapOf("garden-9" to mapOf("de" to "Garten 庭")))
+        val glyphs = GlyphCheck(File("../composeApp/src/commonMain/composeResources/font")).warnings(mapOf("garden-9" to mapOf("de" to "Garten 庭")))
         assertTrue(glyphs.isNotEmpty() && glyphs.all { "garden-9 title_de" in it }, "$glyphs")
     }
 
@@ -138,7 +138,7 @@ class PictureBatchTest {
         val live = assertIs<CatalogCheck.Ok>(catalog).catalog
         assertEquals((live.pictures.map { it.id } + live.collections.map { it.id }).toSet(), titles.keys)
         assertTrue(titles.values.all { it.keys == Titles.LANGUAGES.toSet() }, "every language")
-        assertEquals(emptyList(), GlyphCheck(File("../androidApp/src/main/res/font")).warnings(titles))
+        assertEquals(emptyList(), GlyphCheck(File("../composeApp/src/commonMain/composeResources/font")).warnings(titles))
     }
 
     @Test

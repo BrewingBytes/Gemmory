@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.render.GoldenMath
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.Lab
@@ -44,7 +45,7 @@ class TimelapseEncoderSmokeTest {
 
     /** The shipped starter, its cells placed in a shuffled order like a real log. */
     private fun starter(): EncodeRequest {
-        val bytes = context.assets.open(BundledPictures.STARTER.asset).use { it.readBytes() }
+        val bytes = context.assets.open(SharedResources.file(BundledPictures.STARTER.asset)).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         val log = pattern.cells.indices.shuffled(Random(7)).toIntArray()
         return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, "starter"), pattern, log, "The Starry Night", source = null, watermark = true)

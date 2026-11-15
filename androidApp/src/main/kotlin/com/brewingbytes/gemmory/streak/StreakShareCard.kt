@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withClip
 import com.brewingbytes.gemmory.BuildConfig
@@ -45,7 +44,7 @@ import kotlin.math.min
  * `BuildConfig.SHARED_RENDERER` exists (R10-8), deleted with the switch.
  */
 class StreakShareCardRenderer(private val context: Context) {
-    private val mono = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono) ?: Typeface.MONOSPACE
+    private val mono = AppFonts.MONO.typeface(context)
     /** The faces of the app's language (T49): Bricolage Grotesque and Figtree for Latin scripts. */
     private val fonts = AppFonts.forLanguage(context.strings.locale.language)
     private val display = fonts.display.typeface(context)

@@ -544,7 +544,7 @@ class GemmoryApp : Application() {
         val ref = openableRef(id) ?: return null
         BundledPictures.byId(id)?.let { picture ->
             return ReminderPicture(picture.title(strings), BundledPictures.canvasSizeOf(id)) {
-                (GridCodec.decode(assets.open(picture.asset).use { it.readBytes() }) as? Decoded.Ok)?.value?.pattern
+                (GridCodec.decode(assets.open(SharedResources.file(picture.asset)).use { it.readBytes() }) as? Decoded.Ok)?.value?.pattern
             }
         }
         val listed = remote.listed().firstOrNull { it.id == id }
@@ -610,7 +610,7 @@ class GemmoryApp : Application() {
         filesDir = filesDir,
         scope = appScope,
         writer = storeWriter,
-        bundledGrid = { picture -> assets.open(picture.asset).use { it.readBytes() } },
+        bundledGrid = { picture -> assets.open(SharedResources.file(picture.asset)).use { it.readBytes() } },
         encodes = encodes,
         reporter = reporter,
         analytics = analytics,
@@ -749,6 +749,7 @@ class GemmoryApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        SharedResources.assets = assets
         reporter = NonFatalReporter.forBuild(BuildConfig.FIREBASE) {
             CrashlyticsReporter.scrubCrashes()
             CrashlyticsReporter(FirebaseCrashlytics.getInstance())

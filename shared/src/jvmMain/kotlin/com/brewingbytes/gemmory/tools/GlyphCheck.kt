@@ -6,7 +6,7 @@ import java.io.File
 /**
  * Build-time only (T49, #136): which characters a bundled font can't draw. The app's strings must draw in the faces we
  * picked for their language (a hard failure in `GlyphCheckTest`); a batch's translated title only warns, since the
- * phone's own font draws a missing character (eng O-E10, tension #1). Reads the TTFs in `androidApp/src/main/res/font`.
+ * phone's own font draws a missing character (eng O-E10, tension #1). Reads the TTFs in `composeApp/src/commonMain/composeResources/font`.
  */
 class GlyphCheck(private val fontDir: File) {
     private val fonts = HashMap<String, Font>()

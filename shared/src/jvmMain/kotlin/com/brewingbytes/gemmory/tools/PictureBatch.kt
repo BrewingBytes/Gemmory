@@ -104,7 +104,7 @@ object PictureBatch {
         /** Where the review PNGs go while the content check isn't done (outside the repo's tracked files). */
         val previewDir: File,
         val trustedKeys: List<ByteArray> = RemoteKeys.PRODUCTION,
-        /** The app's `res/font`: a translated title one of its language's faces can't draw is a warning (T49). */
+        /** The app's fonts (`composeResources/font`): a translated title one of its language's faces can't draw is a warning (T49). */
         val fontDir: File? = null,
         val warn: (String) -> Unit = { System.err.println("warning: $it") },
     )
