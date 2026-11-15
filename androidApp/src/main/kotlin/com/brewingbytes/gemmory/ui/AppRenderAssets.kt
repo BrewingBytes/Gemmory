@@ -8,11 +8,11 @@ import androidx.annotation.VisibleForTesting
 import android.graphics.fonts.FontStyle
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.core.content.res.ResourcesCompat
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Typeface
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.copy.Messages
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.render.ArtAssets
@@ -24,8 +24,8 @@ import com.brewingbytes.gemmory.render.RenderAssets
 import com.brewingbytes.gemmory.timelapse.FrameAssets
 
 /**
- * The shared renderers' fonts on Android (iOS Stage 1a, T62): the app's own `R.font` faces, the same ones the UI
- * uses. Interim, as [RenderAssets] is: Stage 1b reads them from the shared Compose resources instead.
+ * The shared renderers' fonts on Android (iOS Stage 1a, T62): the app's own faces ([AppFonts]), the same ones the UI
+ * uses, read from composeApp's resources since T63. Interim, as [RenderAssets] is, until T63 moves the strings.
  */
 object AppRenderAssets : RenderAssets {
     override val numbers = AtkinsonMono
@@ -41,7 +41,7 @@ class AppArtAssets(private val context: Context) : ArtAssets {
     private val fonts = AppFonts.forLanguage(strings.locale.language)
 
     // The streak card's hero number, Bold on the axis as the old card's Paint set it (see [face] on Bold text).
-    override val numbers = FontFamily(Typeface(drawn(R.font.atkinson_hyperlegible_mono, NUMBER_WEIGHT, variation = true)))
+    override val numbers = FontFamily(Typeface(drawn(AppFonts.MONO.path, NUMBER_WEIGHT, variation = true)))
     override val language: String = strings.locale.language
 
     override val faces = Faces(
@@ -80,7 +80,7 @@ class AppArtAssets(private val context: Context) : ArtAssets {
     private fun face(face: AppFonts.Face, weight: Int = face.weight, variation: Boolean = face.variable): Face {
         val fontWeight = FontWeight(weight)
         val metricsTypeface = face.typeface(context)
-        return Face(FontFamily(Typeface(drawn(face.res, weight, variation))), fontWeight) { size ->
+        return Face(FontFamily(Typeface(drawn(face.path, weight, variation))), fontWeight) { size ->
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 typeface = metricsTypeface
                 if (variation) fontVariationSettings = "'wght' $weight"
@@ -93,17 +93,17 @@ class AppArtAssets(private val context: Context) : ArtAssets {
     }
 
     /**
-     * The font file [res] as the `Typeface` Compose draws, at [weight] (also the style the system fallback fonts are
+     * The font file at [path] in the assets as the `Typeface` Compose draws, at [weight] (also the style the system fallback fonts are
      * matched at, as `ResourcesCompat` sets it), its `wght` axis set when [variation]. Built once per process: each
-     * build reads the whole file. Should the file not load, the plain resource font draws, as the old card's did.
+     * build reads the whole file. Should it not load, the plain file draws, as the old card's resource font did.
      */
-    private fun drawn(res: Int, weight: Int, variation: Boolean): android.graphics.Typeface {
-        val key = Triple(res, weight, variation)
+    private fun drawn(path: String, weight: Int, variation: Boolean): android.graphics.Typeface {
+        val key = Triple(path, weight, variation)
         DRAWN[key]?.let { return it }
         val built = try {
             // A static file's weight changes nothing in it: one font per file, whatever weight its faces draw at.
-            val font = FONTS.getOrPut(res to if (variation) weight else 0) {
-                android.graphics.fonts.Font.Builder(context.resources, res)
+            val font = FONTS.getOrPut(path to if (variation) weight else 0) {
+                android.graphics.fonts.Font.Builder(context.assets, path)
                     .setWeight(weight)
                     .apply { if (variation) setFontVariationSettings("'wght' $weight") }
                     .build()
@@ -113,14 +113,14 @@ class AppArtAssets(private val context: Context) : ArtAssets {
                 .build()
         } catch (e: Exception) {
             // Not kept: the next encode or card tries again.
-            Log.w(TAG, "font $res at $weight didn't load; drawing the plain resource font", e)
-            return runCatching { ResourcesCompat.getFont(context, res) }.getOrNull() ?: android.graphics.Typeface.DEFAULT
+            Log.w(TAG, "font $path at $weight didn't load; drawing the plain file", e)
+            return runCatching { android.graphics.Typeface.createFromAsset(context.assets, path) }.getOrDefault(android.graphics.Typeface.DEFAULT)
         }
         return DRAWN.putIfAbsent(key, built) ?: built
     }
 
     private fun asset(path: String): ImageBitmap? =
-        runCatching { context.assets.open(path).use(BitmapFactory::decodeStream)?.asImageBitmap() }.getOrNull()
+        runCatching { context.assets.open(SharedResources.file(path)).use(BitmapFactory::decodeStream)?.asImageBitmap() }.getOrNull()
 
     internal companion object {
         /** Figtree's default instance, which a `Paint` without variation settings draws. */
@@ -130,10 +130,10 @@ class AppArtAssets(private val context: Context) : ArtAssets {
         private const val NUMBER_WEIGHT = 700
 
         /** [drawn]'s typefaces by font file, weight and variation; encodes and cards run on several threads. */
-        private val DRAWN = java.util.concurrent.ConcurrentHashMap<Triple<Int, Int, Boolean>, android.graphics.Typeface>()
+        private val DRAWN = java.util.concurrent.ConcurrentHashMap<Triple<String, Int, Boolean>, android.graphics.Typeface>()
 
         /** The loaded font files, by file and the `wght` set on it (0 for a static file). */
-        private val FONTS = java.util.concurrent.ConcurrentHashMap<Pair<Int, Int>, android.graphics.fonts.Font>()
+        private val FONTS = java.util.concurrent.ConcurrentHashMap<Pair<String, Int>, android.graphics.fonts.Font>()
 
         private const val TAG = "GemmoryFonts"
 

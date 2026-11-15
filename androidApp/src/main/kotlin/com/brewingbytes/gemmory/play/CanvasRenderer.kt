@@ -10,13 +10,11 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
-import android.graphics.Typeface
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withSave
-import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasZoom
+import com.brewingbytes.gemmory.ui.AppFonts
 import com.brewingbytes.gemmory.ui.TableCut
 import kotlin.math.PI
 import kotlin.math.floor
@@ -67,7 +65,7 @@ class CanvasRenderer(context: Context, private val pattern: Pattern, mystery: Bo
         textAlign = Paint.Align.CENTER
         // The design's 700 on the variable font's wght axis (founder, 2026-11-06). Typeface.create(mono, 700, false)
         // only made a synthetic bold of the default 200 instance.
-        typeface = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono) ?: Typeface.MONOSPACE
+        typeface = AppFonts.MONO.typeface(context)
         fontVariationSettings = "'wght' 700"
     }
     private val ringRect = RectF()

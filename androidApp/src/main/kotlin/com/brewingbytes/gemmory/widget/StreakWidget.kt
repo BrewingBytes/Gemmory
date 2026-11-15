@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.createBitmap
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -47,6 +46,7 @@ import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.ui.AppFonts
 import com.brewingbytes.gemmory.ui.GemColors
 
 /**
@@ -176,7 +176,7 @@ private val NUMBER_GAP = 4.dp
 fun numberBitmap(context: Context, text: String, sizeDp: Float, maxWidthDp: Float = Float.MAX_VALUE): Bitmap {
     val density = context.resources.displayMetrics.density
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = ResourcesCompat.getFont(context, R.font.atkinson_hyperlegible_mono)
+        typeface = AppFonts.MONO.typeface(context)
         fontVariationSettings = "'wght' 700"
         fontFeatureSettings = "tnum"
         textSize = sizeDp * density

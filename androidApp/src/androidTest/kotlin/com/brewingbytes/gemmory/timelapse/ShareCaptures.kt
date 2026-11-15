@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.DeviceCheck
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.app.TestLanguage
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.bundled.BundledPicture
@@ -54,7 +55,7 @@ class ShareCaptures {
     }
 
     private fun request(picture: BundledPicture, percent: Int = 100, watermark: Boolean = true, frame: ShareFrame): EncodeRequest {
-        val bytes = context.assets.open(picture.asset).use { it.readBytes() }
+        val bytes = context.assets.open(SharedResources.file(picture.asset)).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         val log = pattern.cells.indices.shuffled(Random(7)).toIntArray()
         return EncodeRequest(CanvasRef(CanvasKind.BUNDLED, picture.id), pattern, log.copyOf(log.size * percent / 100), picture.title(context.applicationContext.strings), null, watermark, frame)
