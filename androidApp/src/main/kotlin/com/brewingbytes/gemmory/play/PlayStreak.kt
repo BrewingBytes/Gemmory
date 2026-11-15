@@ -15,6 +15,7 @@ import com.brewingbytes.gemmory.policy.StateStore
 import com.brewingbytes.gemmory.policy.StreakHistory
 import com.brewingbytes.gemmory.policy.StreakHistoryState
 import com.brewingbytes.gemmory.policy.StreakState
+import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import kotlinx.coroutines.CoroutineScope
@@ -38,7 +39,7 @@ data class PendingCelebration(
 )
 
 /** The streak's preferences file; the launch funnel (T46) reads whether it exists. */
-const val STREAK_PREFS = "streak"
+const val STREAK_PREFS = StorageLayout.Prefs.STREAK
 
 /** How a broken streak is brought back (#102): a rewarded video, the online no-fill grace, or VIP's weekly repair. */
 enum class RepairHow { VIDEO, GRACE, VIP }

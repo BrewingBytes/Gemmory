@@ -2,7 +2,7 @@
 <!-- Android 11 and lower (auto backup). User photos never leave the phone (AGENTS.md): photo canvases
      (grid, progress, view state, source) stay out, and so does the ledger (the daily allowance counter, the ad caps
      and the entitlement cache), and so do Firebase's identifiers, the remote pictures' download cache (#43) and the launch funnel (T46). Anything else may be backed up.
-     Paths must match storage/StorageLayout.kt and the files Firebase writes (checked by BackupRulesTest). -->
+     Paths must match StorageLayout.neverBackedUp (composeApp, shared with iOS) and the files Firebase writes (checked by BackupRulesTest). -->
 <full-backup-content>
     <exclude domain="file" path="canvases/photo/" />
     <exclude domain="file" path="ledger/" />

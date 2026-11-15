@@ -23,6 +23,7 @@ import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LedgerCodec
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.policy.Spin
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
@@ -55,7 +56,7 @@ class PictureUnlocks(private val prefs: SharedPreferences) {
 
     companion object {
         /** Backed up, so unlocks survive a reinstall (#32, BackupRulesTest). */
-        internal const val FILE = "unlocks"
+        internal const val FILE = StorageLayout.Prefs.UNLOCKS
         private const val KEY = "pictures"
     }
 }
@@ -93,17 +94,17 @@ class Monetization(
 ) {
     /** The inventory (#38), backed up unlike the ledger; the ledger keeps its photo canvases in it. */
     private val items by lazy {
-        Inventory(FileStateStore(File(filesDir, StorageLayout.INVENTORY), InventoryCodec::encode, InventoryCodec::decode, reporter))
+        Inventory(FileStateStore(AndroidFileStore(filesDir), StorageLayout.INVENTORY, InventoryCodec::encode, InventoryCodec::decode, reporter::report))
     }
     private val ledger by lazy {
         DailyLedger(
             clock,
-            FileStateStore(File(filesDir, StorageLayout.LEDGER_DAILY), LedgerCodec::encode, LedgerCodec::decode, reporter),
+            FileStateStore(AndroidFileStore(filesDir), StorageLayout.LEDGER_DAILY, LedgerCodec::encode, LedgerCodec::decode, reporter::report),
             bank = items,
         )
     }
     private val ads by lazy {
-        AdPolicy(clock, FileStateStore(File(filesDir, StorageLayout.LEDGER_ADS), AdPolicyCodec::encode, AdPolicyCodec::decode, reporter))
+        AdPolicy(clock, FileStateStore(AndroidFileStore(filesDir), StorageLayout.LEDGER_ADS, AdPolicyCodec::encode, AdPolicyCodec::decode, reporter::report))
     }
 
     private val _allowance = MutableStateFlow<Allowance>(Allowance.Free)

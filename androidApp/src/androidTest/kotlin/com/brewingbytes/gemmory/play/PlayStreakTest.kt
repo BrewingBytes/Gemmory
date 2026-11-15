@@ -21,6 +21,7 @@ import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.gallery.STREAK_TAG
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.streak.STREAK_SCREEN_TAG
 import com.brewingbytes.gemmory.policy.BrokenStreak
 import com.brewingbytes.gemmory.policy.Cover
@@ -104,7 +105,7 @@ class PlayStreakTest {
         inventory.parentFile!!.mkdirs()
         inventory.writeBytes(InventoryCodec.encode(InventoryState(freezes = 1)))
         app.resetMonetizationForTest(NoAds)
-        val history = FileStateStore(File(context.filesDir, StorageLayout.STREAK_HISTORY), StreakHistoryCodec::encode, StreakHistoryCodec::decode)
+        val history = FileStateStore(AndroidFileStore(context.filesDir), StorageLayout.STREAK_HISTORY, StreakHistoryCodec::encode, StreakHistoryCodec::decode)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         // The policy thread resolves and saves the day, then "dies" before Monetization spends the freeze.
         val dying = PlayStreak(context, app.dayClock, app.analytics, history, scope, resolve = { block ->

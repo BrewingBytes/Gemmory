@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.policy.ReminderAskState
 import com.brewingbytes.gemmory.policy.ReminderSchedule
+import com.brewingbytes.gemmory.storage.StorageLayout
 
 /**
  * The evening reminder's settings and ask state (T35), in the "reminder" preferences: on/off, the time, when the
@@ -45,7 +46,7 @@ class ReminderPrefs(private val prefs: SharedPreferences) {
         set(value) = prefs.edit { putBoolean(ON_LINE_PENDING, value) }
 
     companion object {
-        const val FILE = "reminder"
+        const val FILE = StorageLayout.Prefs.REMINDER
         private const val ON = "on"
         private const val MINUTES = "minutes"
         private const val SCHEDULED_AT = "scheduled_at"

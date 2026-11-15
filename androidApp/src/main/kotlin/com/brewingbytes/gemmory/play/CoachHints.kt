@@ -9,6 +9,7 @@ import androidx.annotation.StringRes
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.game.CanvasZoom
+import com.brewingbytes.gemmory.storage.StorageLayout
 
 /** The three first-time hints (design D12), with their exact copy ([text], a string resource). */
 enum class CoachHint(val key: String, @StringRes val text: Int) {
@@ -84,6 +85,6 @@ class CoachHints(private val prefs: SharedPreferences) {
     }
 
     private companion object {
-        const val FILE = "hints"
+        const val FILE = StorageLayout.Prefs.HINTS
     }
 }

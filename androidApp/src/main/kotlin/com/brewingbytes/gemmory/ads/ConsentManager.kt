@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.content.edit
 import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.policy.ConsentModeV2
+import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentInformation
@@ -166,7 +167,7 @@ class ConsentManager(context: Context, reporter: NonFatalReporter) {
 
     private companion object {
         const val TAG = "GemmoryAds"
-        const val FILE = "consent"
+        const val FILE = StorageLayout.Prefs.CONSENT
         const val KEY_FIRST_LAUNCH_DONE = "firstLaunchDone"
     }
 }

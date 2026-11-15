@@ -13,6 +13,7 @@ import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.remote.RemotePictureRules
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import kotlinx.datetime.LocalDate
@@ -182,7 +183,7 @@ class TodaysPictures(
     }
 
     companion object {
-        internal const val FILE = "today"
+        internal const val FILE = StorageLayout.Prefs.TODAY
         private const val DAY = "day"
         private const val PICTURE = "picture"
         private const val VIP = "vip"

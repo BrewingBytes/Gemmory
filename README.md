@@ -183,6 +183,18 @@ adb pull /sdcard/Android/data/com.brewingbytes.gemmory/files/Movies/clips/ clips
 
 Uninstalling the app deletes the folder. For a remote picture that isn't on the phone yet, open the gallery once online (or run `app.remote.check(force = true)` from a test) so the catalog check downloads it.
 
+## Saved data and the storage seams (T64)
+
+Shared code reaches the phone's data through two seams in `composeApp/src/commonMain/kotlin/com/brewingbytes/gemmory/storage/`:
+
+- `KeyValueStore`: one key-value file of `StorageLayout.Prefs`. On Android, `SharedPrefsStore` wraps the SharedPreferences file of the same name; on iOS (Stage 2) it is an `NSUserDefaults` suite.
+- `FileStore`: paths under the files folder, with crash-safe writes (`writeAtomic`: temp file, fsync, rename, folder sync). On Android, `AndroidFileStore` runs today's `AtomicFiles` code over `filesDir`. `FileStateStore` (the policies' small files) is built on it.
+- `StorageLayout` names every path and prefs file, and `StorageLayout.neverBackedUp` is the one list of what stays on the phone. Android's backup rules must match it (`BackupRulesTest`), and iOS excludes the same paths.
+
+**Android player data is never migrated, renamed or re-encoded** (eng D7):
+- `goldens/storage/prefs.txt` lists every prefs file and key. `PrefsKeysTest` fails on a key the code adds, renames or drops until that list changes on purpose, and a change there is a data migration that needs its own plan.
+- `KeyValueSeedTest` (connected) writes every listed key as SharedPreferences' XML, plus a canvas's and the policies' save files, and reads them back value for value through the seams.
+
 ## Copy and strings (T48)
 
 Every word the app shows is in `composeApp/src/commonMain/composeResources/files/strings/values/strings.xml`, grouped by screen, and in each language's `values-xx/strings.xml` there (T49, below); no user-facing English is written in Kotlin. Since T63 that folder is the one source for both platforms: androidApp adds it as a `res` directory, so `R.string`/`R.plurals` read it unchanged, and iOS reads the same files through `StringsXml` (`shared/copy/`: aapt's escapes, `%1$s`/`%1$d`/`%%`, CLDR plurals in `PluralRules`). Compose resources' own `Res.string` isn't used for the copy: it shows `%%` as it is (Stage 0, #167). To add or change copy:
