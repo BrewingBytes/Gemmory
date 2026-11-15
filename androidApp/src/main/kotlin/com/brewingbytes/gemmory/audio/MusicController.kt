@@ -7,7 +7,6 @@ import android.content.IntentFilter
 import android.media.AudioManager
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
-import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.game.Music
 import com.brewingbytes.gemmory.game.MusicGates
 import com.brewingbytes.gemmory.game.MusicTrack
@@ -118,16 +117,16 @@ class MusicController(
 
     private companion object {
         /**
-         * The six loops (tools/sounds/PROVENANCE.md), each played once except the 34s Heavenly Loop, three times in a
+         * The six loops (tools/sounds/PROVENANCE.md), shared with iOS in composeApp's resources since T63, each played once except the 34s Heavenly Loop, three times in a
          * row so it isn't heard too often.
          */
         val TRACKS = listOf(
-            R.raw.music_1 to MusicTrack(plays = 3),
-            R.raw.music_2 to MusicTrack(),
-            R.raw.music_3 to MusicTrack(),
-            R.raw.music_4 to MusicTrack(),
-            R.raw.music_5 to MusicTrack(),
-            R.raw.music_6 to MusicTrack(),
+            "music/music_1.m4a" to MusicTrack(plays = 3),
+            "music/music_2.m4a" to MusicTrack(),
+            "music/music_3.m4a" to MusicTrack(),
+            "music/music_4.m4a" to MusicTrack(),
+            "music/music_5.m4a" to MusicTrack(),
+            "music/music_6.m4a" to MusicTrack(),
         )
     }
 }

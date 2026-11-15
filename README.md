@@ -16,7 +16,7 @@ It's for adults only. User photos never leave the phone: there is no upload, no 
 | `tools/bundled` | Source images, review PNGs and `PROVENANCE.md` for every bundled picture |
 | `pictures/v1` | The remote pictures' signed catalog and grids, which the app downloads from GitHub (created by the first publish) |
 | `tools/remote` | Source images, review PNGs and `PROVENANCE.md` for every remote picture |
-| `tools/sounds` | `PROVENANCE.md` for every app sound, which `tools/make_sounds.py` synthesizes into `res/raw`, and for the CC0 music tracks (T42) |
+| `tools/sounds` | `PROVENANCE.md` for every app sound, which `tools/make_sounds.py` synthesizes into `res/raw`, and for the CC0 music tracks (T42; since T63 `.m4a` files in `composeApp/src/commonMain/composeResources/files/music/`, shared with iOS) |
 | `docs` | Design doc, design system, issue snapshot, Play compliance, privacy policy, deferred work |
 
 ## Docs

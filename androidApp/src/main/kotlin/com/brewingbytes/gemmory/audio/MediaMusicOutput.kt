@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.game.FocusChange
 import com.brewingbytes.gemmory.game.MusicOutput
 
@@ -21,7 +22,8 @@ class MusicException(message: String) : Exception(message)
  */
 class MediaMusicOutput(
     context: Context,
-    private val raws: List<Int>,
+    /** Each track's path under the shared resources (`music/music_<n>.m4a`, T63), as [SharedResources.file] takes it. */
+    private val tracks: List<String>,
     private val onEnded: () -> Unit,
     private val onError: (Throwable) -> Unit,
     onFocus: (FocusChange) -> Unit,
@@ -54,8 +56,7 @@ class MediaMusicOutput(
 
     override fun start(track: Int, volume: Float) {
         stop()
-        val p = MediaPlayer.create(app, raws[track], attributes, audio.generateAudioSessionId())
-            ?: throw MusicException("music track=$track failed to open")
+        val p = open(track)
         p.setOnCompletionListener { onEnded() }
         p.setOnErrorListener { _, what, extra ->
             onError(MusicException("music track=$track what=$what extra=$extra"))
@@ -64,6 +65,27 @@ class MediaMusicOutput(
         player = p
         fadeIn(p, volume)
         p.start()
+    }
+
+    /**
+     * The track straight from the APK's assets, where it is stored uncompressed (aapt doesn't compress `.m4a`), so
+     * MediaPlayer reads it in place as it read the raw resource before T63.
+     */
+    private fun open(track: Int): MediaPlayer {
+        val player = MediaPlayer()
+        try {
+            // In MediaPlayer.create's order: the session id is only accepted before a data source is set.
+            player.setAudioAttributes(attributes)
+            player.audioSessionId = audio.generateAudioSessionId()
+            app.assets.openFd(SharedResources.file(tracks[track])).use { fd ->
+                player.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+            }
+            player.prepare()
+        } catch (e: Exception) {
+            player.release()
+            throw MusicException("music track=$track failed to open: ${e::class.simpleName}")
+        }
+        return player
     }
 
     override fun pause() {

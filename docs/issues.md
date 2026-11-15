@@ -1635,6 +1635,8 @@ Plan `docs/designs/gemmory-ios.md` (Stage 1b; eng D9, D10, D23). Depends on #170
 
 **Done when:** new tests pass (the "21 fills" plural in every locale, `%%` renders as `%`, the preload finishes before the first frame, every `music_*` has a PROVENANCE row), the repointed tools are green, music plays on a device, and Android's size growth is measured and written here.
 
+**Measured (2026-11-15):** the release AAB grows 45.99 → 52.31 MB (+6.3 MB, +14%) with the music as AAC-LC 96 kbps (6 tracks, 14.7 MB) instead of Ogg Opus 48 kbps (8.05 MB). The strings move adds nothing on Android (the copy is res only; its composeResources copy is kept out of the assets).
+
 Effort: human ~1w / CC ~3h
 
 ---
