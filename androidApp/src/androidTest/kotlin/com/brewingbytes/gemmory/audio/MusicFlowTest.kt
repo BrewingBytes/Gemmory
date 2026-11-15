@@ -18,6 +18,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
+import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.bundled.BundledPictures
@@ -228,7 +229,7 @@ class MusicFlowTest {
         awaitPlaying(true)
 
         val ref = CanvasRef(CanvasKind.BUNDLED, "starter")
-        val bytes = context.assets.open(BundledPictures.STARTER.asset).use { it.readBytes() }
+        val bytes = context.assets.open(SharedResources.file(BundledPictures.STARTER.asset)).use { it.readBytes() }
         val pattern = (GridCodec.decode(bytes) as Decoded.Ok).value.pattern
         app.encodes.share(EncodeRequest(ref, pattern, pattern.cells.indices.toList().toIntArray(), "The Starry Night", source = null, watermark = true))
         awaitPlaying(false)

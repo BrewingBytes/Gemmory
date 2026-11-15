@@ -85,9 +85,10 @@ tasks.named<Test>("jvmTest") {
     inputs.dir("src/jvmTest/fixtures").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("src/jvmTest/goldens").withPathSensitivity(PathSensitivity.RELATIVE)
     // BundledGridToolTest pins the shipped starter grid's CRC.
-    inputs.dir("../androidApp/src/main/assets/pictures").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("../composeApp/src/commonMain/composeResources/files/pictures").withPathSensitivity(PathSensitivity.RELATIVE)
     // GlyphCheckTest (T49, eng O-E6): every language's strings against the fonts that draw them, and the store listings.
     inputs.dir("../androidApp/src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("../composeApp/src/commonMain/composeResources/font").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("../tools/store/listing").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("../tools/store/fonts").withPathSensitivity(PathSensitivity.RELATIVE)
     // The drafted translated titles for the live catalog (T49 X4) against pictures/v1.
@@ -124,7 +125,7 @@ tasks.register<JavaExec>("freezeBundledGrid") {
         root.file(providers.gradleProperty("source").getOrElse("tools/bundled/starter-starry-night.jpg")).asFile.path,
         providers.gradleProperty("spec").getOrElse("starter-3:4"),
         providers.gradleProperty("focus").getOrElse("0.2"),
-        root.file(providers.gradleProperty("out").getOrElse("androidApp/src/main/assets/pictures/starter.gmrg")).asFile.path,
+        root.file(providers.gradleProperty("out").getOrElse("composeApp/src/commonMain/composeResources/files/pictures/starter.gmrg")).asFile.path,
         root.file(providers.gradleProperty("review").getOrElse("tools/bundled/starter.review.png")).asFile.path,
     )
 }
@@ -144,11 +145,11 @@ fun remoteToolArgs(mode: String): List<String> {
     return listOf(
         "mode=$mode",
         "dir=${root.dir("pictures/v1").asFile.path}",
-        "bundled=${root.dir("androidApp/src/main/assets/pictures").asFile.path}",
+        "bundled=${root.dir("composeApp/src/commonMain/composeResources/files/pictures").asFile.path}",
         "provenanceFile=${root.file("tools/remote/PROVENANCE.md").asFile.path}",
         "reviewDir=${root.dir("tools/remote").asFile.path}",
         // T49: translated titles the bundled fonts can't draw are warned about (they still show, in the phone's font).
-        "fonts=${root.dir("androidApp/src/main/res/font").asFile.path}",
+        "fonts=${root.dir("composeApp/src/commonMain/composeResources/font").asFile.path}",
         "titles=${p("titles")?.let { root.file(it).asFile.path }.orEmpty()}",
         "signingKey=${p("signingKey") ?: local.getProperty("remotePictures.signingKey").orEmpty()}",
         // Left out, the tool stamps the lowest app that reads the picture right (D14, T44).
@@ -239,7 +240,7 @@ tasks.register<JavaExec>("frameStoreShots") {
     args(
         "shots=${root.dir(providers.gradleProperty("shots").getOrElse("build/store-shots")).asFile.path}",
         "listing=${root.dir("tools/store/listing").asFile.path}",
-        "fonts=${root.dir("androidApp/src/main/res/font").asFile.path}",
+        "fonts=${root.dir("composeApp/src/commonMain/composeResources/font").asFile.path}",
         "staticFonts=${root.dir("tools/store/fonts").asFile.path}",
         "out=${root.dir("build/store-frames").asFile.path}",
         "locale=${providers.gradleProperty("locale").getOrElse("")}",

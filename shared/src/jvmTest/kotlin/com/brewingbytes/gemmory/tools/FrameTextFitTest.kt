@@ -32,7 +32,7 @@ class FrameTextFitTest {
      * draws Figtree (its default instance) and Onest (400, its default).
      */
     private fun face(role: String, language: String): File {
-        val res = File(AndroidStringsFile.RES, "font")
+        val res = AndroidStringsFile.FONTS
         val static = File("../tools/store/fonts")
         return when (role) {
             "display" -> StoreFrames.displayFace(language, res, static)

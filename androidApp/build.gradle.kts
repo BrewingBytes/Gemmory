@@ -163,9 +163,6 @@ android {
     androidResources {
         generateLocaleConfig = true
         localeFilters += listOf("en", "de", "es", "pt-rBR", "fr", "it", "ro", "pl", "tr", "hu", "bg", "ja")
-        // composeApp's Compose resources are the iOS spike's and its tests' (T59): the app draws with its own fonts,
-        // strings and assets until Stage 1b moves them, so they stay out of the APK (#182 review, T62).
-        ignoreAssetsPatterns += "<dir>composeResources"
     }
     bundle {
         language {
