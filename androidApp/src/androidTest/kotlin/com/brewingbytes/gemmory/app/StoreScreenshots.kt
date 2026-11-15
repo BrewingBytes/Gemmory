@@ -56,7 +56,7 @@ import java.io.File
  */
 @DeviceCheck
 @RunWith(AndroidJUnit4::class)
-class StoreScreenshots {
+open class StoreScreenshots {
     @get:Rule
     val compose = createEmptyComposeRule()
 
@@ -67,6 +67,9 @@ class StoreScreenshots {
 
     /** `-e storeDisplay tablet`: a 16:9 landscape tablet (2560x1440 at 320dpi, 1280x720dp) for the tablet listing. */
     private val tablet = InstrumentationRegistry.getArguments().getString("storeDisplay") == "tablet"
+
+    /** The app language of the run: `-e appLocale <tag>`, or the phone's. ScreenParityTest runs each of its own. */
+    protected open val language: String? get() = TestLanguage.requested
 
     /** No real AdMob: an interstitial after Done would cover the screens being captured. */
     private object NoAds : AdGateway {
@@ -116,7 +119,7 @@ class StoreScreenshots {
         // A fixed day, no remote catalog, no real ads and a demo-mode status bar (T48's R1 pixel diff).
         PixelPins.pin(app)
         // `-e appLocale <tag>`: the listing's shots in that language (T49 X2); none keeps the English run as it was.
-        TestLanguage.set(context, TestLanguage.requested)
+        TestLanguage.set(context, language)
         app.resetMonetizationForTest(NoAds)
     }
 
@@ -135,11 +138,16 @@ class StoreScreenshots {
         app.resetTodaysForTest()
     }
 
-    private fun shot(name: String) {
+    /** One store state, settled: saved for the listing here, compared with its baseline by ScreenParityTest. */
+    protected open fun shot(name: String) {
+        settle()
+        A11yTestSupport.shell("screencap -p /data/local/tmp/store-${TestLanguage.prefix}${if (tablet) "t-" else ""}$name.png")
+    }
+
+    protected fun settle() {
         SystemClock.sleep(1_500)
         compose.waitForIdle()
         compose.onAllNodes(hasTestTag("locked-label"), useUnmergedTree = true).assertCountEquals(0)
-        A11yTestSupport.shell("screencap -p /data/local/tmp/store-${TestLanguage.prefix}${if (tablet) "t-" else ""}$name.png")
     }
 
     private fun t(id: Int) = TestLanguage.text(context, id)
@@ -276,11 +284,11 @@ class StoreScreenshots {
     }
 
     /** A photo canvas's title in the run's language (the listing's photo set); the pets keep their names. */
-    private fun title(english: String): String = PHOTO_TITLES[TestLanguage.requested?.substringBefore('-')]?.get(english) ?: english
+    private fun title(english: String): String = PHOTO_TITLES[language?.substringBefore('-')]?.get(english) ?: english
 
     /** Six photo canvases through the real photo flow (VIP on the fake backend, so the daily allowance doesn't stop it). */
     @Test
-    fun photoCanvases() {
+    open fun photoCanvases() {
         BillingBackends.fake.own(Products.VIP_YEARLY)
         runBlocking { app.billing.refresh() }
         // The reminder ask answered, so the gallery shot shows the gallery, not the ask's sheet.

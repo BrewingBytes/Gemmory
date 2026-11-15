@@ -207,7 +207,7 @@ class WhereFoundTest {
 
     @Test
     fun answersFitTheirCapsInEveryLanguage() {
-        val folders = File("src/main/res").listFiles { f -> f.name.startsWith("values") && File(f, "strings.xml").exists() }!!
+        val folders = XmlStrings.STRINGS.listFiles { f -> f.name.startsWith("values") && File(f, "strings.xml").exists() }!!
         assertEquals(12, folders.size, folders.joinToString { it.name })
         for (folder in folders) {
             val s = XmlStrings(folder.name).strings

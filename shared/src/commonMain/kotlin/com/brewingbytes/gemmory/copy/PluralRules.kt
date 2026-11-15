@@ -1,8 +1,9 @@
 package com.brewingbytes.gemmory.copy
 
 /**
- * CLDR's cardinal plural rules for whole numbers in the app's languages (T49), so JVM tests pick the `<plurals>` item
- * Android would (no Robolectric here). `many` for French, Spanish, Italian and Portuguese is CLDR 42's millions rule.
+ * CLDR's cardinal plural rules for whole numbers in the app's languages (T49): the `<plurals>` item Android would pick.
+ * [StringsXml] uses them on iOS, which has no Android resources (T63), and the JVM tests use them for the app's copy.
+ * `many` for French, Spanish, Italian and Portuguese is CLDR 42's millions rule.
  */
 object PluralRules {
     /** The quantities each language's `<plurals>` must give (whole numbers only, so Polish's `other` is fractions). */
