@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+    The app's words (T63, T64) are read twice: Android code by R.string, shared code (composeApp, iOS too) by name
+    through Words. Lint only sees the R.string uses, so it calls the shared-only strings unused. MessagesTest's
+    everyEnglishStringIsUsed checks the same thing counting both kinds of use, and fails on a string nothing reads.
+    -->
+    <issue id="UnusedResources">
+        <ignore regexp="composeResources/files/strings/" />
+    </issue>
+</lint>

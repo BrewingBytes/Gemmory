@@ -10,8 +10,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.SharedResources
 import java.text.NumberFormat
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The app's copy (T48, #135): every user-facing word lives in `res/values/strings.xml`, read through this. Numbers,
@@ -27,6 +29,21 @@ interface Strings {
 
     /** Whole numbers grouped for [locale]: "4,812". */
     fun number(value: Int): String = NumberFormat.getIntegerInstance(locale).format(value)
+
+    /** The same language's copy by name, for shared code ([Messages], shared screens; T64). */
+    val words: Words get() = AppWords.of(locale.toLanguageTag())
+}
+
+/**
+ * [Words] for each language the app shows, read once from the APK's assets (the same `strings.xml` files the resources
+ * come from) and kept for the process: a language switch only picks another entry.
+ */
+object AppWords {
+    private val loaded = ConcurrentHashMap<String, Words>()
+
+    fun of(tag: String): Words = loaded.getOrPut(tag) {
+        Words.load(tag) { path -> SharedResources.assets.open(SharedResources.file(path)).bufferedReader().use { it.readText() } }
+    }
 }
 
 /**

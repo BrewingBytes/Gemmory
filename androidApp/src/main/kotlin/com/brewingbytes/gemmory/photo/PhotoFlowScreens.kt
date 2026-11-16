@@ -204,7 +204,7 @@ internal fun primaryText(s: Strings, primary: PreviewPrimary): String = when (pr
 
 /** A color trough's TalkBack line (#29): "More, 60 colors, needs a video or VIP". */
 internal fun colorTroughLabel(s: Strings, size: CanvasSize, choice: ColorChoice, needsVideo: Boolean): String =
-    s.plural(if (needsVideo) R.plurals.photo_colors_trough_video else R.plurals.photo_colors_trough, size.cap(choice), Messages.colors(s, choice), size.cap(choice))
+    s.plural(if (needsVideo) R.plurals.photo_colors_trough_video else R.plurals.photo_colors_trough, size.cap(choice), Messages.colors(s.words, choice), size.cap(choice))
 
 internal fun hintText(s: Strings, hint: FaceHint): String = s.text(
     when (hint) {
@@ -249,7 +249,7 @@ fun SizeScreen(state: PhotoFlowState, onSize: (CanvasSize) -> Unit, onNext: () -
 @Composable
 private fun SizeRow(size: CanvasSize, summary: String, conversion: Conversion?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
-    val name = Messages.size(strings(), size)
+    val name = Messages.size(strings().words, size)
     Row(
         Modifier
             .fillMaxWidth()
@@ -378,7 +378,7 @@ fun PreviewScreen(
             }
             else -> {
                 Text(
-                    strings.text(R.string.photo_size_summary, Messages.size(strings, state.size), summary(strings, state.size, state.ratio, conversion, state.choice)),
+                    strings.text(R.string.photo_size_summary, Messages.size(strings.words, state.size), summary(strings, state.size, state.ratio, conversion, state.choice)),
                     style = GemType.body,
                     color = GemColors.Bone,
                 )
@@ -461,7 +461,7 @@ private fun ColorRow(size: CanvasSize, choice: ColorChoice, needsVideo: Boolean,
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(Messages.colors(strings, c), style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
+                    Text(Messages.colors(strings.words, c), style = GemType.label, color = GemColors.Bone, textAlign = TextAlign.Center, maxLines = 2)
                     Text("${size.cap(c)}", style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.TextMuted)
                 }
                 if (locked) {

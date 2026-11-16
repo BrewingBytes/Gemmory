@@ -468,7 +468,7 @@ private fun Calendar(ui: StreakUi, vm: StreakViewModel) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.clearAndSetSemantics { }) {
             for (d in 0 until 7) {
                 Text(
-                    Messages.weekday(strings, start + d).take(1),
+                    Messages.weekday(strings.words, start + d).take(1),
                     style = GemType.label.copy(fontSize = 12.sp),
                     color = GemColors.TextMuted,
                     textAlign = TextAlign.Center,
