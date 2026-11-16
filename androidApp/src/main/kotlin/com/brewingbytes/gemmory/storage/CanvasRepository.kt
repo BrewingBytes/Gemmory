@@ -19,25 +19,6 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-enum class CanvasKind(internal val dir: String) {
-    PHOTO(StorageLayout.PHOTO_CANVASES),
-    BUNDLED(StorageLayout.BUNDLED_CANVASES),
-
-    /** A remote picture (#43): played exactly like a bundled one, its grid copied in from the download cache. */
-    REMOTE(StorageLayout.REMOTE_CANVASES),
-}
-
-data class CanvasRef(val kind: CanvasKind, val id: String) {
-    init {
-        require(ID.matches(id)) { "canvas id must match ${ID.pattern}" }
-    }
-
-    companion object {
-        /** Lowercase, no dots or slashes, so an id is always one plain directory name. */
-        val ID = Regex("[a-z0-9][a-z0-9_-]{0,63}")
-    }
-}
-
 /** Which file of a canvas a [LoadProblem] is about. */
 enum class CanvasFile { DIR, GRID, SAVE, LAST_GOOD }
 
@@ -60,13 +41,6 @@ sealed interface LoadResult {
 
     /** Nothing usable: the gallery shows "Can't open" (design D9). Files are left as they are. */
     data class Damaged(val problem: LoadProblem) : LoadResult
-}
-
-sealed interface WriteResult {
-    data object Written : WriteResult
-
-    /** [diskFull] drives "Progress isn't saving: phone storage is full." on the canvas (design D9). */
-    data class WriteFailed(val diskFull: Boolean) : WriteResult
 }
 
 class CanvasStorageException(message: String, cause: Throwable? = null) : Exception(message, cause)

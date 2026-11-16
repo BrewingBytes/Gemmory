@@ -59,6 +59,8 @@ kotlin {
             kotlin.srcDir("src/goldenTest/kotlin")
             dependencies {
                 implementation(kotlin("test"))
+                // Shared ViewModels' tests (T64) run on a test Main dispatcher.
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
         getByName("androidDeviceTest") {
@@ -71,6 +73,7 @@ kotlin {
                 implementation(libs.androidx.test.runner)
                 implementation(libs.androidx.test.ext.junit)
                 implementation(kotlin("test-junit"))
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
     }

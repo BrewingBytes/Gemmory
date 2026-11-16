@@ -83,7 +83,7 @@ class TodaysPictures(
     private val todaysDrops: () -> Set<String> = { emptySet() },
     /** The share landing's picture while it's free today (T50); not turned off by [enabled]. */
     private val shared: () -> String? = { null },
-) {
+) : TodaysPicks {
     constructor(
         context: Context,
         clock: DayClock,
@@ -118,7 +118,7 @@ class TodaysPictures(
      * (T35, eng D3). [started]: pictures with a gem placed; [listed], [drops] and [isNew]: the remote pictures shown,
      * the dated drops among them and their "New" mark.
      */
-    fun pick(started: Set<String>, vip: Boolean, listed: List<RemotePicture>, drops: Set<String>, isNew: (String) -> Boolean): String? {
+    override fun pick(started: Set<String>, vip: Boolean, listed: List<RemotePicture>, drops: Set<String>, isNew: (String) -> Boolean): String? {
         val choices = todayChoices(started, listed, drops, isNew)
         return pick(choices.started, vip, choices.options) { it in choices.newIds }
     }
@@ -127,11 +127,11 @@ class TodaysPictures(
      * Whether [ref] is free to start today without a video: today's picture, today's drop (T36), or the share link's
      * picture (T50). False once the day is over.
      */
-    fun isFreeToday(ref: CanvasRef): Boolean = isToday(ref, vip = false) || isTodaysDrop(ref) || isShared(ref)
+    override fun isFreeToday(ref: CanvasRef): Boolean = isToday(ref, vip = false) || isTodaysDrop(ref) || isShared(ref)
 
     /** The ids [isFreeToday] grants now, for the gallery's order and locked labels. */
     @Synchronized
-    fun freeToday(): Set<String> =
+    override fun freeToday(): Set<String> =
         (if (enabled) setOfNotNull(today.picked(vip = false)) + todaysDrops() else emptySet()) + setOfNotNull(shared())
 
     /** Whether [ref] is today's picture (or pick) for this tier right now. */

@@ -49,80 +49,6 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * One gallery tile's data. [size] is a picture's Quick / Medium / Big (null for the starter and photo canvases);
- * [locked] is its catalog flag (`BundledPictures.FREE`, or a remote picture's `locked`), before unlocks and VIP.
- * [hiddenAs]: an unfinished mystery picture's neutral name (T43); its [title] and art aren't shown while it's set.
- */
-sealed interface CanvasSummary {
-    val ref: CanvasRef
-    val title: String
-    val createdAtMillis: Long
-    val size: CanvasSize?
-    val locked: Boolean
-    val hiddenAs: String?
-
-    /**
-     * [state] is the restored progress (empty for a picture never opened). [firstFinishedDay] is the local epoch day
-     * a finished canvas was first finished, from its `play` file (T35, #89); null when unfinished or finished before T35.
-     */
-    class Playable(
-        override val ref: CanvasRef,
-        override val title: String,
-        val state: CanvasState,
-        override val createdAtMillis: Long,
-        override val size: CanvasSize? = null,
-        override val locked: Boolean = false,
-        val firstFinishedDay: Long? = null,
-        override val hiddenAs: String? = null,
-    ) : CanvasSummary
-
-    /**
-     * A remote picture never opened (T36, eng D12), from its catalog entry alone: nothing is decoded until its
-     * thumbnail is drawn ([CanvasStore.pattern]), so a year of daily drops doesn't slow the gallery. [width] ×
-     * [height] is its grid.
-     */
-    class Listed(
-        override val ref: CanvasRef,
-        override val title: String,
-        val width: Int,
-        val height: Int,
-        override val size: CanvasSize?,
-        override val locked: Boolean,
-        override val hiddenAs: String? = null,
-    ) : CanvasSummary {
-        override val createdAtMillis: Long get() = 0L
-    }
-
-    /** "Can't open" (design D9): [thumb] is the last thumbnail, if one was ever written. */
-    class Damaged(
-        override val ref: CanvasRef,
-        override val title: String,
-        override val createdAtMillis: Long,
-        val thumb: File?,
-        override val size: CanvasSize? = null,
-        override val locked: Boolean = false,
-        override val hiddenAs: String? = null,
-    ) : CanvasSummary
-}
-
-/** How copying a keepsake into its canvas went (T37). */
-enum class KeepResult {
-    /** Copied in now. */
-    CREATED,
-
-    /** Its canvas was already there. */
-    PRESENT,
-
-    /** Not listed, or its grid isn't on the phone yet. */
-    MISSING,
-
-    /** The phone is out of space. */
-    NO_SPACE,
-
-    FAILED,
-}
-
-/**
  * App-wide entry to canvas files. Every repository call runs on [writer], a single-thread dispatcher, and a canvas
  * is opened, cleared or deleted only after the previous session's last write has finished, so a canvas never has two
  * writers and a late write can't bring back progress that was just cleared. [CanvasRepository.sweep] runs once
@@ -146,7 +72,7 @@ class CanvasStore(
     private val dayClock: DayClock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
     /** The app's words (T48): a photo canvas's default title, a mystery's neutral name, TalkBack's lines. */
     private val strings: Strings,
-) {
+) : Canvases {
     val repository = CanvasRepository(filesDir, reporter)
     private val swept: Job = scope.launch(writer) { repository.sweep() }
     private val closing = ConcurrentHashMap<CanvasRef, Job>()
@@ -236,7 +162,7 @@ class CanvasStore(
             ref = ref,
             title = opened.title,
             hiddenAs = opened.hiddenAs,
-            a11y = A11yText(strings),
+            a11y = A11yText(strings.words),
             pattern = opened.grid.pattern,
             state = opened.state,
             view = opened.view,
@@ -314,7 +240,7 @@ class CanvasStore(
      * canvases newest first. A remote picture shows while the catalog lists it, or once started (the withdraw rule).
      * One never opened is [CanvasSummary.Listed], from its catalog entry (T36, eng D12).
      */
-    suspend fun summaries(): Pair<List<CanvasSummary>, List<CanvasSummary>> {
+    override suspend fun summaries(): Pair<List<CanvasSummary>, List<CanvasSummary>> {
         swept.join()
         closing.values.toList().forEach { it.join() }
         return withContext(writer) {
@@ -359,7 +285,7 @@ class CanvasStore(
      * Every canvas with a gem placed, as the evening reminder reads it (T35, eng D12): its progress and `play` file,
      * nothing rendered. Damaged canvases are left out. [ReminderCanvas.key] is [reminderKey].
      */
-    suspend fun reminderCanvases(): List<ReminderCanvas> {
+    override suspend fun reminderCanvases(): List<ReminderCanvas> {
         swept.join()
         closing.values.toList().forEach { it.join() }
         return withContext(writer) {
@@ -384,7 +310,7 @@ class CanvasStore(
      * D12); null when it isn't listed any more or its grid was refused. Reads only the download cache, never a canvas,
      * so it stays off [writer]: call it on an IO thread.
      */
-    fun pattern(ref: CanvasRef): Pattern? {
+    override fun pattern(ref: CanvasRef): Pattern? {
         if (ref.kind != CanvasKind.REMOTE) return null
         return remote.grid(ref.id)?.let { (GridCodec.decode(it) as? Decoded.Ok)?.value?.pattern }
     }
@@ -457,7 +383,7 @@ class CanvasStore(
         }
     }
 
-    suspend fun rename(ref: CanvasRef, title: String): WriteResult {
+    override suspend fun rename(ref: CanvasRef, title: String): WriteResult {
         settle(ref)
         val written = withContext(writer) {
             val record = repository.readRecord(ref) ?: CanvasRecord("", 0L, 0L)
@@ -473,7 +399,7 @@ class CanvasStore(
      * picture withdrawn from the catalog is then gone, like any withdrawn picture not started (#43). The first finished
      * day (T35) is kept: a picture that has one is copied fresh at once, with only that day in its `play` file.
      */
-    suspend fun startOver(ref: CanvasRef): Boolean {
+    override suspend fun startOver(ref: CanvasRef): Boolean {
         settle(ref)
         encodes.cancelAndClear(ref)
         return withContext(writer) {
@@ -490,7 +416,7 @@ class CanvasStore(
     }
 
     /** Removes the photo, grid, progress and view state from the phone (design system, Delete confirm). */
-    suspend fun delete(ref: CanvasRef): Boolean {
+    override suspend fun delete(ref: CanvasRef): Boolean {
         settle(ref)
         encodes.cancelAndClear(ref)
         return withContext(writer) { repository.delete(ref) }
@@ -508,8 +434,14 @@ class CanvasStore(
     /** App-scoped, so leaving Settings doesn't stop a delete halfway. */
     fun deleteAllPhotosInBackground(): Job = scope.launch { deleteAllPhotos() }
 
-    suspend fun writeThumb(ref: CanvasRef, png: ByteArray) {
+    override suspend fun writeThumb(ref: CanvasRef, png: ByteArray) {
         withContext(writer) { repository.writeThumb(ref, png) }
+    }
+
+    override suspend fun progress(ref: CanvasRef): CanvasProgress? {
+        val opened = open(ref) as? Opened.Ready ?: return null
+        if (opened.hiddenAs != null) return null
+        return CanvasProgress(opened.grid.pattern, opened.state.log(), opened.title)
     }
 
     private suspend fun settle(ref: CanvasRef) {
@@ -560,7 +492,7 @@ class CanvasStore(
             ref,
             title,
             record?.createdAtMillis ?: 0L,
-            repository.thumbFile(ref).takeIf { it.isFile },
+            repository.thumbFile(ref).takeIf { it.isFile }?.let { runCatching { it.readBytes() }.getOrNull() },
             size,
             locked,
             hiddenName(ref, record, finished = false, entry),
@@ -602,7 +534,7 @@ class CanvasStore(
     companion object {
 
         /** How a [ReminderCanvas] names its canvas, and back (T35). */
-        fun reminderKey(ref: CanvasRef): String = "${ref.kind.name}/${ref.id}"
+        fun reminderKey(ref: CanvasRef): String = Canvases.reminderKey(ref)
 
         fun refOfReminderKey(key: String): CanvasRef? {
             val kind = CanvasKind.entries.firstOrNull { key.startsWith("${it.name}/") } ?: return null

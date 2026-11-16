@@ -31,13 +31,15 @@ import kotlinx.coroutines.withContext
  * sheet): the same time-lapse as a finished share, replaying the log so far and ending on the canvas as it stands.
  * It goes through the app's EncodeManager and fallback chain like the completion screen's Share; no ad is involved.
  */
-class ProgressSharing(private val app: GemmoryApp) {
+class ProgressSharing(private val app: GemmoryApp) : ProgressShareSession {
+    override val sharingRef: CanvasRef? get() = request?.ref
+
     /** What the sheet on screen is for; null when nothing was shared from this screen. */
     var request by mutableStateOf<EncodeRequest?>(null)
         private set
 
     /** Share progress tap. VIP gets no watermark, decided now, as on the completion screen. */
-    fun share(ref: CanvasRef, pattern: Pattern, log: IntArray, title: String) {
+    override fun share(ref: CanvasRef, pattern: Pattern, log: IntArray, title: String) {
         val source = app.store.repository.sourceFile(ref).takeIf { ref.kind == CanvasKind.PHOTO && it.isFile }
         val next = EncodeRequest(ref, pattern, log, title, source, watermark = !app.billing.entitlements.value.vip)
         request = next
@@ -55,7 +57,7 @@ class ProgressSharing(private val app: GemmoryApp) {
     }
 
     /** The screen moved on to another canvas: its sheet belongs to nothing now. A running encode goes on. */
-    fun clear() {
+    override fun clear() {
         request = null
     }
 
@@ -72,7 +74,9 @@ class ProgressSharing(private val app: GemmoryApp) {
  * and "So far", and Cancel or a dismissed sheet comes back with no message.
  */
 @Composable
-fun ProgressShareHost(sharing: ProgressSharing, returnFocusTo: String? = null) {
+fun ProgressShareHost(session: ProgressShareSession, returnFocusTo: String? = null) {
+    // The sessions this shell makes are its own (`AppGraph.progressSharing` from GemmoryApp).
+    val sharing = session as? ProgressSharing ?: return
     val request = sharing.request ?: return
     val context = LocalContext.current
     val app = context.applicationContext as GemmoryApp

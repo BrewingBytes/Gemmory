@@ -1,5 +1,19 @@
 package com.brewingbytes.gemmory
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import com.brewingbytes.gemmory.ads.PlayerAccess
+import com.brewingbytes.gemmory.app.PlayerProgress
+import com.brewingbytes.gemmory.bundled.TodaysPicks
+import com.brewingbytes.gemmory.collections.CollectionBook
+import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.copy.Words
+import com.brewingbytes.gemmory.play.Canvases
+import com.brewingbytes.gemmory.remote.RemoteShelf
+import com.brewingbytes.gemmory.share.ProgressShareSession
+import com.brewingbytes.gemmory.share.ProgressSharing
+import com.brewingbytes.gemmory.streak.StreakSource
+import com.brewingbytes.gemmory.ui.GemRenderer
 import android.app.Activity
 import android.app.Application
 import android.content.res.Configuration
@@ -231,6 +245,38 @@ class GemmoryApp : Application() {
         override val reporter: NonFatalReporter get() = this@GemmoryApp.reporter
 
         override fun nowMillis(): Long = testNowMillis?.invoke() ?: System.currentTimeMillis()
+
+        override fun words(): Words = strings.words
+
+        override val analytics: Analytics get() = this@GemmoryApp.analytics
+
+        override val canvases: Canvases get() = store
+
+        override val remote: RemoteShelf get() = this@GemmoryApp.remote
+
+        override val todays: TodaysPicks get() = this@GemmoryApp.todays
+
+        override val collections: CollectionBook get() = this@GemmoryApp.collections
+
+        override val streak: StreakSource get() = streakView
+
+        override val access: PlayerAccess get() = monetization
+
+        override val progress: PlayerProgress = object : PlayerProgress {
+            override val finishes: Int get() = achievements.finishes
+
+            override val landed: Boolean get() = firstRun.landed
+
+            override val nudgeOn: Boolean get() = this@GemmoryApp.nudgeOn
+
+            override fun quickOpenable(started: List<ReminderCanvas>): List<String> = this@GemmoryApp.quickOpenable(started)
+        }
+
+        override fun progressSharing(): ProgressShareSession = ProgressSharing(this@GemmoryApp)
+
+        // The renderer hotfix switch (R10-8) covers gallery thumbnails too.
+        override fun renderGems(pattern: Pattern, cellPx: Int, placed: ((Int) -> Boolean)?): ImageBitmap =
+            GemRenderer.render(pattern, cellPx, placed).asImageBitmap()
     }
 
     /** Today's picture (#34). */

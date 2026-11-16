@@ -68,10 +68,6 @@ class PictureUnlocks(private val prefs: SharedPreferences) {
 fun isLocked(picture: BundledPicture, unlocked: Set<String>, entitlements: Entitlements, started: Boolean): Boolean =
     isLocked(picture.locked, picture.id, unlocked, entitlements, started)
 
-/** The same rule for any picture by its catalog flag [locked]: bundled, or remote (#43). */
-fun isLocked(locked: Boolean, id: String, unlocked: Set<String>, entitlements: Entitlements, started: Boolean): Boolean =
-    locked && id !in unlocked && !entitlements.vip && !started
-
 /**
  * App-scoped home of the pure policies (eng E5): [DailyLedger] and [AdPolicy] under `filesDir/ledger` (never backed up,
  * BackupRulesTest), the permanent picture unlocks, and [entitlements] from billing (#8), which the allowance follows.
@@ -84,14 +80,15 @@ class Monetization(
     private val scope: CoroutineScope,
     private val policy: CoroutineDispatcher,
     reporter: NonFatalReporter = NonFatalReporter.Logcat,
-    val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE),
+    override val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE),
     /**
      * Counts this process as a cold start now. The app passes false and calls [onProcessStart] at the process's first
      * foreground instead (T35, eng D11), so a reminder or reboot starting it in the background never ends the first
      * session. False also for a test's second instance in the same process.
      */
     processStart: Boolean = true,
-) {
+) : PlayerAccess {
+    override val unlocked: StateFlow<Set<String>> get() = unlocks.unlocked
     /** The inventory (#38), backed up unlike the ledger; the ledger keeps its photo canvases in it. */
     private val items by lazy {
         Inventory(FileStateStore(AndroidFileStore(filesDir), StorageLayout.INVENTORY, InventoryCodec::encode, InventoryCodec::decode, reporter::report))

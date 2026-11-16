@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 
 class A11yTextTest {
     /** The real English resources (T48): these lines are the copy, word for word. */
-    private val a11y = A11yText(XmlStrings.en)
+    private val a11y = A11yText(XmlStrings.en.words)
 
     /** T42: "Music volume, 30 percent, slider" (the label and role come from the slider's semantics). */
     @Test

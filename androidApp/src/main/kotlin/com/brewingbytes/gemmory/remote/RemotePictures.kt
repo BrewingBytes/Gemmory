@@ -85,7 +85,7 @@ class RemotePictures internal constructor(
     private val files: AtomicFiles = AtomicFiles(),
     /** The keepsakes earned so far (T37, the picture unlocks): any other `rewardOf` entry stays hidden. */
     private val earned: () -> Set<String> = { emptySet() },
-) : RemoteCatalogView {
+) : RemoteCatalogView, RemoteShelf {
     private val catalogFile = File(filesDir, StorageLayout.REMOTE_CATALOG)
     private val signatureFile = File(filesDir, StorageLayout.REMOTE_SIGNATURE)
     private val stateFile = File(filesDir, StorageLayout.REMOTE_STATE)
@@ -102,7 +102,7 @@ class RemotePictures internal constructor(
     private val _updates = MutableStateFlow(0)
 
     /** Counts background checks that brought something new (a catalog, a grid or a withdrawal): the gallery reloads. */
-    val updates: StateFlow<Int> = _updates.asStateFlow()
+    override val updates: StateFlow<Int> = _updates.asStateFlow()
 
     private val _checksEnded = MutableStateFlow(0)
 
@@ -158,13 +158,13 @@ class RemotePictures internal constructor(
         listed().firstOrNull { it.id == id }?.availableFrom?.let { today().toEpochDays() - it.toEpochDays() }
 
     /** Today's drops (T36): free to start today without a video, beside Today's picture (eng D4, D9). */
-    fun todaysDrops(): Set<String> {
+    override fun todaysDrops(): Set<String> {
         val today = today()
         return listed().filter { RemotePictureRules.isTodaysDrop(it.availableFrom, today) }.map { it.id }.toSet()
     }
 
     /** Every listed dated drop (T36), whatever its date: Today's picture prefers one on its own date only. */
-    fun drops(): Set<String> = listed().filter { it.availableFrom != null }.map { it.id }.toSet()
+    override fun drops(): Set<String> = listed().filter { it.availableFrom != null }.map { it.id }.toSet()
 
     /** Tomorrow's drop (T36), stored and verified, still hidden: the Tomorrow line frosts it. Null when there's none. */
     fun tomorrow(): RemotePicture? {
@@ -173,7 +173,7 @@ class RemotePictures internal constructor(
     }
 
     /** [tomorrow]'s grid, read only to draw its frost; nothing opens it before its date. */
-    fun tomorrowGrid(): ByteArray? = tomorrow()?.let(::verifiedGrid)
+    override fun tomorrowGrid(): ByteArray? = tomorrow()?.let(::verifiedGrid)
 
     private fun verifiedGrid(picture: RemotePicture): ByteArray? {
         val id = picture.id
@@ -193,17 +193,17 @@ class RemotePictures internal constructor(
     }
 
     /** The gallery's "New" label: arrived in the last 7 days and not opened yet. */
-    fun isNew(id: String): Boolean = current().state.isNew(id, today())
+    override fun isNew(id: String): Boolean = current().state.isNew(id, today())
 
     /** The player opened [id] (its canvas or its locked sheet): its "New" label goes. */
-    fun opened(id: String) {
+    override fun opened(id: String) {
         if (!isNew(id)) return
         scope.launch(io) { update(current().let { Snapshot(it.catalog, it.ready, it.state.opened(id)) }) }
     }
 
     /** Starts a check in the background when one is due (a day since the last success, an hour since the last try). */
     @Synchronized
-    fun checkIfDue() {
+    override fun checkIfDue() {
         if (job?.isActive == true || !RemoteSchedule.isDue(current().state, clock.nowMillis())) return
         job = scope.launch {
             if (check() == CheckOutcome.UPDATED) _updates.update { it + 1 }

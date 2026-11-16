@@ -1,9 +1,20 @@
 package com.brewingbytes.gemmory.app
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.ImageBitmap
+import com.brewingbytes.gemmory.ads.PlayerAccess
+import com.brewingbytes.gemmory.bundled.TodaysPicks
+import com.brewingbytes.gemmory.collections.CollectionBook
+import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.copy.Words
+import com.brewingbytes.gemmory.play.Canvases
 import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.remote.RemoteShelf
 import com.brewingbytes.gemmory.settings.AppSettings
+import com.brewingbytes.gemmory.share.ProgressShareSession
 import com.brewingbytes.gemmory.storage.FileStore
+import com.brewingbytes.gemmory.streak.StreakSource
+import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 
 /**
@@ -24,6 +35,31 @@ class AppGraph(val services: PlatformServices) {
     val dayClock = DayClock(services::nowMillis, services::timeZone)
 
     val settings = AppSettings(services.keyValue(AppSettings.FILE))
+
+    /** The words of the language the app shows now. */
+    val words: Words get() = services.words()
+
+    val analytics: Analytics get() = services.analytics
+
+    // The gallery's services (T64), read through on each use: see PlatformServices.
+    val canvases: Canvases get() = services.canvases
+
+    val remote: RemoteShelf get() = services.remote
+
+    val todays: TodaysPicks get() = services.todays
+
+    val collections: CollectionBook get() = services.collections
+
+    val streak: StreakSource get() = services.streak
+
+    val access: PlayerAccess get() = services.access
+
+    val progress: PlayerProgress get() = services.progress
+
+    fun progressSharing(): ProgressShareSession = services.progressSharing()
+
+    /** A pattern drawn as gems for a thumbnail ([PlatformServices.renderGems]). */
+    fun renderGems(pattern: Pattern, cellPx: Int, placed: ((Int) -> Boolean)?): ImageBitmap = services.renderGems(pattern, cellPx, placed)
 }
 
 /**

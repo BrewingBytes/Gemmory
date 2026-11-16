@@ -15,50 +15,6 @@ import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** Where a completed collection's keepsake stands (design system, row states). */
-enum class Keepsake {
-    /** Not complete, or the catalog names no keepsake for it. */
-    NONE,
-
-    /** In its canvas: it shows in the row's strip and the grid. */
-    ADDED,
-
-    /** Earned, but its grid isn't on the phone yet: it comes with the next successful check. */
-    PENDING_OFFLINE,
-
-    /** Earned, but the copy failed for lack of space: retried on each gallery visit. */
-    PENDING_SPACE,
-}
-
-/**
- * One collection as the gallery shows it (T37). [completedDay] is set once it's complete (it stays complete after a
- * Play again); [keepsake] is its catalog keepsake (an event's only once earned), shown once [keepsakeState] is
- * [Keepsake.ADDED].
- * [event]: a weekly event with a window (T38), [inWindow] today, [earned] its exclusive with 3 finishes in the window.
- */
-data class CollectionStatus(
-    val collection: RemoteCollection,
-    val progress: CollectionProgress,
-    val completedDay: Long?,
-    val vipAtCompletion: Boolean,
-    val keepsake: RemotePicture?,
-    val keepsakeState: Keepsake,
-    val glintPending: Boolean,
-    val event: Boolean = false,
-    val inWindow: Boolean = false,
-    val earned: Boolean = false,
-) {
-    val id: String get() = collection.id
-    val complete: Boolean get() = completedDay != null
-}
-
-/** A [Collections.settle]: [fetched] false on a phone that never had a verified catalog (no rows at all). */
-data class Settled(val fetched: Boolean, val statuses: List<CollectionStatus>) {
-    companion object {
-        val NONE = Settled(false, emptyList())
-    }
-}
-
 /**
  * Collections on this phone (T37, eng D7, CEO C6): works out each one's progress from the gallery's canvases and the
  * verified catalog (the cached one when offline), and grants a completed one's keepsake and token. A weekly event
@@ -81,14 +37,14 @@ class Collections(
     private val keptToday: (String) -> Unit,
     private val today: () -> Long,
     private val analytics: Analytics = Analytics.None,
-) {
+) : CollectionBook {
     private val mutex = Mutex()
 
     /** Collections completed in this process whose return to the gallery hasn't been read yet (D7). */
     private val rewardReturns = mutableSetOf<String>()
 
     /** [pictures] are the gallery's picture summaries (CanvasStore.summaries): what's on the phone and how far. */
-    suspend fun settle(pictures: List<CanvasSummary>): Settled = mutex.withLock {
+    override suspend fun settle(pictures: List<CanvasSummary>): Settled = mutex.withLock {
         val catalog = catalog() ?: return Settled.NONE
         val byId = pictures.associateBy { it.ref.id }
         val inCatalog = catalog.pictures.map { it.id }.toSet()
@@ -162,7 +118,7 @@ class Collections(
     }
 
     /** The glint played (or reduced motion showed the line at once): it never plays again for [id]. */
-    fun glintShown(id: String) = prefs.setGlintShown(id)
+    override fun glintShown(id: String) = prefs.setGlintShown(id)
 
     private fun stateOf(summary: CanvasSummary?, inCatalog: Boolean): MemberState {
         val started = when (summary) {

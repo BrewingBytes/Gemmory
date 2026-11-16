@@ -29,3 +29,9 @@ internal expect fun drawCellBatch(canvas: Canvas, quads: CellQuads, paint: Paint
  * common mask filter. Both platforms are Skia's blur underneath (the end card's shadow, T53).
  */
 internal expect fun Paint.blurMask(radiusPx: Float)
+
+/** [this] image as PNG bytes (a gallery tile's "Can't open" thumbnail, design D9). */
+internal expect fun ImageBitmap.encodePng(): ByteArray
+
+/** A PNG or JPEG decoded; null when [bytes] aren't an image. */
+internal expect fun decodeImage(bytes: ByteArray): ImageBitmap?
