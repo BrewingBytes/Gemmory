@@ -178,7 +178,7 @@ class RendererGoldenCapture {
         val session = PlaySession(
             ref = CanvasRef(CanvasKind.BUNDLED, "deco-peacock"),
             title = "",
-            a11y = A11yText(context.strings),
+            a11y = A11yText(context.strings.words),
             pattern = pattern,
             state = state,
             view = null,

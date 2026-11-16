@@ -10,6 +10,9 @@ class LocaleFormats(val tag: String) {
 
     /** An epoch day's weekday in full: "Tuesday", "火曜日". */
     fun weekday(epochDay: Long): String = weekdayName(tag, epochDay)
+
+    /** [text] with its first letter in lower case by this language's rules (Turkish "İ" → "i"). */
+    fun lowercaseFirst(text: String): String = if (text.isEmpty()) text else lowercaseIn(tag, text.take(1)) + text.drop(1)
 }
 
 /** [value] grouped as language [tag] writes whole numbers. */
@@ -17,3 +20,6 @@ internal expect fun formatInteger(tag: String, value: Int): String
 
 /** The weekday of [epochDay] (days since 1970-01-01) in full, in language [tag]. */
 internal expect fun weekdayName(tag: String, epochDay: Long): String
+
+/** [text] in lower case by language [tag]'s rules. */
+internal expect fun lowercaseIn(tag: String, text: String): String

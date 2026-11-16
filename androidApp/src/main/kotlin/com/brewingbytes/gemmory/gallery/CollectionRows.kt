@@ -147,7 +147,7 @@ internal fun CollectionRowView(
         Column(Modifier.widthIn(max = 480.dp)) {
             // TalkBack: the name is a heading that folds in the count and the well; the line is read after it.
             val strings = strings()
-            val a11y = A11yText(strings)
+            val a11y = A11yText(strings.words)
             val heading = a11y.collection(row.title, row.finished, row.size, row.coming)
             Column(Modifier.clearAndSetSemantics { contentDescription = heading; heading() }) {
                 Text(row.title, style = GemType.button, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -181,7 +181,7 @@ internal fun CollectionRowView(
  * " · 2 more coming" joins it (D18).
  */
 private fun countLine(strings: Strings, row: CollectionRow, largeFont: Boolean) = withFigures(
-    CollectionCopy(strings).count(row.finished, row.size, row.coming, largeFont, oneADay = row.inWindow),
+    CollectionCopy(strings.words).count(row.finished, row.size, row.coming, largeFont, oneADay = row.inWindow),
     listOf("${row.finished}", "${row.size}"),
     GemType.mono.copy(fontSize = 13.sp).toSpanStyle(),
 )
@@ -192,7 +192,7 @@ private fun countLine(strings: Strings, row: CollectionRow, largeFont: Boolean) 
  */
 @Composable
 private fun MemberThumb(tile: Tile, locked: Boolean, onOpen: (Tile) -> Unit, thumbnail: suspend (Tile) -> ImageBitmap?) {
-    val description = A11yText(strings()).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
+    val description = A11yText(strings().words).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
     Box(
         Modifier
             .size(THUMB)
@@ -261,7 +261,7 @@ private fun ComingWell(coming: Int, largeFont: Boolean, oneADay: Boolean) {
             Text(CollectionCopy.comingShort(coming), style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.Bone)
         } else {
             BasicText(
-                CollectionCopy(strings()).coming(coming, oneADay),
+                CollectionCopy(strings().words).coming(coming, oneADay),
                 style = GemType.label.copy(color = GemColors.Bone, textAlign = TextAlign.Center),
                 modifier = Modifier.padding(4.dp),
             )

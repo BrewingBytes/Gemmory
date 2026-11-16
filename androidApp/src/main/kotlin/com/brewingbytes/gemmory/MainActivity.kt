@@ -14,6 +14,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.lifecycle.createSavedStateHandle
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -95,7 +98,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
     private val photoFlow: PhotoFlowViewModel by viewModels()
-    private val gallery: GalleryViewModel by viewModels()
+    /** Shared since iOS Stage 1c (T64): built from the app's [com.brewingbytes.gemmory.app.AppGraph], as `graphViewModel` does. */
+    private val gallery: GalleryViewModel by viewModels {
+        viewModelFactory { initializer { GalleryViewModel(app.graph, createSavedStateHandle()) } }
+    }
     private val completion: CompletionViewModel by viewModels()
     private val rewarded: RewardedViewModel by viewModels()
     private val streakDay: StreakDayViewModel by viewModels()

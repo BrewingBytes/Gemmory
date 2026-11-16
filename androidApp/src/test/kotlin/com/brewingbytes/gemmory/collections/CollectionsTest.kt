@@ -29,7 +29,7 @@ import kotlin.test.assertTrue
  */
 class CollectionsTest {
     /** The real English resources (T48): these lines are the copy, word for word. */
-    private val copy = CollectionCopy(XmlStrings.en)
+    private val copy = CollectionCopy(XmlStrings.en.words)
 
     private val pattern = Pattern(1, 2, listOf(PaletteColor(1, 0xFF336699.toInt(), Lab(40.0, 0.0, 0.0))), intArrayOf(0, 0))
     private val prefsStore = FakePrefs()

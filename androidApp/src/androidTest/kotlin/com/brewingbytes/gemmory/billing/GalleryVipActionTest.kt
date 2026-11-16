@@ -39,7 +39,7 @@ class GalleryVipActionTest {
 
     @Test
     fun hiddenInTheFirstSessionThenAQuietTextAction() {
-        val vm = GalleryViewModel(app, SavedStateHandle())
+        val vm = GalleryViewModel(app.graph, SavedStateHandle())
         var showVip by mutableStateOf(false)
         var notice by mutableStateOf<String?>(null)
         var opened = 0

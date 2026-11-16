@@ -9,3 +9,7 @@ internal actual fun logNonFatal(error: Throwable) {
 internal actual fun logKey(key: String, value: String) {
     NSLog("Gemmory key %@=%@", key, value)
 }
+
+internal actual fun logEvent(line: String) {
+    NSLog("Gemmory %@", line)
+}

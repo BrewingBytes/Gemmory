@@ -1,58 +1,57 @@
 package com.brewingbytes.gemmory.gallery
 
-import com.brewingbytes.gemmory.remote.titleIn
-import android.app.Application
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.util.LruCache
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.brewingbytes.gemmory.copy.strings
-import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.ads.isLocked
+import com.brewingbytes.gemmory.app.AppGraph
 import com.brewingbytes.gemmory.collections.CollectionCopy
 import com.brewingbytes.gemmory.collections.Keepsake
 import com.brewingbytes.gemmory.collections.Settled
 import com.brewingbytes.gemmory.converter.CanvasSize
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.Frost
-import com.brewingbytes.gemmory.save.Decoded
-import com.brewingbytes.gemmory.save.GridCodec
-import com.brewingbytes.gemmory.photo.PhotoTitles
-import com.brewingbytes.gemmory.play.CanvasStore
+import com.brewingbytes.gemmory.photo.TitleInput
+import com.brewingbytes.gemmory.play.Canvases
 import com.brewingbytes.gemmory.play.CanvasSummary
-import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.Awaiting
+import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.NudgeHint
 import com.brewingbytes.gemmory.policy.NudgeTarget
-import com.brewingbytes.gemmory.policy.TodayLabel
 import com.brewingbytes.gemmory.policy.StreakNudge
+import com.brewingbytes.gemmory.policy.TodayLabel
 import com.brewingbytes.gemmory.remote.CollectionRules
-import com.brewingbytes.gemmory.share.ProgressSharing
+import com.brewingbytes.gemmory.remote.titleIn
+import com.brewingbytes.gemmory.render.bakedBitmap
+import com.brewingbytes.gemmory.render.decodeImage
+import com.brewingbytes.gemmory.render.encodePng
+import com.brewingbytes.gemmory.save.Decoded
+import com.brewingbytes.gemmory.save.GridCodec
+import com.brewingbytes.gemmory.share.ProgressShareSession
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.streak.StreakSnapshot
-import com.brewingbytes.gemmory.streak.StreakText
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.timelapse.ProgressShare
-import com.brewingbytes.gemmory.ui.GemRenderer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
+import kotlin.concurrent.Volatile
 
 /** One gallery tile (design system, Gallery tile). [aspect] is width / height, honoring 1:1, 3:4 and 4:3. */
 data class Tile(
@@ -91,18 +90,25 @@ data class Tile(
 }
 
 /**
+ * Whether [this] tile is a locked picture the player hasn't unlocked (design D14). [todayFree], today's free picture
+ * (#34) and today's drop (T36), open without a video today.
+ */
+fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, todayFree: Set<String> = emptySet()): Boolean =
+    ref.kind != CanvasKind.PHOTO && ref.id !in todayFree && isLocked(lockable, ref.id, unlocked, entitlements, started)
+
+/**
  * Pictures tab order (#58): every picture a tap opens (the starter, the free ones, unlocked or started ones, today's
  * free picture (#34), all of them for VIP), then the locked ones, each group keeping the catalog's Quick, Medium, Big
  * ramp (#31). "Opens" is [Tile.locked], the rule the tap follows.
  */
-internal fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitlements: Entitlements, todayFree: Set<String> = emptySet()): List<Tile> =
+fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitlements: Entitlements, todayFree: Set<String> = emptySet()): List<Tile> =
     pictures.sortedBy { it.locked(unlocked, entitlements, todayFree) }
 
 /**
  * The Finished section (#89) at the end of each tab: the finished canvases, newest finish first. Those finished before
  * T35 have no date and go after the dated ones; a tie on the day, and the undated group, go newest created first.
  */
-internal fun finishedInOrder(tiles: List<Tile>): List<Tile> =
+fun finishedInOrder(tiles: List<Tile>): List<Tile> =
     tiles.filter { it.done }.sortedWith(
         compareBy<Tile> { it.finishedDay == null }
             .thenByDescending { it.finishedDay ?: 0L }
@@ -202,9 +208,8 @@ data class GalleryState(
     val nudge: Nudge? = null,
 )
 
-class GalleryViewModel(application: Application, private val handle: SavedStateHandle) : AndroidViewModel(application) {
-    private val app = application as GemmoryApp
-    private val store = app.store
+class GalleryViewModel(private val graph: AppGraph, private val handle: SavedStateHandle) : ViewModel() {
+    private val store = graph.canvases
 
     /** 0 = Pictures, 1 = My Photos. Kept here so it survives a trip to a canvas, rotation and process death. */
     var tab by mutableIntStateOf(handle.get<Int>(KEY_TAB) ?: 0)
@@ -221,7 +226,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     private val thumbsWritten = mutableMapOf<CanvasRef, Int>()
 
     /** Lazy thumbnails of unstarted remote pictures (T36, eng D12), the ones scrolled past most recently. */
-    private val lazyThumbs = LruCache<CanvasRef, ImageBitmap>(LAZY_THUMBS)
+    private val lazyThumbs = ThumbCache(LAZY_THUMBS)
 
     /**
      * This visit's nudge target (#102), kept so a streak change re-derives the nudge without reading the canvases again.
@@ -235,18 +240,18 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
     init {
         // A background check that brought something new (T36): reload now, not on the next visit.
-        viewModelScope.launch { app.remote.updates.drop(1).collect { refresh() } }
+        viewModelScope.launch { graph.remote.updates.drop(1).collect { refresh() } }
         // The streak (#101): a finish resolves on the policy thread after Done, so the chip follows it as it lands.
         // The nudge goes with it once a picture is finished today (#102).
         viewModelScope.launch {
-            app.streakView.snapshot.collect { s ->
+            graph.streak.snapshot.collect { s ->
                 _state.update { it.copy(streak = s.shown, streakDone = s.doneToday, repairable = s.repairOffer?.length, nudge = nudgeOf(s, pointing)) }
-                if (pointing == null && _state.value.loaded && pointingJob?.isActive != true && app.nudgeOn && StreakNudge.show(s.state, s.today, s.cover)) {
+                if (pointing == null && _state.value.loaded && pointingJob?.isActive != true && graph.progress.nudgeOn && StreakNudge.show(s.state, s.today, s.cover)) {
                     pointingJob = viewModelScope.launch {
                         val loaded = _state.value
                         val at = nudgeAt(s, loaded.today, loaded.pictures, loaded.photos)
                         pointing = at
-                        _state.update { it.copy(nudge = nudgeOf(app.streakView.snapshot.value, at)) }
+                        _state.update { it.copy(nudge = nudgeOf(graph.streak.snapshot.value, at)) }
                     }
                 }
             }
@@ -255,7 +260,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
     /** The nudge for [snapshot] (#102): the broken variant while a repair is offered, else the line while [StreakNudge.show]. */
     private fun nudgeOf(snapshot: StreakSnapshot, at: NudgeAt?): Nudge? {
-        if (!app.nudgeOn) return null
+        if (!graph.progress.nudgeOn) return null
         snapshot.repairOffer?.let { return Nudge(days = 0, broken = it.length) }
         if (at == null || !StreakNudge.show(snapshot.state, snapshot.today, snapshot.cover)) return null
         return Nudge(
@@ -274,17 +279,17 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
      * nowhere (the tap opens the streak screen).
      */
     private suspend fun nudgeAt(snapshot: StreakSnapshot, today: TodayCard?, pictures: List<Tile>, photos: List<Tile>): NudgeAt? {
-        if (!app.nudgeOn || !StreakNudge.show(snapshot.state, snapshot.today, snapshot.cover)) return null
+        if (!graph.progress.nudgeOn || !StreakNudge.show(snapshot.state, snapshot.today, snapshot.cover)) return null
         val started = store.reminderCanvases()
-        val vip = app.monetization.entitlements.value.vip
+        val vip = graph.access.entitlements.value.vip
         val (quick, todaysPick) = withContext(Dispatchers.IO) {
-            val remote = app.remote
-            app.quickOpenable(started) to app.todays.pick(started.mapNotNullTo(HashSet()) { it.pictureId }, vip, remote.listed(), remote.drops(), remote::isNew)
+            val remote = graph.remote
+            graph.progress.quickOpenable(started) to graph.todays.pick(started.mapNotNullTo(HashSet()) { it.pictureId }, vip, remote.listed(), remote.drops(), remote::isNew)
         }
         val target = StreakNudge.target(todaysPick, quick, started) ?: return NudgeAt(null, null)
         val tile = when (target) {
             is NudgeTarget.Today -> pictures.firstOrNull { it.ref.id == target.pictureId }
-            is NudgeTarget.Canvas -> (pictures + photos).firstOrNull { CanvasStore.reminderKey(it.ref) == target.canvas.key }
+            is NudgeTarget.Canvas -> (pictures + photos).firstOrNull { Canvases.reminderKey(it.ref) == target.canvas.key }
             is NudgeTarget.Quick -> pictures.firstOrNull { it.ref.id == target.pictureId }
         }?.takeIf { !it.damaged } ?: return NudgeAt(null, null)
         // "Today's picture is Quick" only beside a card showing it; a drop on the card leaves the pick named.
@@ -294,11 +299,11 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
     /** The nudge showed (#102): `streak_nudge_shown` once a day. */
     fun nudgeShown(nudge: Nudge) {
-        if (app.streak.nudgeShown(app.dayClock.today())) app.analytics.log(AnalyticsEvent.streakNudgeShown(broken = nudge.broken != null))
+        if (graph.streak.nudgeShown(graph.dayClock.today())) graph.analytics.log(AnalyticsEvent.streakNudgeShown(broken = nudge.broken != null))
     }
 
     /** The nudge was tapped (#102). */
-    fun nudgeTapped(nudge: Nudge) = app.analytics.log(AnalyticsEvent.streakNudgeTapped(nudge.param))
+    fun nudgeTapped(nudge: Nudge) = graph.analytics.log(AnalyticsEvent.streakNudgeTapped(nudge.param))
 
     /** The chip's flame lights up once (#101, G9: a celebration too late to show after a cold start). */
     var streakIgnite by mutableStateOf(false)
@@ -314,7 +319,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     }
 
     /** Millis to the next local midnight, when the gallery reloads for the day's drop (T36). */
-    fun millisUntilNextDay(): Long = app.dayClock.millisUntilNextDay()
+    fun millisUntilNextDay(): Long = graph.dayClock.millisUntilNextDay()
 
     /** The local day the last [refresh] read, so a return after midnight reloads (T36). */
     @Volatile
@@ -326,7 +331,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
      * catalog check runs either way when it's due.
      */
     fun resumed() {
-        if (loadedDay != null && loadedDay != app.dayClock.today()) refresh() else app.remote.checkIfDue()
+        if (loadedDay != null && loadedDay != graph.dayClock.today()) refresh() else graph.remote.checkIfDue()
     }
 
     /**
@@ -337,12 +342,12 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
      */
     fun refresh() {
         // Remote pictures (#43): a background check when one is due. What it brings shows on the next visit.
-        app.remote.checkIfDue()
-        loadedDay = app.dayClock.today()
+        graph.remote.checkIfDue()
+        loadedDay = graph.dayClock.today()
         viewModelScope.launch {
             var (pictures, photos) = store.summaries()
             // Collections (T37): a completion grants its keepsake and token here; a keepsake copied in now joins the grid.
-            val settled = app.collections.settle(pictures)
+            val settled = graph.collections.settle(pictures)
             val ids = pictures.map { it.ref.id }.toSet()
             if (settled.statuses.any { it.keepsakeState == Keepsake.ADDED && it.keepsake?.id !in ids }) {
                 val again = store.summaries()
@@ -350,20 +355,20 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 photos = again.second
             }
             val tiles = withContext(Dispatchers.Default) { pictures.map { tile(it) } to photos.map { tile(it) } }
-            val monetization = app.monetization
-            val unlocked = monetization.unlocks.unlocked.value
-            val entitlements = monetization.entitlements.value
+            val access = graph.access
+            val unlocked = access.unlocked.value
+            val entitlements = access.entitlements.value
             // The day's pick is made either way; the card and the Tomorrow line wait for the player's first finish, so
             // the starter is the first thing a stranger sees (T45, DR4). Once past it, always past it: the ledger (backed
             // up) remembers a finish that Play again, Start over or a deleted photo took off the grid. A player a share
             // link landed on its picture (T50) is in the normal game once they leave it (DR4).
-            val anyFinished = tiles.first.any { it.done } || tiles.second.any { it.done } || app.achievements.finishes > 0 ||
-                app.firstRun.landed
+            val anyFinished = tiles.first.any { it.done } || tiles.second.any { it.done } || graph.progress.finishes > 0 ||
+                graph.progress.landed
             val today = todayCard(pictures, tiles.first, unlocked, entitlements.vip)?.takeIf { anyFinished }
-            val todayFree = if (entitlements.vip) emptySet() else app.todays.freeToday()
+            val todayFree = if (entitlements.vip) emptySet() else graph.todays.freeToday()
             val ordered = picturesInOrder(tiles.first.filterNot { it.done }, unlocked, entitlements, todayFree)
             val tomorrow = if (anyFinished) withContext(Dispatchers.IO) { tomorrowFrost() } else null
-            val snapshot = app.streakView.refresh()
+            val snapshot = graph.streak.refresh()
             val at = nudgeAt(snapshot, today, tiles.first, tiles.second)
             pointing = at
             _state.value = GalleryState(
@@ -393,15 +398,15 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 listOfNotNull(status.keepsake?.takeIf { status.keepsakeState == Keepsake.ADDED }?.let { byId[it.id] })
             status.id to CollectionRow(
                 id = status.id,
-                title = status.collection.titleIn(app.strings.locale.toLanguageTag()),
+                title = status.collection.titleIn(graph.words.tag),
                 members = members,
                 finished = status.progress.finished,
                 size = status.progress.size,
                 coming = status.progress.coming,
-                line = CollectionCopy(app.strings).line(status, vip),
+                line = CollectionCopy(graph.words).line(status, vip),
                 complete = status.complete,
                 glint = status.glintPending,
-                keepsakeTitle = status.keepsake?.titleIn(app.strings.locale.toLanguageTag())?.takeIf { status.keepsakeState == Keepsake.ADDED },
+                keepsakeTitle = status.keepsake?.titleIn(graph.words.tag)?.takeIf { status.keepsakeState == Keepsake.ADDED },
                 inWindow = status.inWindow,
                 earned = status.earned,
             )
@@ -410,8 +415,8 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         val completed = settled.statuses.mapNotNull { s -> s.completedDay?.let { s.id to it } }.toMap()
         val glints = settled.statuses.filter { it.glintPending }.map { it.id }.toSet()
         // Collection rows show once a picture is finished (D5), or once a share link has landed (T50, DR4).
-        val anyFinished = pictures.any { it.done } || photos.any { it.done } || app.firstRun.landed
-        val today = app.dayClock.today()
+        val anyFinished = pictures.any { it.done } || photos.any { it.done } || graph.progress.landed
+        val today = graph.dayClock.today()
         val inWindow = settled.statuses.filter { it.inWindow }.map { it.id }.toSet()
         val pick = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = false, inWindow)
         val large = CollectionRules.rows(progress, completed, glints, today, anyFinished, largeFont = true, inWindow)
@@ -421,7 +426,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
     /** A completed collection's glint played (or showed at once under reduced motion): never again (T37). */
     fun glintShown(id: String) {
-        app.collections.glintShown(id)
+        graph.collections.glintShown(id)
         _state.value = _state.value.let { s ->
             val off = { r: CollectionRow -> if (r.id == id) r.copy(glint = false) else r }
             val c = s.collections
@@ -437,7 +442,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         lazyThumbs.get(tile.ref)?.let { return it }
         val pattern = withContext(Dispatchers.IO) { store.pattern(tile.ref) } ?: return null
         val image = withContext(Dispatchers.Default) {
-            if (tile.mystery) frost(pattern).asImageBitmap() else GemRenderer.render(pattern, cellPxFor(pattern.width)).asImageBitmap()
+            if (tile.mystery) frost(pattern) else graph.renderGems(pattern, cellPxFor(pattern.width), null)
         }
         lazyThumbs.put(tile.ref, image)
         return image
@@ -445,30 +450,29 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
     /** The Tomorrow line's frost (T36): tomorrow's drop drawn as the frost, square; the UI lays `felt-deep` on it. */
     private fun tomorrowFrost(): ImageBitmap? {
-        val bytes = app.remote.tomorrowGrid() ?: return null
+        val bytes = graph.remote.tomorrowGrid() ?: return null
         val pattern = (GridCodec.decode(bytes) as? Decoded.Ok)?.value?.pattern ?: return null
-        val pixels = Frost.image(pattern, FROST_PX, FROST_PX)
-        return Bitmap.createBitmap(pixels, FROST_PX, FROST_PX, Bitmap.Config.ARGB_8888).asImageBitmap()
+        return bakedBitmap(FROST_PX, FROST_PX).apply { setAll(Frost.image(pattern, FROST_PX, FROST_PX)) }.image
     }
 
     /** A tile was tapped: a remote picture's "New" label goes (#43), whether it opens or shows its locked sheet. */
     fun opened(tile: Tile) {
-        if (tile.ref.kind == CanvasKind.REMOTE && tile.isNew) app.remote.opened(tile.ref.id)
+        if (tile.ref.kind == CanvasKind.REMOTE && tile.isNew) graph.remote.opened(tile.ref.id)
     }
 
     /** Whether the Finished section (#89) of [tab] is expanded, remembered across visits and backed up. */
-    fun finishedOpen(tab: Int): Boolean = app.settings.finishedOpen(tab)
+    fun finishedOpen(tab: Int): Boolean = graph.settings.finishedOpen(tab)
 
-    fun setFinishedOpen(tab: Int, open: Boolean) = app.settings.setFinishedOpen(tab, open)
+    fun setFinishedOpen(tab: Int, open: Boolean) = graph.settings.setFinishedOpen(tab, open)
 
     /** The Tomorrow line was tapped (T36): "Opens tomorrow", and Analytics hears of it. */
-    fun teaserTapped() = app.analytics.log(AnalyticsEvent.teaserTapped)
+    fun teaserTapped() = graph.analytics.log(AnalyticsEvent.teaserTapped)
 
     /**
      * Whether [tile] is today's free picture or today's drop right now (#34, T36), read live so a gallery left open past
      * midnight can't grant it.
      */
-    fun isFreeToday(tile: Tile): Boolean = app.todays.isFreeToday(tile.ref)
+    fun isFreeToday(tile: Tile): Boolean = graph.todays.isFreeToday(tile.ref)
 
     /**
      * Today's picture (#34): picked on the day's first visit, then the same one all day. Today's drop (T36) takes the
@@ -478,10 +482,10 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
         // The same choices the evening reminder reads (T35, eng D3), so the card and the notification agree.
         val started = tiles.filter { it.started }.map { it.ref.id }.toSet()
         val picked = withContext(Dispatchers.IO) {
-            val remote = app.remote
-            app.todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew)
+            val remote = graph.remote
+            graph.todays.pick(started, vip, remote.listed(), remote.drops(), remote::isNew)
         }
-        val todays = withContext(Dispatchers.IO) { app.remote.todaysDrops() }
+        val todays = withContext(Dispatchers.IO) { graph.remote.todaysDrops() }
         val drop = tiles.firstOrNull { it.ref.kind == CanvasKind.REMOTE && it.ref.id in todays && !it.damaged }
         val tile = drop ?: tiles.firstOrNull { it.ref.id == picked && !it.damaged } ?: return null
         val size = tile.size ?: return null
@@ -493,9 +497,9 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
                 ?: withContext(Dispatchers.IO) { store.pattern(tile.ref) }
             // A mystery (T43) shows only its frost.
             if (tile.mystery) {
-                tile.image ?: pattern?.let { withContext(Dispatchers.Default) { frost(it).asImageBitmap() } }
+                tile.image ?: pattern?.let { withContext(Dispatchers.Default) { frost(it) } }
             } else {
-                pattern?.let { withContext(Dispatchers.Default) { GemRenderer.render(it, cellPxFor(it.width)).asImageBitmap() } } ?: tile.image
+                pattern?.let { withContext(Dispatchers.Default) { graph.renderGems(it, cellPxFor(it.width), null) } } ?: tile.image
             }
         }
         return TodayCard(tile, preview, size, vip, free = !vip && !tile.started && tile.ref.id !in unlocked, drop = drop != null)
@@ -503,7 +507,7 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
 
     fun rename(ref: CanvasRef, input: String) {
-        val title = PhotoTitles.cleaned(input) ?: return
+        val title = TitleInput.cleaned(input) ?: return
         viewModelScope.launch {
             store.rename(ref, title)
             refresh()
@@ -511,15 +515,14 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     }
 
     /** Share progress (#36) from a tile's ⋮ menu; kept here so a rotation keeps its sheet. */
-    val sharing = ProgressSharing(app)
+    val sharing: ProgressShareSession = graph.progressSharing()
 
     /** Share progress tap: the canvas's saved log so far, read fresh (a canvas just left may still be writing). */
     fun shareProgress(ref: CanvasRef) {
         viewModelScope.launch {
-            val opened = store.open(ref) as? CanvasStore.Opened.Ready ?: return@launch
-            // An unfinished mystery (T43, D23) is shared only from its completion screen.
-            if (opened.hiddenAs != null) return@launch
-            sharing.share(ref, opened.grid.pattern, opened.state.log(), opened.title)
+            // An unfinished mystery (T43, D23) is shared only from its completion screen: no progress for it.
+            val progress = store.progress(ref) ?: return@launch
+            sharing.share(ref, progress.pattern, progress.log, progress.title)
         }
     }
 
@@ -549,18 +552,18 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             done = false,
             damaged = false,
             lockable = summary.locked,
-            isNew = summary.hiddenAs == null && app.remote.isNew(summary.ref.id),
+            isNew = summary.hiddenAs == null && graph.remote.isNew(summary.ref.id),
             size = summary.size,
             lazyImage = true,
             mystery = summary.hiddenAs != null,
         )
         is CanvasSummary.Damaged -> {
-            val thumb = summary.thumb?.let { f -> runCatching { BitmapFactory.decodeFile(f.path) }.getOrNull() }
+            val thumb = summary.thumb?.let(::decodeImage)
             Tile(
                 ref = summary.ref,
                 title = summary.hiddenAs ?: summary.title,
                 aspect = thumb?.let { it.width / it.height.toFloat() } ?: (3f / 4f),
-                image = thumb?.asImageBitmap(),
+                image = thumb,
                 percent = 0,
                 done = false,
                 damaged = true,
@@ -574,25 +577,25 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
             val pattern = state.pattern
             val hidden = summary.hiddenAs != null
             // An unfinished mystery (T43) is drawn as its frost everywhere, its "Can't open" thumbnail too.
-            val bitmap = if (hidden) frost(pattern) else GemRenderer.render(pattern, cellPxFor(pattern.width), state::isPlaced)
+            val bitmap = if (hidden) frost(pattern) else graph.renderGems(pattern, cellPxFor(pattern.width), state::isPlaced)
             // Kept for the "Can't open" tile (design D9); only canvases that exist on disk get one.
             val onDisk = summary.ref.kind == CanvasKind.PHOTO || state.placedCount > 0
             if (onDisk && thumbsWritten[summary.ref] != state.placedCount) {
-                store.writeThumb(summary.ref, bitmap.toPng())
+                store.writeThumb(summary.ref, bitmap.encodePng())
                 thumbsWritten[summary.ref] = state.placedCount
             }
             Tile(
                 ref = summary.ref,
                 title = summary.hiddenAs ?: summary.title,
                 aspect = pattern.width / pattern.height.toFloat(),
-                image = bitmap.asImageBitmap(),
+                image = bitmap,
                 percent = (state.placedCount * 100L / state.cellCount).toInt(),
                 done = state.isFinished,
                 damaged = false,
                 started = state.placedCount > 0,
                 shareable = !hidden && ProgressShare.isOffered(state.placedCount, state.cellCount),
                 lockable = summary.locked,
-                isNew = !hidden && summary.ref.kind == CanvasKind.REMOTE && app.remote.isNew(summary.ref.id),
+                isNew = !hidden && summary.ref.kind == CanvasKind.REMOTE && graph.remote.isNew(summary.ref.id),
                 size = summary.size,
                 finishedDay = summary.firstFinishedDay,
                 createdAtMillis = summary.createdAtMillis,
@@ -602,14 +605,11 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
     }
 
     /** A mystery's frost (T43) in its own aspect, at a tile's resolution; the UI lays `felt-deep` on it. */
-    private fun frost(pattern: Pattern): Bitmap {
+    private fun frost(pattern: Pattern): ImageBitmap {
         val width = FROST_TILE_PX
         val height = (width * pattern.height / pattern.width).coerceAtLeast(1)
-        return Bitmap.createBitmap(Frost.image(pattern, width, height), width, height, Bitmap.Config.ARGB_8888)
+        return bakedBitmap(width, height).apply { setAll(Frost.image(pattern, width, height)) }.image
     }
-
-    private fun Bitmap.toPng(): ByteArray =
-        ByteArrayOutputStream().also { compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
 
     private companion object {
         /** Tiles are at most ~200dp wide; about 240 px of gems is sharp enough without costing memory. */
@@ -625,5 +625,24 @@ class GalleryViewModel(application: Application, private val handle: SavedStateH
 
         /** A mystery tile's frost (T43): smooth by design, so a smaller image than a tile's gems is enough. */
         const val FROST_TILE_PX = 160
+    }
+}
+
+/**
+ * The [GalleryViewModel]'s lazy thumbnails (T36, eng D12), at most [max], dropping the one used longest ago; safe from
+ * the composition and the tile builder at once.
+ */
+private class ThumbCache(private val max: Int) {
+    private val lock = Mutex()
+    private val images = LinkedHashMap<CanvasRef, ImageBitmap>()
+
+    suspend fun get(ref: CanvasRef): ImageBitmap? = lock.withLock {
+        images.remove(ref)?.also { images[ref] = it }
+    }
+
+    suspend fun put(ref: CanvasRef, image: ImageBitmap) = lock.withLock {
+        images.remove(ref)
+        images[ref] = image
+        if (images.size > max) images.remove(images.keys.first())
     }
 }

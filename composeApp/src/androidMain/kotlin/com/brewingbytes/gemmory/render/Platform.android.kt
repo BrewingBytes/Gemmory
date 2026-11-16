@@ -4,6 +4,7 @@ import com.brewingbytes.gemmory.play.CellQuads
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.nativePaint
@@ -31,3 +32,9 @@ internal actual fun drawCellBatch(canvas: Canvas, quads: CellQuads, paint: Paint
 internal actual fun Paint.blurMask(radiusPx: Float) {
     nativePaint.maskFilter = android.graphics.BlurMaskFilter(radiusPx, android.graphics.BlurMaskFilter.Blur.NORMAL)
 }
+
+internal actual fun ImageBitmap.encodePng(): ByteArray =
+    java.io.ByteArrayOutputStream().also { asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+
+internal actual fun decodeImage(bytes: ByteArray): ImageBitmap? =
+    runCatching { android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull()?.asImageBitmap()

@@ -374,17 +374,13 @@ object PhotoTitles {
     fun default(s: Strings, createdAtMillis: Long): String =
         s.text(R.string.photo_default_title_dated, SimpleDateFormat("d MMM", s.locale).format(Date(createdAtMillis)))
 
-    /** A rename that's blank keeps the old title; long ones are cut to the record's limit. */
-    fun cleaned(input: String): String? =
-        capped(input.trim().replace(Regex("\\s+"), " ")).takeIf { it.isNotEmpty() }
+    /** A rename that's blank keeps the old title; long ones are cut to the record's limit ([TitleInput]). */
+    fun cleaned(input: String): String? = TitleInput.cleaned(input)
 
     /** At most [MAX_CHARS] UTF-16 units, never cutting a surrogate pair (an emoji) in half. */
-    fun capped(input: String): String {
-        val cut = input.take(MAX_CHARS)
-        return if (cut.length < input.length && cut.last().isHighSurrogate()) cut.dropLast(1) else cut
-    }
+    fun capped(input: String): String = TitleInput.capped(input)
 
-    const val MAX_CHARS = 60
+    const val MAX_CHARS = TitleInput.MAX_CHARS
 }
 
 /** The converter failed on a photo (#12): the size, ratio, colors and crop dimensions only, never the photo. */

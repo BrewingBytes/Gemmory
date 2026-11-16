@@ -5,10 +5,14 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.asComposeImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.graphics.skiaCanvas
 import androidx.compose.ui.graphics.skiaPaint
 import org.jetbrains.skia.BlendMode
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
 import org.jetbrains.skia.IRect
 import org.jetbrains.skia.VertexMode
 
@@ -52,3 +56,15 @@ internal actual fun drawCellBatch(canvas: Canvas, quads: CellQuads, paint: Paint
 internal actual fun Paint.blurMask(radiusPx: Float) {
     skiaPaint.maskFilter = org.jetbrains.skia.MaskFilter.makeBlur(org.jetbrains.skia.FilterBlurMode.NORMAL, radiusPx * 0.57735f + 0.5f)
 }
+
+internal actual fun ImageBitmap.encodePng(): ByteArray =
+    Image.makeFromBitmap(asSkiaBitmap()).let { image ->
+        try {
+            image.encodeToData(EncodedImageFormat.PNG)?.bytes ?: ByteArray(0)
+        } finally {
+            image.close()
+        }
+    }
+
+internal actual fun decodeImage(bytes: ByteArray): ImageBitmap? =
+    runCatching { Image.makeFromEncoded(bytes).toComposeImageBitmap() }.getOrNull()

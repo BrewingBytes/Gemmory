@@ -9,3 +9,7 @@ internal actual fun logNonFatal(error: Throwable) {
 internal actual fun logKey(key: String, value: String) {
     Log.i("Gemmory", "key $key=$value")
 }
+
+internal actual fun logEvent(line: String) {
+    Log.i("Gemmory", line)
+}

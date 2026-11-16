@@ -101,7 +101,7 @@ internal fun MusicRows(settings: AppSettings) {
                 .weight(1f)
                 .semantics {
                     contentDescription = volumeLabel
-                    stateDescription = A11yText(strings).musicVolume(volume)
+                    stateDescription = A11yText(strings.words).musicVolume(volume)
                 }
                 .testTag(MUSIC_VOLUME_TAG),
         )

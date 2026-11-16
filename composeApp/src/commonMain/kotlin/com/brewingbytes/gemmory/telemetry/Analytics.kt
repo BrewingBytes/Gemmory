@@ -1,6 +1,5 @@
 package com.brewingbytes.gemmory.telemetry
 
-import android.util.Log
 import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.policy.ConsentModeV2
@@ -12,6 +11,7 @@ import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import kotlin.concurrent.Volatile
 
 /**
  * One Firebase Analytics event (design doc → Analytics). Params are kinds, sizes and counts only: no titles, ids or
@@ -293,7 +293,7 @@ enum class UnavailableReason(val param: String) {
     }
 }
 
-/** Firebase Analytics, or Logcat in debug builds and tests. */
+/** Firebase Analytics, or the platform log in debug builds and tests ([Logcat]; common since iOS Stage 1c, T64). */
 interface Analytics {
     fun log(event: AnalyticsEvent)
 
@@ -303,7 +303,7 @@ interface Analytics {
     companion object {
         val Logcat = object : Analytics {
             override fun log(event: AnalyticsEvent) {
-                Log.i("Gemmory", "analytics ${event.name} ${event.params}")
+                logEvent("analytics ${event.name} ${event.params}")
             }
         }
 
@@ -352,3 +352,6 @@ val CanvasRef.reportLabel: String get() = when (kind) {
     CanvasKind.BUNDLED -> "bundled/$id"
     CanvasKind.REMOTE -> "remote/$id"
 }
+
+/** Writes an analytics [line] to the platform log ([Analytics.Logcat]). */
+internal expect fun logEvent(line: String)

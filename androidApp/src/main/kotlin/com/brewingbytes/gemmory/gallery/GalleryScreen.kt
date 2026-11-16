@@ -216,13 +216,6 @@ const val NEW_LABEL_TAG = "new-label"
 const val MYSTERY_LABEL_TAG = "mystery-label"
 
 /**
- * Whether [this] tile is a locked picture the player hasn't unlocked (design D14). [todayFree], today's free picture
- * (#34) and today's drop (T36), open without a video today.
- */
-internal fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, todayFree: Set<String> = emptySet()): Boolean =
-    ref.kind != CanvasKind.PHOTO && ref.id !in todayFree && isLocked(lockable, ref.id, unlocked, entitlements, started)
-
-/**
  * Gallery (design system, Layout and Gallery tile): tabs Pictures / My Photos, a 2-column staggered grid of tiles
  * showing real progress, and the "New from photo" button floating bottom-right on both tabs.
  */
@@ -487,7 +480,7 @@ fun GalleryScreen(
         }
     }
 
-    ProgressShareHost(vm.sharing, returnFocusTo = vm.sharing.request?.ref?.let(::tileTag))
+    ProgressShareHost(vm.sharing, returnFocusTo = vm.sharing.sharingRef?.let(::tileTag))
     // VIP starting while a sheet is up closes it: VIP has no inventory.
     if (inventory != null) {
         when (inventorySheet) {
@@ -743,7 +736,7 @@ private fun TodayCardView(card: TodayCard, nudge: Nudge?, onNudge: () -> Unit, t
     )
     val strings = strings()
     val size = Messages.size(strings.words, card.size)
-    val description = A11yText(strings).today(tile.title, size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop, tile.mystery)
+    val description = A11yText(strings.words).today(tile.title, size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop, tile.mystery)
     Column(
         Modifier
             .fillMaxWidth()
@@ -904,7 +897,7 @@ private fun NewTodayChip() {
  */
 @Composable
 private fun TomorrowLine(frost: ImageBitmap, onTap: () -> Unit) {
-    val description = A11yText(strings()).tomorrow
+    val description = A11yText(strings().words).tomorrow
     Row(
         Modifier
             .fillMaxWidth()
@@ -1050,7 +1043,7 @@ private fun FinishedHeading(count: Int, open: Boolean, photos: Boolean, onTap: (
         label = "finished-chevron",
     )
     val wrap = LocalDensity.current.fontScale > LARGE_FONT_SCALE
-    val description = A11yText(strings()).finished(count, photos)
+    val description = A11yText(strings().words).finished(count, photos)
     val state = stringResource(if (open) R.string.a11y_expanded else R.string.a11y_collapsed)
     Row(
         Modifier
@@ -1114,7 +1107,7 @@ private fun TileView(
     var menu by remember { mutableStateOf(false) }
     val photo = tile.ref.kind == CanvasKind.PHOTO
     val strings = strings()
-    val description = A11yText(strings).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
+    val description = A11yText(strings.words).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
     // TalkBack (design D19): one node per tile that reads exactly its state, with the ⋮ menu's items as its custom
     // actions (the ⋮ button itself is folded into them).
     val share = !locked && tile.shareable

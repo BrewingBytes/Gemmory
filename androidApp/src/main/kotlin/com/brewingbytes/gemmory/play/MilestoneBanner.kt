@@ -123,7 +123,7 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
                     }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
-                Text(A11yText(strings).milestone(current.percent), style = GemType.display, color = GemColors.Bone)
+                Text(A11yText(strings.words).milestone(current.percent), style = GemType.display, color = GemColors.Bone)
                 Text(count, style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.TextMuted)
             }
         }

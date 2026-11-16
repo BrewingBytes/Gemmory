@@ -584,7 +584,7 @@ private fun GemCanvas(
     // TalkBack (design D19): the canvas is one node with six actions (eight with the tools, #20) instead of a node per cell. Its description
     // changes at most once per placement. The peek action (#35) reads "Back to canvas" while the picture shows.
     val strings = strings()
-    val a11y = remember(strings) { A11yText(strings) }
+    val a11y = remember(strings) { A11yText(strings.words) }
     val slot = session.selectedSlot
     val description = a11y.canvas(session.placedCount, session.cellCount, slot + 1, session.remaining(slot))
     val peeking = peek.shown
@@ -900,7 +900,7 @@ private fun PlacementTool.icon() = when (this) {
  */
 @Composable
 private fun ToolWell(tool: PlacementTool, count: Int?, usable: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val description = A11yText(strings()).tool(tool.label(), count)
+    val description = A11yText(strings().words).tool(tool.label(), count)
     Box(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -991,7 +991,7 @@ private fun ToolTrough(
 private fun FillColorButton(session: PlaySession, controller: CanvasController, modifier: Modifier = Modifier) {
     val left = session.remaining(session.selectedSlot)
     val strings = strings()
-    val description = A11yText(strings).fillColor(session.selectedSlot + 1)
+    val description = A11yText(strings.words).fillColor(session.selectedSlot + 1)
     Row(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -1046,7 +1046,7 @@ private fun Trough(
     val lift by animateDpAsState(if (selected) (-3).dp else 0.dp, if (instantLift) snap() else tween(LIFT_MS), label = "lift")
     val shape = RoundedCornerShape(8.dp)
     val strings = strings()
-    val description = A11yText(strings).trough(number, remaining)
+    val description = A11yText(strings.words).trough(number, remaining)
     Column(
         modifier
             .width(width)

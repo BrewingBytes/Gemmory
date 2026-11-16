@@ -53,4 +53,12 @@ class WordsTest {
         assertEquals("木曜日", LocaleFormats("ja").weekday(0))
         assertEquals("Wednesday", LocaleFormats("en").weekday(-1))
     }
+
+    @Test
+    fun aFirstLetterIsLoweredByTheLanguagesOwnRules() {
+        assertEquals("ıstanbul yolda", LocaleFormats("tr").lowercaseFirst("Istanbul yolda"), "Turkish dotless I")
+        assertEquals("istanbul yolda", LocaleFormats("en").lowercaseFirst("Istanbul yolda"))
+        assertEquals("jeszcze 4 w drodze", words("pl").lowercaseFirst("Jeszcze 4 w drodze"))
+        assertEquals("", LocaleFormats("en").lowercaseFirst(""))
+    }
 }
