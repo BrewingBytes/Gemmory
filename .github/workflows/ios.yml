@@ -1,8 +1,8 @@
 # iOS CI (T60, eng D19, D24, D25; plan docs/designs/gemmory-ios.md). Three parts:
-#  - `ios-kotlin`, `ios-iphone` and `ios-ipad`, side by side on every PR, every push to main and every merge-queue
-#    commit, with no path filter (shared code changes iOS too). `ios-kotlin` runs the `:shared` and `:composeApp` tests
+#  - `ios-kotlin` and `ios-iphone` side by side on every PR, every push to main and every merge-queue commit, with no
+#    path filter (shared code changes iOS too); `ios-ipad` joins them in the merge queue and on main only. `ios-kotlin` runs the `:shared` and `:composeApp` tests
 #    on the iOS simulator; `ios-iphone` and `ios-ipad` each build GemmoryKit and the app and run the XCTests on one
-#    pinned simulator. `ios` then passes only when both did, and merges their screenshots for PR bodies
+#    pinned simulator. `ios` then passes only when every device that ran did, and merges their screenshots for PR bodies
 #    (`ios-screenshots`).
 #  - the `ios-gate` commit status, the required check on main (eng D25): it follows both jobs, except on a PR
 #    labelled `android-hotfix`, where it passes at once and the jobs still run and report
@@ -105,25 +105,20 @@ jobs:
             shared/build/reports/
             composeApp/build/reports/
 
-  # The iPhone and the iPad side by side, on a runner each (macOS runners are free on a public repo). Each builds the
-  # app itself while its simulator boots, so neither waits on the other or on a copied build.
+  # The iPhone and (outside PRs) the iPad side by side, on a runner each (macOS runners are free on a public repo). Each
+  # builds the app itself, then boots its simulator, so neither waits on the other or on a copied build.
   ios-device:
     name: ios-${{ matrix.device }}
     # Label changes only re-post the gate; they never rebuild.
     if: ${{ !startsWith(github.ref, 'refs/tags/') && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
     runs-on: macos-26
     timeout-minutes: 45
+    # PRs run the iPhone only; the merge queue and main add the iPad. The org runs only a few macOS jobs at once, and
+    # three per PR left them queued for half an hour; the queue still checks the iPad before anything reaches main.
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - device: iphone
-            simulator: iPhone 17 Pro
-            test-minutes: 15
-          # A new iPad's first boot takes about 6 min on the runner; it overlaps the build.
-          - device: ipad
-            simulator: iPad Air 11-inch (M4)
-            test-minutes: 20
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"device":"iphone","simulator":"iPhone 17 Pro","test-minutes":15}]' || '[{"device":"iphone","simulator":"iPhone 17 Pro","test-minutes":15},{"device":"ipad","simulator":"iPad Air 11-inch (M4)","test-minutes":20}]') }}
     # PRs: a new push cancels the old build. main and the merge queue: one group per commit.
     concurrency:
       group: ios-${{ matrix.device }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
@@ -142,15 +137,6 @@ jobs:
           sudo xcode-select -s "$XCODE_APP"
           xcodebuild -version
 
-      # A fresh simulator on the pinned runtime, so a runner image update can't move the device or the iOS version.
-      # It boots in the background while the app builds; the tests wait for it below.
-      - name: Create and start booting the simulator
-        timeout-minutes: 5
-        run: |
-          udid=$(xcrun simctl create "Gemmory ${{ matrix.device }}" "${{ matrix.simulator }}" "$SIM_RUNTIME")
-          echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
-          xcrun simctl boot "$udid"
-
       - uses: actions/setup-java@v5
         with:
           distribution: zulu
@@ -167,9 +153,10 @@ jobs:
           key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
 
       # Release, as the scheme's test action says: Debug Kotlin/Native runs the app so slowly on the runner's simulator
-      # that a launch took 4 min (#168). The Release link is the long part of this job.
+      # that a launch took 4 min (#168). The Release link is the long part of this job: about 10 min alone on the
+      # 3-core runner, and 17-25 with a simulator booting beside it (measured on #199), so the simulator boots after.
       - name: Build GemmoryKit, the app and the UI tests
-        timeout-minutes: 30
+        timeout-minutes: 20
         run: |
           xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-dd CODE_SIGNING_ALLOWED=NO
@@ -185,10 +172,19 @@ jobs:
           path: ~/.konan
           key: ${{ steps.konan.outputs.cache-primary-key }}
 
+      # A fresh simulator on the pinned runtime, so a runner image update can't move the device or the iOS version.
+      # Booted only once the build is done (above); a new iPad's first boot takes about 6 min, an iPhone's 1-2.
+      - name: Create and boot the simulator
+        timeout-minutes: 10
+        run: |
+          udid=$(xcrun simctl create "Gemmory ${{ matrix.device }}" "${{ matrix.simulator }}" "$SIM_RUNTIME")
+          echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+
       - name: XCTests on the ${{ matrix.simulator }}
         timeout-minutes: ${{ matrix.test-minutes }}
         run: |
-          xcrun simctl bootstatus "$SIM_UDID" -b
           xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
             -destination "id=$SIM_UDID" -derivedDataPath build/ios-dd \
             -resultBundlePath build/ios-results/${{ matrix.device }}.xcresult
@@ -227,7 +223,7 @@ jobs:
           path: |
             build/ios-results/
 
-  # The one `ios` check the gate reads (ios-gate.sh): green only when both devices are. It also merges the screenshots
+  # The one `ios` check the gate reads (ios-gate.sh): green only when every device that ran is. It also merges the screenshots
   # into the `ios-screenshots` artifact PR bodies use (workflow.md → iOS).
   ios:
     name: ios
@@ -244,14 +240,14 @@ jobs:
           pattern: ios-screenshots-*
           delete-merged: true
 
-      - name: Both devices passed
+      - name: Every device passed
         run: |
           {
             echo '### iOS screenshots'
             echo "Artifact \`ios-screenshots\` (one folder per simulator, iOS ${SIM_RUNTIME##*iOS-})."
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ needs.ios-device.result }}" != success ]; then
-            echo "::error::iPhone or iPad build or XCTests: ${{ needs.ios-device.result }} (see ios-iphone and ios-ipad)"
+            echo "::error::iPhone or iPad build or XCTests: ${{ needs.ios-device.result }} (see ios-iphone, and ios-ipad outside PRs)"
             exit 1
           fi
 
