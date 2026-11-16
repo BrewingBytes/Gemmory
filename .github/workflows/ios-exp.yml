@@ -1,0 +1,47 @@
+# TEMPORARY experiment (not for merge): is the Release link slow because the simulator boots alongside it?
+name: iOS build-time experiment
+on:
+  pull_request:
+    paths: ['.github/workflows/ios-exp.yml']
+permissions:
+  contents: read
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+  SIM_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
+jobs:
+  build:
+    name: exp-${{ matrix.variant }}
+    runs-on: macos-26
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [no-sim, ipad-booting]
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          sudo xcode-select -s "$XCODE_APP"
+          sysctl hw.ncpu hw.memsize; sysctl vm.swapusage
+      - if: matrix.variant == 'ipad-booting'
+        run: |
+          udid=$(xcrun simctl create exp "iPad Air 11-inch (M4)" "$SIM_RUNTIME")
+          xcrun simctl boot "$udid"
+      - uses: actions/setup-java@v5
+        with: { distribution: zulu, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v5
+        with: { cache-read-only: true }
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+      - name: sampler
+        run: |
+          (while true; do echo "$(date +%T) $(sysctl -n vm.swapusage) | $(memory_pressure -Q 2>/dev/null | tail -1) | load $(sysctl -n vm.loadavg)"; sleep 30; done) > sampler.log 2>&1 &
+      - name: compile
+        timeout-minutes: 20
+        run: ./gradlew :composeApp:compileKotlinIosSimulatorArm64 --no-configuration-cache
+      - name: link release
+        timeout-minutes: 40
+        run: ./gradlew :composeApp:linkReleaseFrameworkIosSimulatorArm64 --no-configuration-cache
+      - if: always()
+        run: cat sampler.log
