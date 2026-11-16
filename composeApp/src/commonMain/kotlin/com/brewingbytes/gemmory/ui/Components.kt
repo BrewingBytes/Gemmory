@@ -1,6 +1,5 @@
 package com.brewingbytes.gemmory.ui
 
-import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -49,10 +48,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -63,7 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.copy.LocalWords
 import kotlinx.coroutines.delay
 
 object GemIcons {
@@ -382,7 +378,7 @@ fun AppTopBar(title: String, onBack: (() -> Unit)?, modifier: Modifier = Modifie
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (onBack != null) {
-            IconAction(GemIcons.Back, stringResource(R.string.action_back), onBack)
+            IconAction(GemIcons.Back, LocalWords.current.text("action_back"), onBack)
             Spacer(Modifier.width(4.dp))
         }
         Text(
@@ -452,14 +448,14 @@ fun GemSheet(title: String, onDismiss: () -> Unit, returnFocusTo: String? = null
     val fade = remember { Animatable(if (reducedMotion) 0f else 1f) }
     LaunchedEffect(Unit) { if (reducedMotion) withFullMotion { fade.animateTo(1f, tween(SHEET_FADE_MS)) } }
     // The trigger lives in the screen's window, not the sheet's.
-    val screen = LocalView.current
+    val screen = rememberAccessibilityFocus()
     val returnTo by rememberUpdatedState(returnFocusTo)
     DisposableEffect(Unit) {
         openSheets++
         onDispose {
             openSheets--
             // When this sheet is replaced by another (Share progress → its result), the new title keeps the focus.
-            returnTo?.let { screen.returnAccessibilityFocus(it, cancelled = { openSheets > 0 }) }
+            returnTo?.let { screen.returnTo(it, cancelled = { openSheets > 0 }) }
         }
     }
     ModalBottomSheet(
@@ -473,11 +469,11 @@ fun GemSheet(title: String, onDismiss: () -> Unit, returnFocusTo: String? = null
         scrimColor = GemColors.Scrim.copy(alpha = 0.55f * fade.value),
         dragHandle = { GrabHandle() },
     ) {
-        val sheet = LocalView.current
+        val sheet = rememberAccessibilityFocus()
         LaunchedEffect(Unit) {
             // After the sheet's window is up and TalkBack has looked at it.
             delay(OPEN_FOCUS_DELAY_MS)
-            sheet.moveAccessibilityFocus(SHEET_TITLE_TAG)
+            sheet.moveTo(SHEET_TITLE_TAG)
         }
         Column(
             Modifier
@@ -504,7 +500,7 @@ fun GemSheet(title: String, onDismiss: () -> Unit, returnFocusTo: String? = null
  */
 @Composable
 private fun GrabHandle() {
-    val label = stringResource(R.string.a11y_drag_handle)
+    val label = LocalWords.current.text("a11y_drag_handle")
     Box(Modifier.size(48.dp).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         Box(Modifier.size(width = 32.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(GemColors.TextMuted))
     }
@@ -532,16 +528,7 @@ fun ConfirmSheet(
         Spacer(Modifier.height(20.dp))
         PrimaryButton(confirm, onConfirm, Modifier.fillMaxWidth())
         Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { GemTextButton(stringResource(R.string.action_keep), onDismiss) }
-    }
-}
-
-/** Reduced motion (design system, Motion): the system animator scale is 0 ("Remove animations"). */
-@Composable
-fun rememberReducedMotion(): Boolean {
-    val context = LocalContext.current
-    return remember {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { GemTextButton(LocalWords.current.text("action_keep"), onDismiss) }
     }
 }
 

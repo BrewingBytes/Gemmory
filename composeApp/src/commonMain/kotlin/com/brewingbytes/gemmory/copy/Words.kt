@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.copy
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.brewingbytes.gemmory.compose.res.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -56,3 +57,9 @@ class Words(private val xml: StringsXml, private val formats: LocaleFormats) {
         }
     }
 }
+
+/**
+ * The [Words] of the language the app shows, provided by `GemmoryTheme`: shared screens read their copy here. A
+ * composable outside the theme fails at once instead of showing another language.
+ */
+val LocalWords = staticCompositionLocalOf<Words> { error("No Words: GemmoryTheme provides LocalWords") }
