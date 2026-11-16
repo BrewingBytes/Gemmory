@@ -56,6 +56,8 @@ class RemoteCanvasStoreTest {
                 override fun text(id: Int, vararg args: Any) = language.text(id, *args)
 
                 override fun plural(id: Int, count: Int, vararg args: Any) = language.plural(id, count, *args)
+
+                override val words get() = language.words
             },
             bundledGrid = { _: BundledPicture -> bundledGrid },
             encodes = object : EncodeCanceller {

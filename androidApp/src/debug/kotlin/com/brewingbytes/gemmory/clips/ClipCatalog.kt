@@ -36,7 +36,7 @@ class ClipPicture(
 fun clipPictures(app: GemmoryApp): List<ClipPicture> {
     val strings = app.strings
     val bundled = BundledPictures.ALL.map { picture ->
-        ClipPicture(CanvasRef(CanvasKind.BUNDLED, picture.id), picture.title(strings), BundledPictures.canvasSizeOf(picture.id)?.let { Messages.size(strings, it) }, picture::title) {
+        ClipPicture(CanvasRef(CanvasKind.BUNDLED, picture.id), picture.title(strings), BundledPictures.canvasSizeOf(picture.id)?.let { Messages.size(strings.words, it) }, picture::title) {
             app.assets.open(SharedResources.file(picture.asset)).use { it.readBytes() }
         }
     }
@@ -44,7 +44,7 @@ fun clipPictures(app: GemmoryApp): List<ClipPicture> {
         ClipPicture(
             CanvasRef(CanvasKind.REMOTE, picture.id),
             picture.titleIn(strings.locale.toLanguageTag()),
-            Messages.size(strings, picture.size),
+            Messages.size(strings.words, picture.size),
             { picture.titleIn(it.locale.toLanguageTag()) },
         ) { app.remote.storedGrid(picture.id) }
     }

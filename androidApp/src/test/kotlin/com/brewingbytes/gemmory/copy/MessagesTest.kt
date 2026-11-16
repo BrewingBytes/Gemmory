@@ -40,7 +40,7 @@ class MessagesTest {
         ReminderCanvas(key, if (photo) null else key, placed, total, 1_000L)
 
     private fun reminder(post: ReminderOutcome.Post, title: String?, size: CanvasSize?, vip: Boolean, mystery: Boolean = false) =
-        Messages.reminder(s, ReminderCopy.of(post, title, size, vip, mystery))
+        Messages.reminder(s.words, ReminderCopy.of(post, title, size, vip, mystery))
 
     @Test
     fun theRemindersReadAsBefore() {
@@ -81,9 +81,9 @@ class MessagesTest {
 
     @Test
     fun theNudgeReadsAsBefore() {
-        assertEquals("Finish a picture today to keep your 6 days", Messages.nudgeLine(s, 6))
+        assertEquals("Finish a picture today to keep your 6 days", Messages.nudgeLine(s.words, 6))
         fun hint(target: NudgeTarget, title: String?, mystery: Boolean = false, card: TodayLabel? = null) =
-            Messages.hint(s, StreakNudge.hint(target, title, mystery, card)!!)
+            Messages.hint(s.words, StreakNudge.hint(target, title, mystery, card)!!)
         assertEquals("Today's picture is Quick", hint(NudgeTarget.Today("lighthouse"), "Lighthouse", card = TodayLabel.PICTURE))
         assertEquals("Today's pick is Quick", hint(NudgeTarget.Today("lighthouse"), "Lighthouse", card = TodayLabel.PICK))
         assertEquals("Lighthouse is Quick", hint(NudgeTarget.Today("lighthouse"), "Lighthouse"))
@@ -98,7 +98,7 @@ class MessagesTest {
     @Test
     fun theAwaitingLineNamesTheDayInTheAppsLanguage() {
         val today = LocalDate.of(2026, 10, 22).toEpochDay()
-        fun awaiting(vararg days: CoveredDay) = StreakNudge.awaiting(days.toList(), today)?.let { Messages.awaiting(s, it) }
+        fun awaiting(vararg days: CoveredDay) = StreakNudge.awaiting(days.toList(), today)?.let { Messages.awaiting(s.words, it) }
         assertEquals("Yesterday is covered when you finish", awaiting(CoveredDay(today - 1, DayKind.DAY_OFF)))
         assertEquals("Tuesday is covered when you finish", awaiting(CoveredDay(today - 2, DayKind.FREEZE)))
         assertEquals("Your missed days are covered when you finish", awaiting(CoveredDay(today - 2, DayKind.DAY_OFF), CoveredDay(today - 1, DayKind.FREEZE)))
@@ -106,20 +106,20 @@ class MessagesTest {
 
     @Test
     fun theProgressShareTheMysteryNamesAndTheShareText() {
-        assertEquals("47% done", Messages.progress(s, ProgressShare.line(564, 1_200)))
-        assertEquals("Just started", Messages.progress(s, ProgressShare.line(1, 1_200)))
-        assertEquals(listOf("Today's mystery picture", "Tonight's mystery picture", "Mystery picture"), MysteryName.entries.map { Messages.mystery(s, it) })
-        assertEquals(listOf("Quick", "Medium", "Big"), CanvasSize.entries.map { Messages.size(s, it) })
-        assertEquals(listOf("Fewer", "Standard", "More"), ColorChoice.entries.map { Messages.colors(s, it) })
+        assertEquals("47% done", Messages.progress(s.words, ProgressShare.line(564, 1_200)))
+        assertEquals("Just started", Messages.progress(s.words, ProgressShare.line(1, 1_200)))
+        assertEquals(listOf("Today's mystery picture", "Tonight's mystery picture", "Mystery picture"), MysteryName.entries.map { Messages.mystery(s.words, it) })
+        assertEquals(listOf("Quick", "Medium", "Big"), CanvasSize.entries.map { Messages.size(s.words, it) })
+        assertEquals(listOf("Fewer", "Standard", "More"), ColorChoice.entries.map { Messages.colors(s.words, it) })
         assertEquals(
             "Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
                 "&referrer=utm_source%3Dshare%26utm_medium%3Dbundled%26utm_campaign%3Dtimelapse%26utm_content%3Dfox-in-snow",
-            Messages.shareText(s, ShareLink.url(ShareLink.Medium.BUNDLED, pictureId = "fox-in-snow")),
+            Messages.shareText(s.words, ShareLink.url(ShareLink.Medium.BUNDLED, pictureId = "fox-in-snow")),
         )
         assertEquals(
             "Made with Gemmory: https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory" +
                 "&referrer=utm_source%3Dshare%26utm_medium%3Dstreak%26utm_campaign%3Dstreak_card",
-            Messages.shareText(s, ShareLink.streakUrl()),
+            Messages.shareText(s.words, ShareLink.streakUrl()),
         )
     }
 
@@ -137,11 +137,37 @@ class MessagesTest {
             ReminderMsg.AlmostFinished(50, ReminderMsg.Subject.Mystery),
             ReminderMsg.AlmostFinished(50, ReminderMsg.Subject.Titled("A")),
         )
-        reminders.forEach { val n = Messages.reminder(s, it); assertTrue(n.title.isNotBlank() && n.text.isNotBlank(), "$it") }
         val names = listOf(NudgeName.Photo, NudgeName.Mystery, NudgeName.Generic, NudgeName.Titled("A")) + TodayLabel.entries.map { NudgeName.TodayCard(it) }
-        names.forEach { assertTrue(Messages.hint(s, NudgeHint.Done(it, 10)).isNotBlank()) }
-        listOf(Awaiting.Several, Awaiting.Yesterday, Awaiting.Weekday(0)).forEach { assertTrue(Messages.awaiting(s, it).isNotBlank()) }
-        listOf(ProgressLine.JustStarted, ProgressLine.Done(5)).forEach { assertTrue(Messages.progress(s, it).isNotBlank()) }
+        // In every language (T64): Messages names its words in shared code, where no R class catches a missing one.
+        for (folder in XmlStrings.STRINGS.list().orEmpty().sorted()) {
+            val w = XmlStrings(folder).words
+            reminders.forEach { val n = Messages.reminder(w, it); assertTrue(n.title.isNotBlank() && n.text.isNotBlank(), "$folder $it") }
+            names.forEach { assertTrue(Messages.hint(w, NudgeHint.Done(it, 10)).isNotBlank(), "$folder $it") }
+            listOf(Awaiting.Several, Awaiting.Yesterday, Awaiting.Weekday(0)).forEach { assertTrue(Messages.awaiting(w, it).isNotBlank(), "$folder $it") }
+            listOf(ProgressLine.JustStarted, ProgressLine.Done(5)).forEach { assertTrue(Messages.progress(w, it).isNotBlank(), "$folder $it") }
+            MysteryName.entries.forEach { assertTrue(Messages.mystery(w, it).isNotBlank(), "$folder $it") }
+            CanvasSize.entries.forEach { assertTrue(Messages.size(w, it).isNotBlank(), "$folder $it") }
+            ColorChoice.entries.forEach { assertTrue(Messages.colors(w, it).isNotBlank(), "$folder $it") }
+            assertTrue(Messages.nudgeLine(w, 21).isNotBlank(), folder)
+            assertTrue(Messages.shareText(w, "https://x").contains("https://x"), folder)
+        }
+    }
+
+    /** The shared words read the same files as the Android resources: every English line agrees with [XmlStrings]. */
+    @Test
+    fun theSharedWordsMatchTheResourcesInEveryLanguage() {
+        for (folder in XmlStrings.STRINGS.list().orEmpty().sorted()) {
+            val xml = XmlStrings(folder, Locale.forLanguageTag(StringsXml.tagOf(folder)))
+            for (name in xml.strings.keys) {
+                val raw = xml.strings.getValue(name)
+                // Only the plain strings: arguments are StringsXmlFilesTest's (every word against String.format).
+                if ('%' !in raw) assertEquals(raw, xml.words.text(name), "$folder $name")
+            }
+            assertEquals(xml.number(4812), xml.words.number(4812), "$folder number")
+        }
+        // 1970-01-01 was a Thursday; the weekday is in the app's language, as java.time gave it before.
+        assertEquals("Thursday", Messages.weekday(XmlStrings.en.words, 0))
+        assertEquals("木曜日", Messages.weekday(XmlStrings("values-ja", Locale.JAPANESE).words, 0))
     }
 
     /** Every string resource the code names exists in English (a missing one would only fail at run time). */
@@ -167,8 +193,10 @@ class MessagesTest {
     fun everyEnglishStringIsUsed() {
         val xml = listOf(File("src/main/AndroidManifest.xml")) + File("src/main/res/xml").listFiles().orEmpty()
         val text = sources + xml.map { it.readText() }
-        val unused = s.strings.keys.filter { name -> text.none { "R.string.$name" in it || "@string/$name" in it } } +
-            s.plurals.keys.filter { name -> text.none { "R.plurals.$name" in it } }
+        // Shared code (T64) names its words in quotes: Words.text("size_quick").
+        val named = { name: String -> shared.any { "\"$name\"" in it } }
+        val unused = s.strings.keys.filter { name -> text.none { "R.string.$name" in it || "@string/$name" in it } && !named(name) } +
+            s.plurals.keys.filter { name -> text.none { "R.plurals.$name" in it } && !named(name) }
         assertEquals(emptyList(), unused, "unused strings")
     }
 
@@ -284,6 +312,11 @@ class MessagesTest {
             "values-de" to "de", "values-es" to "es", "values-pt-rBR" to "pt-BR", "values-fr" to "fr", "values-it" to "it",
             "values-ro" to "ro", "values-pl" to "pl", "values-tr" to "tr", "values-hu" to "hu", "values-bg" to "bg", "values-ja" to "ja",
         )
+
+        /** composeApp's shared code, which reads words by name through [Words] (T64). */
+        private val shared: List<String> by lazy {
+            File("../composeApp/src/commonMain/kotlin").walkTopDown().filter { it.extension == "kt" }.map { it.readText() }.toList()
+        }
 
         private val sources: List<String> by lazy {
             listOf("src/main/kotlin", "src/debug/kotlin", "src/release/kotlin").flatMap { dir ->

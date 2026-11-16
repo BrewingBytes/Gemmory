@@ -63,7 +63,7 @@ class AppArtAssets(private val context: Context) : ArtAssets {
         clipStore = strings.text(R.string.frame_clip_store),
         clipFree = strings.text(R.string.frame_clip_free, strings.text(R.string.frame_clip_store)),
         clipPromise = strings.text(R.string.frame_clip_promise),
-        progress = { Messages.progress(strings, it) },
+        progress = { Messages.progress(strings.words, it) },
     )
 
     override val appIcon: ImageBitmap? by lazy { asset(FrameAssets.ICON_ASSET) }

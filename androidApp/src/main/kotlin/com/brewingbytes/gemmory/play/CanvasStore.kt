@@ -574,7 +574,7 @@ class CanvasStore(
         if (ref.kind != CanvasKind.REMOTE) return null
         val mystery = record?.mystery == true || entry?.mystery == true
         if (!Mystery.hidden(mystery, finished)) return null
-        return Messages.mystery(strings, Mystery.name(entry?.availableFrom, LocalDate.fromEpochDays(dayClock.today())))
+        return Messages.mystery(strings.words, Mystery.name(entry?.availableFrom, LocalDate.fromEpochDays(dayClock.today())))
     }
 
     private fun CanvasSummary.Playable.withSize(size: CanvasSize?) =

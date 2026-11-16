@@ -315,7 +315,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
      * [progressLine] ("47% done", Figtree 600 36px) between the title and the app line.
      */
     fun drawText(canvas: Canvas, title: String, textTop: Int, height: Int, watermark: Boolean, progress: ProgressLine? = null) {
-        val progressLine = progress?.let { Messages.progress(strings, it) }
+        val progressLine = progress?.let { Messages.progress(strings.words, it) }
         val margin = px(MARGIN).toFloat()
         val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             display()
@@ -369,7 +369,7 @@ internal class FrameStyle(private val context: Context, private val width: Int) 
      * at 48px.
      */
     fun drawShareText(canvas: Canvas, layout: ShareLayout, title: String, progress: ProgressLine?) {
-        val progressLine = progress?.let { Messages.progress(strings, it) }
+        val progressLine = progress?.let { Messages.progress(strings.words, it) }
         val fade = Paint().apply {
             shader = LinearGradient(
                 0f, layout.fadeTop.toFloat(), 0f, layout.areaBottom.toFloat(),

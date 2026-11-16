@@ -60,7 +60,7 @@ class ReminderNotifier(context: Context) : ReminderChannel {
     fun post(post: ReminderOutcome.Post, picture: ReminderPicture?, vip: Boolean, day: Long): Boolean {
         if (!allowed()) return false
         ensureChannel()
-        val text = Messages.reminder(app.strings, ReminderCopy.of(post, picture?.title, picture?.size, vip, picture?.mystery == true))
+        val text = Messages.reminder(app.strings.words, ReminderCopy.of(post, picture?.title, picture?.size, vip, picture?.mystery == true))
         val icon = picture?.takeIf { post.reason != ReminderReason.STREAK }?.pattern?.invoke()?.let { if (picture.mystery) frost(it) else flat(it) } ?: appIcon()
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification_gem)

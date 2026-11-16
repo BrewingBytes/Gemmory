@@ -33,7 +33,7 @@ object ShareIntents {
         val send = Intent(Intent.ACTION_SEND)
             .setType(if (file.name.endsWith(".png")) "image/png" else "video/mp4")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, Messages.shareText(context.strings, ShareLink.url(request.medium, pictureId = request.pictureId)))
+            .putExtra(Intent.EXTRA_TEXT, Messages.shareText(context.strings.words, ShareLink.url(request.medium, pictureId = request.pictureId)))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         // ClipData carries the read grant through the chooser to the app the player picks.
         send.clipData = ClipData.newRawUri(null, uri)
@@ -99,7 +99,7 @@ object ShareIntents {
         val send = Intent(Intent.ACTION_SEND)
             .setType("image/png")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_TEXT, Messages.shareText(context.strings, ShareLink.streakUrl()))
+            .putExtra(Intent.EXTRA_TEXT, Messages.shareText(context.strings.words, ShareLink.streakUrl()))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         send.clipData = ClipData.newRawUri(null, uri)
         val picked = Intent(context, StreakShareCompletedReceiver::class.java).putExtra(StreakShareCompletedReceiver.MILESTONE, milestone)

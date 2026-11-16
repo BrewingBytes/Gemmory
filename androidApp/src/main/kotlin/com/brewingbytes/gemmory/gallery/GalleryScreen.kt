@@ -742,7 +742,7 @@ private fun TodayCardView(card: TodayCard, nudge: Nudge?, onNudge: () -> Unit, t
         },
     )
     val strings = strings()
-    val size = Messages.size(strings, card.size)
+    val size = Messages.size(strings.words, card.size)
     val description = A11yText(strings).today(tile.title, size, card.vip, card.free, tile.started, tile.percent, tile.done, card.drop, tile.mystery)
     Column(
         Modifier
@@ -816,9 +816,9 @@ private fun Hairline() {
 @Composable
 private fun NudgeLine(nudge: Nudge, onTap: () -> Unit) {
     val strings = strings()
-    val line = nudge.broken?.let(StreakText(strings)::stillRestorable) ?: Messages.nudgeLine(strings, nudge.days)
-    val hint = if (nudge.broken != null) strings.text(R.string.nudge_broken_hint) else nudge.hint?.let { Messages.hint(strings, it) }
-    val awaiting = nudge.awaiting?.let { Messages.awaiting(strings, it) }
+    val line = nudge.broken?.let(StreakText(strings)::stillRestorable) ?: Messages.nudgeLine(strings.words, nudge.days)
+    val hint = if (nudge.broken != null) strings.text(R.string.nudge_broken_hint) else nudge.hint?.let { Messages.hint(strings.words, it) }
+    val awaiting = nudge.awaiting?.let { Messages.awaiting(strings.words, it) }
     val description = listOfNotNull(line, hint, awaiting).reduce { a, b -> strings.text(R.string.a11y_join, a, b) }
     val figure = (nudge.broken ?: nudge.days).toString()
     Row(
