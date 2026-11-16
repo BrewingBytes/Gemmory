@@ -27,6 +27,7 @@ import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.ui.AppFonts
+import com.brewingbytes.gemmory.ui.typeface
 import com.brewingbytes.gemmory.ui.wrapFor
 import com.brewingbytes.gemmory.ui.GemRenderer
 import kotlin.math.max

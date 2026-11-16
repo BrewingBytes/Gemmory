@@ -1,6 +1,5 @@
 package com.brewingbytes.gemmory.ui
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -30,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -38,16 +37,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.brewingbytes.gemmory.SharedResources
-import com.brewingbytes.gemmory.copy.strings
-import kotlin.random.Random
+import com.brewingbytes.gemmory.copy.LocalWords
+import com.brewingbytes.gemmory.copy.Words
+import com.brewingbytes.gemmory.render.StreakCard
 
 /** Tokens from docs/design-system.md ("The Sorting Tray"). */
 object GemColors {
@@ -84,15 +81,10 @@ data class Felt(val ground: Color, val deep: Color, val raised: Color)
 
 val LocalFelt = staticCompositionLocalOf { Felt(GemColors.Felt, GemColors.FeltDeep, GemColors.FeltRaised) }
 
-internal val AtkinsonMono = FontFamily(
-    AppFonts.MONO.font(FontWeight.Bold),
+/** Atkinson Hyperlegible Mono 700, the numbers' face in every language (DC3); also the shared renderers' numbers. */
+val AtkinsonMono = FontFamily(
+    appFont(AppFonts.MONO, FontWeight.Bold),
 )
-
-private fun AppFonts.Face.font(weight: FontWeight) = if (variable) {
-    Font(path, SharedResources.assets, weight, variationSettings = FontVariation.Settings(FontVariation.weight(this.weight)))
-} else {
-    Font(path, SharedResources.assets, weight)
-}
 
 /**
  * The type scale in one language's faces (T49): Latin is Bricolage Grotesque + Figtree as before, word for word the
@@ -100,11 +92,11 @@ private fun AppFonts.Face.font(weight: FontWeight) = if (variable) {
  */
 @Immutable
 class GemTypeSet private constructor(fonts: AppFonts, language: String) {
-    private val displayFamily = FontFamily(fonts.display.font(FontWeight.SemiBold))
-    private val bodyFamily = FontFamily(fonts.body.font(FontWeight.Normal), fonts.bodyStrong.font(FontWeight.SemiBold))
+    private val displayFamily = FontFamily(appFont(fonts.display, FontWeight.SemiBold))
+    private val bodyFamily = FontFamily(appFont(fonts.body, FontWeight.Normal), appFont(fonts.bodyStrong, FontWeight.SemiBold))
     private val wrap = when (language) {
         "de", "hu" -> TextStyle(hyphens = Hyphens.Auto)
-        "ja" -> TextStyle(lineBreak = LineBreak.Paragraph.copy(wordBreak = LineBreak.WordBreak.Phrase))
+        "ja" -> TextStyle(lineBreak = phraseLineBreak)
         else -> TextStyle()
     }
 
@@ -115,13 +107,10 @@ class GemTypeSet private constructor(fonts: AppFonts, language: String) {
     val label = wrap.merge(TextStyle(fontFamily = bodyFamily, fontSize = 13.sp))
 
     companion object {
-        private val sets = mutableMapOf<String, GemTypeSet>()
+        private val sets = listOf("en", "de", "hu", "ja", "bg").associateWith { key -> lazy { GemTypeSet(AppFonts.forLanguage(key), key) } }
 
         /** The scale for a language code, made once per language. */
-        fun of(language: String): GemTypeSet {
-            val key = when (language) { "de", "hu", "ja", "bg" -> language; else -> "en" }
-            return synchronized(sets) { sets.getOrPut(key) { GemTypeSet(AppFonts.forLanguage(key), key) } }
-        }
+        fun of(language: String): GemTypeSet = sets.getValue(if (language in sets) language else "en").value
     }
 }
 
@@ -142,8 +131,12 @@ object GemType {
     val streakHero = mono.copy(fontSize = 88.sp, lineHeight = 92.sp)
 }
 
+/**
+ * The app's theme in [words]' language: the felt (one step darker under system dark mode), the type scale of that
+ * language and the words themselves ([LocalWords]) for every shared screen below it.
+ */
 @Composable
-fun GemmoryTheme(content: @Composable () -> Unit) {
+fun GemmoryTheme(words: Words, content: @Composable () -> Unit) {
     val felt = if (isSystemInDarkTheme()) {
         Felt(GemColors.FeltDark, GemColors.FeltDeepDark, GemColors.FeltRaisedDark)
     } else {
@@ -160,7 +153,7 @@ fun GemmoryTheme(content: @Composable () -> Unit) {
         secondaryContainer = felt.raised,
         onSecondaryContainer = GemColors.Bone,
     )
-    val type = GemTypeSet.of(strings().locale.language)
+    val type = GemTypeSet.of(words.tag.substringBefore('-'))
     val typography = Typography(
         headlineLarge = type.displayLarge,
         titleLarge = type.display,
@@ -169,25 +162,14 @@ fun GemmoryTheme(content: @Composable () -> Unit) {
         labelLarge = type.button,
         bodySmall = type.label,
     )
-    androidx.compose.runtime.CompositionLocalProvider(LocalFelt provides felt, LocalGemType provides type) {
+    CompositionLocalProvider(LocalFelt provides felt, LocalGemType provides type, LocalWords provides words) {
         MaterialTheme(colorScheme = scheme, typography = typography, content = content)
     }
 }
 
-/** The felt's ~9% grain: one small seeded noise bitmap, tiled (also on the streak share card, #104). */
-fun grainBitmap(): Bitmap {
-    val size = 96
-    val random = Random(0x6E6D)
-    val pixels = IntArray(size * size) {
-        val v = random.nextInt(256)
-        (23 shl 24) or (v shl 16) or (v shl 8) or v
-    }
-    return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
-}
-
-/** ~9% grain over the felt ground. */
+/** ~9% grain over the felt ground: the streak card's seeded noise bitmap, tiled. */
 private val grainBrush: ShaderBrush by lazy {
-    ShaderBrush(ImageShader(grainBitmap().asImageBitmap(), TileMode.Repeated, TileMode.Repeated))
+    ShaderBrush(ImageShader(StreakCard.grain(), TileMode.Repeated, TileMode.Repeated))
 }
 
 fun Modifier.feltGround(color: Color): Modifier = background(color).drawBehind { drawRect(grainBrush) }
