@@ -105,8 +105,8 @@ jobs:
             shared/build/reports/
             composeApp/build/reports/
 
-  # The iPhone and (outside PRs) the iPad side by side, on a runner each (macOS runners are free on a public repo). Each builds the
-  # app itself while its simulator boots, so neither waits on the other or on a copied build.
+  # The iPhone and (outside PRs) the iPad side by side, on a runner each (macOS runners are free on a public repo). Each
+  # builds the app itself, then boots its simulator, so neither waits on the other or on a copied build.
   ios-device:
     name: ios-${{ matrix.device }}
     # Label changes only re-post the gate; they never rebuild.
@@ -115,7 +115,6 @@ jobs:
     timeout-minutes: 45
     # PRs run the iPhone only; the merge queue and main add the iPad. The org runs only a few macOS jobs at once, and
     # three per PR left them queued for half an hour; the queue still checks the iPad before anything reaches main.
-    # A new iPad's first boot takes about 6 min on the runner; it overlaps the build.
     strategy:
       fail-fast: false
       matrix:
@@ -138,15 +137,6 @@ jobs:
           sudo xcode-select -s "$XCODE_APP"
           xcodebuild -version
 
-      # A fresh simulator on the pinned runtime, so a runner image update can't move the device or the iOS version.
-      # It boots in the background while the app builds; the tests wait for it below.
-      - name: Create and start booting the simulator
-        timeout-minutes: 5
-        run: |
-          udid=$(xcrun simctl create "Gemmory ${{ matrix.device }}" "${{ matrix.simulator }}" "$SIM_RUNTIME")
-          echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
-          xcrun simctl boot "$udid"
-
       - uses: actions/setup-java@v5
         with:
           distribution: zulu
@@ -163,9 +153,10 @@ jobs:
           key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
 
       # Release, as the scheme's test action says: Debug Kotlin/Native runs the app so slowly on the runner's simulator
-      # that a launch took 4 min (#168). The Release link is the long part of this job.
+      # that a launch took 4 min (#168). The Release link is the long part of this job: about 10 min alone on the
+      # 3-core runner, and 17-25 with a simulator booting beside it (measured on #199), so the simulator boots after.
       - name: Build GemmoryKit, the app and the UI tests
-        timeout-minutes: 30
+        timeout-minutes: 20
         run: |
           xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-dd CODE_SIGNING_ALLOWED=NO
@@ -181,10 +172,19 @@ jobs:
           path: ~/.konan
           key: ${{ steps.konan.outputs.cache-primary-key }}
 
+      # A fresh simulator on the pinned runtime, so a runner image update can't move the device or the iOS version.
+      # Booted only once the build is done (above); a new iPad's first boot takes about 6 min, an iPhone's 1-2.
+      - name: Create and boot the simulator
+        timeout-minutes: 10
+        run: |
+          udid=$(xcrun simctl create "Gemmory ${{ matrix.device }}" "${{ matrix.simulator }}" "$SIM_RUNTIME")
+          echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+
       - name: XCTests on the ${{ matrix.simulator }}
         timeout-minutes: ${{ matrix.test-minutes }}
         run: |
-          xcrun simctl bootstatus "$SIM_UDID" -b
           xcodebuild test-without-building -project "$PROJECT" -scheme "$SCHEME" \
             -destination "id=$SIM_UDID" -derivedDataPath build/ios-dd \
             -resultBundlePath build/ios-results/${{ matrix.device }}.xcresult
