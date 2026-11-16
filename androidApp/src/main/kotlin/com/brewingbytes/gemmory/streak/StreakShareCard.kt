@@ -29,6 +29,7 @@ import com.brewingbytes.gemmory.policy.CardDay
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.ui.AppFonts
+import com.brewingbytes.gemmory.ui.typeface
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemRenderer
 import com.brewingbytes.gemmory.ui.grainBitmap

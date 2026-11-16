@@ -1,15 +1,17 @@
 package com.brewingbytes.gemmory.ui
 
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.View
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.compose.ui.MotionDurationScale
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.node.RootForTest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.withContext
 
 /**
  * Moves TalkBack's focus to the node tagged [tag] in this Compose view's window (design system, Accessibility:
@@ -49,13 +51,22 @@ private fun View.semanticsIdOf(tag: String): Int? =
 private const val RETURN_STEP_MS = 150L
 private const val RETURN_WINDOW_MS = 1_200L
 
-/**
- * Animations at their real duration even when the system animator scale is 0 (design D21). "Remove animations" sets
- * that scale, and Compose would otherwise finish every animation at once; the reduced-motion fades and blinks must
- * still be seen.
- */
-private object FullMotion : MotionDurationScale {
-    override val scaleFactor: Float get() = 1f
+@Composable
+actual fun rememberReducedMotion(): Boolean {
+    val context = LocalContext.current
+    return remember {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
 }
 
-suspend fun <T> withFullMotion(block: suspend CoroutineScope.() -> T): T = withContext(FullMotion, block)
+/** TalkBack's focus, through the Compose view's accessibility node provider ([moveAccessibilityFocus]). */
+@Composable
+actual fun rememberAccessibilityFocus(): AccessibilityFocus {
+    val view = LocalView.current
+    return remember(view) {
+        object : AccessibilityFocus {
+            override fun moveTo(tag: String): Boolean = view.moveAccessibilityFocus(tag)
+            override fun returnTo(tag: String, cancelled: () -> Boolean) = view.returnAccessibilityFocus(tag, cancelled)
+        }
+    }
+}

@@ -28,6 +28,7 @@ import com.brewingbytes.gemmory.timelapse.FrameArt
 import com.brewingbytes.gemmory.render.JapaneseWrap
 import com.brewingbytes.gemmory.streak.StreakShareCardRenderer
 import com.brewingbytes.gemmory.ui.AppFonts
+import com.brewingbytes.gemmory.ui.typeface
 import com.brewingbytes.gemmory.ui.wrapFor
 import android.graphics.Paint
 import android.text.StaticLayout

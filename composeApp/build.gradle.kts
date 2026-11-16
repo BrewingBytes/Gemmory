@@ -46,6 +46,8 @@ kotlin {
             implementation(libs.cmp.runtime)
             implementation(libs.cmp.foundation)
             implementation(libs.cmp.ui)
+            // The design-system kit (package ui, T64): buttons, switch, bottom sheet and the theme are Material 3.
+            implementation(libs.cmp.material3)
             implementation(libs.cmp.components.resources)
             implementation(libs.cmp.navigationevent.compose)
             // eng D5: screen state in KMP ViewModels with SavedStateHandle, created through the AppGraph (graphViewModel).

@@ -15,6 +15,7 @@ import androidx.core.graphics.withSave
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasZoom
 import com.brewingbytes.gemmory.ui.AppFonts
+import com.brewingbytes.gemmory.ui.typeface
 import com.brewingbytes.gemmory.ui.TableCut
 import kotlin.math.PI
 import kotlin.math.floor
