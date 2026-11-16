@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.gallery
 
+import com.brewingbytes.gemmory.app.LocalAppGraph
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -58,7 +59,6 @@ import androidx.compose.ui.unit.sp
 import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.copy.Strings
 import com.brewingbytes.gemmory.copy.strings
-import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.policy.InventoryState
@@ -252,7 +252,8 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
     val context = LocalContext.current
     val view = LocalView.current
     val reducedMotion = rememberReducedMotion()
-    val feedback = remember { Feedback(context, (context.applicationContext as GemmoryApp).settings) }
+    val settings = LocalAppGraph.current.settings
+    val feedback = remember { Feedback(context, settings) }
     DisposableEffect(feedback) { onDispose { feedback.release() } }
     val rotation = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()

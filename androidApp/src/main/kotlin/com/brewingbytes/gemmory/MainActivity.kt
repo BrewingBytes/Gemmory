@@ -8,6 +8,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.CompositionLocalProvider
+import com.brewingbytes.gemmory.app.LocalAppGraph
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -128,10 +130,13 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            GemmoryTheme {
-                // Saved state, so the screen survives rotation and the process being killed in the background.
-                val stack = rememberSaveable(saver = BackStack.saver) { BackStack() }
-                App(stack)
+            // The shared services (iOS eng D6) for every screen below, shared or not.
+            CompositionLocalProvider(LocalAppGraph provides app.graph) {
+                GemmoryTheme {
+                    // Saved state, so the screen survives rotation and the process being killed in the background.
+                    val stack = rememberSaveable(saver = BackStack.saver) { BackStack() }
+                    App(stack)
+                }
             }
         }
     }

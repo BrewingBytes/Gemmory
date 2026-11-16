@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.app.LocalAppGraph
 import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
@@ -213,7 +214,7 @@ fun PlayScreen(
                 val context = LocalContext.current
                 val view = LocalView.current
                 val scope = rememberCoroutineScope()
-                val settings = (context.applicationContext as GemmoryApp).settings
+                val settings = LocalAppGraph.current.settings
                 val milestonesOn by settings.milestones.collectAsStateWithLifecycle()
                 SideEffect {
                     s.milestonesOn = milestonesOn
@@ -566,7 +567,7 @@ private fun GemCanvas(
     }
     val renderer = remember(session.pattern, mystery) { if (shared == null) CanvasRenderer(context, session.pattern, mystery) else null }
     // Read in the draw block, so a change in Settings redraws an open canvas at once (#19).
-    val highlight by (context.applicationContext as GemmoryApp).settings.highlight.collectAsStateWithLifecycle()
+    val highlight by LocalAppGraph.current.settings.highlight.collectAsStateWithLifecycle()
 
     LaunchedEffect(session, hints) {
         snapshotFlow { viewport.isLaidOut }.first { it }

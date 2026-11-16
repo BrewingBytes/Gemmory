@@ -195,6 +195,15 @@ Shared code reaches the phone's data through two seams in `composeApp/src/common
 - `goldens/storage/prefs.txt` lists every prefs file and key. `PrefsKeysTest` fails on a key the code adds, renames or drops until that list changes on purpose, and a change there is a data migration that needs its own plan.
 - `KeyValueSeedTest` (connected) writes every listed key as SharedPreferences' XML, plus a canvas's and the policies' save files, and reads them back value for value through the seams.
 
+## The shared app's services (T64)
+
+Shared screens get their services from one `AppGraph` (`composeApp/src/commonMain/kotlin/com/brewingbytes/gemmory/app/`, eng D6), with no DI library:
+
+- Each shell builds it once from a `PlatformServices`: the key-value files, the `FileStore`, the crash reporter and the clock. On Android, `GemmoryApp` builds it first thing in `onCreate`, and its own `settings` and `dayClock` read through to it. On iOS, `MainViewController(services)` will build it in Stage 2.
+- Composables read it from `LocalAppGraph`, which `MainActivity` provides at the root. A composable outside it fails at once, so a test that hosts a screen on its own provides it too.
+- A screen's ViewModel is a KMP `androidx.lifecycle.ViewModel` (eng D5), made by `graphViewModel { handle -> MyViewModel(settings, handle) }`. Its services come in through the constructor, never from a `Context`. On Android, `SavedStateHandle` keeps restoring after rotation and process death as before. On iOS it lives in memory.
+- A service moves into the graph when the first shared screen needs it. So far: `NonFatalReporter`, `DayClock` and `AppSettings` (on `KeyValueStore`, the same `settings` file and keys).
+
 ## Copy and strings (T48)
 
 Every word the app shows is in `composeApp/src/commonMain/composeResources/files/strings/values/strings.xml`, grouped by screen, and in each language's `values-xx/strings.xml` there (T49, below); no user-facing English is written in Kotlin. Since T63 that folder is the one source for both platforms: androidApp adds it as a `res` directory, so `R.string`/`R.plurals` read it unchanged, and iOS reads the same files through `StringsXml` (`shared/copy/`: aapt's escapes, `%1$s`/`%1$d`/`%%`, CLDR plurals in `PluralRules`). Compose resources' own `Res.string` isn't used for the copy: it shows `%%` as it is (Stage 0, #167). To add or change copy:

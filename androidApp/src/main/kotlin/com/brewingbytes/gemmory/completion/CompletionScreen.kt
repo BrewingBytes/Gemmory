@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.completion
 
+import com.brewingbytes.gemmory.app.LocalAppGraph
 import android.app.Application
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
@@ -371,7 +372,8 @@ fun CompletionScreen(
     LaunchedEffect(ref, fresh) { if (fresh) vm.decideWhereFound(ref) }
     val reducedMotion = rememberReducedMotion()
     val context = LocalContext.current
-    val feedback = remember { Feedback(context, (context.applicationContext as GemmoryApp).settings) }
+    val settings = LocalAppGraph.current.settings
+    val feedback = remember { Feedback(context, settings) }
     DisposableEffect(feedback) { onDispose { feedback.release() } }
 
     val sequence = fresh && !vm.hasPlayed(ref)

@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.settings
 
 import com.brewingbytes.gemmory.ads.FakePrefs
 import com.brewingbytes.gemmory.play.HighlightStyle
+import com.brewingbytes.gemmory.storage.SharedPrefsStore
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -10,7 +11,7 @@ import kotlin.test.assertTrue
 class AppSettingsTest {
     @Test
     fun defaultsAreSoundHapticsMilestonesAndStrongerTint() {
-        val settings = AppSettings(FakePrefs())
+        val settings = AppSettings(store(FakePrefs()))
         assertTrue(settings.sound.value)
         assertTrue(settings.haptics.value)
         assertTrue(settings.milestones.value)
@@ -21,10 +22,10 @@ class AppSettingsTest {
     fun theHighlightStyleRoundTripsThroughThePrefs() {
         val prefs = FakePrefs()
         for (style in HighlightStyle.entries) {
-            val settings = AppSettings(prefs)
+            val settings = AppSettings(store(prefs))
             settings.setHighlight(style)
             assertEquals(style, settings.highlight.value, "applied at once")
-            assertEquals(style, AppSettings(prefs).highlight.value, "read back on the next start")
+            assertEquals(style, AppSettings(store(prefs)).highlight.value, "read back on the next start")
         }
         assertEquals(mapOf("highlight" to "dim"), prefs.values.filterKeys { it == "highlight" })
     }
@@ -33,21 +34,21 @@ class AppSettingsTest {
     @Test
     fun eachTabsFinishedSectionIsCollapsedByDefaultAndKeptOnItsOwn() {
         val prefs = FakePrefs()
-        val settings = AppSettings(prefs)
+        val settings = AppSettings(store(prefs))
         assertFalse(settings.finishedOpen(0))
         assertFalse(settings.finishedOpen(1))
         settings.setFinishedOpen(1, true)
-        assertTrue(AppSettings(prefs).finishedOpen(1), "read back on the next start")
-        assertFalse(AppSettings(prefs).finishedOpen(0), "the other tab keeps its own")
+        assertTrue(AppSettings(store(prefs)).finishedOpen(1), "read back on the next start")
+        assertFalse(AppSettings(store(prefs)).finishedOpen(0), "the other tab keeps its own")
         settings.setFinishedOpen(1, false)
-        assertFalse(AppSettings(prefs).finishedOpen(1))
+        assertFalse(AppSettings(store(prefs)).finishedOpen(1))
     }
 
     /** T42: Music on at 30% by default, its own switch apart from Sound (R1), in 10% steps, and the first-music flags. */
     @Test
     fun musicIsOnAtThirtyPercentApartFromSound() {
         val prefs = FakePrefs()
-        val settings = AppSettings(prefs)
+        val settings = AppSettings(store(prefs))
         assertTrue(settings.music.value)
         assertEquals(30, settings.musicVolume.value)
         assertFalse(settings.musicUnlocked.value, "no music before the first canvas (D24)")
@@ -56,35 +57,38 @@ class AppSettingsTest {
         assertTrue(settings.sound.value, "Music off leaves Sound on")
         settings.setSound(false)
         settings.setMusic(true)
-        assertTrue(AppSettings(prefs).music.value, "Sound off leaves Music on")
+        assertTrue(AppSettings(store(prefs)).music.value, "Sound off leaves Music on")
         settings.setMusicVolume(73)
-        assertEquals(70, AppSettings(prefs).musicVolume.value)
+        assertEquals(70, AppSettings(store(prefs)).musicVolume.value)
         settings.unlockMusic()
         settings.musicChipShown()
-        assertTrue(AppSettings(prefs).musicUnlocked.value)
-        assertTrue(AppSettings(prefs).musicChipShown)
+        assertTrue(AppSettings(store(prefs)).musicUnlocked.value)
+        assertTrue(AppSettings(store(prefs)).musicChipShown)
     }
 
     @Test
     fun milestonesOffIsKept() {
         val prefs = FakePrefs()
-        AppSettings(prefs).setMilestones(false)
-        assertFalse(AppSettings(prefs).milestones.value)
+        AppSettings(store(prefs)).setMilestones(false)
+        assertFalse(AppSettings(store(prefs)).milestones.value)
     }
 
     @Test
     fun anUnknownStoredStyleFallsBackToTheDefault() {
         val prefs = FakePrefs()
         prefs.values["highlight"] = "sparkle"
-        assertEquals(HighlightStyle.TINT, AppSettings(prefs).highlight.value)
+        assertEquals(HighlightStyle.TINT, AppSettings(store(prefs)).highlight.value)
     }
 
     /** T45: Play Games' turn waits for the first finish and, once come, is kept (backed-up preferences). */
     @Test
     fun playGamesReadyStartsOffAndIsKept() {
         val prefs = FakePrefs()
-        assertFalse(AppSettings(prefs).playGamesReady)
-        AppSettings(prefs).markPlayGamesReady()
-        assertTrue(AppSettings(prefs).playGamesReady, "read back on the next start")
+        assertFalse(AppSettings(store(prefs)).playGamesReady)
+        AppSettings(store(prefs)).markPlayGamesReady()
+        assertTrue(AppSettings(store(prefs)).playGamesReady, "read back on the next start")
     }
+
+    /** The settings file as the app opens it (T64): SharedPreferences under the same name and keys as before. */
+    private fun store(prefs: FakePrefs) = SharedPrefsStore(AppSettings.FILE, prefs)
 }

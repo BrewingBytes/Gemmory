@@ -14,6 +14,8 @@ import com.brewingbytes.gemmory.achievements.GamesBackend
 import com.brewingbytes.gemmory.achievements.GamesSession
 import com.brewingbytes.gemmory.achievements.PlayGamesBackend
 import com.brewingbytes.gemmory.ads.AdGateway
+import com.brewingbytes.gemmory.app.AppGraph
+import com.brewingbytes.gemmory.app.PlatformServices
 import com.brewingbytes.gemmory.ads.AdMobGateway
 import com.brewingbytes.gemmory.ads.ResumedActivity
 import com.brewingbytes.gemmory.ads.ConsentManager
@@ -72,6 +74,9 @@ import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.settings.AppSettings
 import com.brewingbytes.gemmory.storage.FileStateStore
+import com.brewingbytes.gemmory.storage.FileStore
+import com.brewingbytes.gemmory.storage.KeyValueStore
+import com.brewingbytes.gemmory.storage.SharedPrefsStore
 import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.streak.StreakView
@@ -106,6 +111,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 class GemmoryApp : Application() {
     /** Crashlytics in release builds, Logcat in debug (#12). Kinds, codes and reasons only, scrubbed of paths. */
@@ -120,8 +126,14 @@ class GemmoryApp : Application() {
     lateinit var store: CanvasStore
         private set
 
-    lateinit var settings: AppSettings
+    /**
+     * The shared app's services (iOS eng D6), built first in [onCreate]. The fields below that it holds read through to
+     * it, so each service exists once; the rest move in as their screens move to shared UI.
+     */
+    lateinit var graph: AppGraph
         private set
+
+    val settings: AppSettings get() = graph.settings
 
     /** The daily play streak (#33). */
     lateinit var streak: PlayStreak
@@ -205,11 +217,21 @@ class GemmoryApp : Application() {
     @Volatile
     internal var testNowMillis: (() -> Long)? = null
 
-    /**
-     * The local date of drops (T36), Today's picture, `day_played` and the gallery's midnight reload: one clock, so they
-     * all turn over together.
-     */
-    val dayClock = DayClock({ testNowMillis?.invoke() ?: System.currentTimeMillis() }) { TimeZone.currentSystemDefault() }
+    /** The one clock of drops, Today's picture, `day_played` and the gallery's midnight reload ([AppGraph.dayClock]). */
+    val dayClock: DayClock get() = graph.dayClock
+
+    /** What this shell hands the [graph]: today's SharedPreferences files, `filesDir`, [reporter] and the test clock. */
+    private inner class AndroidServices : PlatformServices {
+        private val stores = ConcurrentHashMap<String, KeyValueStore>()
+
+        override fun keyValue(name: String): KeyValueStore = stores.getOrPut(name) { SharedPrefsStore.of(this@GemmoryApp, name) }
+
+        override val files: FileStore by lazy { AndroidFileStore(filesDir) }
+
+        override val reporter: NonFatalReporter get() = this@GemmoryApp.reporter
+
+        override fun nowMillis(): Long = testNowMillis?.invoke() ?: System.currentTimeMillis()
+    }
 
     /** Today's picture (#34). */
     lateinit var todays: TodaysPictures
@@ -754,12 +776,12 @@ class GemmoryApp : Application() {
             CrashlyticsReporter.scrubCrashes()
             CrashlyticsReporter(FirebaseCrashlytics.getInstance())
         }
+        graph = AppGraph(AndroidServices())
         analytics = ConsentFirst(Analytics.forBuild(BuildConfig.FIREBASE) { FirebaseAnalyticsLogger(FirebaseAnalytics.getInstance(this)) })
         // The saved consent reaches Firebase before anything can log (eng D6): a reminder or reboot may start the app in
         // the background and log at once. Later changes follow below.
         consent = ConsentManager(this, reporter)
         analytics.consent(consent.consentMode.value)
-        settings = AppSettings(this)
         // Before anything below writes a canvas, the achievements or the streak: is this a fresh install (T46)?
         firstRun = FirstRun(
             filesDir = filesDir,
@@ -791,7 +813,7 @@ class GemmoryApp : Application() {
             backend = BillingBackends.create(this, reporter),
             cache = EntitlementCache(
                 System::currentTimeMillis,
-                FileStateStore(AndroidFileStore(filesDir), StorageLayout.LEDGER_ENTITLEMENTS, EntitlementCodec::encode, EntitlementCodec::decode, reporter::report),
+                FileStateStore(graph.files, StorageLayout.LEDGER_ENTITLEMENTS, EntitlementCodec::encode, EntitlementCodec::decode, reporter::report),
             ),
             scope = scope,
             worker = Dispatchers.IO.limitedParallelism(1),
