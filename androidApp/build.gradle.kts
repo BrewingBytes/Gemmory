@@ -211,6 +211,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     // Rewarded + interstitial ads and the UMP consent form (#7). Real units in release builds (T34, BuildConfig.ADMOB_*).
     implementation(libs.play.services.ads)
+    constraints {
+        // #200: AdMob's hsdp 2.0.1 crashes on a missing intent extra; 2.2.0 (same API AdMob calls) finishes instead.
+        implementation(libs.play.hsdp) { because("hsdp 2.0.1 HsdpShimActivity throws targetPackageName is null (#200)") }
+    }
     implementation(libs.ump)
     // Unity Ads as a second bidder through AdMob mediation (T34, ad-mediation.md). No code races the two SDKs.
     implementation(libs.unity.ads)
