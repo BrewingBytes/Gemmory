@@ -13,6 +13,9 @@ class LocaleFormats(val tag: String) {
 
     /** [text] with its first letter in lower case by this language's rules (Turkish "İ" → "i"). */
     fun lowercaseFirst(text: String): String = if (text.isEmpty()) text else lowercaseIn(tag, text.take(1)) + text.drop(1)
+
+    /** [text] with its first letter in title case by this language's rules (Turkish "i" → "İ"). */
+    fun titlecaseFirst(text: String): String = if (text.isEmpty()) text else titlecaseIn(tag, text.take(1)) + text.drop(1)
 }
 
 /** [value] grouped as language [tag] writes whole numbers. */
@@ -23,3 +26,6 @@ internal expect fun weekdayName(tag: String, epochDay: Long): String
 
 /** [text] in lower case by language [tag]'s rules. */
 internal expect fun lowercaseIn(tag: String, text: String): String
+
+/** [text] (one letter) in title case by language [tag]'s rules. */
+internal expect fun titlecaseIn(tag: String, text: String): String

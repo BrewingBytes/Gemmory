@@ -108,9 +108,9 @@ object ArtGoldens {
         "japanese-garden" to R.string.title_japanese_garden,
     )
 
-    fun milestone(context: Context, length: Int): String = StreakText(context.strings).milestone(length)!!
+    fun milestone(context: Context, length: Int): String = StreakText(context.strings.words).milestone(length)!!
 
-    fun letters(context: Context): List<String> = (0 until 7).map { StreakText(context.strings).weekday(FIRST_DAY + it).take(1) }
+    fun letters(context: Context): List<String> = (0 until 7).map { StreakText(context.strings.words).weekday(FIRST_DAY + it).take(1) }
 
     /** A picture day's art, the old renderer's (both sides draw the same art), as `CardPictures.art` sizes it. */
     fun thumbnail(patterns: Map<String, Pattern>): (CanvasRef) -> Bitmap? = { ref ->

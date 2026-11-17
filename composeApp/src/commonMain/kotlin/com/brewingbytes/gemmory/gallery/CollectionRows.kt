@@ -42,7 +42,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.brewingbytes.gemmory.copy.LocalWords
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -56,9 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.Strings
-import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.ui.withFigures
 import com.brewingbytes.gemmory.collections.CollectionCopy
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
@@ -146,8 +144,8 @@ internal fun CollectionRowView(
         // Large screens (plan-design-review D19): the text column at most 480dp; the strip spans the row.
         Column(Modifier.widthIn(max = 480.dp)) {
             // TalkBack: the name is a heading that folds in the count and the well; the line is read after it.
-            val strings = strings()
-            val a11y = A11yText(strings.words)
+            val strings = LocalWords.current
+            val a11y = A11yText(strings)
             val heading = a11y.collection(row.title, row.finished, row.size, row.coming)
             Column(Modifier.clearAndSetSemantics { contentDescription = heading; heading() }) {
                 Text(row.title, style = GemType.button, color = GemColors.Bone, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -180,8 +178,8 @@ internal fun CollectionRowView(
  * "3 of 7 finished" ([CollectionCopy.count]) with its numbers in mono 13sp, as every number is; above 1.5× font
  * " · 2 more coming" joins it (D18).
  */
-private fun countLine(strings: Strings, row: CollectionRow, largeFont: Boolean) = withFigures(
-    CollectionCopy(strings.words).count(row.finished, row.size, row.coming, largeFont, oneADay = row.inWindow),
+private fun countLine(strings: Words, row: CollectionRow, largeFont: Boolean) = withFigures(
+    CollectionCopy(strings).count(row.finished, row.size, row.coming, largeFont, oneADay = row.inWindow),
     listOf("${row.finished}", "${row.size}"),
     GemType.mono.copy(fontSize = 13.sp).toSpanStyle(),
 )
@@ -192,7 +190,7 @@ private fun countLine(strings: Strings, row: CollectionRow, largeFont: Boolean) 
  */
 @Composable
 private fun MemberThumb(tile: Tile, locked: Boolean, onOpen: (Tile) -> Unit, thumbnail: suspend (Tile) -> ImageBitmap?) {
-    val description = A11yText(strings().words).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
+    val description = A11yText(LocalWords.current).tile(tile.title, tile.percent, tile.done, locked, tile.damaged, tile.isNew, tile.mystery)
     Box(
         Modifier
             .size(THUMB)
@@ -261,7 +259,7 @@ private fun ComingWell(coming: Int, largeFont: Boolean, oneADay: Boolean) {
             Text(CollectionCopy.comingShort(coming), style = GemType.mono.copy(fontSize = 13.sp), color = GemColors.Bone)
         } else {
             BasicText(
-                CollectionCopy(strings().words).coming(coming, oneADay),
+                CollectionCopy(LocalWords.current).coming(coming, oneADay),
                 style = GemType.label.copy(color = GemColors.Bone, textAlign = TextAlign.Center),
                 modifier = Modifier.padding(4.dp),
             )
@@ -272,7 +270,7 @@ private fun ComingWell(coming: Int, largeFont: Boolean, oneADay: Boolean) {
 /** "All collections" (D3): a text button right after the rows, before the grid. */
 @Composable
 internal fun AllCollectionsLink(onClick: () -> Unit) {
-    GemTextButton(stringResource(R.string.collections_all), onClick, Modifier.testTag(ALL_COLLECTIONS_TAG))
+    GemTextButton(LocalWords.current.text("collections_all"), onClick, Modifier.testTag(ALL_COLLECTIONS_TAG))
 }
 
 /**
@@ -288,7 +286,7 @@ internal fun AllCollectionsSheet(
     thumbnail: suspend (Tile) -> ImageBitmap?,
     onDismiss: () -> Unit,
 ) {
-    GemSheet(stringResource(R.string.collections_title), onDismiss, returnFocusTo = ALL_COLLECTIONS_TAG) {
+    GemSheet(LocalWords.current.text("collections_title"), onDismiss, returnFocusTo = ALL_COLLECTIONS_TAG) {
         rows.forEach { row ->
             CollectionRowView(row, isLocked, { onOpen(it, row.entry) }, thumbnail, glint = false, onGlintDone = {})
         }

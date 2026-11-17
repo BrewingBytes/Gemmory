@@ -1,6 +1,6 @@
 package com.brewingbytes.gemmory.gallery
 
-import com.brewingbytes.gemmory.app.LocalAppGraph
+import com.brewingbytes.gemmory.app.LocalShellUi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,10 +42,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import com.brewingbytes.gemmory.copy.LocalWords
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -56,10 +53,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.Strings
-import com.brewingbytes.gemmory.copy.strings
-import com.brewingbytes.gemmory.play.Feedback
+import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.policy.Inventory
 import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.Item
@@ -76,6 +70,7 @@ import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import com.brewingbytes.gemmory.ui.withFullMotion
 import kotlinx.coroutines.launch
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -88,7 +83,7 @@ const val INVENTORY_TAG = "gallery-inventory"
  */
 @Composable
 fun InventoryButton(spinWaiting: Boolean, onClick: () -> Unit) {
-    val label = stringResource(if (spinWaiting) R.string.inventory_spin_waiting else R.string.inventory_title)
+    val label = LocalWords.current.text(if (spinWaiting) "inventory_spin_waiting" else "inventory_title")
     Box(
         Modifier
             .size(48.dp)
@@ -128,16 +123,16 @@ fun InventorySheet(
     onSpin: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val strings = strings()
-    GemSheet(stringResource(R.string.inventory_title), onDismiss, returnFocusTo = INVENTORY_TAG) {
-        ItemRow(GemIcons.ToolRegion, state.fills, stringResource(R.string.inventory_fills), stringResource(R.string.inventory_fills_body), "inventory-fills")
-        ItemRow(GemIcons.PhotoCanvas, state.canvases, stringResource(R.string.inventory_canvases), stringResource(R.string.inventory_canvases_body), "inventory-canvases")
-        ItemRow(GemIcons.Token, state.tokens, stringResource(R.string.inventory_tokens), stringResource(R.string.inventory_tokens_body), "inventory-tokens")
+    val strings = LocalWords.current
+    GemSheet(LocalWords.current.text("inventory_title"), onDismiss, returnFocusTo = INVENTORY_TAG) {
+        ItemRow(GemIcons.ToolRegion, state.fills, LocalWords.current.text("inventory_fills"), LocalWords.current.text("inventory_fills_body"), "inventory-fills")
+        ItemRow(GemIcons.PhotoCanvas, state.canvases, LocalWords.current.text("inventory_canvases"), LocalWords.current.text("inventory_canvases_body"), "inventory-canvases")
+        ItemRow(GemIcons.Token, state.tokens, LocalWords.current.text("inventory_tokens"), LocalWords.current.text("inventory_tokens_body"), "inventory-tokens")
         ItemRow(
             GemIcons.Freeze,
             state.freezes,
-            stringResource(R.string.inventory_freezes),
-            strings.text(R.string.inventory_freezes_body, Inventory.MAX_FREEZES),
+            LocalWords.current.text("inventory_freezes"),
+            strings.text("inventory_freezes_body", Inventory.MAX_FREEZES),
             "inventory-freezes",
         )
         Spacer(Modifier.height(12.dp))
@@ -153,14 +148,14 @@ fun InventorySheet(
     }
 }
 
-internal fun watchLabel(s: Strings) = s.plural(R.plurals.inventory_watch, Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
+internal fun watchLabel(s: Words) = s.plural("inventory_watch", Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
 
-internal fun spinLabel(s: Strings, waiting: Int) =
-    if (waiting > 1) s.plural(R.plurals.inventory_spin_several, waiting, waiting) else s.text(R.string.inventory_spin, Inventory.SPIN_EVERY)
+internal fun spinLabel(s: Words, waiting: Int) =
+    if (waiting > 1) s.plural("inventory_spin_several", waiting, waiting) else s.text("inventory_spin", Inventory.SPIN_EVERY)
 
 @Composable
 private fun ItemRow(icon: ImageVector, count: Int, name: String, body: String, tag: String) {
-    val description = strings().text(R.string.inventory_item, name, count, body)
+    val description = LocalWords.current.text("inventory_item", name, count, body)
     Row(
         Modifier
             .fillMaxWidth()
@@ -204,18 +199,18 @@ private val SEGMENTS = listOf(
  * "5 fills", "1 photo canvas", "1 unlock token", "Streak freeze"; the freeze slice reads "5 fills" while
  * [freezesFull] (#102, E7: at 2 held it pays fills).
  */
-internal fun WheelPrize.label(s: Strings, freezesFull: Boolean = false): String = when (item) {
-    Item.FILLS -> s.plural(R.plurals.prize_fills, amount, amount)
-    Item.PHOTO_CANVAS -> s.plural(R.plurals.prize_photo_canvases, amount, amount)
-    Item.UNLOCK_TOKEN -> s.plural(R.plurals.prize_unlock_tokens, amount, amount)
-    Item.STREAK_FREEZE -> if (freezesFull) s.plural(R.plurals.prize_fills, Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO) else s.text(R.string.prize_streak_freeze)
+fun WheelPrize.label(s: Words, freezesFull: Boolean = false): String = when (item) {
+    Item.FILLS -> s.plural("prize_fills", amount, amount)
+    Item.PHOTO_CANVAS -> s.plural("prize_photo_canvases", amount, amount)
+    Item.UNLOCK_TOKEN -> s.plural("prize_unlock_tokens", amount, amount)
+    Item.STREAK_FREEZE -> if (freezesFull) s.plural("prize_fills", Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO) else s.text("prize_streak_freeze")
 }
 
 /** "5 fills added to your inventory." / "A streak freeze added to your inventory." */
-internal fun Spin.result(s: Strings): String = when (item) {
-    Item.STREAK_FREEZE -> s.text(R.string.prize_added_freeze)
-    Item.FILLS -> s.plural(R.plurals.prize_added_fills, amount, amount)
-    else -> s.text(R.string.prize_added, prize.label(s).replaceFirstChar { it.titlecase(s.locale) })
+fun Spin.result(s: Words): String = when (item) {
+    Item.STREAK_FREEZE -> s.text("prize_added_freeze")
+    Item.FILLS -> s.plural("prize_added_fills", amount, amount)
+    else -> s.text("prize_added", s.titlecaseFirst(prize.label(s)))
 }
 
 /** Where [prize]'s segment's middle is, in degrees clockwise from the top. */
@@ -249,12 +244,8 @@ internal fun segmentAt(rotation: Float): WheelPrize {
  */
 @Composable
 fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Spin?, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val view = LocalView.current
     val reducedMotion = rememberReducedMotion()
-    val settings = LocalAppGraph.current.settings
-    val feedback = remember { Feedback(context, settings) }
-    DisposableEffect(feedback) { onDispose { feedback.release() } }
+    val feedback = LocalShellUi.current.rememberFeedback()
     val rotation = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var spinning by remember { mutableStateOf(false) }
@@ -268,14 +259,14 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
     LaunchedEffect(Unit) {
         var last = segmentAt(rotation.value)
         snapshotFlow { segmentAt(rotation.value) }.collect {
-            if (it != last && spinning) feedback.gemPlaced(view)
+            if (it != last && spinning) feedback.gemPlaced()
             last = it
         }
     }
 
-    val strings = strings()
-    val wheelDescription = strings.text(R.string.wheel_description, odds(strings, full))
-    GemSheet(stringResource(R.string.wheel_title), onDismiss, returnFocusTo = INVENTORY_TAG) {
+    val strings = LocalWords.current
+    val wheelDescription = strings.text("wheel_description", odds(strings, full))
+    GemSheet(LocalWords.current.text("wheel_title"), onDismiss, returnFocusTo = INVENTORY_TAG) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Wheel(
                 rotation.value,
@@ -304,7 +295,7 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
             for ((prize, color) in SEGMENTS) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clearAndSetSemantics {}) {
                     Box(Modifier.size(9.dp).clip(RoundedCornerShape(2.dp)).background(color))
-                    Text(" " + strings.text(R.string.wheel_odd, prize.label(strings, full), prize.percent), style = GemType.label, color = GemColors.TextMuted)
+                    Text(" " + strings.text("wheel_odd", prize.label(strings, full), prize.percent), style = GemType.label, color = GemColors.TextMuted)
                 }
             }
         }
@@ -322,7 +313,7 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
         Spacer(Modifier.height(12.dp))
         if (left > 0 || spinning) {
             PrimaryButton(
-                stringResource(R.string.wheel_spin),
+                LocalWords.current.text("wheel_spin"),
                 {
                     if (spinning) return@PrimaryButton
                     label.spinStarted(latestFull)
@@ -348,14 +339,14 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
                         }
                         spinning = false
                         label.spinEnded(latestFull)
-                        feedback.milestone(view)
+                        feedback.milestone()
                     }
                 },
                 Modifier.fillMaxWidth().testTag("wheel-spin"),
                 held = spinning,
             )
         } else {
-            QuietButton(stringResource(R.string.action_done), onDismiss, Modifier.fillMaxWidth().testTag("wheel-done"))
+            QuietButton(LocalWords.current.text("action_done"), onDismiss, Modifier.fillMaxWidth().testTag("wheel-done"))
         }
     }
 }
@@ -365,7 +356,7 @@ fun WheelSheet(spinsWaiting: Int, freezesFull: Boolean, onSpin: suspend () -> Sp
  * between: the prize is added before the wheel turns, so a freeze won at 1 held would otherwise relabel the slice the
  * wheel is landing on (design system: "its label changes only between spins").
  */
-internal class FreezeLabel(full: Boolean) {
+class FreezeLabel(full: Boolean) {
     var full by mutableStateOf(full)
         private set
     private var spinning = false
@@ -388,8 +379,8 @@ internal class FreezeLabel(full: Boolean) {
     }
 }
 
-internal fun odds(s: Strings, freezesFull: Boolean = false): String =
-    WheelPrize.entries.joinToString(s.text(R.string.list_separator)) { s.text(R.string.wheel_odd, it.label(s, freezesFull), it.percent) }
+internal fun odds(s: Words, freezesFull: Boolean = false): String =
+    WheelPrize.entries.joinToString(s.text("list_separator")) { s.text("wheel_odd", it.label(s, freezesFull), it.percent) }
 
 @Composable
 private fun Wheel(rotation: Float, freezesFull: Boolean, modifier: Modifier) {
@@ -410,7 +401,7 @@ private fun Wheel(rotation: Float, freezesFull: Boolean, modifier: Modifier) {
 
 /** The freeze mark on its slice: a bone cross two thirds out, along [angle] (degrees, 0 = 3 o'clock). */
 private fun DrawScope.freezeCross(angle: Float) {
-    val radians = Math.toRadians(angle.toDouble())
+    val radians = angle.toDouble() * (PI / 180.0)
     val reach = size.minDimension / 2f * 0.66f
     val center = Offset(size.width / 2f + reach * cos(radians).toFloat(), size.height / 2f + reach * sin(radians).toFloat())
     val arm = 8.dp.toPx()

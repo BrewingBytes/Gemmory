@@ -192,8 +192,8 @@ internal fun previewLine(s: Strings, allowance: Allowance, choice: ColorChoice, 
     when (PhotoFlowRules.previewPrimary(allowance, choice, moreUnlocked)) {
         PreviewPrimary.WATCH_FOR_COLORS -> s.text(R.string.photo_more_colors_line)
         PreviewPrimary.WATCH_FOR_CANVAS ->
-            if (choice == ColorChoice.MORE && !moreUnlocked) s.text(R.string.photo_one_video_more_colors) else allowanceLine(s, allowance, kept)
-        PreviewPrimary.START -> allowanceLine(s, allowance, kept)
+            if (choice == ColorChoice.MORE && !moreUnlocked) s.text(R.string.photo_one_video_more_colors) else allowanceLine(s.words, allowance, kept)
+        PreviewPrimary.START -> allowanceLine(s.words, allowance, kept)
     }
 
 internal fun primaryText(s: Strings, primary: PreviewPrimary): String = when (primary) {
@@ -295,17 +295,6 @@ private fun GemImage(bitmap: ImageBitmap, description: String, modifier: Modifie
         filterQuality = FilterQuality.Low,
         modifier = modifier,
     )
-}
-
-/**
- * The allowance line on Preview and the gallery note (design D5); null when there is none (VIP). [kept]: photo
- * canvases kept in the inventory (#38); a bonus from before the update, used today, reads as before.
- */
-internal fun allowanceLine(s: Strings, allowance: Allowance, kept: Int = 0): String? = when (allowance) {
-    Allowance.Unlimited -> null
-    Allowance.Free -> s.text(R.string.allowance_free)
-    Allowance.Bonus -> if (kept > 0) s.plural(R.plurals.allowance_kept, kept, kept) else s.text(R.string.allowance_bonus)
-    Allowance.WatchVideo -> s.text(R.string.allowance_watch)
 }
 
 /**
