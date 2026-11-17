@@ -19,10 +19,10 @@ class FreezeLabelTest {
         // The prize is added before the wheel turns: the inventory now holds 2.
         label.held(nowFull = true)
         assertFalse(label.full, "mid-spin the slice still reads Streak freeze")
-        assertEquals("Streak freeze 10%", "${WheelPrize.STREAK_FREEZE.label(XmlStrings.en, label.full)} 10%")
+        assertEquals("Streak freeze 10%", "${WheelPrize.STREAK_FREEZE.label(XmlStrings.en.words, label.full)} 10%")
         label.spinEnded(nowFull = true)
         assertTrue(label.full, "landed: the next spin's slice reads 5 fills")
-        assertEquals("5 fills", WheelPrize.STREAK_FREEZE.label(XmlStrings.en, label.full))
+        assertEquals("5 fills", WheelPrize.STREAK_FREEZE.label(XmlStrings.en.words, label.full))
     }
 
     @Test
@@ -36,8 +36,8 @@ class FreezeLabelTest {
 
     @Test
     fun theResultLineNamesWhatWasPaid() {
-        assertEquals("A streak freeze added to your inventory.", Spin(WheelPrize.STREAK_FREEZE, Item.STREAK_FREEZE, 1).result(XmlStrings.en))
-        assertEquals("5 fills added to your inventory.", Spin(WheelPrize.STREAK_FREEZE, Item.FILLS, 5).result(XmlStrings.en))
-        assertEquals("1 photo canvas added to your inventory.", Spin(WheelPrize.PHOTO_CANVAS, Item.PHOTO_CANVAS, 1).result(XmlStrings.en))
+        assertEquals("A streak freeze added to your inventory.", Spin(WheelPrize.STREAK_FREEZE, Item.STREAK_FREEZE, 1).result(XmlStrings.en.words))
+        assertEquals("5 fills added to your inventory.", Spin(WheelPrize.STREAK_FREEZE, Item.FILLS, 5).result(XmlStrings.en.words))
+        assertEquals("1 photo canvas added to your inventory.", Spin(WheelPrize.PHOTO_CANVAS, Item.PHOTO_CANVAS, 1).result(XmlStrings.en.words))
     }
 }

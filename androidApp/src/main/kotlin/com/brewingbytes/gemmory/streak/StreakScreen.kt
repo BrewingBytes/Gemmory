@@ -228,7 +228,7 @@ fun StreakScreen(
     val restored = ui.restored
     val shown = if (restored != null) maxOf(s.shown, restored.length) else s.shown
     val vip = s.cover.vip
-    val text = StreakText(strings())
+    val text = StreakText(strings().words)
     Column(Modifier.fillMaxSize().feltGround(LocalFelt.current.ground).windowInsetsPadding(WindowInsets.safeDrawing).testTag(STREAK_SCREEN_TAG)) {
         AppTopBar(stringResource(R.string.streak_screen_title), onBack)
         Column(
@@ -298,7 +298,7 @@ fun StreakScreen(
 private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairActions) {
     val phase = video?.phase
     val vipFree = offer.vipReady && video == null
-    val text = StreakText(strings())
+    val text = StreakText(strings().words)
     Column(Modifier.testTag(STREAK_REPAIR_TAG)) {
         Section {
             Text(text.repairTitle(offer.broken.length), style = GemType.display, color = GemColors.Bone, modifier = Modifier.semantics { heading() })
@@ -363,7 +363,7 @@ private fun Hero(shown: Int, best: Int, lit: Boolean, rollUp: Boolean = false, o
     val big = LocalDensity.current.fontScale > 1.5f
     val strings = strings()
     val inARow = strings.plural(R.plurals.streak_in_a_row, shown, shown)
-    val text = if (best > 0) strings.text(R.string.streak_hero_best, inARow, StreakText(strings).days(best)) else inARow
+    val text = if (best > 0) strings.text(R.string.streak_hero_best, inARow, StreakText(strings.words).days(best)) else inARow
     val digits: @Composable () -> Unit = {
         Text("$number", style = GemType.streakHero.copy(fontSize = 56.sp, lineHeight = 60.sp), color = GemColors.Bone)
     }
@@ -427,7 +427,7 @@ private fun Section(content: @Composable () -> Unit) {
 /** One weekly cover's row (the safety rows): its mark, "Day off ready" or when it was used and is ready again. */
 @Composable
 private fun Weekly(name: String, lastUsed: Long, today: Long, mark: CellKind, length: Int) {
-    val (line, sub) = StreakText(strings()).weekly(name, lastUsed, today)
+    val (line, sub) = StreakText(strings().words).weekly(name, lastUsed, today)
     SafetyRow(line, sub, mark, today, length)
 }
 
@@ -493,7 +493,7 @@ private fun Calendar(ui: StreakUi, vm: StreakViewModel) {
 private fun CalendarDay(cell: CalendarCell, length: Int, titles: Map<String, String>, today: Long, vm: StreakViewModel) {
     val shape = RoundedCornerShape(2.dp)
     val past = cell.kind != CellKind.FUTURE
-    val text = StreakText(strings())
+    val text = StreakText(strings().words)
     val what = when (cell.kind) {
         CellKind.FINISHED -> cell.canvas?.let(titles::get)?.let { stringResource(R.string.streak_what_finished, it) } ?: text.what(cell.kind)
         else -> text.what(cell.kind) ?: if (cell.today) stringResource(R.string.streak_what_not_yet) else null

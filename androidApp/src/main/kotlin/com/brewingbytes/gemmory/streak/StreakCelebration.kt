@@ -126,7 +126,7 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
         val start = StreakCalendar.weekStart(snapshot.today, firstDayOfWeek())
         val week = StreakCalendar.cells(start..start + 6, app.streak.history(), snapshot.state, snapshot.cover, snapshot.today)
         val vip = snapshot.cover.vip
-        val text = StreakText(app.strings).celebration(celebration.length, celebration.covered, vip, snapshot.cover.freezes)
+        val text = StreakText(app.strings.words).celebration(celebration.length, celebration.covered, vip, snapshot.cover.freezes)
         // A new streak's first day while the old one can still come back (#102, "Restart with repair open").
         val repairable = app.streak.repairOffer(snapshot.cover)?.takeIf { celebration.length == 1 }
         return StreakDayData(celebration, week, vip, text, repairable).also { data = it }
@@ -175,7 +175,7 @@ class StreakDayViewModel(application: Application) : AndroidViewModel(applicatio
     private suspend fun shareCard(): File? {
         val data = data ?: return null
         val c = data.celebration
-        val streakText = StreakText(app.strings)
+        val streakText = StreakText(app.strings.words)
         val title = streakText.milestone(c.length) ?: return null
         val (pictures, photos) = app.store.summaries()
         val playable = (pictures + photos).filterIsInstance<CanvasSummary.Playable>()
@@ -319,7 +319,7 @@ fun StreakCelebration(
                 )
             } else {
                 GemTextButton(
-                    repairable?.let { StreakText(strings()).stillRestorable(it.length) } ?: stringResource(R.string.nudge_broken_hint),
+                    repairable?.let { StreakText(strings().words).stillRestorable(it.length) } ?: stringResource(R.string.nudge_broken_hint),
                     { onSeeStreak(repairable != null) },
                     Modifier.padding(bottom = 8.dp).testTag(CELEBRATION_SEE_TAG),
                 )
@@ -345,7 +345,7 @@ private fun RollingNumber(length: Int, progress: Float, sizeSp: Int) {
 /** This week, Monday-Sunday or the locale's (G12): the day's flame or cover mark; today outlined in lamp. One node. */
 @Composable
 fun WeekRow(week: List<CalendarCell>, length: Int, modifier: Modifier = Modifier) {
-    val text = StreakText(strings())
+    val text = StreakText(strings().words)
     val description = text.week(week)
     Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description }) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

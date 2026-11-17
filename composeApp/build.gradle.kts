@@ -53,6 +53,8 @@ kotlin {
             // eng D5: screen state in KMP ViewModels with SavedStateHandle, created through the AppGraph (graphViewModel).
             api(libs.cmp.lifecycle.viewmodel.compose)
             api(libs.cmp.lifecycle.viewmodel.savedstate)
+            // Shared screens collect state and run work while resumed (the gallery's midnight reload, T36).
+            implementation(libs.cmp.lifecycle.runtime.compose)
         }
         commonTest {
             // The golden bar's arithmetic and checks (T62), shared with androidApp's instrumented golden tests.

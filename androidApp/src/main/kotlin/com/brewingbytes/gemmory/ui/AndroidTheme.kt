@@ -2,15 +2,21 @@ package com.brewingbytes.gemmory.ui
 
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import com.brewingbytes.gemmory.app.LocalShellUi
+import com.brewingbytes.gemmory.app.ShellUi
 import com.brewingbytes.gemmory.copy.strings
 import kotlin.random.Random
 
 /**
  * The shared theme ([GemmoryTheme] in composeApp, T64) in the language Android shows: the same `Words` the app's
- * `Strings` read, so a shared screen and an Android one say the same thing.
+ * `Strings` read, so a shared screen and an Android one say the same thing. It also provides Android's [ShellUi]
+ * slots, so every shared screen under it (and every connected test that draws one) has them.
  */
 @Composable
-fun GemmoryTheme(content: @Composable () -> Unit) = GemmoryTheme(strings().words, content)
+fun GemmoryTheme(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalShellUi provides AndroidShellUi) { GemmoryTheme(strings().words, content) }
+}
 
 /** The felt's ~9% grain as an Android [Bitmap], for the streak share card (#104): the shared felt's seeded noise. */
 fun grainBitmap(): Bitmap {

@@ -9,6 +9,7 @@ import platform.Foundation.NSNumberFormatterDecimalStyle
 import platform.Foundation.NSString
 import platform.Foundation.NSTimeZone
 import platform.Foundation.lowercaseStringWithLocale
+import platform.Foundation.uppercaseStringWithLocale
 import platform.Foundation.dateWithTimeIntervalSince1970
 import platform.Foundation.timeZoneForSecondsFromGMT
 
@@ -32,3 +33,8 @@ internal actual fun weekdayName(tag: String, epochDay: Long): String {
 @Suppress("CAST_NEVER_SUCCEEDS") // a Kotlin String is an NSString on Apple targets
 internal actual fun lowercaseIn(tag: String, text: String): String =
     (text as NSString).lowercaseStringWithLocale(NSLocale(localeIdentifier = tag))
+
+// One letter: its title case is its upper case in every language the app shows.
+@Suppress("CAST_NEVER_SUCCEEDS") // a Kotlin String is an NSString on Apple targets
+internal actual fun titlecaseIn(tag: String, text: String): String =
+    (text as NSString).uppercaseStringWithLocale(NSLocale(localeIdentifier = tag))

@@ -61,4 +61,13 @@ class WordsTest {
         assertEquals("jeszcze 4 w drodze", words("pl").lowercaseFirst("Jeszcze 4 w drodze"))
         assertEquals("", LocaleFormats("en").lowercaseFirst(""))
     }
+
+    /** The streak's joined "kept it going" line and the wheel's "added" line start with a raised phrase (T64). */
+    @Test
+    fun aFirstLetterIsRaisedByTheLanguagesOwnRules() {
+        assertEquals("İzin günün", LocaleFormats("tr").titlecaseFirst("izin günün"), "Turkish dotted I")
+        assertEquals("Izin", LocaleFormats("en").titlecaseFirst("izin"))
+        assertEquals("5 fills", words("en").titlecaseFirst("5 fills"))
+        assertEquals("", LocaleFormats("en").titlecaseFirst(""))
+    }
 }

@@ -10,10 +10,10 @@ import kotlin.test.assertEquals
 class AllowanceCopyTest {
     @Test
     fun everyLineState() {
-        assertEquals("Uses today's free photo canvas.", allowanceLine(XmlStrings.en, Allowance.Free))
-        assertEquals("Today's free one is used. Watch a video for another.", allowanceLine(XmlStrings.en, Allowance.WatchVideo))
-        assertEquals("Uses a bonus canvas from a video.", allowanceLine(XmlStrings.en, Allowance.Bonus))
-        assertEquals("Uses a kept photo canvas (2 left).", allowanceLine(XmlStrings.en, Allowance.Bonus, kept = 2), "#38")
-        assertEquals(null, allowanceLine(XmlStrings.en, Allowance.Unlimited), "VIP: no line")
+        assertEquals("Uses today's free photo canvas.", allowanceLine(XmlStrings.en.words, Allowance.Free))
+        assertEquals("Today's free one is used. Watch a video for another.", allowanceLine(XmlStrings.en.words, Allowance.WatchVideo))
+        assertEquals("Uses a bonus canvas from a video.", allowanceLine(XmlStrings.en.words, Allowance.Bonus))
+        assertEquals("Uses a kept photo canvas (2 left).", allowanceLine(XmlStrings.en.words, Allowance.Bonus, kept = 2), "#38")
+        assertEquals(null, allowanceLine(XmlStrings.en.words, Allowance.Unlimited), "VIP: no line")
     }
 }

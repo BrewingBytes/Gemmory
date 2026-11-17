@@ -13,7 +13,7 @@ import java.time.LocalDate
 /** #101: the streak copy tables (celebration, streak screen, TalkBack), word for word. */
 class StreakTextTest {
     /** The real English resources (T48): these lines are the copy, word for word. */
-    private val text = StreakText(XmlStrings.en)
+    private val text = StreakText(XmlStrings.en.words)
 
     private fun day(date: String) = LocalDate.parse(date).toEpochDay()
 

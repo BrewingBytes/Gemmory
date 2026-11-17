@@ -31,6 +31,9 @@ class Words(private val xml: StringsXml, private val formats: LocaleFormats) {
     /** [text] with its first letter lowered by this language's rules, for words that start a sentence on screen. */
     fun lowercaseFirst(text: String): String = formats.lowercaseFirst(text)
 
+    /** [text] with its first letter raised by this language's rules, for a phrase that starts a sentence. */
+    fun titlecaseFirst(text: String): String = formats.titlecaseFirst(text)
+
     companion object {
         /** Where the language folders live under `composeResources/files/`. */
         const val FOLDER = "strings"
