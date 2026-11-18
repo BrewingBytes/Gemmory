@@ -24,6 +24,7 @@ import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.gallery.TODAY_TAG
 import com.brewingbytes.gemmory.gallery.seedFirstFinish

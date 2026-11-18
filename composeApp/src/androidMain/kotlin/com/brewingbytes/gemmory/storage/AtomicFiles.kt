@@ -43,7 +43,7 @@ class AtomicFiles(private val writer: SyncedWriter = SyncedWriter.Default) {
     }
 
     companion object {
-        const val TEMP_SUFFIX = ".tmp"
+        const val TEMP_SUFFIX = FileStore.TEMP_SUFFIX
 
         fun tempFor(file: File) = File(file.parentFile, file.name + TEMP_SUFFIX)
 

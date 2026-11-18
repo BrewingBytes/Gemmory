@@ -24,12 +24,15 @@ import com.brewingbytes.gemmory.ui.A11yText
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.TimeSource
 
 /**
  * One open canvas: game state, selection, zoom/pan and its save loop. Owned by the play ViewModel, so it survives
  * rotation and fold changes; process death is covered by the save and view files. Main thread only.
  */
-class PlaySession internal constructor(
+class PlaySession(
     val ref: CanvasRef,
     val title: String,
     /** An unfinished mystery picture's neutral name (T43): shown for [title], with no tints, Peek or Share. */
@@ -49,7 +52,7 @@ class PlaySession internal constructor(
     /** A placement tool (#20) placed its first gems on this canvas since it opened. */
     private val onToolUsed: (tool: PlacementTool, unlimited: Boolean) -> Unit = { _, _ -> },
     /** The monotonic clock the batch cues wait on (#20). */
-    private val uptimeMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val uptimeMillis: () -> Long = TimeSource.Monotonic.markNow().let { start -> { start.elapsedNow().inWholeMilliseconds } },
     private val onClosed: (lastWrite: Job, playMillis: Long) -> Unit,
 ) : CanvasGame {
     val viewport = CanvasViewport(pattern.width, pattern.height).apply { restore(view) }
@@ -150,7 +153,7 @@ class PlaySession internal constructor(
         fillsPending++
         fills = maxOf(0, fills - 1)
         spentHere = true
-        spendFill("fill-${System.nanoTime()}-${uses++}") {
+        spendFill("fill-${Clock.System.now().toEpochMilliseconds()}-${Random.nextInt().toUInt()}-${uses++}") {
             fillsPending--
             fills = maxOf(0, fillsFromInventory - fillsPending)
             if (!toolsUsable) tool = PlacementTool.TAP
@@ -312,7 +315,7 @@ class PlaySession internal constructor(
     fun startsPaint(cell: Int?): Boolean = CanvasGestures.startsPaint(viewport.zoomDp, cell, state, selectedSlot)
 
     @androidx.annotation.VisibleForTesting
-    internal fun placedLogForTest(): IntArray = state.log()
+    fun placedLogForTest(): IntArray = state.log()
 
     /** The save log so far, in order: what Share progress replays (#36). */
     fun log(): IntArray = state.log()

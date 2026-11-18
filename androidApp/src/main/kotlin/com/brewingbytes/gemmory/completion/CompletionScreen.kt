@@ -301,7 +301,7 @@ class CompletionViewModel(application: Application, private val savedState: Save
         val pattern = opened.grid.pattern
         val cellPx = (720 / pattern.width).coerceIn(4, 24)
         val bitmap = GemRenderer.render(pattern, cellPx)
-        val source = store.repository.sourceFile(ref).takeIf { ref.kind == CanvasKind.PHOTO && it.isFile }
+        val source = getApplication<GemmoryApp>().sourceFileOf(ref)
         val before = source?.let { FrameAssets.decodeSource(it, bitmap.width, bitmap.height) }
             ?: GemRenderer.render(pattern, cellPx) { false }
         val strings = getApplication<GemmoryApp>().strings

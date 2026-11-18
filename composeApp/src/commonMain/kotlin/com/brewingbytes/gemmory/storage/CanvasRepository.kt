@@ -14,10 +14,6 @@ import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.save.ViewStateCodec
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import com.brewingbytes.gemmory.telemetry.reportLabel
-import java.io.File
-import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 
 /** Which file of a canvas a [LoadProblem] is about. */
 enum class CanvasFile { DIR, GRID, SAVE, LAST_GOOD }
@@ -27,7 +23,7 @@ sealed interface LoadProblem {
 
     data class Missing(override val file: CanvasFile) : LoadProblem
 
-    data class Unreadable(override val file: CanvasFile, val error: IOException) : LoadProblem
+    data class Unreadable(override val file: CanvasFile, val error: FileStoreException) : LoadProblem
 
     data class Refused(override val file: CanvasFile, val refusal: Refusal) : LoadProblem
 }
@@ -50,30 +46,27 @@ class CanvasStorageException(message: String, cause: Throwable? = null) : Except
  * `grid` (GridCodec), `save` (SaveCodec), `save.last-good`, `view` (ViewStateCodec), `record` (CanvasRecordCodec:
  * title, creation time, play time), `play` (PlayFileCodec, T35: last gem and first finished day), `thumb.png` (the last gallery thumbnail, kept for the "Can't open" tile) and,
  * for photo canvases, `source.jpg` (the cropped photo, at most 1024 px). Photo canvases live under the directory the
- * backup rules exclude, so none of it leaves the phone. Every write is atomic
- * (temp + fsync + rename). Before `save` is replaced, a copy of it that still decodes becomes `save.last-good`,
+ * backup rules exclude, so none of it leaves the phone. Every write is atomic ([FileStore.writeAtomic]: temp + fsync +
+ * rename). Common since iOS Stage 1c (T64): the same paths and steps over [FileStore] as Android's `File` code was. Before `save` is replaced, a copy of it that still decodes becomes `save.last-good`,
  * so a refused `save` falls back to progress at most one save interval older. It's a copy, not a hard link: SELinux
  * denies `link` on app data files (CanvasRepositoryDeviceTest).
  *
  * Blocking IO: call from a background dispatcher, with one writer per canvas at a time.
  */
-class CanvasRepository internal constructor(
-    filesDir: File,
-    private val reporter: NonFatalReporter,
-    private val codec: SaveCodec,
-    private val files: AtomicFiles,
+class CanvasRepository(
+    private val files: FileStore,
+    private val reporter: NonFatalReporter = NonFatalReporter.Logcat,
+    private val codec: SaveCodec = SaveCodec(),
 ) {
-    constructor(filesDir: File, reporter: NonFatalReporter = NonFatalReporter.Logcat) :
-        this(filesDir, reporter, SaveCodec(), AtomicFiles())
+    /** [ref]'s folder, relative to the files folder: `canvases/<kind>/<id>`. */
+    fun dirOf(ref: CanvasRef): String = "${ref.kind.dir}/${ref.id}"
 
-    private val root = filesDir
-
-    fun dirOf(ref: CanvasRef): File = File(File(root, ref.kind.dir), ref.id)
+    /** Whether [ref]'s canvas is on the phone (its folder exists). */
+    fun exists(ref: CanvasRef): Boolean = files.isDirectory(dirOf(ref))
 
     /** Ids of the canvases of [kind], sorted. Half-created or half-deleted canvases are not listed. */
     fun list(kind: CanvasKind): List<String> =
-        File(root, kind.dir).listFiles { f -> f.isDirectory && CanvasRef.ID.matches(f.name) }
-            ?.map { it.name }?.sorted().orEmpty()
+        files.list(kind.dir).filter { CanvasRef.ID.matches(it) && files.isDirectory("${kind.dir}/$it") }
 
     /**
      * Starts a canvas from an encoded grid: a photo grid just made by the converter, or a bundled picture's frozen
@@ -84,36 +77,35 @@ class CanvasRepository internal constructor(
         require(GridCodec.decode(gridBytes) is Decoded.Ok) { "not a valid grid file" }
         require(source == null || ref.kind == CanvasKind.PHOTO) { "only photo canvases keep a source photo" }
         val dir = dirOf(ref)
-        require(!dir.exists()) { "canvas ${ref.id} already exists" }
-        val staging = File(dir.parentFile, ".${ref.id}.new")
+        require(!files.exists(dir)) { "canvas ${ref.id} already exists" }
+        val staging = "${ref.kind.dir}/.${ref.id}.new"
         return try {
-            staging.deleteRecursively()
-            if (!staging.mkdirs()) throw IOException("can't create ${staging.name}")
-            files.write(File(staging, GRID), gridBytes)
-            if (record != null) files.write(File(staging, RECORD), CanvasRecordCodec.encode(record))
-            if (source != null) files.write(File(staging, SOURCE), source)
-            Files.move(staging.toPath(), dir.toPath(), StandardCopyOption.ATOMIC_MOVE)
-            AtomicFiles.syncDir(dir.parentFile)
+            files.deleteRecursive(staging)
+            if (!files.mkdirs(staging)) throw FileStoreException("can't create .${ref.id}.new", diskFull = false)
+            files.writeAtomic("$staging/$GRID", gridBytes)
+            if (record != null) files.writeAtomic("$staging/$RECORD", CanvasRecordCodec.encode(record))
+            if (source != null) files.writeAtomic("$staging/$SOURCE", source)
+            files.moveDir(staging, dir)
             WriteResult.Written
-        } catch (e: IOException) {
-            staging.deleteRecursively()
+        } catch (e: FileStoreException) {
+            files.deleteRecursive(staging)
             writeFailed(ref, "create", e)
         }
     }
 
     fun load(ref: CanvasRef): LoadResult {
         val dir = dirOf(ref)
-        if (!dir.isDirectory) return damaged(ref, LoadProblem.Missing(CanvasFile.DIR))
-        val grid = when (val g = read(File(dir, GRID), CanvasFile.GRID) { GridCodec.decode(it) }) {
+        if (!files.isDirectory(dir)) return damaged(ref, LoadProblem.Missing(CanvasFile.DIR))
+        val grid = when (val g = read("$dir/$GRID", CanvasFile.GRID) { GridCodec.decode(it) }) {
             is Attempt.Ok -> g.value
             is Attempt.Failed -> return damaged(ref, g.problem)
         }
         val binding = grid.binding
-        val primary = read(File(dir, SAVE), CanvasFile.SAVE) { codec.decode(it, binding) }
+        val primary = read("$dir/$SAVE", CanvasFile.SAVE) { codec.decode(it, binding) }
         if (primary is Attempt.Ok) return LoadResult.Loaded(grid, primary.value)
         primary as Attempt.Failed
         val problem = primary.problem
-        val lastGood = read(File(dir, LAST_GOOD), CanvasFile.LAST_GOOD) { codec.decode(it, binding) }
+        val lastGood = read("$dir/$LAST_GOOD", CanvasFile.LAST_GOOD) { codec.decode(it, binding) }
         // Never saved yet: a fresh canvas.
         if (problem is LoadProblem.Missing && lastGood is Attempt.Failed && lastGood.problem is LoadProblem.Missing) {
             return LoadResult.Loaded(grid, IntArray(0))
@@ -131,44 +123,41 @@ class CanvasRepository internal constructor(
     fun writeSave(ref: CanvasRef, grid: GridBinding, log: IntArray): WriteResult {
         val dir = dirOf(ref)
         // Deleted while a write was pending: don't bring it back.
-        if (!dir.isDirectory) return WriteResult.WriteFailed(diskFull = false)
+        if (!files.isDirectory(dir)) return WriteResult.WriteFailed(diskFull = false)
         val bytes = try {
             codec.encode(grid, log)
         } catch (e: IllegalArgumentException) {
             reporter.report(CanvasStorageException("${ref.reportLabel}: refused to encode save", e))
             return WriteResult.WriteFailed(diskFull = false)
         }
-        val save = File(dir, SAVE)
+        val save = "$dir/$SAVE"
         return try {
-            if (save.isFile) {
-                // An unreadable save is treated like a refused one: no last-good copy, and the rename still replaces
-                // it (that needs the directory's permissions, not the file's).
-                val currentBytes = try {
-                    save.readBytes()
-                } catch (_: IOException) {
-                    null
-                }
-                val current = currentBytes?.let { codec.decode(it, grid) }
-                if (current is Decoded.Ok) {
-                    files.write(File(dir, LAST_GOOD), currentBytes)
-                } else if ((current as? Decoded.Refused)?.reason is Refusal.NewerVersion) {
-                    reporter.report(CanvasStorageException("${ref.reportLabel}: won't overwrite a newer save"))
-                    return WriteResult.WriteFailed(diskFull = false)
-                }
+            // An unreadable save is treated like a refused one: no last-good copy, and the rename still replaces it
+            // (that needs the directory's permissions, not the file's).
+            val currentBytes = try {
+                files.read(save)
+            } catch (_: FileStoreException) {
+                null
             }
-            files.write(save, bytes)
+            val current = currentBytes?.let { codec.decode(it, grid) }
+            if (current is Decoded.Ok) {
+                files.writeAtomic("$dir/$LAST_GOOD", currentBytes)
+            } else if ((current as? Decoded.Refused)?.reason is Refusal.NewerVersion) {
+                reporter.report(CanvasStorageException("${ref.reportLabel}: won't overwrite a newer save"))
+                return WriteResult.WriteFailed(diskFull = false)
+            }
+            files.writeAtomic(save, bytes)
             WriteResult.Written
-        } catch (e: IOException) {
+        } catch (e: FileStoreException) {
             writeFailed(ref, "save", e)
         }
     }
 
     /** The saved view, or null (use defaults) if it's missing, unreadable or out of range for [paletteSize]. */
     fun readView(ref: CanvasRef, paletteSize: Int): ViewState? {
-        val file = File(dirOf(ref), VIEW)
         val bytes = try {
-            if (file.isFile) file.readBytes() else null
-        } catch (_: IOException) {
+            files.read("${dirOf(ref)}/$VIEW")
+        } catch (_: FileStoreException) {
             null
         }
         return ViewStateCodec.decode(bytes, paletteSize)
@@ -177,21 +166,20 @@ class CanvasRepository internal constructor(
     /** Written on Activity onStop only (no per-pan writes). Not reported: losing the view costs one pinch. */
     fun writeView(ref: CanvasRef, state: ViewState): WriteResult {
         val dir = dirOf(ref)
-        if (!dir.isDirectory) return WriteResult.WriteFailed(diskFull = false)
+        if (!files.isDirectory(dir)) return WriteResult.WriteFailed(diskFull = false)
         return try {
-            files.write(File(dir, VIEW), ViewStateCodec.encode(state))
+            files.writeAtomic("$dir/$VIEW", ViewStateCodec.encode(state))
             WriteResult.Written
-        } catch (e: IOException) {
-            WriteResult.WriteFailed(AtomicFiles.isDiskFull(e))
+        } catch (e: FileStoreException) {
+            WriteResult.WriteFailed(e.diskFull)
         }
     }
 
     /** The record, or null if it's missing or refused (the caller falls back to a default title). */
     fun readRecord(ref: CanvasRef): CanvasRecord? {
-        val file = File(dirOf(ref), RECORD)
         val bytes = try {
-            if (file.isFile) file.readBytes() else return null
-        } catch (_: IOException) {
+            files.read("${dirOf(ref)}/$RECORD") ?: return null
+        } catch (_: FileStoreException) {
             return null
         }
         return (CanvasRecordCodec.decode(bytes) as? Decoded.Ok)?.value
@@ -200,21 +188,20 @@ class CanvasRepository internal constructor(
     /** Rename and play time. A failure is not reported: the old title or a few minutes of play time are kept. */
     fun writeRecord(ref: CanvasRef, record: CanvasRecord): WriteResult {
         val dir = dirOf(ref)
-        if (!dir.isDirectory) return WriteResult.WriteFailed(diskFull = false)
+        if (!files.isDirectory(dir)) return WriteResult.WriteFailed(diskFull = false)
         return try {
-            files.write(File(dir, RECORD), CanvasRecordCodec.encode(record))
+            files.writeAtomic("$dir/$RECORD", CanvasRecordCodec.encode(record))
             WriteResult.Written
-        } catch (e: IOException) {
-            WriteResult.WriteFailed(AtomicFiles.isDiskFull(e))
+        } catch (e: FileStoreException) {
+            WriteResult.WriteFailed(e.diskFull)
         }
     }
 
     /** When the canvas was last played and first finished (T35), or null if unknown: missing, unreadable or refused. */
     fun readPlay(ref: CanvasRef): PlayTimes? {
-        val file = File(dirOf(ref), PLAY)
         val bytes = try {
-            if (file.isFile) file.readBytes() else return null
-        } catch (_: IOException) {
+            files.read("${dirOf(ref)}/$PLAY") ?: return null
+        } catch (_: FileStoreException) {
             return null
         }
         return (PlayFileCodec.decode(bytes) as? Decoded.Ok)?.value
@@ -223,25 +210,34 @@ class CanvasRepository internal constructor(
     /** Written with each save (T35). Not reported: losing it costs one evening's reminder precision. */
     fun writePlay(ref: CanvasRef, times: PlayTimes): WriteResult {
         val dir = dirOf(ref)
-        if (!dir.isDirectory) return WriteResult.WriteFailed(diskFull = false)
+        if (!files.isDirectory(dir)) return WriteResult.WriteFailed(diskFull = false)
         return try {
-            files.write(File(dir, PLAY), PlayFileCodec.encode(times))
+            files.writeAtomic("$dir/$PLAY", PlayFileCodec.encode(times))
             WriteResult.Written
-        } catch (e: IOException) {
-            WriteResult.WriteFailed(AtomicFiles.isDiskFull(e))
+        } catch (e: FileStoreException) {
+            WriteResult.WriteFailed(e.diskFull)
         }
     }
 
-    fun sourceFile(ref: CanvasRef): File = File(dirOf(ref), SOURCE)
+    /** A photo canvas's cropped photo, relative to the files folder (the encoder reads it as a file on Android). */
+    fun sourcePath(ref: CanvasRef): String = "${dirOf(ref)}/$SOURCE"
 
-    fun thumbFile(ref: CanvasRef): File = File(dirOf(ref), THUMB)
+    /** Whether [ref] keeps a cropped photo (photo canvases only). */
+    fun hasSource(ref: CanvasRef): Boolean = ref.kind == CanvasKind.PHOTO && files.exists(sourcePath(ref)) && !files.isDirectory(sourcePath(ref))
+
+    /** The last gallery thumbnail's PNG, or null when none was written or it can't be read. */
+    fun readThumb(ref: CanvasRef): ByteArray? = try {
+        files.read("${dirOf(ref)}/$THUMB")
+    } catch (_: FileStoreException) {
+        null
+    }
 
     fun writeThumb(ref: CanvasRef, png: ByteArray) {
         val dir = dirOf(ref)
-        if (!dir.isDirectory) return
+        if (!files.isDirectory(dir)) return
         try {
-            files.write(File(dir, THUMB), png)
-        } catch (_: IOException) {
+            files.writeAtomic("$dir/$THUMB", png)
+        } catch (_: FileStoreException) {
         }
     }
 
@@ -253,15 +249,15 @@ class CanvasRepository internal constructor(
      */
     fun clearProgress(ref: CanvasRef): Boolean {
         val dir = dirOf(ref)
-        if (!dir.isDirectory) return false
+        if (!files.isDirectory(dir)) return false
         for (name in listOf(LAST_GOOD, SAVE, VIEW, THUMB)) {
-            val f = File(dir, name)
-            if (f.exists() && !f.delete()) {
+            val f = "$dir/$name"
+            if (files.exists(f) && !files.delete(f)) {
                 reporter.report(CanvasStorageException("${ref.reportLabel}: clearing $name failed"))
                 return false
             }
         }
-        AtomicFiles.syncDir(dir)
+        files.syncDir(dir)
         readRecord(ref)?.let { writeRecord(ref, it.copy(playMillis = 0)) }
         readPlay(ref)?.let { writePlay(ref, it.copy(lastGemMillis = null)) }
         return true
@@ -274,15 +270,14 @@ class CanvasRepository internal constructor(
      */
     fun delete(ref: CanvasRef): Boolean {
         val dir = dirOf(ref)
-        if (!dir.exists()) return true
-        val doomed = File(dir.parentFile, ".${ref.id}.deleted")
+        if (!files.exists(dir)) return true
+        val doomed = "${ref.kind.dir}/.${ref.id}.deleted"
         return try {
-            doomed.deleteRecursively()
-            Files.move(dir.toPath(), doomed.toPath(), StandardCopyOption.ATOMIC_MOVE)
-            AtomicFiles.syncDir(dir.parentFile)
-            doomed.deleteRecursively()
+            files.deleteRecursive(doomed)
+            files.moveDir(dir, doomed)
+            files.deleteRecursive(doomed)
             true
-        } catch (e: IOException) {
+        } catch (e: FileStoreException) {
             reporter.report(CanvasStorageException("${ref.reportLabel}: delete failed", e))
             false
         }
@@ -291,11 +286,11 @@ class CanvasRepository internal constructor(
     /** Clears leftovers of interrupted creates, deletes and writes. Call once at startup, before opening canvases. */
     fun sweep() {
         for (kind in CanvasKind.entries) {
-            val parent = File(root, kind.dir)
-            parent.listFiles()?.forEach { f ->
+            for (name in files.list(kind.dir)) {
+                val f = "${kind.dir}/$name"
                 when {
-                    f.name.startsWith(".") -> f.deleteRecursively()
-                    f.isDirectory -> f.listFiles { t -> t.name.endsWith(AtomicFiles.TEMP_SUFFIX) }?.forEach { it.delete() }
+                    name.startsWith(".") -> files.deleteRecursive(f)
+                    files.isDirectory(f) -> files.list(f).filter { it.endsWith(FileStore.TEMP_SUFFIX) }.forEach { files.delete("$f/$it") }
                 }
             }
         }
@@ -307,11 +302,10 @@ class CanvasRepository internal constructor(
         class Failed(val problem: LoadProblem) : Attempt<Nothing>
     }
 
-    private fun <T> read(file: File, which: CanvasFile, decode: (ByteArray) -> Decoded<T>): Attempt<T> {
-        if (!file.isFile) return Attempt.Failed(LoadProblem.Missing(which))
+    private fun <T> read(path: String, which: CanvasFile, decode: (ByteArray) -> Decoded<T>): Attempt<T> {
         val bytes = try {
-            file.readBytes()
-        } catch (e: IOException) {
+            files.read(path) ?: return Attempt.Failed(LoadProblem.Missing(which))
+        } catch (e: FileStoreException) {
             return Attempt.Failed(LoadProblem.Unreadable(which, e))
         }
         return when (val d = decode(bytes)) {
@@ -327,13 +321,13 @@ class CanvasRepository internal constructor(
     }
 
     /** A full disk is the player's to fix and is shown on the canvas, so only other failures are reported. */
-    private fun writeFailed(ref: CanvasRef, what: String, e: IOException): WriteResult.WriteFailed {
-        val diskFull = AtomicFiles.isDiskFull(e)
+    private fun writeFailed(ref: CanvasRef, what: String, e: FileStoreException): WriteResult.WriteFailed {
+        val diskFull = e.diskFull
         if (!diskFull) reporter.report(CanvasStorageException("${ref.reportLabel}: $what write failed", e))
         return WriteResult.WriteFailed(diskFull)
     }
 
-    internal companion object {
+    companion object {
         const val GRID = "grid"
         const val SAVE = "save"
         const val LAST_GOOD = "save.last-good"

@@ -1,7 +1,6 @@
 package com.brewingbytes.gemmory.play
 
 import java.util.Locale
-import com.brewingbytes.gemmory.copy.Strings
 import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
@@ -14,6 +13,7 @@ import com.brewingbytes.gemmory.save.GridCodec
 import com.brewingbytes.gemmory.save.GridFile
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
@@ -46,19 +46,11 @@ class RemoteCanvasStoreTest {
 
     private val store by lazy {
         CanvasStore(
-            filesDir = tmp.root,
+            files = AndroidFileStore(tmp.root),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             writer = Dispatchers.IO.limitedParallelism(1),
             nowMillis = { 0L },
-            strings = object : Strings {
-                override val locale get() = language.locale
-
-                override fun text(id: Int, vararg args: Any) = language.text(id, *args)
-
-                override fun plural(id: Int, count: Int, vararg args: Any) = language.plural(id, count, *args)
-
-                override val words get() = language.words
-            },
+            words = { language.words },
             bundledGrid = { _: BundledPicture -> bundledGrid },
             encodes = object : EncodeCanceller {
                 override suspend fun cancelAndClear(ref: CanvasRef) = Unit
@@ -247,7 +239,7 @@ class RemoteCanvasStoreTest {
         catalog.add("lighthouse", availableFrom = "2026-11-02")
         listed = emptyList()
         assertIs<CanvasStore.Opened.Damaged>(store.open(ref("lighthouse")))
-        assertEquals(false, store.repository.dirOf(ref("lighthouse")).isDirectory, "nothing copied in")
+        assertEquals(false, store.repository.exists(ref("lighthouse")), "nothing copied in")
         assertEquals(null, store.pattern(ref("lighthouse")))
         assertEquals(emptyList(), events.toList(), "no canvas_started")
     }

@@ -310,7 +310,7 @@ class CollectionsFlowTest {
         assertTrue(!exists(REMINDER_ASK_YES_TAG), "no reminder ask on the reward return")
         assertEquals(1, app.monetization.inventory.value.tokens)
         assertTrue("harbour-lights" in app.monetization.unlocks.unlocked.value)
-        assertTrue(app.store.repository.dirOf(remote("harbour-lights")).isDirectory, "copied into its canvas")
+        assertTrue(app.store.repository.exists(remote("harbour-lights")), "copied into its canvas")
         waitFor("the keepsake in the grid") { runCatching { compose.onNodeWithTag("gallery-grid").performScrollToKey("REMOTE/harbour-lights") }.isSuccess }
 
         // A relaunch settles again: nothing more is given.

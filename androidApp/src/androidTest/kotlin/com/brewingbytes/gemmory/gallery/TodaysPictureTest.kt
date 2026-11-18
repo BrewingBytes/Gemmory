@@ -25,6 +25,7 @@ import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.play.CoachHint
 import com.brewingbytes.gemmory.play.PlaySession

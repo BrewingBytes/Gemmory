@@ -7,6 +7,7 @@ import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.SharedResources
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec

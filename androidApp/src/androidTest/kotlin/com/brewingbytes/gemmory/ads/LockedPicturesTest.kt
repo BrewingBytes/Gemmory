@@ -27,6 +27,7 @@ import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.gallery.GalleryViewModel
 import com.brewingbytes.gemmory.gallery.Tile
 import com.brewingbytes.gemmory.play.PlayUi

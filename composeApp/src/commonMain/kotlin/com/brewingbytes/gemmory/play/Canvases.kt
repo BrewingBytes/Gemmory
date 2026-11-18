@@ -85,8 +85,8 @@ enum class KeepResult {
 class CanvasProgress(val pattern: Pattern, val log: IntArray, val title: String)
 
 /**
- * The canvases on this phone as shared screens read them (iOS Stage 1c, T64, eng D6). Android's `CanvasStore` is it
- * until the store itself moves to common code over `FileStore`; the shell hands it over through `PlatformServices`.
+ * The canvases on this phone as shared screens read them (iOS Stage 1c, T64, eng D6). [CanvasStore] (common, over
+ * `FileStore`) is it; the shell makes the store and hands it over through `PlatformServices`, so tests can swap it.
  */
 interface Canvases {
     /** Every picture (bundled and remote, in catalog order) and every photo canvas (newest first). */

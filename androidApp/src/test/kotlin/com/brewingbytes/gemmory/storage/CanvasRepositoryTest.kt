@@ -48,18 +48,23 @@ class CanvasRepositoryTest {
     private val binding = (GridCodec.decode(gridBytes) as Decoded.Ok).value.binding
 
     private fun repo(writer: SyncedWriter = SyncedWriter.Default) =
-        CanvasRepository(tmp.root, reporter, SaveCodec(), AtomicFiles(writer))
+        CanvasRepository(AndroidFileStore(tmp.root, writer), reporter, SaveCodec())
+
+    /** [ref]'s folder on disk. */
+    private fun CanvasRepository.dir(ref: CanvasRef) = File(tmp.root, dirOf(ref))
+
+    private fun CanvasRepository.sourceFile(ref: CanvasRef) = File(tmp.root, sourcePath(ref))
 
     /** A repository with [ref] already created. */
     private val started by lazy { repo().also { assertEquals(WriteResult.Written, it.create(ref, gridBytes)) } }
 
-    private fun file(name: String) = File(started.dirOf(ref), name)
+    private fun file(name: String) = File(started.dir(ref), name)
 
     @Test
     fun photoAndBundledCanvasesLiveInTheirBackupDirs() {
         val r = repo()
-        assertEquals(File(tmp.root, "canvases/photo/c1"), r.dirOf(ref))
-        assertEquals(File(tmp.root, "canvases/bundled/c1"), r.dirOf(CanvasRef(CanvasKind.BUNDLED, "c1")))
+        assertEquals("canvases/photo/c1", r.dirOf(ref))
+        assertEquals("canvases/bundled/c1", r.dirOf(CanvasRef(CanvasKind.BUNDLED, "c1")))
     }
 
     @Test
@@ -195,7 +200,7 @@ class CanvasRepositoryTest {
             r.create(canvas, gridBytes)
             r.writeSave(canvas, binding, intArrayOf(3))
             r.writeSave(canvas, binding, intArrayOf(3, 1))
-            File(r.dirOf(canvas), "save").writeBytes(bytes)
+            File(r.dir(canvas), "save").writeBytes(bytes)
             val recovered = assertIs<LoadResult.RecoveredFromLastGood>(r.load(canvas), id)
             assertContentEquals(intArrayOf(3), recovered.log, id)
             assertEquals(LoadProblem.Refused(CanvasFile.SAVE, refusal), recovered.problem, id)
@@ -270,7 +275,7 @@ class CanvasRepositoryTest {
         started.writeSave(ref, binding, intArrayOf(3))
         started.writeSave(ref, binding, intArrayOf(3, 1))
         started.writeView(ref, ViewState(24f, 0f, 0f, 0))
-        val dir = started.dirOf(ref)
+        val dir = started.dir(ref)
         assertTrue(started.delete(ref))
         assertFalse(dir.exists())
         assertTrue(dir.parentFile!!.listFiles()!!.isEmpty())
@@ -334,7 +339,7 @@ class CanvasRepositoryTest {
         r.writeView(ref, ViewState(24f, 0f, 0f, 0))
         r.writePlay(ref, PlayTimes(1, 2))
         assertTrue(r.delete(ref))
-        assertFalse(r.dirOf(ref).exists())
+        assertFalse(r.dir(ref).exists())
         assertNull(r.readRecord(ref))
         assertNull(r.readPlay(ref))
         assertFalse(r.sourceFile(ref).exists())
@@ -342,7 +347,7 @@ class CanvasRepositoryTest {
 
     @Test
     fun sweepClearsLeftoversOfInterruptedOperations() {
-        val parent = started.dirOf(ref).parentFile!!
+        val parent = started.dir(ref).parentFile!!
         File(parent, ".c2.new").mkdirs()
         File(parent, ".c3.deleted").mkdirs()
         file("save.tmp").writeBytes(byteArrayOf(1))

@@ -21,6 +21,9 @@ interface FileStore {
 
     fun exists(path: String): Boolean
 
+    /** Whether [path] is a folder. */
+    fun isDirectory(path: String): Boolean
+
     /** The names in the folder at [path], sorted; empty when it doesn't exist. */
     fun list(path: String): List<String>
 
@@ -41,6 +44,14 @@ interface FileStore {
 
     /** Deletes [path] and everything under it; true when nothing is left there. */
     fun deleteRecursive(path: String): Boolean
+
+    /** Makes the renames and deletes in the folder at [path] durable. Best effort: a failure is ignored. */
+    fun syncDir(path: String)
+
+    companion object {
+        /** What [writeAtomic]'s temp file adds to the name; a sweep deletes leftovers ending with it. */
+        const val TEMP_SUFFIX = ".tmp"
+    }
 }
 
 /** A [FileStore] operation that failed; [diskFull] when the disk had no room (ENOSPC). */

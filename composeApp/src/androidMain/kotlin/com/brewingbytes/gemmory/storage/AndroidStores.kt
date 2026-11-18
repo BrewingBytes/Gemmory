@@ -76,6 +76,8 @@ class AndroidFileStore(private val root: File, writer: SyncedWriter = SyncedWrit
 
     override fun exists(path: String): Boolean = file(path).exists()
 
+    override fun isDirectory(path: String): Boolean = file(path).isDirectory
+
     override fun list(path: String): List<String> = file(path).list()?.sorted().orEmpty()
 
     override fun delete(path: String): Boolean = file(path).let { it.isFile && it.delete() }
@@ -95,6 +97,8 @@ class AndroidFileStore(private val root: File, writer: SyncedWriter = SyncedWrit
     }
 
     override fun deleteRecursive(path: String): Boolean = file(path).let { it.deleteRecursively() || !it.exists() }
+
+    override fun syncDir(path: String) = AtomicFiles.syncDir(file(path))
 
     private inline fun <T> wrap(what: String, block: () -> T): T = try {
         block()
