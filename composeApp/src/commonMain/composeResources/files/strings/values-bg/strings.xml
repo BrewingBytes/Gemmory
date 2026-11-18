@@ -213,6 +213,7 @@
     </plurals>
     <string name="streak_repair_body_vip">Серията ти приключи: %1$s. Седмичната VIP поправка може да я върне.</string>
     <string name="streak_repair_body_video">Серията ти приключи: %1$s. Гледай кратко видео, за да я възстановиш.</string>
+    <string name="streak_repair_body_free">Серията ти приключи: %1$s. Можеш да я върнеш безплатно.</string>
     <string name="streak_repair_until">Можеш да го направиш до: %1$s.</string>
     <string name="streak_vip_repair_used">VIP поправката е използвана: %1$s · отново налична: %2$s</string>
     <plurals name="streak_restored">
@@ -374,6 +375,10 @@
         <item quantity="one">Гледай видео: +%1$d запълване</item>
         <item quantity="other">Гледай видео: +%1$d запълвания</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="one">Вземи +%1$d запълване</item>
+        <item quantity="other">Вземи +%1$d запълвания</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="one">Завърти за подаръка си (%1$d чака)</item>
         <item quantity="other">Завърти за подаръка си (%1$d чакат)</item>
@@ -498,6 +503,7 @@
     </plurals>
     <string name="allowance_bonus">Използва бонус платно от видео.</string>
     <string name="allowance_watch">Днешното безплатно е използвано. Гледай видео за още едно.</string>
+    <string name="allowance_on_us">Днешното безплатно е използвано. Следващото е от нас.</string>
 
     <string name="music_title">Музика</string>
     <string name="music_volume">Сила на музиката</string>

@@ -213,6 +213,7 @@
     </plurals>
     <string name="streak_repair_body_vip">Serin bitti: %1$s. Haftalık VIP onarımın onu geri getirebilir.</string>
     <string name="streak_repair_body_video">Serin bitti: %1$s. Geri getirmek için kısa bir video izle.</string>
+    <string name="streak_repair_body_free">Serin bitti: %1$s. Ücretsiz geri getirebilirsin.</string>
     <string name="streak_repair_until">Son gün: %1$s.</string>
     <string name="streak_vip_repair_used">VIP onarımı kullanıldı: %1$s · yeniden hazır: %2$s</string>
     <plurals name="streak_restored">
@@ -374,6 +375,10 @@
         <item quantity="one">Video izle: +%1$d doldurma</item>
         <item quantity="other">Video izle: +%1$d doldurma</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="one">+%1$d doldurma al</item>
+        <item quantity="other">+%1$d doldurma al</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="one">Hediyen için çevir (%1$d bekliyor)</item>
         <item quantity="other">Hediyen için çevir (%1$d bekliyor)</item>
@@ -498,6 +503,7 @@
     </plurals>
     <string name="allowance_bonus">Videodan kazanılan bir bonus tuvali kullanır.</string>
     <string name="allowance_watch">Bugünkü ücretsiz tuval kullanıldı. Bir tane daha için video izle.</string>
+    <string name="allowance_on_us">Bugünkü ücretsiz tuval kullanıldı. Sıradaki bizden.</string>
 
     <string name="music_title">Müzik</string>
     <string name="music_volume">Müzik sesi</string>

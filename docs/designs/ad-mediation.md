@@ -91,6 +91,12 @@ One issue (T34) covering, in order:
 - The streak repair (Streak B PR 2) is a new rewarded placement on the same rewarded unit, `reward_type = streak_repair`. It shows only on Your streak (the gallery side), drawn inline as the repair panel, while a broken streak can come back (within 2 days). Never on the canvas, never on or before the completion screen, never as an interstitial.
 - It is opt-in like every rewarded video: the player taps "Watch a video"; the screen only preloads. Video repairs have no limit (founder: ad revenue); the online no-fill grace (`RewardedRules`) applies once a day per type and, for the repair, at most once in 30 days. VIP gets one free repair a week, then watches like anyone.
 
+## Ads off until AdMob links the app (#203, 2026-11-18)
+- AdMob links an Android app only once it's public on Play, and serves little before that link and the readiness review. So a release ships with ads off (`gemmory.ads.enabled=false`, a build flag like T52's, no remote switch): the ad SDK never initializes, Unity's `privacy.consent` isn't written, nothing loads, and nothing on screen asks for a video.
+- Founder decision A: what a video would give is free. Locked pictures open (not unlocked for good; a started one stays open anyway, E4c), More colors needs nothing, a used free photo canvas offers "Start canvas" for the next one ("Today's free one is used. The next one is on us."), Inventory offers "Get +5 fills", and the streak repair panel offers "Bring it back". These grant at once, logged with `source = free`. VIP still sells no ads and its extras.
+- UMP keeps running while ads are off: it is also Firebase Analytics' Consent Mode v2 (#12), and Settings → Privacy choices is how a player in the EEA withdraws it.
+- Turning ads on is the one property and a release. Nothing earned while off is taken away: kept canvases, fills and started pictures stay; pictures never started lock again.
+
 ## Open Questions
 - Does Unity's Data safety disclosure add data types Gemmory hasn't declared yet? Read it during the issue.
 - Are closed testers in the EEA (UMP message shown)? This affects how much of the test traffic is personalized.

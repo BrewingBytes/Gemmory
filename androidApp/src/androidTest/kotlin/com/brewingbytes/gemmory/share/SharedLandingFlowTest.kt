@@ -148,7 +148,7 @@ class SharedLandingFlowTest {
         }
         val tile = gallery().pictures.first { it.ref == lockedRef }
         val s = gallery()
-        assertFalse(tile.locked(app.monetization.unlocks.unlocked.value, app.monetization.entitlements.value, s.todayFree), "no lock label today")
+        assertFalse(tile.locked(app.monetization.unlocks.unlocked.value, app.monetization.entitlements.value, app.monetization.adsOn, s.todayFree), "no lock label today")
         compose.onNodeWithTag("gallery-grid").performScrollToNode(hasTestTag(tileTag(lockedRef)))
 
         // Once: a relaunch of the activity in the same session doesn't open it again.

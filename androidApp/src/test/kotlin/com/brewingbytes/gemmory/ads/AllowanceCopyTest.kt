@@ -15,5 +15,10 @@ class AllowanceCopyTest {
         assertEquals("Uses a bonus canvas from a video.", allowanceLine(XmlStrings.en.words, Allowance.Bonus))
         assertEquals("Uses a kept photo canvas (2 left).", allowanceLine(XmlStrings.en.words, Allowance.Bonus, kept = 2), "#38")
         assertEquals(null, allowanceLine(XmlStrings.en.words, Allowance.Unlimited), "VIP: no line")
+        assertEquals(
+            "Today's free one is used. The next one is on us.",
+            allowanceLine(XmlStrings.en.words, Allowance.WatchVideo, adsOn = false),
+            "#203: ads off, the next canvas is free",
+        )
     }
 }

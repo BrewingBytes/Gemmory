@@ -41,8 +41,11 @@ data class PendingCelebration(
 /** The streak's preferences file; the launch funnel (T46) reads whether it exists. */
 const val STREAK_PREFS = StorageLayout.Prefs.STREAK
 
-/** How a broken streak is brought back (#102): a rewarded video, the online no-fill grace, or VIP's weekly repair. */
-enum class RepairHow { VIDEO, GRACE, VIP }
+/**
+ * How a broken streak is brought back (#102): a rewarded video, the online no-fill grace, VIP's weekly repair, or free
+ * in place of the video while ads are off (#203).
+ */
+enum class RepairHow { VIDEO, GRACE, VIP, FREE }
 
 /**
  * The daily play streak (#33, #101) on this phone. Kept in the "streak" preferences, which may be backed up: it's no
@@ -136,14 +139,14 @@ class PlayStreak(
             when (how) {
                 RepairHow.VIP -> putLong(LAST_VIP_REPAIR, today)
                 RepairHow.GRACE -> putLong(LAST_GRACE_REPAIR, today)
-                RepairHow.VIDEO -> Unit
+                RepairHow.VIDEO, RepairHow.FREE -> Unit
             }
         }
         state = result.state
         when (how) {
             RepairHow.VIP -> lastVipRepair = today
             RepairHow.GRACE -> lastGraceRepair = today
-            RepairHow.VIDEO -> Unit
+            RepairHow.VIDEO, RepairHow.FREE -> Unit
         }
         saveLog(StreakHistory.record(logLocked(), result.covered.map { HistoryDay(it.day, it.kind) }))
         return result

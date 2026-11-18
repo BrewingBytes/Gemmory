@@ -83,17 +83,20 @@ object PhotoFlowRules {
         return rules.preselect ?: current
     }
 
-    /** The color choice can start: Fewer and Standard always; More for VIP, or once a video unlocked it for this photo. */
-    fun colorsAllowed(choice: ColorChoice, allowance: Allowance, moreUnlocked: Boolean): Boolean =
-        choice != ColorChoice.MORE || moreUnlocked || allowance == Allowance.Unlimited
+    /**
+     * The color choice can start: Fewer and Standard always; More for VIP, once a video unlocked it for this photo, or
+     * while ads are off ([adsOn] false, #203: what a video gives is free).
+     */
+    fun colorsAllowed(choice: ColorChoice, allowance: Allowance, moreUnlocked: Boolean, adsOn: Boolean): Boolean =
+        choice != ColorChoice.MORE || moreUnlocked || allowance == Allowance.Unlimited || !adsOn
 
     /**
      * Preview's primary (#29). A canvas video comes first when today's free one is used, and its reward also unlocks
      * More, so nobody watches two videos for one canvas.
      */
-    fun previewPrimary(allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean): PreviewPrimary = when {
+    fun previewPrimary(allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean, adsOn: Boolean): PreviewPrimary = when {
         allowance == Allowance.WatchVideo -> PreviewPrimary.WATCH_FOR_CANVAS
-        !colorsAllowed(choice, allowance, moreUnlocked) -> PreviewPrimary.WATCH_FOR_COLORS
+        !colorsAllowed(choice, allowance, moreUnlocked, adsOn) -> PreviewPrimary.WATCH_FOR_COLORS
         else -> PreviewPrimary.START
     }
 }

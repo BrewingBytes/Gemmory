@@ -122,6 +122,8 @@ fun InventorySheet(
     onWatchFills: () -> Unit,
     onSpin: () -> Unit,
     onDismiss: () -> Unit,
+    /** False while ads are off (#203): the fills come free, "Get 5 fills". */
+    adsOn: Boolean = true,
 ) {
     val strings = LocalWords.current
     GemSheet(LocalWords.current.text("inventory_title"), onDismiss, returnFocusTo = INVENTORY_TAG) {
@@ -139,16 +141,17 @@ fun InventorySheet(
         if (state.spinsWaiting > 0) {
             PrimaryButton(spinLabel(strings, state.spinsWaiting), onSpin, Modifier.fillMaxWidth().testTag("inventory-spin"))
             Spacer(Modifier.height(8.dp))
-            QuietButton(watchLabel(strings), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
+            QuietButton(watchLabel(strings, adsOn), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
         } else {
-            PrimaryButton(watchLabel(strings), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
+            PrimaryButton(watchLabel(strings, adsOn), onWatchFills, Modifier.fillMaxWidth().testTag("inventory-watch"))
             Spacer(Modifier.height(16.dp))
             NextGift(streak, tag = "inventory-next-gift")
         }
     }
 }
 
-internal fun watchLabel(s: Words) = s.plural("inventory_watch", Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
+internal fun watchLabel(s: Words, adsOn: Boolean = true) =
+    s.plural(if (adsOn) "inventory_watch" else "inventory_get_fills", Inventory.FILLS_PER_VIDEO, Inventory.FILLS_PER_VIDEO)
 
 internal fun spinLabel(s: Words, waiting: Int) =
     if (waiting > 1) s.plural("inventory_spin_several", waiting, waiting) else s.text("inventory_spin", Inventory.SPIN_EVERY)

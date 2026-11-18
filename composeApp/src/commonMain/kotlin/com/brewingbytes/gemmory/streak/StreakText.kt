@@ -122,9 +122,18 @@ class StreakText(private val s: Words) {
     /** The repair panel's title (#102): "Bring back your 12 days". */
     fun repairTitle(length: Int): String = s.plural("streak_repair_title", length, length)
 
-    /** The repair panel's line: by video, or by VIP's weekly repair while it's [vipReady]. */
-    fun repairBody(endedOn: Long, vipReady: Boolean): String =
-        s.text(if (vipReady) "streak_repair_body_vip" else "streak_repair_body_video", weekday(endedOn))
+    /**
+     * The repair panel's line: by video, or by VIP's weekly repair while it's [vipReady]. While ads are off ([adsOn]
+     * false, #203) the repair is free.
+     */
+    fun repairBody(endedOn: Long, vipReady: Boolean, adsOn: Boolean = true): String = s.text(
+        when {
+            vipReady -> "streak_repair_body_vip"
+            adsOn -> "streak_repair_body_video"
+            else -> "streak_repair_body_free"
+        },
+        weekday(endedOn),
+    )
 
     /** "You can do this until Thursday." */
     fun repairUntil(day: Long): String = s.text("streak_repair_until", weekday(day))

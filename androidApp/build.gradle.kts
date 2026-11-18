@@ -35,8 +35,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 25
-        versionName = "1.0.3"
+        versionCode = 26
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
@@ -55,6 +55,10 @@ android {
         buildConfigField("boolean", "UMP_DEBUG_US_STATE", "false")
         buildConfigField("String", "UMP_TEST_DEVICE", "\"\"")
         buildConfigField("boolean", "FAKE_BILLING", "false")
+        // Ads (#203): off in release until AdMob links the app (gradle.properties `gemmory.ads.enabled`). Off means no ad
+        // SDK start and no video offers; what a video gives is free. Debug builds and connected tests keep ads on (test
+        // IDs) unless `-Pgemmory.adsOff=true`, which shows the release's ads-off app.
+        buildConfigField("boolean", "ADS_ENABLED", "true")
         // Crashlytics and Analytics send from release builds only (#12). The manifest reads the same switch.
         buildConfigField("boolean", "FIREBASE", "true")
         manifestPlaceholders["firebaseEnabled"] = "true"
@@ -94,6 +98,7 @@ android {
             // Debug builds use the fake billing backend (src/debug) unless `-Pgemmory.fakeBilling=false`, which the
             // license-tester run on a Play Store emulator needs (#8). Release builds always use Google Play.
             buildConfigField("boolean", "FAKE_BILLING", providers.gradleProperty("gemmory.fakeBilling").getOrElse("true"))
+            buildConfigField("boolean", "ADS_ENABLED", (providers.gradleProperty("gemmory.adsOff").getOrElse("false") != "true").toString())
             // Debug builds keep crashes, non-fatals and events on the phone (Logcat) unless `-Pgemmory.firebaseInDebug=true`.
             val firebaseInDebug = providers.gradleProperty("gemmory.firebaseInDebug").getOrElse("false")
             buildConfigField("boolean", "FIREBASE", firebaseInDebug)
@@ -120,6 +125,7 @@ android {
             manifestPlaceholders["admobAppId"] = providers.gradleProperty("gemmory.admob.appId").getOrElse("")
             buildConfigField("String", "ADMOB_REWARDED", "\"${providers.gradleProperty("gemmory.admob.rewardedUnit").getOrElse("")}\"")
             buildConfigField("String", "ADMOB_INTERSTITIAL", "\"${providers.gradleProperty("gemmory.admob.interstitialUnit").getOrElse("")}\"")
+            buildConfigField("boolean", "ADS_ENABLED", providers.gradleProperty("gemmory.ads.enabled").getOrElse("false"))
         }
         // Release-like build for the frame-timing check (#117): R8 and not debuggable, like what players run, but signed
         // with the debug key so Test Lab installs it beside its test APK. Nothing leaves the phone: Google's test ad IDs,

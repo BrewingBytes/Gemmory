@@ -262,6 +262,8 @@ The prompt is on in every build from 0.8.4 (20) (T52, review prompt always on; C
 
 Design: [docs/designs/ad-mediation.md](designs/ad-mediation.md). AdMob serves rewarded and interstitial ads, and Unity Ads bids in the same auction through AdMob mediation (adapter `com.google.ads.mediation:unity`). No app code picks between the two.
 
+**Ads off until AdMob links the app (#203).** `gemmory.ads.enabled=false` in `gradle.properties` ships a release that never starts the ad SDK: no `MobileAds.initialize`, no Unity `privacy.consent` write, no ad loads, no video offers, and every video's reward is free. UMP still runs (first-launch form where required, Settings → Privacy choices), because it is also Firebase Analytics' Consent Mode v2 (#12). The SDKs still ship in the APK, so Data safety and the ads declaration stay as they are. Turning ads on is that one line and a release; re-read this section and the Data safety answers then.
+
 **IDs.** The three production AdMob IDs are committed in `gradle.properties`. Release builds use them (the app ID through `manifestPlaceholders`, the units through `BuildConfig`), and `:shared:validateReleaseAdIds` fails the release build on a missing, blank or test-publisher ID. The Unity Game ID and placement IDs are entered only in the AdMob console (each unit → bidding sources → Unity Ads).
 
 **Consent.**

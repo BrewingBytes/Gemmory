@@ -91,6 +91,7 @@ class StreakTextTest {
         assertEquals("Bring back your 12 days", text.repairTitle(12))
         assertEquals("Your streak ended on Tuesday. Watch a short video to restore it.", text.repairBody(tuesday, vipReady = false))
         assertEquals("Your streak ended on Tuesday. Your weekly VIP repair can bring it back.", text.repairBody(tuesday, vipReady = true))
+        assertEquals("#203", "Your streak ended on Tuesday. You can bring it back for free.", text.repairBody(tuesday, vipReady = false, adsOn = false))
         assertEquals("You can do this until Thursday.", text.repairUntil(tuesday + 2))
         assertEquals("VIP repair used Monday · ready again next Monday", text.vipRepairUsed(tuesday - 1))
         assertEquals("Streak back: 12 days", text.restored(12))

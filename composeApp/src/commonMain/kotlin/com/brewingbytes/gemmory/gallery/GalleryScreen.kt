@@ -247,6 +247,7 @@ fun GalleryScreen(
     onSharedOfferGone: () -> Unit = {},
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val adsOn = vm.adsOn
     LaunchedEffect(Unit) { vm.refresh() }
     // Drops open at local midnight (T36): a gallery left showing reloads then, and one that comes back on a new day
     // (the phone locked overnight) reloads as it resumes.
@@ -340,7 +341,7 @@ fun GalleryScreen(
                     vm.opened(tile)
                     when {
                         tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
-                        tile.locked(unlocked, entitlements, setOfNotNull(tile.ref.id.takeIf { vm.isFreeToday(tile) })) -> onLocked(tile)
+                        tile.locked(unlocked, entitlements, adsOn, setOfNotNull(tile.ref.id.takeIf { vm.isFreeToday(tile) })) -> onLocked(tile)
                         else -> onOpen(tile, entry)
                     }
                 }
@@ -376,7 +377,7 @@ fun GalleryScreen(
                 val showAll = tab == 0 && (if (largeFont) ui.showAllLarge else ui.showAll)
                 // A glint plays only with nothing over the gallery (D7).
                 val calm = sheet == null && inventorySheet == 0 && !collectionsSheet
-                val isLocked: (Tile) -> Boolean = { it.locked(unlocked, entitlements, todayFree) }
+                val isLocked: (Tile) -> Boolean = { it.locked(unlocked, entitlements, adsOn, todayFree) }
                 val extras = rows.map { row ->
                     collectionTag(row.id) to @Composable {
                         CollectionRowView(row, isLocked, { open(it, row.entry) }, vm::thumbnail, glint = row.glint && calm, onGlintDone = vm::glintShown)
@@ -422,7 +423,7 @@ fun GalleryScreen(
         }
         if (!(tab == 1 && state.loaded && state.photos.isEmpty() && state.finishedPhotos.isEmpty())) {
             // Allowance note (design D5): once today's free photo canvas is used, the Preview line's copy.
-            val note = allowanceLine(LocalWords.current, allowance, inventory?.canvases ?: 0).takeIf { allowance != Allowance.Free }
+            val note = allowanceLine(LocalWords.current, allowance, inventory?.canvases ?: 0, adsOn).takeIf { allowance != Allowance.Free }
             Column(
                 Modifier
                     .align(Alignment.BottomEnd)
@@ -481,6 +482,7 @@ fun GalleryScreen(
         1 -> InventorySheet(
             state = inventory,
             streak = state.streak,
+            adsOn = adsOn,
             onWatchFills = {
                 inventorySheet = 0
                 onWatchFills()
@@ -494,13 +496,13 @@ fun GalleryScreen(
     if (collectionsSheet) {
         AllCollectionsSheet(
             rows = state.collections.all,
-            isLocked = { it.locked(unlocked, entitlements, state.todayFree) },
+            isLocked = { it.locked(unlocked, entitlements, adsOn, state.todayFree) },
             onOpen = { tile, entry ->
                 collectionsSheet = false
                 vm.opened(tile)
                 when {
                     tile.damaged -> sheet = GallerySheet.Damaged(tile.ref)
-                    tile.locked(unlocked, entitlements, setOfNotNull(tile.ref.id.takeIf { vm.isFreeToday(tile) })) -> onLocked(tile)
+                    tile.locked(unlocked, entitlements, adsOn, setOfNotNull(tile.ref.id.takeIf { vm.isFreeToday(tile) })) -> onLocked(tile)
                     else -> onOpen(tile, entry)
                 }
             },

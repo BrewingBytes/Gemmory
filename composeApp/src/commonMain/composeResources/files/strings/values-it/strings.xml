@@ -228,6 +228,7 @@
     </plurals>
     <string name="streak_repair_body_vip">La tua serie si è interrotta: %1$s. La riparazione VIP settimanale può recuperarla.</string>
     <string name="streak_repair_body_video">La tua serie si è interrotta: %1$s. Guarda un breve video per recuperarla.</string>
+    <string name="streak_repair_body_free">La tua serie si è interrotta: %1$s. Puoi recuperarla gratis.</string>
     <string name="streak_repair_until">Puoi farlo fino a: %1$s.</string>
     <string name="streak_vip_repair_used">Riparazione VIP usata: %1$s · di nuovo disponibile: %2$s</string>
     <plurals name="streak_restored">
@@ -404,6 +405,11 @@
         <item quantity="many">Guarda un video: +%1$d di riempimenti</item>
         <item quantity="other">Guarda un video: +%1$d riempimenti</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="one">Ottieni +%1$d riempimento</item>
+        <item quantity="many">Ottieni +%1$d di riempimenti</item>
+        <item quantity="other">Ottieni +%1$d riempimenti</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="one">Gira per il tuo regalo (%1$d in attesa)</item>
         <item quantity="many">Gira per il tuo regalo (%1$d in attesa)</item>
@@ -539,6 +545,7 @@
     </plurals>
     <string name="allowance_bonus">Usa una tela bonus da un video.</string>
     <string name="allowance_watch">Quella gratis di oggi è già usata. Guarda un video per averne un’altra.</string>
+    <string name="allowance_on_us">Quella gratis di oggi è già usata. La prossima la offriamo noi.</string>
 
     <string name="music_title">Musica</string>
     <string name="music_volume">Volume della musica</string>

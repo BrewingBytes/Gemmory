@@ -213,6 +213,7 @@
     </plurals>
     <string name="streak_repair_body_vip">A sorozatod véget ért: %1$s. A heti VIP-javítás visszahozhatja.</string>
     <string name="streak_repair_body_video">A sorozatod véget ért: %1$s. Nézz meg egy rövid videót, hogy visszahozd.</string>
+    <string name="streak_repair_body_free">A sorozatod véget ért: %1$s. Ingyen visszahozhatod.</string>
     <string name="streak_repair_until">Erre eddig van időd: %1$s.</string>
     <string name="streak_vip_repair_used">VIP-javítás felhasználva: %1$s · újra elérhető: %2$s</string>
     <plurals name="streak_restored">
@@ -374,6 +375,10 @@
         <item quantity="one">Videó megnézése: +%1$d kitöltés</item>
         <item quantity="other">Videó megnézése: +%1$d kitöltés</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="one">Kérj +%1$d kitöltést</item>
+        <item quantity="other">Kérj +%1$d kitöltést</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="one">Pörgess az ajándékodért (%1$d vár)</item>
         <item quantity="other">Pörgess az ajándékodért (%1$d vár)</item>
@@ -498,6 +503,7 @@
     </plurals>
     <string name="allowance_bonus">Egy videóért kapott bónuszvásznat használ.</string>
     <string name="allowance_watch">A mai ingyenes már elfogyott. Nézz meg egy videót egy újabbért.</string>
+    <string name="allowance_on_us">A mai ingyenes már elfogyott. A következőt mi álljuk.</string>
 
     <string name="music_title">Zene</string>
     <string name="music_volume">Zene hangereje</string>

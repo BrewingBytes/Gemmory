@@ -23,9 +23,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * UMP consent (design doc Consent R3-7; design D3 navigation map). The form shows on the first launch only, where
  * UMP requires it (EEA), before any ad request. If it couldn't show then (offline), it shows before the first ad the
  * player asks for instead, never over a later launch (founder call for #7). Nothing here requests an ad: the gateway
- * asks [canRequestAds] first. Not child-directed (adults only).
+ * asks [canRequestAds] first. Not child-directed (adults only). While ads are off ([adsOn] false, #203) it still runs, as
+ * Firebase Analytics' consent (Consent Mode v2, #12), but writes nothing for Unity.
  */
-class ConsentManager(context: Context, reporter: NonFatalReporter) {
+class ConsentManager(context: Context, reporter: NonFatalReporter, private val adsOn: Boolean = true) {
     private val app = context.applicationContext
     private val info: ConsentInformation = UserMessagingPlatform.getConsentInformation(app)
     private val prefs = app.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -134,8 +135,10 @@ class ConsentManager(context: Context, reporter: NonFatalReporter) {
         }
     }
 
-    /** Writes Unity's privacy.consent from the GPP string UMP stored last. Main thread. */
-    fun updateUnity() = unity.update()
+    /** Writes Unity's privacy.consent from the GPP string UMP stored last; nothing while ads are off (#203). Main thread. */
+    fun updateUnity() {
+        if (adsOn) unity.update()
+    }
 
     /**
      * After every consent update (each launch, the first-ad form, the privacy options form): the flows, and Unity's

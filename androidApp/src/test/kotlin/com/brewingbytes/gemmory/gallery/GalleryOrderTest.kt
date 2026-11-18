@@ -83,6 +83,14 @@ class GalleryOrderTest {
         assertEquals(tiles.map { it.ref.id }, picturesInOrder(tiles, emptySet(), Entitlements(plan = VipPlan.YEARLY)).map { it.ref.id })
     }
 
+    /** #203: while ads are off nothing is locked, yet the order stays: the starter and the free ones still lead. */
+    @Test
+    fun adsOffLocksNothingAndKeepsTheOrder() {
+        val tiles = tiles()
+        assertEquals(false, tiles.any { it.locked(emptySet(), Entitlements.FREE, adsOn = false) })
+        assertEquals("starter", picturesInOrder(tiles, emptySet(), Entitlements.FREE).first().ref.id)
+    }
+
     /** A finished tile, finished on [day] (null: before T35), its canvas made at [created]. */
     private fun finished(id: String, day: Long?, created: Long = 0L, kind: CanvasKind = CanvasKind.BUNDLED) =
         Tile(CanvasRef(kind, id), id, 1f, null, 100, done = true, damaged = false, started = true, finishedDay = day, createdAtMillis = created)

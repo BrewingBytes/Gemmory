@@ -230,6 +230,8 @@ class GalleryViewModelTest {
             override val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE)
 
             override val unlocked: StateFlow<Set<String>> = MutableStateFlow(unlocked)
+
+            override val adsOn = true
         }
 
         override val progress = object : PlayerProgress {

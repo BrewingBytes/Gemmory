@@ -188,17 +188,22 @@ internal fun summary(s: Strings, size: CanvasSize, ratio: AspectRatio, conversio
  * The line under Preview's size line (#29): what More needs while it's chosen without VIP, else the allowance line
  * (design D5). Null when there's nothing to say (VIP).
  */
-internal fun previewLine(s: Strings, allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean, kept: Int = 0): String? =
-    when (PhotoFlowRules.previewPrimary(allowance, choice, moreUnlocked)) {
+internal fun previewLine(s: Strings, allowance: Allowance, choice: ColorChoice, moreUnlocked: Boolean, kept: Int = 0, adsOn: Boolean = true): String? =
+    when (PhotoFlowRules.previewPrimary(allowance, choice, moreUnlocked, adsOn)) {
         PreviewPrimary.WATCH_FOR_COLORS -> s.text(R.string.photo_more_colors_line)
         PreviewPrimary.WATCH_FOR_CANVAS ->
-            if (choice == ColorChoice.MORE && !moreUnlocked) s.text(R.string.photo_one_video_more_colors) else allowanceLine(s.words, allowance, kept)
-        PreviewPrimary.START -> allowanceLine(s.words, allowance, kept)
+            if (!PhotoFlowRules.colorsAllowed(choice, allowance, moreUnlocked, adsOn)) {
+                s.text(R.string.photo_one_video_more_colors)
+            } else {
+                allowanceLine(s.words, allowance, kept, adsOn)
+            }
+        PreviewPrimary.START -> allowanceLine(s.words, allowance, kept, adsOn)
     }
 
-internal fun primaryText(s: Strings, primary: PreviewPrimary): String = when (primary) {
+/** Preview's primary label; while ads are off ([adsOn] false, #203) the next canvas needs no video: "Start canvas". */
+internal fun primaryText(s: Strings, primary: PreviewPrimary, adsOn: Boolean = true): String = when (primary) {
     PreviewPrimary.START -> s.text(R.string.action_start)
-    PreviewPrimary.WATCH_FOR_CANVAS -> s.text(R.string.video_watch)
+    PreviewPrimary.WATCH_FOR_CANVAS -> s.text(if (adsOn) R.string.video_watch else R.string.rewarded_grace_canvas)
     PreviewPrimary.WATCH_FOR_COLORS -> s.text(R.string.photo_watch_for_colors)
 }
 
@@ -315,6 +320,8 @@ fun PreviewScreen(
     onChoice: (ColorChoice) -> Unit = {},
     /** "Watch a video for more colors" (#29). */
     onWatchColors: () -> Unit = {},
+    /** False while ads are off (#203): More colors is free, and the next canvas starts with no video. */
+    adsOn: Boolean = true,
 ) {
     val conversion = state.current
     val rules = state.rules
@@ -351,7 +358,7 @@ fun PreviewScreen(
             }
         }
         if (rules.startAllowed) {
-            ColorRow(state.size, state.choice, needsVideo = !PhotoFlowRules.colorsAllowed(ColorChoice.MORE, allowance, state.moreUnlocked), onChoice)
+            ColorRow(state.size, state.choice, needsVideo = !PhotoFlowRules.colorsAllowed(ColorChoice.MORE, allowance, state.moreUnlocked, adsOn), onChoice)
         }
         Spacer(Modifier.height(16.dp))
         when {
@@ -387,7 +394,7 @@ fun PreviewScreen(
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                previewLine(strings, allowance, state.choice, state.moreUnlocked, kept)?.let {
+                previewLine(strings, allowance, state.choice, state.moreUnlocked, kept, adsOn)?.let {
                     Text(
                         it,
                         style = GemType.label,
@@ -396,10 +403,10 @@ fun PreviewScreen(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                val primary = PhotoFlowRules.previewPrimary(allowance, state.choice, state.moreUnlocked)
+                val primary = PhotoFlowRules.previewPrimary(allowance, state.choice, state.moreUnlocked, adsOn)
                 val tag = Modifier.fillMaxWidth().padding(bottom = 16.dp).testTag("preview-primary")
                 when (primary) {
-                    PreviewPrimary.WATCH_FOR_CANVAS -> PrimaryButton(primaryText(strings, primary), onWatchVideo, tag)
+                    PreviewPrimary.WATCH_FOR_CANVAS -> PrimaryButton(primaryText(strings, primary, adsOn), onWatchVideo, tag)
                     PreviewPrimary.WATCH_FOR_COLORS -> PrimaryButton(primaryText(strings, primary), onWatchColors, tag)
                     PreviewPrimary.START -> PrimaryButton(
                         primaryText(strings, primary),

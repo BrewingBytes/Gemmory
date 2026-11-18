@@ -131,6 +131,9 @@ data class Restored(val length: Int, val days: List<Long>, val rollUp: Boolean =
 /** Reads the streak screen's state and its day thumbnails (#101); one month at a time, thumbnails off the main thread. */
 class StreakViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as GemmoryApp
+
+    /** False while ads are off (#203): the repair panel brings the streak back with no video. */
+    val adsOn: Boolean get() = app.monetization.adsOn
     private val _ui = MutableStateFlow(read(null))
     val ui: StateFlow<StreakUi> = _ui.asStateFlow()
 
@@ -238,7 +241,7 @@ fun StreakScreen(
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth()) {
                 // The panel stays while its "restored" moment shows, then goes with the offer.
                 val offer = ui.repair
-                if (offer != null && restored == null) RepairPanel(offer, video, repair)
+                if (offer != null && restored == null) RepairPanel(offer, video, repair, vm.adsOn)
                 Hero(shown, ui.best, s.doneToday, rollUp = restored?.rollUp == true, onRolledUp = vm::rolledUp)
                 if (restored != null) {
                     Text(
@@ -292,10 +295,11 @@ fun StreakScreen(
 
 /**
  * The repair panel (#102, mockup streak-b section 3): the rewarded sheet's states drawn inline, with the repair's copy.
- * VIP's weekly repair needs no video; once used, VIP sees the video panel with when it's ready again.
+ * VIP's weekly repair needs no video; once used, VIP sees the video panel with when it's ready again. While ads are off
+ * ([adsOn] false, #203) the video's repair is free: "Bring it back", which shows the restored state at once.
  */
 @Composable
-private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairActions) {
+private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairActions, adsOn: Boolean = true) {
     val phase = video?.phase
     val vipFree = offer.vipReady && video == null
     val text = StreakText(strings().words)
@@ -307,7 +311,7 @@ private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairA
                 Unavailable.OFFLINE -> stringResource(R.string.video_offline) to true
                 Unavailable.NO_VIDEO -> stringResource(R.string.video_none) to false
                 Unavailable.GRACE_OFFER -> stringResource(R.string.video_grace) to false
-                null -> text.repairBody(offer.broken.endedOn, vipFree) to false
+                null -> text.repairBody(offer.broken.endedOn, vipFree, adsOn) to false
             }
             Text(
                 line,
@@ -320,6 +324,7 @@ private fun RepairPanel(offer: RepairOffer, video: RewardedUi?, actions: RepairA
             val primary = Modifier.fillMaxWidth().testTag(STREAK_REPAIR_PRIMARY_TAG)
             when {
                 vipFree -> PrimaryButton(stringResource(R.string.streak_bring_back), actions.onVipRepair, primary)
+                !adsOn -> PrimaryButton(stringResource(R.string.streak_bring_back), actions.onWatch, primary, held = phase == RewardPhase.Unlocked)
                 phase == RewardPhase.Loading -> {
                     PrimaryButton(stringResource(R.string.video_loading), {}, primary, enabled = false)
                     LinearProgressIndicator(
