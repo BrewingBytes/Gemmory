@@ -30,6 +30,7 @@ import com.brewingbytes.gemmory.game.PlacementTools
 import com.brewingbytes.gemmory.policy.Products
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.storage.WriteResult
@@ -119,7 +120,7 @@ class PlacementToolsTest {
         val noEncodes = object : EncodeCanceller {
             override suspend fun cancelAndClear(ref: CanvasRef) = Unit
         }
-        return CanvasStore(root, scope, Dispatchers.IO.limitedParallelism(1), encodes = noEncodes, strings = context.strings) to scope
+        return CanvasStore(AndroidFileStore(root), scope, Dispatchers.IO.limitedParallelism(1), encodes = noEncodes, words = { context.strings.words }) to scope
     }
 
     private fun open(store: CanvasStore): PlaySession = runBlocking {

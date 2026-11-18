@@ -36,7 +36,10 @@ class CanvasRepositoryDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val root = File(context.filesDir, "device-test").also { it.deleteRecursively() }
     private val reports = mutableListOf<Throwable>()
-    private val repo = CanvasRepository(root, NonFatalReporter { reports += it })
+    private val repo = CanvasRepository(AndroidFileStore(root), NonFatalReporter { reports += it })
+
+    /** [ref]'s folder on disk. */
+    private fun CanvasRepository.dir(ref: CanvasRef) = File(root, dirOf(ref))
     private val ref = CanvasRef(CanvasKind.PHOTO, "device1")
 
     // Big-sized: 120×128 = 15,360 cells.
@@ -59,7 +62,7 @@ class CanvasRepositoryDeviceTest {
     @Test
     fun lastGoodIsTheOldSaveAndSaveIsReplacedByRename() {
         assertEquals(WriteResult.Written, repo.create(ref, gridBytes))
-        val dir = repo.dirOf(ref)
+        val dir = repo.dir(ref)
         assertEquals(WriteResult.Written, repo.writeSave(ref, grid.binding, intArrayOf(1, 2)))
         val first = File(dir, "save").readBytes()
         val firstIno = ino(File(dir, "save"))
@@ -86,7 +89,7 @@ class CanvasRepositoryDeviceTest {
         repo.create(ref, gridBytes)
         repo.writeSave(ref, grid.binding, intArrayOf(5))
         repo.writeSave(ref, grid.binding, intArrayOf(5, 6))
-        val save = File(repo.dirOf(ref), "save")
+        val save = File(repo.dir(ref), "save")
         save.writeBytes(save.readBytes().copyOf(12))
         assertContentEquals(intArrayOf(5), assertIs<LoadResult.RecoveredFromLastGood>(repo.load(ref)).log)
     }
@@ -111,11 +114,11 @@ class CanvasRepositoryDeviceTest {
     fun deleteAndSweepOnDevice() {
         repo.create(ref, gridBytes)
         repo.writeSave(ref, grid.binding, intArrayOf(1))
-        File(repo.dirOf(ref).parentFile, ".device2.new").mkdirs()
+        File(repo.dir(ref).parentFile, ".device2.new").mkdirs()
         repo.sweep()
-        assertEquals(listOf("device1"), repo.dirOf(ref).parentFile!!.list()!!.toList())
+        assertEquals(listOf("device1"), repo.dir(ref).parentFile!!.list()!!.toList())
         assertTrue(repo.delete(ref))
-        assertFalse(repo.dirOf(ref).exists())
+        assertFalse(repo.dir(ref).exists())
     }
 
     @Test
@@ -127,7 +130,7 @@ class CanvasRepositoryDeviceTest {
         val start = System.nanoTime()
         repeat(runs) { assertEquals(WriteResult.Written, repo.writeSave(ref, grid.binding, log)) }
         val avgMs = (System.nanoTime() - start) / runs / 1e6
-        val bytes = File(repo.dirOf(ref), "save").length()
+        val bytes = File(repo.dir(ref), "save").length()
         Log.i(TAG, "full Big save: $bytes bytes, avg %.2f ms per write (decode old + copy to last-good + write + fsync + rename)".format(avgMs))
         assertTrue(avgMs < 100, "avg write $avgMs ms")
         assertContentEquals(log, assertIs<LoadResult.Loaded>(repo.load(ref)).log)

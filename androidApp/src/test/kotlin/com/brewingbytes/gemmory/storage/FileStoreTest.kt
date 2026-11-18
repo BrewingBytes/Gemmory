@@ -34,6 +34,19 @@ class FileStoreTest {
     }
 
     @Test
+    fun tellsFoldersFromFilesAndSyncsAFolder() {
+        val s = store()
+        s.mkdirs("canvases/photo/p1")
+        s.writeAtomic("canvases/photo/p1/grid", byteArrayOf(1))
+        assertTrue(s.isDirectory("canvases/photo/p1"))
+        assertFalse(s.isDirectory("canvases/photo/p1/grid"))
+        assertFalse(s.isDirectory("canvases/photo/p2"))
+        s.syncDir("canvases/photo/p1")
+        s.syncDir("canvases/photo/p2") // best effort: a missing folder is ignored
+        assertEquals(AtomicFiles.TEMP_SUFFIX, FileStore.TEMP_SUFFIX)
+    }
+
+    @Test
     fun aMissingFileReadsAsNullAndAMissingFolderListsEmpty() {
         assertNull(store().read("ledger/daily"))
         assertEquals(emptyList(), store().list("canvases/photo"))

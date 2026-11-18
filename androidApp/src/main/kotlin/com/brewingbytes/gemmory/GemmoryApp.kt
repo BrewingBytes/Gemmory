@@ -42,9 +42,11 @@ import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.billing.BillingBackends
 import com.brewingbytes.gemmory.billing.BillingRepository
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.bundled.TodaysPictures
 import com.brewingbytes.gemmory.collections.CollectionPrefs
 import com.brewingbytes.gemmory.collections.Collections
+import android.os.SystemClock
 import com.brewingbytes.gemmory.copy.LiveStrings
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.converter.CanvasSize
@@ -548,7 +550,7 @@ class GemmoryApp : Application() {
         val ref = pictureRef(id)
         return when {
             ref.kind == CanvasKind.REMOTE || BundledPictures.byId(id) != null -> ref
-            store.repository.dirOf(CanvasRef(CanvasKind.REMOTE, id)).isDirectory -> CanvasRef(CanvasKind.REMOTE, id)
+            store.repository.exists(CanvasRef(CanvasKind.REMOTE, id)) -> CanvasRef(CanvasKind.REMOTE, id)
             else -> null
         }
     }
@@ -660,7 +662,7 @@ class GemmoryApp : Application() {
     /** A canvas a reminder names: while it exists unfinished. */
     private suspend fun canvasTarget(canvasKey: String?): CanvasRef? {
         val ref = canvasKey?.let(CanvasStore::refOfReminderKey) ?: return null
-        return ref.takeIf { store.repository.dirOf(it).isDirectory && !store.isFinished(it) }
+        return ref.takeIf { store.repository.exists(it) && !store.isFinished(it) }
     }
 
     /**
@@ -683,9 +685,10 @@ class GemmoryApp : Application() {
     }
 
     private fun newStore() = CanvasStore(
-        filesDir = filesDir,
+        files = AndroidFileStore(filesDir),
         scope = appScope,
         writer = storeWriter,
+        nowMillis = SystemClock::elapsedRealtime,
         bundledGrid = { picture -> assets.open(SharedResources.file(picture.asset)).use { it.readBytes() } },
         encodes = encodes,
         reporter = reporter,
@@ -693,8 +696,11 @@ class GemmoryApp : Application() {
         remote = remote,
         achievements = { achievements.record(it) },
         dayClock = dayClock,
-        strings = LiveStrings(this),
+        words = { strings.words },
     )
+
+    /** A photo canvas's cropped photo as a file (the time-lapse encoder reads it so), or null for any other canvas. */
+    fun sourceFileOf(ref: CanvasRef): File? = store.repository.takeIf { it.hasSource(ref) }?.let { File(filesDir, it.sourcePath(ref)) }
 
     private val storeWriter = Dispatchers.IO.limitedParallelism(1)
 
@@ -850,7 +856,7 @@ class GemmoryApp : Application() {
             cacheDir = cacheDir,
             scope = scope,
             backend = { request, partialOf -> MediaCodecEncoder(this, request, partialOf) },
-            canvasExists = { ref -> store.repository.dirOf(ref).isDirectory },
+            canvasExists = { ref -> store.repository.exists(ref) },
             reporter = reporter,
             analytics = analytics,
             language = { strings.locale.language },

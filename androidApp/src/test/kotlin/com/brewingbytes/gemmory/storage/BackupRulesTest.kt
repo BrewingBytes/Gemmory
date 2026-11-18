@@ -141,8 +141,8 @@ class BackupRulesTest {
      */
     @Test
     fun aPlayFileFollowsItsCanvasAndReminderSettingsAreBackedUp() {
-        val repo = CanvasRepository(File("files"))
-        val photoPlay = File(repo.dirOf(CanvasRef(CanvasKind.PHOTO, "p1")), CanvasRepository.PLAY).path.removePrefix("files/")
+        val repo = CanvasRepository(AndroidFileStore(File("files")))
+        val photoPlay = "${repo.dirOf(CanvasRef(CanvasKind.PHOTO, "p1"))}/${CanvasRepository.PLAY}"
         val sections = listOf(rules(xml("backup_rules.xml"), "exclude")) + listOf("cloud-backup", "device-transfer").map {
             rules(xml("data_extraction_rules.xml").getElementsByTagName(it).item(0) as Element, "exclude")
         }

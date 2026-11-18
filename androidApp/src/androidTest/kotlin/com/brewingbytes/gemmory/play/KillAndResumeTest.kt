@@ -11,6 +11,7 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.PlaceResult
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.WriteResult
 import kotlinx.coroutines.CoroutineScope
@@ -58,7 +59,7 @@ class KillAndResumeTest {
         val noEncodes = object : EncodeCanceller {
             override suspend fun cancelAndClear(ref: CanvasRef) = Unit
         }
-        return CanvasStore(root, scope, Dispatchers.IO.limitedParallelism(1), encodes = noEncodes, strings = instrumentation.targetContext.strings) to scope
+        return CanvasStore(AndroidFileStore(root), scope, Dispatchers.IO.limitedParallelism(1), encodes = noEncodes, words = { instrumentation.targetContext.strings.words }) to scope
     }
 
     private fun open(store: CanvasStore): PlaySession = runBlocking {

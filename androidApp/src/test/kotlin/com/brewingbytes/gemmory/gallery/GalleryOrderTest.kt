@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.gallery
 
 import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.VipPlan
 import com.brewingbytes.gemmory.storage.CanvasKind

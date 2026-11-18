@@ -213,7 +213,7 @@ class ScheduledDropsFlowTest {
         publishDrop()
         assertNull(app.openableRef("harbor-lights"), "a crafted or stale id stays on the gallery")
         assertIs<CanvasStore.Opened.Damaged>(runBlocking { app.store.open(ref("harbor-lights")) })
-        assertFalse(app.store.repository.dirOf(ref("harbor-lights")).isDirectory, "nothing copied in")
+        assertFalse(app.store.repository.exists(ref("harbor-lights")), "nothing copied in")
         assertEquals(ref("owl"), app.openableRef("owl"))
         setClock(dropDay, LocalTime(0, 5))
         assertEquals(ref("harbor-lights"), app.openableRef("harbor-lights"))

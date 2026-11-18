@@ -11,6 +11,7 @@ import com.brewingbytes.gemmory.app.TestLanguage
 import com.brewingbytes.gemmory.assumeDeviceChecks
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.save.Decoded
 import com.brewingbytes.gemmory.save.GridCodec

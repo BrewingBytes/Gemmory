@@ -40,7 +40,7 @@ class ProgressSharing(private val app: GemmoryApp) : ProgressShareSession {
 
     /** Share progress tap. VIP gets no watermark, decided now, as on the completion screen. */
     override fun share(ref: CanvasRef, pattern: Pattern, log: IntArray, title: String) {
-        val source = app.store.repository.sourceFile(ref).takeIf { ref.kind == CanvasKind.PHOTO && it.isFile }
+        val source = app.sourceFileOf(ref)
         val next = EncodeRequest(ref, pattern, log, title, source, watermark = !app.billing.entitlements.value.vip)
         request = next
         app.analytics.log(AnalyticsEvent.shareTapped(ref, pattern.width, pattern.height, progress = next.inProgress))

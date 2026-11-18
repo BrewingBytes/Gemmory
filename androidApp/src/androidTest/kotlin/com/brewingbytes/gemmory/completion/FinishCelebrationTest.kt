@@ -378,7 +378,7 @@ class FinishCelebrationTest {
 
     private fun open(): PlaySession {
         // A case may have made it already (with a play file of its own).
-        if (!app.store.repository.dirOf(ref).isDirectory) runBlocking { app.store.create(ref, small) }
+        if (!app.store.repository.exists(ref)) runBlocking { app.store.create(ref, small) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNode(hasText("My Photos")).performClick()
         compose.waitUntil(5_000) { exists(TILE) }

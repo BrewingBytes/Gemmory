@@ -317,8 +317,8 @@ class MonetizationTest {
 
     @Test
     fun picturesUnlockForGoodAndVipSeesNoLocks() = runTest(UnconfinedTestDispatcher()) {
-        val locked = BundledPicture("sunflowers", R.string.title_sunflowers, "pictures/x.gmrg", 0, locked = true)
-        val free = BundledPicture("starter", R.string.title_starter, "pictures/starter.gmrg", 0)
+        val locked = BundledPicture("sunflowers", "title_sunflowers", "pictures/x.gmrg", 0, locked = true)
+        val free = BundledPicture("starter", "title_starter", "pictures/starter.gmrg", 0)
         data class Row(val name: String, val picture: BundledPicture, val unlocked: Set<String>, val entitlements: Entitlements, val started: Boolean, val expected: Boolean)
         val rows = listOf(
             Row("locked, free player", locked, emptySet(), Entitlements.FREE, started = false, expected = true),

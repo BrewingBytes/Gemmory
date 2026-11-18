@@ -1,7 +1,6 @@
 package com.brewingbytes.gemmory.play
 
 import com.brewingbytes.gemmory.remote.titleIn
-import android.os.SystemClock
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
 import com.brewingbytes.gemmory.converter.CanvasSize
@@ -14,9 +13,8 @@ import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.policy.GameEvent
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.remote.Mystery
-import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.copy.Messages
-import com.brewingbytes.gemmory.copy.Strings
+import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.remote.RemoteCatalogView
 import com.brewingbytes.gemmory.remote.RemotePicture
@@ -31,6 +29,7 @@ import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.CanvasRepository
+import com.brewingbytes.gemmory.storage.FileStore
 import com.brewingbytes.gemmory.storage.LoadProblem
 import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.WriteResult
@@ -41,24 +40,28 @@ import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import java.io.File
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Clock
+import kotlin.time.TimeSource
 
 /**
  * App-wide entry to canvas files. Every repository call runs on [writer], a single-thread dispatcher, and a canvas
  * is opened, cleared or deleted only after the previous session's last write has finished, so a canvas never has two
  * writers and a late write can't bring back progress that was just cleared. [CanvasRepository.sweep] runs once
- * when the store is made (app start), before anything is opened or created.
+ * when the store is made (app start), before anything is opened or created. Common since iOS Stage 1c (T64), over
+ * [FileStore]; the shell makes it and hands it to shared screens as [Canvases].
  */
 class CanvasStore(
-    filesDir: File,
+    files: FileStore,
     private val scope: CoroutineScope,
     private val writer: CoroutineDispatcher,
-    private val nowMillis: () -> Long = SystemClock::elapsedRealtime,
+    /** The monotonic clock play time counts on (Android: `SystemClock.elapsedRealtime`). */
+    private val nowMillis: () -> Long = TimeSource.Monotonic.markNow().let { start -> { start.elapsedNow().inWholeMilliseconds } },
     /** A bundled picture's frozen grid asset, read as is. */
     private val bundledGrid: (BundledPicture) -> ByteArray = { error("no bundled grids") },
     private val encodes: EncodeCanceller,
@@ -69,13 +72,20 @@ class CanvasStore(
     /** Play Games achievements (#49): a fresh finish is counted here, with the canvas's size and kind. */
     private val achievements: (GameEvent) -> Unit = {},
     /** Wall time and local date for the `play` file (T35): when a gem was last saved and the day of the finish. */
-    private val dayClock: DayClock = DayClock(System::currentTimeMillis) { TimeZone.currentSystemDefault() },
-    /** The app's words (T48): a photo canvas's default title, a mystery's neutral name, TalkBack's lines. */
-    private val strings: Strings,
+    private val dayClock: DayClock = DayClock({ Clock.System.now().toEpochMilliseconds() }) { TimeZone.currentSystemDefault() },
+    /**
+     * The app's words now (T48): a photo canvas's default title, a mystery's neutral name, TalkBack's lines. Read at
+     * each use, so a language switch (T49) shows at once.
+     */
+    private val words: () -> Words,
+    /** Wall time for a new canvas's record. */
+    private val wallMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) : Canvases {
-    val repository = CanvasRepository(filesDir, reporter)
+    val repository = CanvasRepository(files, reporter)
     private val swept: Job = scope.launch(writer) { repository.sweep() }
-    private val closing = ConcurrentHashMap<CanvasRef, Job>()
+
+    /** Each closing session's last write, by canvas. Replaced whole on each change, so any thread may read it. */
+    private val closing = MutableStateFlow<Map<CanvasRef, Job>>(emptyMap())
 
     sealed interface Opened {
         class Ready internal constructor(
@@ -162,7 +172,7 @@ class CanvasStore(
             ref = ref,
             title = opened.title,
             hiddenAs = opened.hiddenAs,
-            a11y = A11yText(strings.words),
+            a11y = A11yText(words()),
             pattern = opened.grid.pattern,
             state = opened.state,
             view = opened.view,
@@ -187,8 +197,8 @@ class CanvasStore(
                     lastWrite.join()
                     writePlayTime(ref, opened.record, played)
                 }
-                closing[ref] = done
-                done.invokeOnCompletion { closing.remove(ref, done) }
+                closing.update { it + (ref to done) }
+                done.invokeOnCompletion { closing.update { now -> if (now[ref] === done) now - ref else now } }
             },
         )
     }
@@ -215,7 +225,7 @@ class CanvasStore(
     ): WriteResult {
         swept.join()
         return withContext(writer) {
-            if (repository.dirOf(ref).isDirectory) return@withContext WriteResult.Written
+            if (repository.exists(ref)) return@withContext WriteResult.Written
             repository.create(ref, GridCodec.encode(pattern), record, sourceJpeg).also {
                 if (it == WriteResult.Written) {
                     analytics.log(AnalyticsEvent.canvasStarted(ref, pattern.width, pattern.height, colors, CanvasEntry.GALLERY))
@@ -242,16 +252,16 @@ class CanvasStore(
      */
     override suspend fun summaries(): Pair<List<CanvasSummary>, List<CanvasSummary>> {
         swept.join()
-        closing.values.toList().forEach { it.join() }
+        closing.value.values.forEach { it.join() }
         return withContext(writer) {
             val bundled = BundledPictures.ALL.map { picture ->
                 val ref = CanvasRef(CanvasKind.BUNDLED, picture.id)
                 val size = BundledPictures.canvasSizeOf(picture.id)
-                if (repository.dirOf(ref).isDirectory) {
+                if (repository.exists(ref)) {
                     summarize(ref, size, picture.locked)
                 } else {
                     val grid = (GridCodec.decode(bundledGrid(picture)) as Decoded.Ok).value
-                    CanvasSummary.Playable(ref, picture.title(strings), CanvasState.empty(grid.pattern), 0L, size, picture.locked)
+                    CanvasSummary.Playable(ref, picture.title(words()), CanvasState.empty(grid.pattern), 0L, size, picture.locked)
                 }
             }
             val listed = remote.listed()
@@ -259,11 +269,11 @@ class CanvasStore(
             val added = listed.associate { it.id to it.addedAt }
             val inCatalog = listed.map { picture ->
                 val ref = CanvasRef(CanvasKind.REMOTE, picture.id)
-                if (repository.dirOf(ref).isDirectory) {
+                if (repository.exists(ref)) {
                     summarize(ref, picture.size, picture.locked, picture)
                 } else {
                     val hidden = hiddenName(ref, null, finished = false, picture)
-                    CanvasSummary.Listed(ref, picture.titleIn(strings.locale.toLanguageTag()), picture.width, picture.height, picture.size, picture.locked, hidden)
+                    CanvasSummary.Listed(ref, picture.titleIn(words().tag), picture.width, picture.height, picture.size, picture.locked, hidden)
                 }
             }
             // Withdrawn from the catalog (or a restored save before the first check): shown only once started, or when
@@ -287,7 +297,7 @@ class CanvasStore(
      */
     override suspend fun reminderCanvases(): List<ReminderCanvas> {
         swept.join()
-        closing.values.toList().forEach { it.join() }
+        closing.value.values.forEach { it.join() }
         return withContext(writer) {
             CanvasKind.entries.flatMap { kind ->
                 repository.list(kind).mapNotNull { id ->
@@ -323,10 +333,10 @@ class CanvasStore(
         swept.join()
         val ref = CanvasRef(CanvasKind.REMOTE, id)
         return withContext(writer) {
-            if (repository.dirOf(ref).isDirectory) return@withContext KeepResult.PRESENT
+            if (repository.exists(ref)) return@withContext KeepResult.PRESENT
             val picture = remote.listed().firstOrNull { it.id == id } ?: return@withContext KeepResult.MISSING
             val grid = remote.grid(id) ?: return@withContext KeepResult.MISSING
-            when (val r = repository.create(ref, grid, CanvasRecord(picture.title, System.currentTimeMillis(), 0L))) {
+            when (val r = repository.create(ref, grid, CanvasRecord(picture.title, wallMillis(), 0L))) {
                 WriteResult.Written -> KeepResult.CREATED
                 is WriteResult.WriteFailed -> if (r.diskFull) KeepResult.NO_SPACE else KeepResult.FAILED
             }
@@ -340,7 +350,7 @@ class CanvasStore(
     suspend fun isFinished(ref: CanvasRef): Boolean {
         settle(ref)
         return withContext(writer) {
-            repository.dirOf(ref).isDirectory && (summarize(ref, null, false) as? CanvasSummary.Playable)?.state?.isFinished == true
+            repository.exists(ref) && (summarize(ref, null, false) as? CanvasSummary.Playable)?.state?.isFinished == true
         }
     }
 
@@ -352,7 +362,7 @@ class CanvasStore(
     fun hiddenAs(ref: CanvasRef): String? {
         if (ref.kind != CanvasKind.REMOTE) return null
         val entry = remote.listed().firstOrNull { it.id == ref.id }
-        if (!repository.dirOf(ref).isDirectory) return hiddenName(ref, null, finished = false, entry)
+        if (!repository.exists(ref)) return hiddenName(ref, null, finished = false, entry)
         return summarize(ref, null, false, entry).hiddenAs
     }
 
@@ -366,16 +376,15 @@ class CanvasStore(
         return when (ref.kind) {
             CanvasKind.PHOTO -> opened
             CanvasKind.BUNDLED -> titleOf(ref, null)
-            CanvasKind.REMOTE -> entry?.titleIn(strings.locale.toLanguageTag()) ?: opened
+            CanvasKind.REMOTE -> entry?.titleIn(words().tag) ?: opened
         }
     }
 
-    /** The title is drawn into the time-lapse band, so the canvas's cached videos and pictures go with the old one. */
     /** Whether [ref] has a gem placed on disk (a started picture never locks again, eng E4c). */
     suspend fun isStarted(ref: CanvasRef): Boolean {
         settle(ref)
         return withContext(writer) {
-            repository.dirOf(ref).isDirectory && when (val r = repository.load(ref)) {
+            repository.exists(ref) && when (val r = repository.load(ref)) {
                 is LoadResult.Loaded -> r.log.isNotEmpty()
                 is LoadResult.RecoveredFromLastGood -> r.log.isNotEmpty()
                 is LoadResult.Damaged -> true
@@ -446,7 +455,7 @@ class CanvasStore(
 
     private suspend fun settle(ref: CanvasRef) {
         swept.join()
-        closing[ref]?.join()
+        closing.value[ref]?.join()
     }
 
     /**
@@ -454,8 +463,8 @@ class CanvasStore(
      * its catalog title, so it still has one after it leaves the catalog or comes back from a backup (#43).
      */
     private fun ensurePicture(ref: CanvasRef): Boolean {
-        if (repository.dirOf(ref).isDirectory) return false
-        val now = System.currentTimeMillis()
+        if (repository.exists(ref)) return false
+        val now = wallMillis()
         return when (ref.kind) {
             CanvasKind.PHOTO -> false
             CanvasKind.BUNDLED -> {
@@ -492,7 +501,7 @@ class CanvasStore(
             ref,
             title,
             record?.createdAtMillis ?: 0L,
-            repository.thumbFile(ref).takeIf { it.isFile }?.let { runCatching { it.readBytes() }.getOrNull() },
+            repository.readThumb(ref),
             size,
             locked,
             hiddenName(ref, record, finished = false, entry),
@@ -506,7 +515,7 @@ class CanvasStore(
         if (ref.kind != CanvasKind.REMOTE) return null
         val mystery = record?.mystery == true || entry?.mystery == true
         if (!Mystery.hidden(mystery, finished)) return null
-        return Messages.mystery(strings.words, Mystery.name(entry?.availableFrom, LocalDate.fromEpochDays(dayClock.today())))
+        return Messages.mystery(words(), Mystery.name(entry?.availableFrom, LocalDate.fromEpochDays(dayClock.today())))
     }
 
     private fun CanvasSummary.Playable.withSize(size: CanvasSize?) =
@@ -529,7 +538,7 @@ class CanvasStore(
     }
 
     fun titleOf(ref: CanvasRef, record: CanvasRecord?): String =
-        titleOf(ref, record, strings, if (ref.kind == CanvasKind.REMOTE) remote.listed().firstOrNull { it.id == ref.id } else null)
+        titleOf(ref, record, words(), if (ref.kind == CanvasKind.REMOTE) remote.listed().firstOrNull { it.id == ref.id } else null)
 
     companion object {
 
@@ -546,10 +555,10 @@ class CanvasStore(
          * A canvas's shown title, in the app's language (T49 X4): a bundled picture's `title_<id>`; a remote one's from
          * the catalog ([listed], through the language chain), else its record's English title (a withdrawn picture).
          */
-        fun titleOf(ref: CanvasRef, record: CanvasRecord?, strings: Strings, listed: RemotePicture? = null): String = when (ref.kind) {
-            CanvasKind.BUNDLED -> BundledPictures.byId(ref.id)?.title(strings) ?: ref.id
-            CanvasKind.REMOTE -> listed?.titleIn(strings.locale.toLanguageTag()) ?: record?.title?.takeIf { it.isNotBlank() } ?: ref.id
-            CanvasKind.PHOTO -> record?.title?.takeIf { it.isNotBlank() } ?: strings.text(R.string.photo_default_title)
+        fun titleOf(ref: CanvasRef, record: CanvasRecord?, words: Words, listed: RemotePicture? = null): String = when (ref.kind) {
+            CanvasKind.BUNDLED -> BundledPictures.byId(ref.id)?.title(words) ?: ref.id
+            CanvasKind.REMOTE -> listed?.titleIn(words.tag) ?: record?.title?.takeIf { it.isNotBlank() } ?: ref.id
+            CanvasKind.PHOTO -> record?.title?.takeIf { it.isNotBlank() } ?: words.text("photo_default_title")
         }
     }
 }

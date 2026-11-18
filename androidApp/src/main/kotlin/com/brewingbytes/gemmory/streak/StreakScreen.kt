@@ -179,7 +179,7 @@ class StreakViewModel(application: Application) : AndroidViewModel(application) 
         thumbs.get(canvas)?.let { return it }
         val ref = CanvasStore.refOfReminderKey(canvas) ?: return null
         val image = withContext(Dispatchers.IO) {
-            app.store.repository.thumbFile(ref).takeIf { it.isFile }?.let { BitmapFactory.decodeFile(it.path) }?.asImageBitmap()
+            app.store.repository.readThumb(ref)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }?.asImageBitmap()
         } ?: return null
         thumbs.put(canvas, image)
         return image

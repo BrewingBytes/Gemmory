@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.play
 import com.brewingbytes.gemmory.copy.XmlStrings
 import com.brewingbytes.gemmory.bundled.BundledPicture
 import com.brewingbytes.gemmory.bundled.BundledPictures
+import com.brewingbytes.gemmory.bundled.title
 import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.Lab
 import com.brewingbytes.gemmory.converter.PaletteColor
@@ -17,6 +18,7 @@ import com.brewingbytes.gemmory.save.PlayTimes
 import com.brewingbytes.gemmory.save.ViewState
 import com.brewingbytes.gemmory.share.EncodeCanceller
 import com.brewingbytes.gemmory.storage.CanvasKind
+import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.WriteResult
 import com.brewingbytes.gemmory.telemetry.Analytics
@@ -69,13 +71,16 @@ class CanvasStoreTest {
     private val photo = CanvasRef(CanvasKind.PHOTO, "photo-1")
     private val starter = CanvasRef(CanvasKind.BUNDLED, BundledPictures.STARTER.id)
 
+    /** [ref]'s folder on disk. */
+    private fun dir(ref: CanvasRef) = File(tmp.root, store.repository.dirOf(ref))
+
     private val store by lazy {
         CanvasStore(
-            filesDir = tmp.root,
+            files = AndroidFileStore(tmp.root),
             scope = scope,
             writer = Dispatchers.IO.limitedParallelism(1),
             nowMillis = { now },
-            strings = XmlStrings.en,
+            words = { XmlStrings.en.words },
             bundledGrid = { _: BundledPicture -> bundledGrid },
             encodes = object : EncodeCanceller {
                 override suspend fun cancelAndClear(ref: CanvasRef) {
@@ -275,7 +280,7 @@ class CanvasStoreTest {
     fun photoTitleComesFromTheRecordAndDefaultsWhenMissing() = runBlocking<Unit> {
         createPhoto()
         assertEquals("My photo · 13 Oct", assertIs<CanvasStore.Opened.Ready>(store.open(photo)).title)
-        File(store.repository.dirOf(photo), "record").delete()
+        File(dir(photo), "record").delete()
         assertEquals("My photo", assertIs<CanvasStore.Opened.Ready>(store.open(photo)).title)
     }
 
@@ -333,10 +338,10 @@ class CanvasStoreTest {
 
     @Test
     fun aBundledPictureIsCopiedFromItsFrozenGridOnFirstOpen() = runBlocking<Unit> {
-        assertFalse(store.repository.dirOf(starter).exists())
+        assertFalse(dir(starter).exists())
         val opened = assertIs<CanvasStore.Opened.Ready>(store.open(starter))
         assertEquals(BundledPictures.STARTER.title(XmlStrings.en), opened.title)
-        assertContentEquals(bundledGrid, File(store.repository.dirOf(starter), "grid").readBytes())
+        assertContentEquals(bundledGrid, File(dir(starter), "grid").readBytes())
     }
 
     @Test
@@ -350,7 +355,7 @@ class CanvasStoreTest {
         assertNull(opened.view)
         assertEquals(0, opened.record?.playMillis)
         assertEquals("My photo · 13 Oct", opened.title)
-        assertTrue(store.repository.sourceFile(photo).isFile, "the photo stays")
+        assertTrue(File(tmp.root, store.repository.sourcePath(photo)).isFile, "the photo stays")
     }
 
     @Test
@@ -367,7 +372,7 @@ class CanvasStoreTest {
     fun deleteRemovesPhotoGridProgressAndView() = runBlocking<Unit> {
         createPhoto()
         play(photo, 0, 1)
-        val dir = store.repository.dirOf(photo)
+        val dir = dir(photo)
         assertTrue(store.delete(photo))
         assertEquals(listOf(photo), cancelled)
         assertFalse(dir.exists())
@@ -392,7 +397,7 @@ class CanvasStoreTest {
     fun summariesListTheStarterFirstThenPhotosNewestFirstAndFlagDamage() = runBlocking<Unit> {
         createPhoto()
         store.createPhoto(CanvasRef(CanvasKind.PHOTO, "photo-2"), pattern, CanvasRecord("newer", 2_000, 0), byteArrayOf(1))
-        File(store.repository.dirOf(photo), "grid").writeBytes(byteArrayOf(1, 2, 3))
+        File(dir(photo), "grid").writeBytes(byteArrayOf(1, 2, 3))
         val (pictures, photos) = store.summaries()
         assertEquals(BundledPictures.ALL.map { CanvasRef(CanvasKind.BUNDLED, it.id) }, pictures.map { it.ref })
         assertEquals(starter, pictures.first().ref)
@@ -415,7 +420,7 @@ class CanvasStoreTest {
         assertEquals(null, assertIs<CanvasSummary.Playable>(store.summaries().first.first()).firstFinishedDay, "Play again: unfinished")
         // Finished before T35 (no play file): no date.
         play(starter, *(0 until 12).toList().toIntArray())
-        File(store.repository.dirOf(starter), "play").delete()
+        File(dir(starter), "play").delete()
         assertEquals(null, assertIs<CanvasSummary.Playable>(store.summaries().first.first()).firstFinishedDay)
     }
 
