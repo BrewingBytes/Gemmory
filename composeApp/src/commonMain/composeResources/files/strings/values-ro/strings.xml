@@ -228,6 +228,7 @@
     </plurals>
     <string name="streak_repair_body_vip">Seria ta s-a încheiat: %1$s. Reparația VIP săptămânală o poate readuce.</string>
     <string name="streak_repair_body_video">Seria ta s-a încheiat: %1$s. Urmărește un video scurt ca s-o recuperezi.</string>
+    <string name="streak_repair_body_free">Seria ta s-a încheiat: %1$s. O poți recupera gratuit.</string>
     <string name="streak_repair_until">Poți face asta până: %1$s.</string>
     <string name="streak_vip_repair_used">Reparație VIP folosită: %1$s · din nou disponibilă: %2$s</string>
     <plurals name="streak_restored">
@@ -404,6 +405,11 @@
         <item quantity="few">Urmărește un video: +%1$d umpleri</item>
         <item quantity="other">Urmărește un video: +%1$d de umpleri</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="one">Ia +%1$d umplere</item>
+        <item quantity="few">Ia +%1$d umpleri</item>
+        <item quantity="other">Ia +%1$d de umpleri</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="one">Învârte pentru cadoul tău (%1$d așteaptă)</item>
         <item quantity="few">Învârte pentru cadoul tău (%1$d așteaptă)</item>
@@ -539,6 +545,7 @@
     </plurals>
     <string name="allowance_bonus">Folosește o pânză bonus de la un video.</string>
     <string name="allowance_watch">Cea gratuită de azi e folosită. Urmărește un video pentru încă una.</string>
+    <string name="allowance_on_us">Cea gratuită de azi e folosită. Următoarea e din partea noastră.</string>
 
     <string name="music_title">Muzică</string>
     <string name="music_volume">Volumul muzicii</string>

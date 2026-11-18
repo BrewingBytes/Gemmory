@@ -243,6 +243,7 @@
     </plurals>
     <string name="streak_repair_body_vip">Twoja seria skończyła się: %1$s. Cotygodniowa naprawa VIP może ją przywrócić.</string>
     <string name="streak_repair_body_video">Twoja seria skończyła się: %1$s. Obejrzyj krótki film, żeby ją przywrócić.</string>
+    <string name="streak_repair_body_free">Twoja seria skończyła się: %1$s. Możesz ją przywrócić za darmo.</string>
     <string name="streak_repair_until">Możesz to zrobić do: %1$s.</string>
     <string name="streak_vip_repair_used">Naprawa VIP użyta: %1$s · znów gotowa: %2$s</string>
     <plurals name="streak_restored">
@@ -434,6 +435,12 @@
         <item quantity="many">Obejrzyj film: +%1$d wypełnień</item>
         <item quantity="other">Obejrzyj film: +%1$d wypełnienia</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="one">Weź +%1$d wypełnienie</item>
+        <item quantity="few">Weź +%1$d wypełnienia</item>
+        <item quantity="many">Weź +%1$d wypełnień</item>
+        <item quantity="other">Weź +%1$d wypełnienia</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="one">Zakręć po prezent (czeka %1$d)</item>
         <item quantity="few">Zakręć po prezent (czekają %1$d)</item>
@@ -580,6 +587,7 @@
     </plurals>
     <string name="allowance_bonus">Używa płótna bonusowego z filmu.</string>
     <string name="allowance_watch">Dzisiejsze darmowe jest wykorzystane. Obejrzyj film, aby dostać kolejne.</string>
+    <string name="allowance_on_us">Dzisiejsze darmowe jest wykorzystane. Następne stawiamy my.</string>
 
     <string name="music_title">Muzyka</string>
     <string name="music_volume">Głośność muzyki</string>

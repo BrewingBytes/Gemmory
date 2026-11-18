@@ -65,8 +65,8 @@ class PictureUnlocks(private val prefs: SharedPreferences) {
  * A locked picture shows "Watch to unlock" until it's unlocked, or for VIP. One already started stays open whatever
  * the entitlement (eng E4c: entitlement is checked at Start only, so a lapsed VIP keeps started canvases).
  */
-fun isLocked(picture: BundledPicture, unlocked: Set<String>, entitlements: Entitlements, started: Boolean): Boolean =
-    isLocked(picture.locked, picture.id, unlocked, entitlements, started)
+fun isLocked(picture: BundledPicture, unlocked: Set<String>, entitlements: Entitlements, started: Boolean, adsOn: Boolean = true): Boolean =
+    isLocked(picture.locked, picture.id, unlocked, entitlements, started, adsOn)
 
 /**
  * App-scoped home of the pure policies (eng E5): [DailyLedger] and [AdPolicy] under `filesDir/ledger` (never backed up,
@@ -87,6 +87,8 @@ class Monetization(
      * session. False also for a test's second instance in the same process.
      */
     processStart: Boolean = true,
+    /** Rewards come from videos; false while ads are off (#203), when what a video gives is free. */
+    override val adsOn: Boolean = true,
 ) : PlayerAccess {
     override val unlocked: StateFlow<Set<String>> get() = unlocks.unlocked
     /** The inventory (#38), backed up unlike the ledger; the ledger keeps its photo canvases in it. */
@@ -183,14 +185,14 @@ class Monetization(
     /** The canvas couldn't be written: give the allowance back. */
     suspend fun release(draftId: String) = onPolicy { ledger.release(draftId) }
 
-    /** An extra-canvas video was watched to the end. */
+    /** An extra-canvas video was watched to the end, or the canvas came free while ads are off (#203). */
     suspend fun grantReward() = onPolicy { ledger.grantReward() }
 
     suspend fun graceAvailable(type: RewardType): Boolean = onPolicy { ledger.graceAvailable(type) }
 
     suspend fun useGrace(type: RewardType): Boolean = onPolicy { ledger.useGrace(type) }
 
-    /** Fills from a rewarded video or today's fills grace (#38). */
+    /** Fills from a rewarded video, today's fills grace (#38), or free while ads are off (#203). */
     suspend fun earnFills() = onPolicy { items.earn(Item.FILLS, Inventory.FILLS_PER_VIDEO) }
 
     /** A completed collection's unlock token (T37, CEO C6), once per [earnId]; true when it was added now. */

@@ -33,11 +33,22 @@ class PreviewCopyTest {
         assertNull(previewLine(XmlStrings.en, Allowance.Unlimited, ColorChoice.MORE, moreUnlocked = false), "VIP: no line, nothing to unlock")
     }
 
+    /** #203: while ads are off More needs nothing, and a used free canvas says the next one is on us. */
+    @Test
+    fun adsOffTheLineAsksForNoVideo() {
+        assertEquals("Uses today's free photo canvas.", previewLine(XmlStrings.en, Allowance.Free, ColorChoice.MORE, moreUnlocked = false, adsOn = false))
+        assertEquals(
+            "Today's free one is used. The next one is on us.",
+            previewLine(XmlStrings.en, Allowance.WatchVideo, ColorChoice.MORE, moreUnlocked = false, adsOn = false),
+        )
+    }
+
     @Test
     fun primaryAndTroughLabels() {
         assertEquals("Start", primaryText(XmlStrings.en, PreviewPrimary.START))
         assertEquals("Watch a video", primaryText(XmlStrings.en, PreviewPrimary.WATCH_FOR_CANVAS))
         assertEquals("Watch a video for more colors", primaryText(XmlStrings.en, PreviewPrimary.WATCH_FOR_COLORS))
+        assertEquals("Start canvas", primaryText(XmlStrings.en, PreviewPrimary.WATCH_FOR_CANVAS, adsOn = false), "#203")
         assertEquals("More, 60 colors, needs a video or VIP", colorTroughLabel(XmlStrings.en, CanvasSize.BIG, ColorChoice.MORE, needsVideo = true))
         assertEquals("Fewer, 16 colors", colorTroughLabel(XmlStrings.en, CanvasSize.MEDIUM, ColorChoice.FEWER, needsVideo = false))
     }

@@ -135,6 +135,7 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
 
     fun open(target: RewardTarget, activity: Activity) {
         if (ui != null) return
+        if (!monetization.adsOn) return free(target)
         ui = RewardedUi(target, RewardPhase.Loading)
         app.analytics.log(AnalyticsEvent.rewardedOffered(target.type))
         load(activity)
@@ -246,6 +247,37 @@ class RewardedViewModel(application: Application) : AndroidViewModel(application
                 RewardTarget.Fills -> fillsAdded(EarnSource.VIDEO)
                 RewardTarget.Colors -> colorsUnlocked()
                 RewardTarget.StreakRepair -> streakRestored(RepairHow.VIDEO)
+            }
+        }
+    }
+
+    /**
+     * Ads off (#203): what the video would give, at once, with no sheet and no ad. Fills show "5 fills added" and the
+     * streak repair panel its restored state, as after a video; a canvas starts and More colors unlocks on Preview.
+     */
+    private fun free(target: RewardTarget) {
+        job?.cancel()
+        job = viewModelScope.launch {
+            when (target) {
+                // Nothing is locked while ads are off; a picture asked for anyway opens for good.
+                is RewardTarget.Picture -> {
+                    monetization.unlocks.unlock(target.id)
+                    event = RewardedEvent.OpenPicture(target.id)
+                }
+                RewardTarget.PhotoCanvas -> {
+                    monetization.grantReward()
+                    app.analytics.log(AnalyticsEvent.inventoryEarned(Item.PHOTO_CANVAS, EarnSource.FREE, 1))
+                    event = RewardedEvent.StartPhotoCanvas
+                }
+                RewardTarget.Fills -> {
+                    ui = RewardedUi(target, RewardPhase.Unlocked)
+                    fillsAdded(EarnSource.FREE)
+                }
+                RewardTarget.Colors -> event = RewardedEvent.MoreColorsUnlocked
+                RewardTarget.StreakRepair -> {
+                    ui = RewardedUi(target, RewardPhase.Unlocked)
+                    streakRestored(RepairHow.FREE)
+                }
             }
         }
     }

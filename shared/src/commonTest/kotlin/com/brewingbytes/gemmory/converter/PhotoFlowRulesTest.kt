@@ -86,10 +86,18 @@ class PhotoFlowRulesTest {
                 choice == ColorChoice.MORE && allowance != Allowance.Unlimited && !unlocked -> PreviewPrimary.WATCH_FOR_COLORS
                 else -> PreviewPrimary.START
             }
-            assertEquals(expected, PhotoFlowRules.previewPrimary(allowance, choice, unlocked), "$allowance $choice unlocked=$unlocked")
+            assertEquals(expected, PhotoFlowRules.previewPrimary(allowance, choice, unlocked, adsOn = true), "$allowance $choice unlocked=$unlocked")
         }
-        assertEquals(false, PhotoFlowRules.colorsAllowed(ColorChoice.MORE, Allowance.Free, moreUnlocked = false))
-        assertEquals(true, PhotoFlowRules.colorsAllowed(ColorChoice.MORE, Allowance.Unlimited, moreUnlocked = false), "VIP")
-        assertEquals(true, PhotoFlowRules.colorsAllowed(ColorChoice.FEWER, Allowance.WatchVideo, moreUnlocked = false))
+        assertEquals(false, PhotoFlowRules.colorsAllowed(ColorChoice.MORE, Allowance.Free, moreUnlocked = false, adsOn = true))
+        assertEquals(true, PhotoFlowRules.colorsAllowed(ColorChoice.MORE, Allowance.Unlimited, moreUnlocked = false, adsOn = true), "VIP")
+        assertEquals(true, PhotoFlowRules.colorsAllowed(ColorChoice.FEWER, Allowance.WatchVideo, moreUnlocked = false, adsOn = true))
+    }
+
+    /** Ads off (#203): More colors is free; a used free canvas still offers the next one, which then comes free. */
+    @Test
+    fun adsOffNeedsNoVideoForColors() {
+        assertEquals(true, PhotoFlowRules.colorsAllowed(ColorChoice.MORE, Allowance.Free, moreUnlocked = false, adsOn = false))
+        assertEquals(PreviewPrimary.START, PhotoFlowRules.previewPrimary(Allowance.Free, ColorChoice.MORE, moreUnlocked = false, adsOn = false))
+        assertEquals(PreviewPrimary.WATCH_FOR_CANVAS, PhotoFlowRules.previewPrimary(Allowance.WatchVideo, ColorChoice.MORE, moreUnlocked = false, adsOn = false))
     }
 }

@@ -93,16 +93,17 @@ data class Tile(
  * Whether [this] tile is a locked picture the player hasn't unlocked (design D14). [todayFree], today's free picture
  * (#34) and today's drop (T36), open without a video today.
  */
-fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, todayFree: Set<String> = emptySet()): Boolean =
-    ref.kind != CanvasKind.PHOTO && ref.id !in todayFree && isLocked(lockable, ref.id, unlocked, entitlements, started)
+fun Tile.locked(unlocked: Set<String>, entitlements: Entitlements, adsOn: Boolean, todayFree: Set<String> = emptySet()): Boolean =
+    ref.kind != CanvasKind.PHOTO && ref.id !in todayFree && isLocked(lockable, ref.id, unlocked, entitlements, started, adsOn)
 
 /**
  * Pictures tab order (#58): every picture a tap opens (the starter, the free ones, unlocked or started ones, today's
  * free picture (#34), all of them for VIP), then the locked ones, each group keeping the catalog's Quick, Medium, Big
- * ramp (#31). "Opens" is [Tile.locked], the rule the tap follows.
+ * ramp (#31). "Opens" is [Tile.locked] with ads on: while ads are off (#203) every picture opens, but the order stays
+ * the same, so a new player still starts on the starter and the free ones, not on a Big picture.
  */
 fun picturesInOrder(pictures: List<Tile>, unlocked: Set<String>, entitlements: Entitlements, todayFree: Set<String> = emptySet()): List<Tile> =
-    pictures.sortedBy { it.locked(unlocked, entitlements, todayFree) }
+    pictures.sortedBy { it.locked(unlocked, entitlements, adsOn = true, todayFree) }
 
 /**
  * The Finished section (#89) at the end of each tab: the finished canvases, newest finish first. Those finished before
@@ -210,6 +211,9 @@ data class GalleryState(
 
 class GalleryViewModel(private val graph: AppGraph, private val handle: SavedStateHandle) : ViewModel() {
     private val store = graph.canvases
+
+    /** Rewards come from videos; false while ads are off (#203): no locks, and Inventory's fills are free. */
+    val adsOn: Boolean get() = graph.access.adsOn
 
     /** 0 = Pictures, 1 = My Photos. Kept here so it survives a trip to a canvas, rotation and process death. */
     var tab by mutableIntStateOf(handle.get<Int>(KEY_TAB) ?: 0)

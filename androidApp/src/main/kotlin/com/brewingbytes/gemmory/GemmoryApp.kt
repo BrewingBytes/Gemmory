@@ -35,6 +35,7 @@ import com.brewingbytes.gemmory.ads.ResumedActivity
 import com.brewingbytes.gemmory.ads.ConsentManager
 import com.brewingbytes.gemmory.ads.Interstitials
 import com.brewingbytes.gemmory.ads.Monetization
+import com.brewingbytes.gemmory.ads.NoAds
 import com.brewingbytes.gemmory.ads.isLocked
 import com.brewingbytes.gemmory.audio.MusicController
 import com.brewingbytes.gemmory.ads.PictureUnlocks
@@ -336,6 +337,12 @@ class GemmoryApp : Application() {
     lateinit var appScope: CoroutineScope
         private set
 
+    /**
+     * Ads on (#203): `gemmory.ads.enabled` in release, on in debug unless `-Pgemmory.adsOff=true`. Off, the ad SDK never
+     * starts and every reward a video would give is free. A connected test may run either ([resetMonetizationForTest]).
+     */
+    private var adsOn = BuildConfig.ADS_ENABLED
+
     /** Never counted as a cold start here: that happens at the process's first foreground (eng D11). */
     private fun newMonetization() = Monetization(
         filesDir = filesDir,
@@ -346,6 +353,7 @@ class GemmoryApp : Application() {
         entitlements = billing.entitlements,
         reporter = reporter,
         processStart = false,
+        adsOn = adsOn,
     )
 
     /** The streak celebration shows (#101); a connected test that asserts the plain return chain turns it off. */
@@ -646,7 +654,7 @@ class GemmoryApp : Application() {
         val started = store.isStarted(ref)
         val catalogLocked = BundledPictures.byId(ref.id)?.locked ?: remote.listed().firstOrNull { it.id == ref.id }?.locked ?: true
         val free = todays.isFreeToday(ref) || todays.isToday(ref, vip)
-        return ref.takeIf { free || !isLocked(catalogLocked, ref.id, monetization.unlocks.unlocked.value, monetization.entitlements.value, started) }
+        return ref.takeIf { free || !isLocked(catalogLocked, ref.id, monetization.unlocks.unlocked.value, monetization.entitlements.value, started, monetization.adsOn) }
     }
 
     /** A canvas a reminder names: while it exists unfinished. */
@@ -670,7 +678,7 @@ class GemmoryApp : Application() {
         val listed = remote.listed().filter { it.size == CanvasSize.QUICK && it.rewardOf == null }.map { it.id to it.locked }
         return (bundled + listed).filter { (id, locked) ->
             val canvas = canvases[id]
-            canvas?.finished != true && (id in free || !isLocked(locked, id, unlocked, entitlements, canvas != null))
+            canvas?.finished != true && (id in free || !isLocked(locked, id, unlocked, entitlements, canvas != null, monetization.adsOn))
         }.map { it.first }
     }
 
@@ -763,8 +771,9 @@ class GemmoryApp : Application() {
      * cold start: the ads ledger's session state is left as it is. The replaced instance is closed.
      */
     @VisibleForTesting
-    internal fun resetMonetizationForTest(ads: AdGateway = adMob) {
-        this.ads = ads
+    internal fun resetMonetizationForTest(ads: AdGateway = adMob, adsOn: Boolean = true) {
+        this.adsOn = adsOn
+        this.ads = if (adsOn) ads else NoAds
         gateways.value = ads
         monetization.close()
         monetization = newMonetization()
@@ -826,7 +835,7 @@ class GemmoryApp : Application() {
         analytics = ConsentFirst(Analytics.forBuild(BuildConfig.FIREBASE) { FirebaseAnalyticsLogger(FirebaseAnalytics.getInstance(this)) })
         // The saved consent reaches Firebase before anything can log (eng D6): a reminder or reboot may start the app in
         // the background and log at once. Later changes follow below.
-        consent = ConsentManager(this, reporter)
+        consent = ConsentManager(this, reporter, adsOn)
         analytics.consent(consent.consentMode.value)
         // Before anything below writes a canvas, the achievements or the streak: is this a fresh install (T46)?
         firstRun = FirstRun(
@@ -877,8 +886,8 @@ class GemmoryApp : Application() {
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }
         // Interstitial loads use the Activity on screen (T34), held weakly.
         val resumed = ResumedActivity().also(::registerActivityLifecycleCallbacks)
-        ads = AdMobGateway(this, consent, resumed, CoroutineScope(SupervisorJob() + Dispatchers.Main))
-        adMob = ads
+        adMob = AdMobGateway(this, consent, resumed, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+        ads = if (adsOn) adMob else NoAds
         interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
         gateways = MutableStateFlow(ads)
         music = newMusic()

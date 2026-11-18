@@ -29,6 +29,9 @@ enum class EarnSource(val param: String) {
     GRACE("grace"),
     WHEEL("wheel"),
 
+    /** What a video would have given, free while ads are off (#203). */
+    FREE("free"),
+
     /** A completed collection's token (T37, CEO C6). */
     COLLECTION("collection"),
 

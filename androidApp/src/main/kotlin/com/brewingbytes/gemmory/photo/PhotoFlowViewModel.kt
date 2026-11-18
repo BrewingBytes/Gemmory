@@ -200,7 +200,7 @@ class PhotoFlowViewModel(application: Application, private val handle: SavedStat
         val photo = s.cropped ?: return
         val id = handle.get<String>(KEY_DRAFT) ?: return
         if (!s.canStart || s.starting) return
-        if (!PhotoFlowRules.colorsAllowed(s.choice, app.monetization.allowance.value, s.moreUnlocked)) return
+        if (!PhotoFlowRules.colorsAllowed(s.choice, app.monetization.allowance.value, s.moreUnlocked, app.monetization.adsOn)) return
         _state.update { it.copy(starting = true, startFailed = false) }
         viewModelScope.launch {
             if (app.monetization.consume(id) == ConsumeResult.NoneLeft) {

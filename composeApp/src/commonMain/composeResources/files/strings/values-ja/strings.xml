@@ -198,6 +198,7 @@
     </plurals>
     <string name="streak_repair_body_vip">連続記録が途切れました：%1$s。毎週のVIP修復で取り戻せます。</string>
     <string name="streak_repair_body_video">連続記録が途切れました：%1$s。短い動画を見ると取り戻せます。</string>
+    <string name="streak_repair_body_free">連続記録が途切れました：%1$s。無料で取り戻せます。</string>
     <string name="streak_repair_until">取り戻せる期限：%1$s。</string>
     <string name="streak_vip_repair_used">VIP修復の使用日：%1$s・次に使える日：%2$s</string>
     <plurals name="streak_restored">
@@ -344,6 +345,9 @@
     <plurals name="inventory_watch">
         <item quantity="other">動画を見る：塗りつぶし+%1$d回</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="other">塗りつぶし+%1$d回をもらう</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="other">プレゼントルーレットを回す（%1$d回分）</item>
     </plurals>
@@ -457,6 +461,7 @@
     </plurals>
     <string name="allowance_bonus">動画でもらったボーナスキャンバスを使います。</string>
     <string name="allowance_watch">今日の無料分は使用済みです。動画を見るともう1枚もらえます。</string>
+    <string name="allowance_on_us">今日の無料分は使用済みです。次の1枚は無料です。</string>
 
     <string name="music_title">音楽</string>
     <string name="music_volume">音楽の音量</string>

@@ -254,6 +254,7 @@
     </plurals>
     <string name="streak_repair_body_vip">Your streak ended on %1$s. Your weekly VIP repair can bring it back.</string>
     <string name="streak_repair_body_video">Your streak ended on %1$s. Watch a short video to restore it.</string>
+    <string name="streak_repair_body_free">Your streak ended on %1$s. You can bring it back for free.</string>
     <string name="streak_repair_until">You can do this until %1$s.</string>
     <string name="streak_vip_repair_used">VIP repair used %1$s · ready again next %2$s</string>
     <plurals name="streak_restored">
@@ -430,6 +431,10 @@
         <item quantity="one">Watch a video: +%1$d fill</item>
         <item quantity="other">Watch a video: +%1$d fills</item>
     </plurals>
+    <plurals name="inventory_get_fills">
+        <item quantity="one">Get +%1$d fill</item>
+        <item quantity="other">Get +%1$d fills</item>
+    </plurals>
     <plurals name="inventory_spin_several">
         <item quantity="one">Spin for your gift (%1$d waiting)</item>
         <item quantity="other">Spin for your gift (%1$d waiting)</item>
@@ -573,6 +578,7 @@
     </plurals>
     <string name="allowance_bonus">Uses a bonus canvas from a video.</string>
     <string name="allowance_watch">Today\'s free one is used. Watch a video for another.</string>
+    <string name="allowance_on_us">Today\'s free one is used. The next one is on us.</string>
 
     <!-- Music (T42) -->
     <string name="music_title">Music</string>

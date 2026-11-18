@@ -392,7 +392,7 @@ class MainActivity : ComponentActivity() {
         }
         // Ads are preloaded: the extra-canvas or More colors video (#29) starts loading as soon as Preview offers it.
         val previewVideo = top == Route.Preview &&
-            PhotoFlowRules.previewPrimary(allowance, flow.choice, flow.moreUnlocked) != PreviewPrimary.START
+            PhotoFlowRules.previewPrimary(allowance, flow.choice, flow.moreUnlocked, app.monetization.adsOn) != PreviewPrimary.START
         LaunchedEffect(previewVideo) {
             if (previewVideo) {
                 app.ads.start()
@@ -515,6 +515,7 @@ class MainActivity : ComponentActivity() {
                 onWatchVideo = { rewarded.open(RewardTarget.PhotoCanvas, this@MainActivity) },
                 onChoice = photoFlow::onChoice,
                 onWatchColors = { rewarded.open(RewardTarget.Colors, this@MainActivity) },
+                adsOn = app.monetization.adsOn,
                 onChooseAnother = {
                     stack.popToGallery()
                     pickPhoto()
@@ -590,7 +591,7 @@ class MainActivity : ComponentActivity() {
                     onBack = { stack.pop() },
                     onToday = todayTile?.let { tile ->
                         {
-                            if (tile.locked(unlocked, entitlements, galleryState.todayFree)) {
+                            if (tile.locked(unlocked, entitlements, app.monetization.adsOn, galleryState.todayFree)) {
                                 rewarded.open(RewardTarget.Picture(tile.ref.id), this@MainActivity)
                             } else {
                                 scope.launch { stack.openTile(tile.ref, CanvasEntry.TODAY_CARD, app.store::isFinished) }
