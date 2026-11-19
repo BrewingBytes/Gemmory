@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
  * Play's limits (title 30, short 80, full 4,000 characters), the store listing check in `docs/play-compliance.md`
  * (no "free", "best" or "#1" in the title), a title and a subtitle for each of the five screenshots and the feature
  * graphic's two lines and the tablet set's privacy line, drawn in our faces by [StoreFrames] and fitting their room, and Romanian with ș / ț.
+ * #209: a full description of at least [FULL_FLOOR] characters, so Play has keywords to index and an edit can't shrink it back.
  */
 class ListingTest {
     private val root = File("../tools/store/listing")
@@ -32,6 +33,8 @@ class ListingTest {
             if (title.length > 30) problems += "$locale title ${title.length} > 30"
             if (short.length > 80) problems += "$locale short ${short.length} > 80"
             if (full.length > 4000) problems += "$locale full ${full.length} > 4000"
+            val floor = if (language == "ja") JA_FULL_FLOOR else FULL_FLOOR
+            if (full.length < floor) problems += "$locale full ${full.length} < $floor"
             if (captions.size != StoreFrames.SHOTS.size) problems += "$locale has ${captions.size} captions, not ${StoreFrames.SHOTS.size}"
             if (subtitles.size != StoreFrames.SHOTS.size) problems += "$locale has ${subtitles.size} subtitles, not ${StoreFrames.SHOTS.size}"
             if (feature.size != 2) problems += "$locale feature.txt has ${feature.size} lines, not 2"
@@ -66,6 +69,12 @@ class ListingTest {
     }
 
     private companion object {
+        /** The ASO report's floor for a full description (#209); Play allows 4,000. */
+        const val FULL_FLOOR = 3000
+
+        /** Japanese says the same text in about half the characters, so its floor is half. */
+        const val JA_FULL_FLOOR = 1400
+
         /** Ranking, price and promise words Play doesn't allow in a title, in the listing languages. */
         val BANNED = listOf(
             "free", "best", "#1", "top ", "kostenlos", "gratis", "gratuit", "gratuito", "darmow", "ücretsiz", "ingyen",
