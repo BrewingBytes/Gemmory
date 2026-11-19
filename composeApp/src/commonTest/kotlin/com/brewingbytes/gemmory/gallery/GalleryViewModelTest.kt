@@ -18,6 +18,7 @@ import com.brewingbytes.gemmory.play.Canvases
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.policy.StreakState
 import com.brewingbytes.gemmory.remote.RemotePicture
@@ -175,6 +176,12 @@ class GalleryViewModelTest {
             }
         }
 
+        override val store get() = error("not used")
+
+        override val play get() = error("not used")
+
+        override val appScope get() = error("not used")
+
         override val canvases = object : Canvases {
             override suspend fun summaries() = pictures to photoTiles
 
@@ -222,6 +229,8 @@ class GalleryViewModelTest {
             override fun freeToday(): Set<String> = emptySet()
 
             override fun isFreeToday(ref: CanvasRef) = false
+
+            override fun opened(ref: CanvasRef, vip: Boolean) = null
         }
 
         override val collections = object : CollectionBook {
@@ -250,6 +259,8 @@ class GalleryViewModelTest {
             override suspend fun consume(draftId: String) = error("not used")
 
             override suspend fun release(draftId: String) = error("not used")
+
+            override suspend fun spend(item: Item, useId: String) = error("not used")
         }
 
         override val progress = object : PlayerProgress {

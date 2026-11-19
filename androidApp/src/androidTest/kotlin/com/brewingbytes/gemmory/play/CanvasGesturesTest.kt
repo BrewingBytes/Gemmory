@@ -21,6 +21,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.converter.Lab
+import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.converter.PaletteColor
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasZoom
@@ -283,11 +284,11 @@ class CanvasGesturesTest {
     fun theFirstHintShowsOnAFarOutCanvasAndPickAColorFollowsATapZoom() {
         hintsShown(false)
         val s = open()
-        compose.onNode(hasText(context.getString(CoachHint.ZOOM_IN.text))).assertExists()
+        compose.onNode(hasText(context.strings.words.text(CoachHint.ZOOM_IN.text))).assertExists()
         canvas { click(s.centerOf(65 * 100 + 50)) }
-        compose.onNode(hasText(context.getString(CoachHint.TAP_ZOOMED.text))).assertExists()
+        compose.onNode(hasText(context.strings.words.text(CoachHint.TAP_ZOOMED.text))).assertExists()
         compose.mainClock.advanceTimeBy(6_500)
         compose.waitForIdle()
-        compose.onNode(hasText(context.getString(CoachHint.PICK_COLOR.text))).assertExists()
+        compose.onNode(hasText(context.strings.words.text(CoachHint.PICK_COLOR.text))).assertExists()
     }
 }

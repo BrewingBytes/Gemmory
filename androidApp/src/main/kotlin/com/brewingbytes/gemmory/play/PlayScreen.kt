@@ -1,6 +1,7 @@
 package com.brewingbytes.gemmory.play
 
 import com.brewingbytes.gemmory.app.LocalAppGraph
+import com.brewingbytes.gemmory.app.graphViewModel
 import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
@@ -106,7 +107,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.R
@@ -157,7 +157,7 @@ fun PlayScreen(
     ref: CanvasRef,
     onBack: () -> Unit,
     onFinished: () -> Unit,
-    vm: PlayViewModel = viewModel(),
+    vm: PlayViewModel = graphViewModel { PlayViewModel(this, it) },
     entry: CanvasEntry = CanvasEntry.GALLERY,
 ) {
     LaunchedEffect(ref) { vm.open(ref, entry) }
@@ -230,8 +230,7 @@ fun PlayScreen(
                 val hidden = s.hiddenAs != null
                 // In the app's language now: a language switch keeps this session (T49).
                 val configuration = LocalConfiguration.current
-                val store = (context.applicationContext as GemmoryApp).store
-                val title = remember(s, configuration) { store.titleNow(s.ref, s.title, s.hiddenAs) }
+                val title = remember(s, configuration) { vm.titleOf(s) }
                 TopBar(
                     title,
                     progress = s.placedCount to s.cellCount,
@@ -638,7 +637,7 @@ private fun GemCanvas(
             }
         }
         Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
-            if (shown != null) HintChip(stringResource(shown.text))
+            if (shown != null) HintChip(strings.words.text(shown.text))
         }
         // Over the hint chip, so the peek shows only the finished picture; under the banner, so a milestone still shows.
         PeekOverlay(session.pattern, peek, canvasSize)

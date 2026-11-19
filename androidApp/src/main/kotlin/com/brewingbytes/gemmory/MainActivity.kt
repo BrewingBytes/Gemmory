@@ -111,7 +111,9 @@ class MainActivity : ComponentActivity() {
     private val streakScreen: StreakViewModel by viewModels()
 
     /** The canvas's ViewModel (PlayScreen's), closed here when a reminder tap leaves an open canvas. */
-    private val play: PlayViewModel by viewModels()
+    private val play: PlayViewModel by viewModels {
+        viewModelFactory { initializer { PlayViewModel(app.graph, createSavedStateHandle()) } }
+    }
     private val app: GemmoryApp get() = application as GemmoryApp
 
     /** The streak celebration is on (#101): the build's kill switch (O5), and a connected test's own switch. */

@@ -1,21 +1,17 @@
 package com.brewingbytes.gemmory.play
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.annotation.StringRes
-import androidx.core.content.edit
-import com.brewingbytes.gemmory.R
 import com.brewingbytes.gemmory.game.CanvasZoom
+import com.brewingbytes.gemmory.storage.KeyValueStore
 import com.brewingbytes.gemmory.storage.StorageLayout
 
-/** The three first-time hints (design D12), with their exact copy ([text], a string resource). */
-enum class CoachHint(val key: String, @StringRes val text: Int) {
-    ZOOM_IN("zoomIn", R.string.hint_zoom_in),
-    PICK_COLOR("pickColor", R.string.hint_pick_color),
-    TAP_ZOOMED("tapZoomed", R.string.hint_tap_zoomed),
+/** The three first-time hints (design D12), with their exact copy ([text], a string's name in the strings files). */
+enum class CoachHint(val key: String, val text: String) {
+    ZOOM_IN("zoomIn", "hint_zoom_in"),
+    PICK_COLOR("pickColor", "hint_pick_color"),
+    TAP_ZOOMED("tapZoomed", "hint_tap_zoomed"),
 }
 
 /**
@@ -28,9 +24,7 @@ enum class CoachHint(val key: String, @StringRes val text: Int) {
  * without being marked, so it can still show later. The flags hold no photo data and may be backed up
  * (founder call 2026-10-14).
  */
-class CoachHints(private val prefs: SharedPreferences) {
-    constructor(context: Context) : this(context.getSharedPreferences(FILE, Context.MODE_PRIVATE))
-
+class CoachHints(private val prefs: KeyValueStore) {
     var current by mutableStateOf<CoachHint?>(null)
         private set
     private val waiting = ArrayDeque<CoachHint>()
@@ -84,7 +78,8 @@ class CoachHints(private val prefs: SharedPreferences) {
         prefs.edit { putBoolean(hint.key, true) }
     }
 
-    private companion object {
+    companion object {
+        /** Their key-value file ([StorageLayout.Prefs]). */
         const val FILE = StorageLayout.Prefs.HINTS
     }
 }

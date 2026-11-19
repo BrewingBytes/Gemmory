@@ -73,7 +73,8 @@ class PrefsKeysTest {
     private companion object {
         val TYPES = setOf("boolean", "int", "long", "string", "stringset")
         val CONST = Regex("""const val ([A-Z_0-9]+) = "([^"]*)"""")
-        val HINT = Regex("""^\s+[A-Z_]+\("(\w+)", R\.string""", RegexOption.MULTILINE)
+        /** A coach hint's key, before its copy's string name (`ZOOM_IN("zoomIn", "hint_zoom_in")`). */
+        val HINT = Regex("""^\s+[A-Z_]+\("(\w+)", "hint_""", RegexOption.MULTILINE)
         val OPEN = Regex("""getSharedPreferences\(([^,]+),""")
 
         /** String constants in those files that aren't keys. */

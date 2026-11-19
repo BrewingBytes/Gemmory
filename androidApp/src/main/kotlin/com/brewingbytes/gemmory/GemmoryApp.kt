@@ -8,7 +8,7 @@ import com.brewingbytes.gemmory.bundled.TodaysPicks
 import com.brewingbytes.gemmory.collections.CollectionBook
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
-import com.brewingbytes.gemmory.play.Canvases
+import com.brewingbytes.gemmory.play.PlayHooks
 import com.brewingbytes.gemmory.remote.RemoteShelf
 import com.brewingbytes.gemmory.share.ProgressShareSession
 import com.brewingbytes.gemmory.share.ProgressSharing
@@ -257,13 +257,27 @@ class GemmoryApp : Application() {
 
         override val reporter: NonFatalReporter get() = this@GemmoryApp.reporter
 
+        override val appScope: CoroutineScope get() = this@GemmoryApp.appScope
+
         override fun nowMillis(): Long = testNowMillis?.invoke() ?: System.currentTimeMillis()
 
         override fun words(): Words = strings.words
 
         override val analytics: Analytics get() = this@GemmoryApp.analytics
 
-        override val canvases: Canvases get() = store
+        override val store: CanvasStore get() = this@GemmoryApp.store
+
+        override val play: PlayHooks = object : PlayHooks {
+            override fun takeSharedToast(ref: CanvasRef): String? = this@GemmoryApp.sharedLanding.takeCanvasToast(ref)
+
+            override fun firstGem(nowMillis: Long): Long? = this@GemmoryApp.firstRun.gemPlaced(nowMillis)
+
+            override fun dayPlayed(): Boolean = this@GemmoryApp.dayPlayed.gemPlaced()
+
+            override fun finished(canvasKey: String) {
+                this@GemmoryApp.streak.played(canvasKey)
+            }
+        }
 
         override val remote: RemoteShelf get() = this@GemmoryApp.remote
 

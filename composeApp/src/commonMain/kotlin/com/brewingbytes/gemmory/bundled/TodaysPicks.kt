@@ -17,4 +17,16 @@ interface TodaysPicks {
 
     /** Whether [ref] opens without a video right now. */
     fun isFreeToday(ref: CanvasRef): Boolean
+
+    /**
+     * A canvas opened with no gem placed: if it's today's picture, today's drop or the share link's picture now, the
+     * grant is decided here, so its first gem still unlocks it when it lands after midnight. Null when it's none of them.
+     */
+    fun opened(ref: CanvasRef, vip: Boolean): FirstGem?
+}
+
+/** Today's picture, or a share link's (T50), opened while it was free ([TodaysPicks.opened]). */
+fun interface FirstGem {
+    /** The first gem on a [width] × [height] grid: a free player's grant becomes a permanent unlock, and Analytics hears of Today's picture. */
+    fun placed(width: Int, height: Int)
 }

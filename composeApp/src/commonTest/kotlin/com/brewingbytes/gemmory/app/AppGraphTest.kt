@@ -73,7 +73,11 @@ class AppGraphTest {
 
         override val analytics get() = error("not used")
 
-        override val canvases get() = error("not used")
+        override val store get() = error("not used")
+
+        override val play get() = error("not used")
+
+        override val appScope get() = error("not used")
 
         override val remote get() = error("not used")
 
