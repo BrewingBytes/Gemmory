@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.graphics.Rect
+import androidx.compose.ui.unit.IntRect
 import android.graphics.Shader
 import android.net.Uri
 import androidx.compose.ui.test.hasTestTag
@@ -76,9 +76,9 @@ class StartSingleFlightTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.waitUntil("gallery", 10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         val vm = viewModel()
-        scenario.onActivity { vm.onPhotoPicked(Uri.fromFile(photo)) }
+        scenario.onActivity { vm.onPhotoPicked(Uri.fromFile(photo).toString()) }
         compose.waitUntil("decoded", 20_000) { vm.state.value.source != null }
-        scenario.onActivity { vm.onCropNext(Rect(0, 0, 900, 1200)) }
+        scenario.onActivity { vm.onCropNext(IntRect(0, 0, 900, 1200)) }
         compose.waitUntil("face check and conversion", 60_000) { vm.state.value.canStart }
 
         // Two taps in the same frame, before the first Start's coroutine has run.

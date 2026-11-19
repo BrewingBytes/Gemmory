@@ -109,7 +109,7 @@ class Monetization(
     private val _allowance = MutableStateFlow<Allowance>(Allowance.Free)
 
     /** Drives the Preview allowance line and the gallery note (design D5). */
-    val allowance: StateFlow<Allowance> = _allowance.asStateFlow()
+    override val allowance: StateFlow<Allowance> = _allowance.asStateFlow()
 
     private val _inventory = MutableStateFlow(InventoryState())
 
@@ -180,10 +180,12 @@ class Monetization(
     suspend fun refresh() = onPolicy { }
 
     /** Start on Preview (eng E4a): idempotent per draft. */
-    suspend fun consume(draftId: String): ConsumeResult = onPolicy { ledger.consume(draftId, entitlements.value) }
+    override suspend fun consume(draftId: String): ConsumeResult = onPolicy { ledger.consume(draftId, entitlements.value) }
 
     /** The canvas couldn't be written: give the allowance back. */
-    suspend fun release(draftId: String) = onPolicy { ledger.release(draftId) }
+    override suspend fun release(draftId: String) {
+        onPolicy { ledger.release(draftId) }
+    }
 
     /** An extra-canvas video was watched to the end, or the canvas came free while ads are off (#203). */
     suspend fun grantReward() = onPolicy { ledger.grantReward() }

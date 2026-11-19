@@ -9,17 +9,20 @@ import com.brewingbytes.gemmory.bundled.TodaysPicks
 import com.brewingbytes.gemmory.collections.CollectionBook
 import com.brewingbytes.gemmory.collections.Settled
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.play.CanvasProgress
 import com.brewingbytes.gemmory.play.CanvasSummary
 import com.brewingbytes.gemmory.play.Canvases
+import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.policy.StreakState
 import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.remote.RemoteShelf
+import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.share.ProgressShareSession
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
@@ -84,7 +87,7 @@ class GalleryViewModelTest {
     @Test
     fun aDamagedCanvasWithoutAThumbnailStillShows() = runTest(main) {
         val damaged = CanvasSummary.Damaged(CanvasRef(CanvasKind.PHOTO, "p1"), "My photo", 5L, thumb = null)
-        val vm = GalleryViewModel(AppGraph(FakeServices(photos = listOf(damaged))), SavedStateHandle())
+        val vm = GalleryViewModel(AppGraph(FakeServices(photoTiles = listOf(damaged))), SavedStateHandle())
         vm.refresh()
         val tile = vm.state.first { it.loaded }.photos.single()
 
@@ -141,7 +144,7 @@ class GalleryViewModelTest {
     /** The platform as the gallery sees it: canvases, catalog, today's pick and the player, all in memory. */
     private class FakeServices(
         private val pictures: List<CanvasSummary> = emptyList(),
-        private val photos: List<CanvasSummary> = emptyList(),
+        private val photoTiles: List<CanvasSummary> = emptyList(),
         unlocked: Set<String> = emptySet(),
         private val new: Set<String> = emptySet(),
     ) : PlatformServices {
@@ -153,6 +156,12 @@ class GalleryViewModelTest {
         override fun keyValue(name: String): KeyValueStore = stores.getOrPut(name) { MemoryStore(name) }
 
         override val files: FileStore get() = error("not used")
+
+        override val cache: FileStore get() = error("not used")
+
+        override val photos get() = error("not used")
+
+        override val faces get() = error("not used")
 
         override val reporter = NonFatalReporter { }
 
@@ -167,7 +176,7 @@ class GalleryViewModelTest {
         }
 
         override val canvases = object : Canvases {
-            override suspend fun summaries() = pictures to photos
+            override suspend fun summaries() = pictures to photoTiles
 
             override suspend fun reminderCanvases(): List<ReminderCanvas> = emptyList()
 
@@ -176,6 +185,9 @@ class GalleryViewModelTest {
             override suspend fun writeThumb(ref: CanvasRef, png: ByteArray) = Unit
 
             override suspend fun progress(ref: CanvasRef): CanvasProgress? = null
+
+            override suspend fun createPhoto(ref: CanvasRef, pattern: Pattern, record: CanvasRecord, sourceJpeg: ByteArray, colors: ColorChoice) =
+                error("not used")
 
             override suspend fun rename(ref: CanvasRef, title: String): WriteResult = WriteResult.Written.also { renamed += title }
 
@@ -232,6 +244,12 @@ class GalleryViewModelTest {
             override val unlocked: StateFlow<Set<String>> = MutableStateFlow(unlocked)
 
             override val adsOn = true
+
+            override val allowance: StateFlow<Allowance> = MutableStateFlow(Allowance.Free)
+
+            override suspend fun consume(draftId: String) = error("not used")
+
+            override suspend fun release(draftId: String) = error("not used")
         }
 
         override val progress = object : PlayerProgress {

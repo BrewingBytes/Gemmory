@@ -7,6 +7,8 @@ import com.brewingbytes.gemmory.bundled.TodaysPicks
 import com.brewingbytes.gemmory.collections.CollectionBook
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
+import com.brewingbytes.gemmory.photo.FaceFinder
+import com.brewingbytes.gemmory.photo.PhotoDecoder
 import com.brewingbytes.gemmory.play.Canvases
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.remote.RemoteShelf
@@ -27,6 +29,8 @@ class AppGraph(val services: PlatformServices) {
     val reporter: NonFatalReporter get() = services.reporter
 
     val files: FileStore get() = services.files
+
+    val cache: FileStore get() = services.cache
 
     /**
      * The local date of drops (T36), Today's picture, `day_played` and the gallery's midnight reload: one clock, so
@@ -55,6 +59,10 @@ class AppGraph(val services: PlatformServices) {
     val access: PlayerAccess get() = services.access
 
     val progress: PlayerProgress get() = services.progress
+
+    val photos: PhotoDecoder get() = services.photos
+
+    val faces: FaceFinder get() = services.faces
 
     fun progressSharing(): ProgressShareSession = services.progressSharing()
 

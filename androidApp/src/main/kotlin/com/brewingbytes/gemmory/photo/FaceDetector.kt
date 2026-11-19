@@ -1,6 +1,8 @@
 package com.brewingbytes.gemmory.photo
 
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.graphics.createBitmap
 import com.brewingbytes.gemmory.converter.FaceCheck
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
@@ -60,6 +62,13 @@ object FaceDetector {
         }
         return if (found == true) FaceCheck.FACE else FaceCheck.NO_FACE
     }
+}
+
+/** The shared photo flow's [FaceFinder] (iOS Stage 1c, T64): [FaceDetector], reporting to [reporter]. */
+class MlKitFaceFinder(private val reporter: () -> NonFatalReporter) : FaceFinder {
+    override fun warmUp() = FaceDetector.warmUp(reporter())
+
+    override suspend fun check(photo: ImageBitmap): FaceCheck = FaceDetector.check(photo.asAndroidBitmap(), reporter())
 }
 
 /** ML Kit face detection failed at [stage] (init, warm-up or check). The photo is never part of it. */

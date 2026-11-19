@@ -92,7 +92,7 @@ class MoreColorsFlowTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.waitUntil("gallery", 10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         val vm = viewModel()
-        scenario.onActivity { vm.onPhotoPicked(Uri.fromFile(photo)) }
+        scenario.onActivity { vm.onPhotoPicked(Uri.fromFile(photo).toString()) }
         waitForText("Crop")
         compose.onNodeWithText("Next").performClick()
         waitForText("Choose a size")

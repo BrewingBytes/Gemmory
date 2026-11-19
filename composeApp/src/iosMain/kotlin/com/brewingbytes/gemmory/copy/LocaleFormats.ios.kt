@@ -30,6 +30,13 @@ internal actual fun weekdayName(tag: String, epochDay: Long): String {
     return weekdays.stringFromDate(NSDate.dateWithTimeIntervalSince1970(epochDay * 86_400.0 + 43_200.0))
 }
 
+internal actual fun dayMonthIn(tag: String, epochMillis: Long): String {
+    val dates = NSDateFormatter()
+    dates.locale = NSLocale(localeIdentifier = tag)
+    dates.dateFormat = "d MMM"
+    return dates.stringFromDate(NSDate.dateWithTimeIntervalSince1970(epochMillis / 1000.0))
+}
+
 @Suppress("CAST_NEVER_SUCCEEDS") // a Kotlin String is an NSString on Apple targets
 internal actual fun lowercaseIn(tag: String, text: String): String =
     (text as NSString).lowercaseStringWithLocale(NSLocale(localeIdentifier = tag))

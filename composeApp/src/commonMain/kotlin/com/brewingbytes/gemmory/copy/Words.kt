@@ -28,6 +28,9 @@ class Words(private val xml: StringsXml, private val formats: LocaleFormats) {
     /** An epoch day's weekday in full: "Tuesday". */
     fun weekday(epochDay: Long): String = formats.weekday(epochDay)
 
+    /** "13 Oct" in this language ([LocaleFormats.dayMonth]). */
+    fun dayMonth(epochMillis: Long): String = formats.dayMonth(epochMillis)
+
     /** [text] with its first letter lowered by this language's rules, for words that start a sentence on screen. */
     fun lowercaseFirst(text: String): String = formats.lowercaseFirst(text)
 

@@ -13,7 +13,7 @@ class PhotoTitlesTest {
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         try {
             // 2026-10-13T12:00:00Z
-            assertEquals("My photo · 13 Oct", PhotoTitles.default(XmlStrings.en, 1_791_892_800_000))
+            assertEquals("My photo · 13 Oct", PhotoTitles.default(XmlStrings.en.words, 1_791_892_800_000))
         } finally {
             TimeZone.setDefault(zone)
         }

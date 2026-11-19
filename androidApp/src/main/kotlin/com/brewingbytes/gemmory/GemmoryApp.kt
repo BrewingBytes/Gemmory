@@ -30,6 +30,10 @@ import com.brewingbytes.gemmory.achievements.PlayGamesBackend
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.app.AppGraph
 import com.brewingbytes.gemmory.app.PlatformServices
+import com.brewingbytes.gemmory.photo.AndroidPhotoDecoder
+import com.brewingbytes.gemmory.photo.FaceFinder
+import com.brewingbytes.gemmory.photo.MlKitFaceFinder
+import com.brewingbytes.gemmory.photo.PhotoDecoder
 import com.brewingbytes.gemmory.ads.AdMobGateway
 import com.brewingbytes.gemmory.ads.ResumedActivity
 import com.brewingbytes.gemmory.ads.ConsentManager
@@ -244,6 +248,12 @@ class GemmoryApp : Application() {
         override fun keyValue(name: String): KeyValueStore = stores.getOrPut(name) { SharedPrefsStore.of(this@GemmoryApp, name) }
 
         override val files: FileStore by lazy { AndroidFileStore(filesDir) }
+
+        override val cache: FileStore by lazy { AndroidFileStore(cacheDir) }
+
+        override val photos: PhotoDecoder by lazy { AndroidPhotoDecoder(contentResolver) }
+
+        override val faces: FaceFinder = MlKitFaceFinder { reporter }
 
         override val reporter: NonFatalReporter get() = this@GemmoryApp.reporter
 
