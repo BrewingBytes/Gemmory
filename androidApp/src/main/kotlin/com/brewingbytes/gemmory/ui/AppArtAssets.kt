@@ -20,16 +20,7 @@ import com.brewingbytes.gemmory.render.DrawnWords
 import com.brewingbytes.gemmory.render.Face
 import com.brewingbytes.gemmory.render.Faces
 import com.brewingbytes.gemmory.render.LineMetrics
-import com.brewingbytes.gemmory.render.RenderAssets
 import com.brewingbytes.gemmory.timelapse.FrameAssets
-
-/**
- * The shared renderers' fonts on Android (iOS Stage 1a, T62): the app's own faces ([AppFonts]), the same ones the UI
- * uses, read from composeApp's resources since T63. Interim, as [RenderAssets] is, until T63 moves the strings.
- */
-object AppRenderAssets : RenderAssets {
-    override val numbers = AtkinsonMono
-}
 
 /**
  * What the shared time-lapse frame and streak card draw with on Android (T62): the faces of the app's language as the

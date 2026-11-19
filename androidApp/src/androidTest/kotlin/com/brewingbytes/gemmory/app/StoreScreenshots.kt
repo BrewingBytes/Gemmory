@@ -120,7 +120,18 @@ open class StoreScreenshots {
         PixelPins.pin(app)
         // `-e appLocale <tag>`: the listing's shots in that language (T49 X2); none keeps the English run as it was.
         TestLanguage.set(context, language)
+        // Today's free photo canvas unused and none held (design D5): a canvas another test used earlier today would
+        // put the allowance note over New from photo, so the gallery shot would change from run to run. Cleared before
+        // the monetization below is rebuilt, which reads them.
+        clearStateFile(StorageLayout.LEDGER_DAILY)
+        clearStateFile(StorageLayout.INVENTORY)
         app.resetMonetizationForTest(NoAds)
+    }
+
+    /** A [com.brewingbytes.gemmory.storage.FileStateStore] file at [path] under filesDir, with its temp and last-good copies. */
+    private fun clearStateFile(path: String) {
+        val file = File(context.filesDir, path)
+        file.parentFile?.listFiles { f -> f.name.startsWith(file.name) }?.forEach { it.deleteRecursively() }
     }
 
     @After

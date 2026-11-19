@@ -18,6 +18,7 @@ import com.brewingbytes.gemmory.play.Canvases
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.ReminderCanvas
 import com.brewingbytes.gemmory.policy.StreakState
@@ -249,6 +250,8 @@ class GalleryViewModelTest {
 
         override val access = object : PlayerAccess {
             override val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE)
+
+            override val inventory: StateFlow<InventoryState> = MutableStateFlow(InventoryState())
 
             override val unlocked: StateFlow<Set<String>> = MutableStateFlow(unlocked)
 
