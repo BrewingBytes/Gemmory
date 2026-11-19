@@ -2,6 +2,7 @@ package com.brewingbytes.gemmory.photo
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -234,6 +235,7 @@ fun SizeScreen(state: PhotoFlowState, onSize: (CanvasSize) -> Unit, onNext: () -
             CanvasSize.entries.forEach { size ->
                 SizeRow(
                     size = size,
+                    ratio = state.ratio,
                     summary = summary(words, size, state.ratio, state.conversions[size]),
                     conversion = state.conversions[size],
                     selected = size == state.size && size !in rules.disabled,
@@ -247,7 +249,7 @@ fun SizeScreen(state: PhotoFlowState, onSize: (CanvasSize) -> Unit, onNext: () -
 }
 
 @Composable
-private fun SizeRow(size: CanvasSize, summary: String, conversion: Conversion?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun SizeRow(size: CanvasSize, ratio: AspectRatio, summary: String, conversion: Conversion?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     val name = Messages.size(LocalWords.current, size)
     Row(
@@ -265,7 +267,7 @@ private fun SizeRow(size: CanvasSize, summary: String, conversion: Conversion?, 
         Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
             when (conversion) {
                 is Conversion.Ready -> GemImage(conversion.preview, LocalWords.current.text("photo_size_preview", name))
-                Conversion.Running -> ThinProgress()
+                Conversion.Running -> ConvertingSlot(ratio)
                 else -> Unit
             }
         }
@@ -274,6 +276,26 @@ private fun SizeRow(size: CanvasSize, summary: String, conversion: Conversion?, 
             Text(name, style = GemType.button, color = GemColors.Bone)
             Text(summary, style = GemType.label, color = GemColors.TextMuted)
         }
+    }
+}
+
+/**
+ * A size still converting: a `felt-raised` placeholder in the crop's shape with the 2dp indeterminate line inside it,
+ * read as "Setting the gems…" (design system, Photo flow states).
+ */
+@Composable
+private fun ConvertingSlot(ratio: AspectRatio) {
+    val label = LocalWords.current.text("photo_setting_gems")
+    Box(
+        Modifier
+            .aspectRatio(ratio.width / ratio.height.toFloat())
+            .clip(RoundedCornerShape(4.dp))
+            .background(LocalFelt.current.raised)
+            .testTag("size-converting")
+            .clearAndSetSemantics { contentDescription = label },
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        ThinProgress(Modifier.padding(horizontal = 6.dp, vertical = 8.dp))
     }
 }
 
