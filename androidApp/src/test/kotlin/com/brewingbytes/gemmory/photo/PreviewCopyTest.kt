@@ -14,42 +14,42 @@ import kotlin.test.assertNull
 class PreviewCopyTest {
     @Test
     fun theSizeLineUsesTheChoicesCapUntilConverted() {
-        assertEquals("15,052 gems · 36 colors", summary(XmlStrings.en, CanvasSize.BIG, AspectRatio.PORTRAIT, null))
-        assertEquals("15,052 gems · 60 colors", summary(XmlStrings.en, CanvasSize.BIG, AspectRatio.PORTRAIT, Conversion.Running, ColorChoice.MORE))
-        assertEquals("3,072 gems · 12 colors", summary(XmlStrings.en, CanvasSize.QUICK, AspectRatio.LANDSCAPE, null, ColorChoice.FEWER))
-        assertEquals("8,100 gems · 40 colors", summary(XmlStrings.en, CanvasSize.MEDIUM, AspectRatio.SQUARE, null, ColorChoice.MORE))
+        assertEquals("15,052 gems · 36 colors", summary(XmlStrings.en.words, CanvasSize.BIG, AspectRatio.PORTRAIT, null))
+        assertEquals("15,052 gems · 60 colors", summary(XmlStrings.en.words, CanvasSize.BIG, AspectRatio.PORTRAIT, Conversion.Running, ColorChoice.MORE))
+        assertEquals("3,072 gems · 12 colors", summary(XmlStrings.en.words, CanvasSize.QUICK, AspectRatio.LANDSCAPE, null, ColorChoice.FEWER))
+        assertEquals("8,100 gems · 40 colors", summary(XmlStrings.en.words, CanvasSize.MEDIUM, AspectRatio.SQUARE, null, ColorChoice.MORE))
     }
 
     @Test
     fun theLineUnderTellsWhatMoreNeeds() {
-        assertEquals("More colors: watch a video, or get VIP.", previewLine(XmlStrings.en, Allowance.Free, ColorChoice.MORE, moreUnlocked = false))
-        assertEquals("Uses today's free photo canvas.", previewLine(XmlStrings.en, Allowance.Free, ColorChoice.MORE, moreUnlocked = true))
-        assertEquals("One video gets this canvas with more colors.", previewLine(XmlStrings.en, Allowance.WatchVideo, ColorChoice.MORE, moreUnlocked = false))
+        assertEquals("More colors: watch a video, or get VIP.", previewLine(XmlStrings.en.words, Allowance.Free, ColorChoice.MORE, moreUnlocked = false))
+        assertEquals("Uses today's free photo canvas.", previewLine(XmlStrings.en.words, Allowance.Free, ColorChoice.MORE, moreUnlocked = true))
+        assertEquals("One video gets this canvas with more colors.", previewLine(XmlStrings.en.words, Allowance.WatchVideo, ColorChoice.MORE, moreUnlocked = false))
         assertEquals(
             "Today's free one is used. Watch a video for another.",
-            previewLine(XmlStrings.en, Allowance.WatchVideo, ColorChoice.STANDARD, moreUnlocked = false),
+            previewLine(XmlStrings.en.words, Allowance.WatchVideo, ColorChoice.STANDARD, moreUnlocked = false),
         )
-        assertEquals("Uses a kept photo canvas (2 left).", previewLine(XmlStrings.en, Allowance.Bonus, ColorChoice.FEWER, moreUnlocked = false, kept = 2))
-        assertNull(previewLine(XmlStrings.en, Allowance.Unlimited, ColorChoice.MORE, moreUnlocked = false), "VIP: no line, nothing to unlock")
+        assertEquals("Uses a kept photo canvas (2 left).", previewLine(XmlStrings.en.words, Allowance.Bonus, ColorChoice.FEWER, moreUnlocked = false, kept = 2))
+        assertNull(previewLine(XmlStrings.en.words, Allowance.Unlimited, ColorChoice.MORE, moreUnlocked = false), "VIP: no line, nothing to unlock")
     }
 
     /** #203: while ads are off More needs nothing, and a used free canvas says the next one is on us. */
     @Test
     fun adsOffTheLineAsksForNoVideo() {
-        assertEquals("Uses today's free photo canvas.", previewLine(XmlStrings.en, Allowance.Free, ColorChoice.MORE, moreUnlocked = false, adsOn = false))
+        assertEquals("Uses today's free photo canvas.", previewLine(XmlStrings.en.words, Allowance.Free, ColorChoice.MORE, moreUnlocked = false, adsOn = false))
         assertEquals(
             "Today's free one is used. The next one is on us.",
-            previewLine(XmlStrings.en, Allowance.WatchVideo, ColorChoice.MORE, moreUnlocked = false, adsOn = false),
+            previewLine(XmlStrings.en.words, Allowance.WatchVideo, ColorChoice.MORE, moreUnlocked = false, adsOn = false),
         )
     }
 
     @Test
     fun primaryAndTroughLabels() {
-        assertEquals("Start", primaryText(XmlStrings.en, PreviewPrimary.START))
-        assertEquals("Watch a video", primaryText(XmlStrings.en, PreviewPrimary.WATCH_FOR_CANVAS))
-        assertEquals("Watch a video for more colors", primaryText(XmlStrings.en, PreviewPrimary.WATCH_FOR_COLORS))
-        assertEquals("Start canvas", primaryText(XmlStrings.en, PreviewPrimary.WATCH_FOR_CANVAS, adsOn = false), "#203")
-        assertEquals("More, 60 colors, needs a video or VIP", colorTroughLabel(XmlStrings.en, CanvasSize.BIG, ColorChoice.MORE, needsVideo = true))
-        assertEquals("Fewer, 16 colors", colorTroughLabel(XmlStrings.en, CanvasSize.MEDIUM, ColorChoice.FEWER, needsVideo = false))
+        assertEquals("Start", primaryText(XmlStrings.en.words, PreviewPrimary.START))
+        assertEquals("Watch a video", primaryText(XmlStrings.en.words, PreviewPrimary.WATCH_FOR_CANVAS))
+        assertEquals("Watch a video for more colors", primaryText(XmlStrings.en.words, PreviewPrimary.WATCH_FOR_COLORS))
+        assertEquals("Start canvas", primaryText(XmlStrings.en.words, PreviewPrimary.WATCH_FOR_CANVAS, adsOn = false), "#203")
+        assertEquals("More, 60 colors, needs a video or VIP", colorTroughLabel(XmlStrings.en.words, CanvasSize.BIG, ColorChoice.MORE, needsVideo = true))
+        assertEquals("Fewer, 16 colors", colorTroughLabel(XmlStrings.en.words, CanvasSize.MEDIUM, ColorChoice.FEWER, needsVideo = false))
     }
 }

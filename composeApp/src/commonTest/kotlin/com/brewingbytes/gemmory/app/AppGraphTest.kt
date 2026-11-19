@@ -57,6 +57,12 @@ class AppGraphTest {
 
         override val files: FileStore get() = error("not used")
 
+        override val cache: FileStore get() = error("not used")
+
+        override val photos get() = error("not used")
+
+        override val faces get() = error("not used")
+
         override val reporter = NonFatalReporter { }
 
         override fun nowMillis(): Long = now

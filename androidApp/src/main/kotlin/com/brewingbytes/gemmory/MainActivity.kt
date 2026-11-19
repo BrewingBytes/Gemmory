@@ -97,7 +97,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
-    private val photoFlow: PhotoFlowViewModel by viewModels()
+    /** Shared since iOS Stage 1c (T64), like the gallery's. */
+    private val photoFlow: PhotoFlowViewModel by viewModels {
+        viewModelFactory { initializer { PhotoFlowViewModel(app.graph, createSavedStateHandle()) } }
+    }
     /** Shared since iOS Stage 1c (T64): built from the app's [com.brewingbytes.gemmory.app.AppGraph], as `graphViewModel` does. */
     private val gallery: GalleryViewModel by viewModels {
         viewModelFactory { initializer { GalleryViewModel(app.graph, createSavedStateHandle()) } }
@@ -159,7 +162,7 @@ class MainActivity : ComponentActivity() {
         val flow by photoFlow.state.collectAsStateWithLifecycle()
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             // Cancelled: back to the gallery with no message (design D4).
-            if (uri != null) photoFlow.onPhotoPicked(uri)
+            if (uri != null) photoFlow.onPhotoPicked(uri.toString())
         }
         val pickPhoto = {
             photoFlow.onDecodeMessageShown()

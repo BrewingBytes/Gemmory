@@ -220,7 +220,7 @@ open class StoreScreenshots {
     /** The real photo flow: crop (square), Big, Preview, Start. Returns the open canvas's session. */
     private fun makeCanvas(name: String, title: String, previewShot: String? = null): PlaySession {
         val file = photo(name)
-        scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onPhotoPicked(Uri.fromFile(file)) }
+        scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onPhotoPicked(Uri.fromFile(file).toString()) }
         waitText(t(R.string.photo_crop))
         scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onRatio(AspectRatio.SQUARE) }
         compose.onNodeWithText(t(R.string.action_next)).performClick()

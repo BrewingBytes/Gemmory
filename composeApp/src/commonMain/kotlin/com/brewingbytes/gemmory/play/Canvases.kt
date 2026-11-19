@@ -1,9 +1,11 @@
 package com.brewingbytes.gemmory.play
 
 import com.brewingbytes.gemmory.converter.CanvasSize
+import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.game.CanvasState
 import com.brewingbytes.gemmory.policy.ReminderCanvas
+import com.brewingbytes.gemmory.save.CanvasRecord
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.storage.WriteResult
 
@@ -103,6 +105,12 @@ interface Canvases {
 
     /** [ref]'s saved progress for Share progress, read fresh; null when it can't open or is an unfinished mystery (T43, D23). */
     suspend fun progress(ref: CanvasRef): CanvasProgress?
+
+    /**
+     * A photo canvas from Start (design D4), with its cropped photo as [sourceJpeg]. Idempotent per [ref], so a repeated
+     * Start makes one canvas (eng E4a). [colors] is the Preview choice it was made with (#29).
+     */
+    suspend fun createPhoto(ref: CanvasRef, pattern: Pattern, record: CanvasRecord, sourceJpeg: ByteArray, colors: ColorChoice = ColorChoice.STANDARD): WriteResult
 
     suspend fun rename(ref: CanvasRef, title: String): WriteResult
 

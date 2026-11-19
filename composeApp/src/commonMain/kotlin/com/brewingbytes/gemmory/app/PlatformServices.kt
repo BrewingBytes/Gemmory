@@ -6,6 +6,8 @@ import com.brewingbytes.gemmory.bundled.TodaysPicks
 import com.brewingbytes.gemmory.collections.CollectionBook
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
+import com.brewingbytes.gemmory.photo.FaceFinder
+import com.brewingbytes.gemmory.photo.PhotoDecoder
 import com.brewingbytes.gemmory.play.Canvases
 import com.brewingbytes.gemmory.remote.RemoteShelf
 import com.brewingbytes.gemmory.render.GemRenderer
@@ -29,6 +31,9 @@ interface PlatformServices {
 
     /** The app's files folder. */
     val files: FileStore
+
+    /** The app's cache folder: never backed up, and the system may clear it (the photo flow's draft lives here). */
+    val cache: FileStore
 
     val reporter: NonFatalReporter
 
@@ -62,6 +67,12 @@ interface PlatformServices {
     val access: PlayerAccess
 
     val progress: PlayerProgress
+
+    /** Decode, crop and JPEG for the photo flow. */
+    val photos: PhotoDecoder
+
+    /** The photo flow's face check. */
+    val faces: FaceFinder
 
     /** A new Share progress session for one screen's ViewModel. */
     fun progressSharing(): ProgressShareSession

@@ -216,12 +216,12 @@ class CanvasStore(
      * Photo canvas from Start (design D4). Idempotent per [ref], so a repeated Start makes one canvas (eng E4a).
      * [colors] is the Preview choice it was made with (#29), for the start events only.
      */
-    suspend fun createPhoto(
+    override suspend fun createPhoto(
         ref: CanvasRef,
         pattern: Pattern,
         record: CanvasRecord,
         sourceJpeg: ByteArray,
-        colors: ColorChoice = ColorChoice.STANDARD,
+        colors: ColorChoice,
     ): WriteResult {
         swept.join()
         return withContext(writer) {

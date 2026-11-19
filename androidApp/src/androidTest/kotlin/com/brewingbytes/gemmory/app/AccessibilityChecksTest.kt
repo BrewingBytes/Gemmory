@@ -367,7 +367,7 @@ class AccessibilityChecksTest {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
         waitForTag("tile-bundled-starter")
-        scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onPhotoPicked(Uri.fromFile(file)) }
+        scenario.onActivity { ViewModelProvider(it)[PhotoFlowViewModel::class.java].onPhotoPicked(Uri.fromFile(file).toString()) }
         waitForText("Crop")
         scan()
         compose.onNodeWithText("Next").performClick()

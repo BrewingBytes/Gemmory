@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.ads
 
+import com.brewingbytes.gemmory.policy.Allowance
+import com.brewingbytes.gemmory.policy.ConsumeResult
 import com.brewingbytes.gemmory.policy.Entitlements
 import kotlinx.coroutines.flow.StateFlow
 
@@ -16,6 +18,15 @@ interface PlayerAccess {
      * a video, and what one would give is free.
      */
     val adsOn: Boolean
+
+    /** Today's photo canvases: the Preview allowance line and the gallery note (design D5). */
+    val allowance: StateFlow<Allowance>
+
+    /** Start on Preview (eng E4a): uses one canvas, idempotent per draft. */
+    suspend fun consume(draftId: String): ConsumeResult
+
+    /** The canvas couldn't be written: give the allowance back. */
+    suspend fun release(draftId: String)
 }
 
 /**
