@@ -12,10 +12,12 @@ POZELE TALE, DIN PIETRE
 • Alege mărimea: Rapid pentru o seară scurtă, Mediu sau Mare pentru detalii.
 • Alege culorile: Mai puține pentru o pânză liniștită, Mai multe pentru una mai bogată.
 • Pozele tale nu pleacă niciodată din telefon. Nu se încarcă nimic, niciodată.
+• Fără cont și fără înregistrare: tablourile și progresul tău rămân în telefon.
 
 CUM SE JOACĂ
 • Fiecare căsuță are un număr și fiecare număr are o culoare.
 • Atinge o culoare din tavă, apoi căsuțele ei ca să pui pietrele.
+• O atingere pe o căsuță de altă culoare nu face nimic, deci nu poți greși.
 • Apropie două degete pentru zoom și trage ca să te miști pe pânză.
 • Culoarea la care ești e evidențiată, așa că îi găsești ușor căsuțele.
 • Nu găsești ultimele pietre? O atingere te duce la următoarea.
@@ -29,7 +31,7 @@ TOATĂ LINIȘTEA UNUI KIT CU DIAMANTE, FĂRĂ DEZORDINE
 • Fiecare piatră se așază cu un sunet blând.
 
 TABLOURI DE JUCAT
-• O galerie de început: picturi celebre, peisaje, flori și mandale.
+• O bibliotecă uriașă de tablouri: picturi celebre, peisaje, flori și mandale.
 • Un tablou nou aproape în fiecare zi, iar tabloul zilei e gratuit de început.
 • Un tablou-surpriză: afli ce e abia pe măsură ce îl umpli.
 • Colecții de completat și un eveniment săptămânal: termină oricare 3 tablouri pentru un tablou-amintire.
@@ -54,3 +56,5 @@ GRATUIT
 
 PENTRU CINE E
 Gemmory e un joc de pictură cu diamante pentru adulții care iubesc kiturile cu diamante, goblenurile, mozaicurile și coloratul după numere și caută aceeași liniște în câteva minute tihnite pe zi.
+
+Retrăiește-ți amintirile dragi, piatră cu piatră.

@@ -12,10 +12,12 @@ LE TUE FOTO, IN GEMME
 • Scegli la dimensione: Rapido per una sera breve, Medio, o Grande per i dettagli.
 • Scegli i colori: Meno per una tela tranquilla, Più per una più ricca.
 • Le tue foto non lasciano mai il telefono. Non viene caricato nulla, mai.
+• Nessun account o registrazione: i tuoi quadri e i progressi restano sul telefono.
 
 COME SI GIOCA
 • Ogni casella ha un numero e ogni numero ha un colore.
 • Tocca un colore nel vassoio, poi le sue caselle per posizionare le gemme.
+• Toccare una casella di un altro colore non fa nulla, quindi non puoi sbagliare.
 • Pizzica per lo zoom e trascina per muoverti sulla tela.
 • Il colore che stai usando è evidenziato, così le sue caselle si trovano subito.
 • Non trovi le ultime gemme? Un tocco ti porta alla prossima.
@@ -29,7 +31,7 @@ TUTTA LA CALMA DI UN KIT DI PITTURA CON DIAMANTI, SENZA IL DISORDINE
 • Ogni gemma si posa con un suono delicato.
 
 QUADRI DA GIOCARE
-• Una galleria per iniziare: dipinti famosi, paesaggi, fiori e mandala.
+• Un’enorme raccolta di quadri: dipinti famosi, paesaggi, fiori e mandala.
 • Un quadro nuovo quasi ogni giorno, e il quadro di oggi è gratis da iniziare.
 • Un quadro misterioso: scopri cosa mostra solo mentre lo riempi.
 • Collezioni da completare e un evento settimanale: finisci 3 quadri qualsiasi per un quadro ricordo.
@@ -54,3 +56,5 @@ GRATIS DA GIOCARE
 
 PER CHI È
 Gemmory è un gioco di pittura con diamanti per adulti che amano i kit di pittura con diamanti, il punto croce, i mosaici e i colori per numeri, e cercano la stessa calma in pochi minuti tranquilli al giorno.
+
+Rivivi i tuoi ricordi più belli, una gemma scintillante alla volta.

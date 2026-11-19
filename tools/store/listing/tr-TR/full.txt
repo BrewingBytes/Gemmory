@@ -12,10 +12,12 @@ FOTOĞRAFLARIN, TAŞLARLA
 • Boyutu seç: kısa bir akşam için Hızlı, Orta ya da ayrıntı için Büyük.
 • Renkleri seç: sakin bir tuval için Daha az, daha zengin biri için Daha fazla.
 • Fotoğrafların telefonundan asla çıkmaz. Hiçbir şey yüklenmez, asla.
+• Hesap ya da kayıt gerekmez: tabloların ve ilerlemen telefonunda kalır.
 
 NASIL OYNANIR
 • Her karenin bir numarası, her numaranın bir rengi var.
 • Tepsiden bir renge dokun, sonra taşları yerleştirmek için karelerine dokun.
+• Yanlış renkteki bir kareye dokunmak hiçbir şey yapmaz, yani hata yapamazsın.
 • Yakınlaştırmak için iki parmağını aç, tuvalde gezinmek için sürükle.
 • Kullandığın renk vurgulanır, böylece karelerini kolayca bulursun.
 • Son taşları bulamıyor musun? Tek dokunuş seni bir sonrakine götürür.
@@ -29,7 +31,7 @@ BİR ELMAS BOYAMA SETİNİN HUZURU, DAĞINIKLIĞI OLMADAN
 • Her taş yumuşak bir sesle yerine oturur.
 
 OYNANACAK TABLOLAR
-• Başlangıç galerisi: ünlü tablolar, manzaralar, çiçekler ve mandalalar.
+• Devasa bir tablo kütüphanesi: ünlü tablolar, manzaralar, çiçekler ve mandalalar.
 • Neredeyse her gün yeni bir tablo; bugünün tablosuna ücretsiz başlarsın.
 • Gizemli tablo: ne olduğunu ancak doldurdukça öğrenirsin.
 • Tamamlanacak koleksiyonlar ve haftalık etkinlik: herhangi 3 tabloyu bitir, bir hatıra tablosu kazan.
@@ -54,3 +56,5 @@ PARILTIYI PAYLAŞ
 
 KİMİN İÇİN
 Gemmory, elmas boyama setlerini, kanaviçeyi, mozaikleri ve sayılarla boyamayı seven ve aynı huzuru günde birkaç sakin dakikada arayan yetişkinler için bir elmas boyama oyunu.
+
+En sevdiğin anıları, parıldayan taşlarla yeniden yaşa.

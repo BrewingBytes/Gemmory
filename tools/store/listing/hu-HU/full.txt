@@ -12,10 +12,12 @@ A FOTÓID, KÖVEKBŐL
 • Válassz méretet: Gyors egy rövid estére, Közepes, vagy Nagy a részletekért.
 • Válassz színeket: Kevesebb a nyugodt vászonhoz, Több a gazdagabbhoz.
 • A fotóid soha nem hagyják el a telefonodat. Semmit nem töltünk fel, soha.
+• Nem kell fiók vagy regisztráció: a képeid és a haladásod a telefonodon maradnak.
 
 ÍGY JÁTSZD
 • Minden mezőnek van egy száma, és minden számnak egy színe.
 • Koppints egy színre a tálcán, aztán a mezőire, hogy lerakd a köveket.
+• A rossz színű mezőre koppintás nem csinál semmit, így nem hibázhatsz.
 • Csippentéssel nagyíthatsz, húzással mozoghatsz a vásznon.
 • Az aktuális szín ki van emelve, így könnyen megtalálod a mezőit.
 • Nem találod az utolsó köveket? Egy koppintás elvisz a következőhöz.
@@ -29,7 +31,7 @@ EGY GYÉMÁNTFESTŐ KÉSZLET NYUGALMA, RENDETLENSÉG NÉLKÜL
 • Minden kő egy lágy hanggal kattan a helyére.
 
 JÁTSZHATÓ KÉPEK
-• Kezdő galéria: híres festmények, tájképek, virágok és mandalák.
+• Hatalmas képtár: híres festmények, tájképek, virágok és mandalák.
 • Szinte minden nap új kép, és a mai kép ingyen elkezdhető.
 • Rejtélyes kép: csak kitöltés közben derül ki, mit ábrázol.
 • Teljesíthető gyűjtemények és heti esemény: fejezz be bármely 3 képet egy emlékképért.
@@ -54,3 +56,5 @@ INGYEN JÁTSZHATÓ
 
 KINEK SZÓL
 A Gemmory egy gyémántfestés játék felnőtteknek, akik szeretik a gyémántfestő készleteket, a keresztszemes hímzést, a mozaikokat és a számok szerinti színezést, és ugyanezt a nyugalmat keresik napi pár csendes percben.
+
+Éld át újra kedvenc emlékeidet, csillogó kőről kőre.

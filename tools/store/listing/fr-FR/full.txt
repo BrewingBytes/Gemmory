@@ -12,10 +12,12 @@ TES PHOTOS, EN GEMMES
 • Choisis la taille : Rapide pour une courte soirée, Moyen, ou Grand pour le détail.
 • Choisis les couleurs : Moins pour une toile apaisante, Plus pour une toile plus riche.
 • Tes photos ne quittent jamais ton téléphone. Rien n’est envoyé, jamais.
+• Pas de compte ni d’inscription : tes tableaux et ta progression restent sur ton téléphone.
 
 COMMENT JOUER
 • Chaque case a un numéro, et chaque numéro a une couleur.
 • Touche une couleur dans le plateau, puis ses cases pour poser les gemmes.
+• Toucher une case d’une autre couleur ne fait rien : impossible de se tromper.
 • Pince pour zoomer et fais glisser pour te déplacer sur la toile.
 • La couleur en cours est mise en évidence, ses cases se repèrent facilement.
 • Tu ne trouves pas les dernières gemmes ? Une touche t’amène à la suivante.
@@ -29,7 +31,7 @@ TOUT LE CALME D’UN KIT DE BRODERIE DIAMANT, SANS LE DÉSORDRE
 • Chaque gemme se pose avec un son doux.
 
 DES TABLEAUX À JOUER
-• Une galerie pour commencer : tableaux célèbres, paysages, fleurs et mandalas.
+• Une immense bibliothèque de tableaux : tableaux célèbres, paysages, fleurs et mandalas.
 • Un nouveau tableau presque chaque jour, et le tableau du jour est gratuit pour commencer.
 • Un tableau mystère : tu ne découvres ce qu’il montre qu’en le remplissant.
 • Des collections à compléter et un événement hebdomadaire : termine 3 tableaux au choix pour gagner un tableau souvenir.
@@ -54,3 +56,5 @@ GRATUIT
 
 POUR QUI
 Gemmory est un jeu de broderie diamant pour les adultes qui aiment les kits de broderie diamant, le point de croix, les mosaïques et le coloriage par numéros, et qui cherchent ce même calme en quelques minutes paisibles par jour.
+
+Redécouvre tes plus beaux souvenirs, une gemme scintillante à la fois.
