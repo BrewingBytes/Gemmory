@@ -111,7 +111,9 @@ class MainActivity : ComponentActivity() {
     private val streakScreen: StreakViewModel by viewModels()
 
     /** The canvas's ViewModel (PlayScreen's), closed here when a reminder tap leaves an open canvas. */
-    private val play: PlayViewModel by viewModels()
+    private val play: PlayViewModel by viewModels {
+        viewModelFactory { initializer { PlayViewModel(app.graph, createSavedStateHandle()) } }
+    }
     private val app: GemmoryApp get() = application as GemmoryApp
 
     /** The streak celebration is on (#101): the build's kill switch (O5), and a connected test's own switch. */
@@ -126,6 +128,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Made now, from the graph (T64): the activity's default factory can't build a shared ViewModel, so anything
+        // that asks the activity's store for it before the canvas first composes (connected tests do) finds this one.
+        play.hashCode()
         enableEdgeToEdge()
         // UMP on the first launch (EEA only, before any ad request); later launches only refresh the status.
         if (savedInstanceState == null) app.consent.onLaunch(this)

@@ -9,7 +9,9 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.photo.FaceFinder
 import com.brewingbytes.gemmory.photo.PhotoDecoder
+import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Canvases
+import com.brewingbytes.gemmory.play.PlayHooks
 import com.brewingbytes.gemmory.policy.DayClock
 import com.brewingbytes.gemmory.remote.RemoteShelf
 import com.brewingbytes.gemmory.settings.AppSettings
@@ -18,6 +20,7 @@ import com.brewingbytes.gemmory.storage.FileStore
 import com.brewingbytes.gemmory.streak.StreakSource
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * The shared app's services, built once per process by the platform shell (iOS eng D6: hand-built, no DI library).
@@ -47,6 +50,12 @@ class AppGraph(val services: PlatformServices) {
 
     // The gallery's services (T64), read through on each use: see PlatformServices.
     val canvases: Canvases get() = services.canvases
+
+    val store: CanvasStore get() = services.store
+
+    val play: PlayHooks get() = services.play
+
+    val appScope: CoroutineScope get() = services.appScope
 
     val remote: RemoteShelf get() = services.remote
 

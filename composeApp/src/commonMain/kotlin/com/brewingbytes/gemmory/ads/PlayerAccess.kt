@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.ads
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.ConsumeResult
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.Item
 import kotlinx.coroutines.flow.StateFlow
 
 /** What the player may open (iOS Stage 1c, T64): Android's `Monetization` until billing and unlocks move to common code. */
@@ -27,6 +28,9 @@ interface PlayerAccess {
 
     /** The canvas couldn't be written: give the allowance back. */
     suspend fun release(draftId: String)
+
+    /** Spends one [item] for [useId] (#38): idempotent per use, true when it was spent by this call. */
+    suspend fun spend(item: Item, useId: String): Boolean
 }
 
 /**

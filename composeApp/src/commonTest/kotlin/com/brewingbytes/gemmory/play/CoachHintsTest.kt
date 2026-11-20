@@ -1,23 +1,16 @@
 package com.brewingbytes.gemmory.play
 
-import com.brewingbytes.gemmory.copy.XmlStrings
-import com.brewingbytes.gemmory.ads.FakePrefs
-import org.junit.Test
+import com.brewingbytes.gemmory.storage.MemoryStore
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+/** First-time hints (design D12), shared since iOS Stage 1c (T64): their order and "once ever" over a [MemoryStore]. */
 class CoachHintsTest {
-    private val prefs = FakePrefs()
+    private val prefs = MemoryStore(CoachHints.FILE)
     private val hints = CoachHints(prefs)
-
-    @Test
-    fun theExactCopy() {
-        assertEquals("Pinch or tap to zoom in until numbers appear", XmlStrings.en.text(CoachHint.ZOOM_IN.text))
-        assertEquals("Pick a color below, then tap or drag its numbers", XmlStrings.en.text(CoachHint.PICK_COLOR.text))
-        assertEquals("Zoomed in so you can see the numbers", XmlStrings.en.text(CoachHint.TAP_ZOOMED.text))
-    }
 
     @Test
     fun zoomInShowsOnAFarOutOpenAndFadesWhenNumbersAppear() {

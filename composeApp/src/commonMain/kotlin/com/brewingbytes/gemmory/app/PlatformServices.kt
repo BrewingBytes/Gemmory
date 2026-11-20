@@ -8,7 +8,9 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.photo.FaceFinder
 import com.brewingbytes.gemmory.photo.PhotoDecoder
+import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Canvases
+import com.brewingbytes.gemmory.play.PlayHooks
 import com.brewingbytes.gemmory.remote.RemoteShelf
 import com.brewingbytes.gemmory.render.GemRenderer
 import com.brewingbytes.gemmory.share.ProgressShareSession
@@ -17,6 +19,7 @@ import com.brewingbytes.gemmory.storage.KeyValueStore
 import com.brewingbytes.gemmory.streak.StreakSource
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.datetime.TimeZone
 
 /**
@@ -37,6 +40,12 @@ interface PlatformServices {
 
     val reporter: NonFatalReporter
 
+    /**
+     * The process's scope, for work that must finish after the screen that started it closes (a fill spent on a
+     * canvas left at once is still written, #38).
+     */
+    val appScope: CoroutineScope
+
     /** Wall time in epoch milliseconds (connected tests move it on Android). */
     fun nowMillis(): Long
 
@@ -54,7 +63,11 @@ interface PlatformServices {
      * instance in use at each read (connected tests replace some), iOS builds its own in Stage 2.
      */
 
-    val canvases: Canvases
+    /** The canvases on this phone (common since T64), built by the shell over [files]; a connected test may replace it. */
+    val store: CanvasStore
+
+    /** The canvases as the gallery reads them: [store], or a test's own. */
+    val canvases: Canvases get() = store
 
     val remote: RemoteShelf
 
@@ -73,6 +86,9 @@ interface PlatformServices {
 
     /** The photo flow's face check. */
     val faces: FaceFinder
+
+    /** What an open canvas tells the Android services that haven't moved yet. */
+    val play: PlayHooks
 
     /** A new Share progress session for one screen's ViewModel. */
     fun progressSharing(): ProgressShareSession

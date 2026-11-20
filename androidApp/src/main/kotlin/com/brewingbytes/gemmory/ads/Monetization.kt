@@ -206,7 +206,7 @@ class Monetization(
     }
 
     /** Spends one [item] for [useId] (idempotent per use); false when none is left. VIP spends nothing. */
-    suspend fun spend(item: Item, useId: String): Boolean = onPolicy {
+    override suspend fun spend(item: Item, useId: String): Boolean = onPolicy {
         entitlements.value.vip || items.spend(item, useId)
     }
 

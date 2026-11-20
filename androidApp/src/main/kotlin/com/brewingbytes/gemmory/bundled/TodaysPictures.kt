@@ -148,16 +148,17 @@ class TodaysPictures(
      * A canvas opened with no gem placed: if it's today's picture or today's drop now, the grant is decided here, so
      * its first gem still unlocks it when it lands after midnight. Null when it's neither.
      */
-    fun opened(ref: CanvasRef, vip: Boolean): FirstGem? = when {
+    override fun opened(ref: CanvasRef, vip: Boolean): FirstGem? = when {
         isToday(ref, vip) || isTodaysDrop(ref) -> FirstGem(ref, vip, today = true)
         isShared(ref) -> FirstGem(ref, vip, today = false)
         else -> null
     }
 
     /** Today's picture, or a share link's (T50), opened while it was free. */
-    inner class FirstGem internal constructor(private val ref: CanvasRef, private val vip: Boolean, private val today: Boolean) {
+    inner class FirstGem internal constructor(private val ref: CanvasRef, private val vip: Boolean, private val today: Boolean) :
+        com.brewingbytes.gemmory.bundled.FirstGem {
         /** The first gem: a free player's grant becomes a permanent unlock, and Analytics hears of Today's picture. */
-        fun placed(width: Int, height: Int) {
+        override fun placed(width: Int, height: Int) {
             if (!vip) unlocks().unlock(ref.id)
             if (today) analytics.log(AnalyticsEvent.todaysPictureStarted(ref, width, height, vip))
         }
