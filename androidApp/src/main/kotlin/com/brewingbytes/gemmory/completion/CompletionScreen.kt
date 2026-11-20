@@ -596,7 +596,9 @@ private fun WhereFoundSheet(row: WhereFoundUi.Row, flow: WhereFoundFlow, reduced
     GemSheet(
         title = stringResource(R.string.where_found_question),
         onDismiss = flow::dismiss,
-        returnFocusTo = if (flow.answering) WHERE_FOUND_THANKS_TAG else DONE_TAG,
+        // Read at the close: with reduced motion an answer closes the sheet in the same frame it is tapped, before
+        // the sheet recomposes, so a value passed in would still say Done (#215).
+        returnFocusAtClose = { if (flow.answering) WHERE_FOUND_THANKS_TAG else DONE_TAG },
     ) {
         if (!row.vip) Text(stringResource(R.string.where_found_reward), style = GemType.label, color = GemColors.TextMuted)
         Column(Modifier.fillMaxWidth().semantics { collectionInfo = CollectionInfo(row.order.size, 1) }) {
