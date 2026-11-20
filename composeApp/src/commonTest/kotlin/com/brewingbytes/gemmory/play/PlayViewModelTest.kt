@@ -14,6 +14,7 @@ import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.remote.RemotePicture
 import com.brewingbytes.gemmory.save.GridCodec
@@ -248,6 +249,8 @@ class PlayViewModelTest {
 
         override val access = object : PlayerAccess {
             override val entitlements: StateFlow<Entitlements> = MutableStateFlow(Entitlements.FREE)
+
+            override val inventory: StateFlow<InventoryState> = MutableStateFlow(InventoryState())
 
             override val unlocked: StateFlow<Set<String>> = MutableStateFlow(emptySet())
 

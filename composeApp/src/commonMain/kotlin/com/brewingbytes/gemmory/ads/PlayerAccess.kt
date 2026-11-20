@@ -3,6 +3,7 @@ package com.brewingbytes.gemmory.ads
 import com.brewingbytes.gemmory.policy.Allowance
 import com.brewingbytes.gemmory.policy.ConsumeResult
 import com.brewingbytes.gemmory.policy.Entitlements
+import com.brewingbytes.gemmory.policy.InventoryState
 import com.brewingbytes.gemmory.policy.Item
 import kotlinx.coroutines.flow.StateFlow
 
@@ -10,6 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 interface PlayerAccess {
     /** VIP or not, as last confirmed. */
     val entitlements: StateFlow<Entitlements>
+
+    /** What the player holds (#38): the fills the play canvas's tools spend, freezes, tokens. */
+    val inventory: StateFlow<InventoryState>
 
     /** Pictures unlocked by a video or a token, backed up. */
     val unlocked: StateFlow<Set<String>>

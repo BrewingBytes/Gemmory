@@ -1,6 +1,5 @@
 package com.brewingbytes.gemmory.play
 
-import android.os.SystemClock
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -24,12 +23,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -38,11 +35,11 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.brewingbytes.gemmory.R
+import com.brewingbytes.gemmory.app.LocalAppGraph
 import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.copy.LocalWords
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemIcons
-import com.brewingbytes.gemmory.ui.GemRenderer
 import com.brewingbytes.gemmory.ui.LocalFelt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,14 +59,14 @@ class Peek(private val scope: CoroutineScope) {
     private var timer: Job? = null
     private var pressedAt = 0L
 
-    fun press(now: Long = SystemClock.uptimeMillis()) {
+    fun press(now: Long = uptimeMillis()) {
         timer?.cancel()
         pressedAt = now
         shown = true
     }
 
     /** A press shorter than a tap counts as a tap: the picture stays for 1.5s. */
-    fun release(now: Long = SystemClock.uptimeMillis()) = if (now - pressedAt < TAP_MS) tap() else hide()
+    fun release(now: Long = uptimeMillis()) = if (now - pressedAt < TAP_MS) tap() else hide()
 
     fun tap() {
         timer?.cancel()
@@ -103,7 +100,7 @@ class Peek(private val scope: CoroutineScope) {
 /** The top bar's 48dp eye, labelled "Peek": hold to see the finished picture, or tap for 1.5s. */
 @Composable
 internal fun PeekButton(peek: Peek, modifier: Modifier = Modifier) {
-    val label = stringResource(R.string.action_peek)
+    val label = LocalWords.current.text("action_peek")
     Box(
         modifier
             .size(48.dp)
@@ -140,11 +137,13 @@ internal fun PeekButton(peek: Peek, modifier: Modifier = Modifier) {
 @Composable
 internal fun PeekOverlay(pattern: Pattern, peek: Peek, size: IntSize, modifier: Modifier = Modifier) {
     val alpha by animateFloatAsState(if (peek.shown) 1f else 0f, tween(PEEK_FADE_MS), label = "peek")
-    // Rendered once per canvas size, off the main thread, in whole pixels per cell so the gems stay crisp.
+    // Rendered once per canvas size, off the main thread, in whole pixels per cell so the gems stay crisp. Through the
+    // graph, so Android's renderer switch (R10-8) covers it.
+    val graph = LocalAppGraph.current
     val picture by produceState<ImageBitmap?>(null, pattern, size) {
         if (size.width == 0 || size.height == 0) return@produceState
         val cellPx = minOf(size.width / pattern.width, size.height / pattern.height).coerceAtLeast(1)
-        value = withContext(Dispatchers.Default) { GemRenderer.render(pattern, cellPx).asImageBitmap() }
+        value = withContext(Dispatchers.Default) { graph.renderGems(pattern, cellPx, null) }
     }
     if (alpha == 0f) return
     Box(

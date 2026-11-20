@@ -2,6 +2,11 @@ package com.brewingbytes.gemmory.app
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Canvas
+import com.brewingbytes.gemmory.converter.Pattern
+import com.brewingbytes.gemmory.play.CanvasEffects
+import com.brewingbytes.gemmory.play.HighlightStyle
+import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.share.ProgressShareSession
 
 /**
@@ -20,15 +25,42 @@ interface ShellUi {
     /** Haptics and sounds for one screen, following the Settings toggles; released when the screen leaves. */
     @Composable
     fun rememberFeedback(): ScreenFeedback
+
+    /**
+     * The old Android canvas renderer for [pattern] while a hotfix build turns the shared one off (R10-8), else null
+     * and the play canvas draws the shared `render.CanvasRenderer` (always on iOS). Goes with the switch.
+     */
+    @Composable
+    fun rememberLegacyCanvas(pattern: Pattern, mystery: Boolean): LegacyCanvas?
 }
 
 /** A shared screen's haptics and sounds (design system, Haptics and sound). */
 interface ScreenFeedback {
-    /** The gem tick (throttled) and a placing click: here, a wheel segment passing the pointer (#38). */
-    fun gemPlaced()
+    /**
+     * The gem tick (throttled to one per 40ms) and a placing click at a random pitch; while [drag] painting, a softer
+     * tick. Also a wheel segment passing the pointer (#38).
+     */
+    fun gemPlaced(drag: Boolean = false)
 
-    /** The milestone bell and the confirm haptic: here, the wheel landing (#38). */
+    /** The milestone bell and the confirm haptic: a progress milestone (#35), the wheel landing (#38). */
     fun milestone()
+
+    /** A tool's batch (#20) over [durationMs]: a light haptic sweep. Its clicks come from [sweepClick], timed by the caller. */
+    fun sweep(durationMs: Int)
+
+    /** The [step]th click of a batch's run (#20): a placing click, a semitone higher each time. */
+    fun sweepClick(step: Int)
+
+    /** A wrong-color tap: lighter than the tick, and silent. */
+    fun wrongColor()
+
+    /** A color finished: the confirm haptic and the color-done sound. */
+    fun colorFinished()
+}
+
+/** The old canvas renderer behind [ShellUi.rememberLegacyCanvas] (R10-8): draws the open canvas as it did before T62. */
+interface LegacyCanvas {
+    fun draw(canvas: Canvas, session: PlaySession, density: Float, style: HighlightStyle, effects: CanvasEffects, nowNanos: Long)
 }
 
 /** The platform's [ShellUi]. A composable outside the shell fails at once instead of drawing without its slots. */

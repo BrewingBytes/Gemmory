@@ -16,5 +16,5 @@ actual fun rememberAccessibilityFocus(): AccessibilityFocus = remember { NoFocus
 
 private object NoFocusMoves : AccessibilityFocus {
     override fun moveTo(tag: String): Boolean = false
-    override fun returnTo(tag: String, cancelled: () -> Boolean) = Unit
+    override fun holdOn(tag: String, cancelled: () -> Boolean) = Unit
 }

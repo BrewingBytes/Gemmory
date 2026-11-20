@@ -1,6 +1,5 @@
 package com.brewingbytes.gemmory.play
 
-import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -36,8 +35,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.app.ScreenFeedback
+import com.brewingbytes.gemmory.copy.LocalWords
 import com.brewingbytes.gemmory.game.Milestones
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
@@ -54,7 +53,7 @@ import kotlinx.coroutines.delay
  * not from the band. The chime and haptic play as it starts.
  */
 @Composable
-internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: View, reducedMotion: Boolean) {
+internal fun MilestoneBanner(session: PlaySession, feedback: ScreenFeedback, reducedMotion: Boolean) {
     val milestone = session.milestone
     var shown by remember { mutableStateOf<Milestone?>(null) }
     val clock = remember { Animatable(0f) }
@@ -65,15 +64,15 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
         if (milestone == null || milestone.id <= session.cuedMilestone) return@LaunchedEffect
         delay(session.cueDelayMs())
         if (!session.cue(milestone)) return@LaunchedEffect
-        feedback.milestone(view)
+        feedback.milestone()
         shown = milestone
         clock.snapTo(0f)
         withFullMotion { clock.animateTo(total.toFloat(), tween(total, easing = LinearEasing)) }
         shown = null
     }
     val current = shown ?: return
-    val strings = strings()
-    val count = strings.text(R.string.milestone_count, strings.number(Milestones.threshold(current.percent, session.cellCount)), strings.number(session.cellCount))
+    val words = LocalWords.current
+    val count = words.text("milestone_count", words.number(Milestones.threshold(current.percent, session.cellCount)), words.number(session.cellCount))
 
     fun t() = clock.value
     fun phase(from: Int, to: Int): Float = ((t() - from) / (to - from)).coerceIn(0f, 1f)
@@ -112,7 +111,7 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(strings.text(R.string.percent, current.percent), style = GemType.mono.copy(fontSize = 20.sp), color = GemColors.OnBone)
+                Text(words.text("percent", current.percent), style = GemType.mono.copy(fontSize = 20.sp), color = GemColors.OnBone)
             }
             Column(
                 Modifier
@@ -123,7 +122,7 @@ internal fun MilestoneBanner(session: PlaySession, feedback: Feedback, view: Vie
                     }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
-                Text(A11yText(strings.words).milestone(current.percent), style = GemType.display, color = GemColors.Bone)
+                Text(A11yText(words).milestone(current.percent), style = GemType.display, color = GemColors.Bone)
                 Text(count, style = GemType.mono.copy(fontSize = 12.sp), color = GemColors.TextMuted)
             }
         }

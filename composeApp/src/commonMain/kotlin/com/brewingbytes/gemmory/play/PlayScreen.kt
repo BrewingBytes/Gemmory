@@ -1,9 +1,5 @@
 package com.brewingbytes.gemmory.play
 
-import com.brewingbytes.gemmory.app.LocalAppGraph
-import com.brewingbytes.gemmory.app.graphViewModel
-import android.view.View
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -47,7 +43,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -74,16 +69,11 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -107,10 +97,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.brewingbytes.gemmory.BuildConfig
-import com.brewingbytes.gemmory.GemmoryApp
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.strings
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
+import com.brewingbytes.gemmory.app.LocalAppGraph
+import com.brewingbytes.gemmory.app.LocalShellUi
+import com.brewingbytes.gemmory.app.ScreenFeedback
+import com.brewingbytes.gemmory.app.graphViewModel
+import com.brewingbytes.gemmory.copy.LocalWords
 import com.brewingbytes.gemmory.game.Batch
 import com.brewingbytes.gemmory.game.CanvasGestures
 import com.brewingbytes.gemmory.game.CanvasZoom
@@ -122,7 +116,6 @@ import com.brewingbytes.gemmory.game.Sweep
 import com.brewingbytes.gemmory.game.TapAction
 import com.brewingbytes.gemmory.game.TapOutcome
 import com.brewingbytes.gemmory.render.CanvasRenderer as SharedCanvasRenderer
-import com.brewingbytes.gemmory.share.ProgressShareHost
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.timelapse.ProgressShare
@@ -167,7 +160,11 @@ fun PlayScreen(
         vm.close()
         onBack()
     }
-    BackHandler(onBack = leave)
+    // The system back (and, on iOS, the edge swipe, design D2) leaves the canvas.
+    NavigationBackHandler(state = rememberNavigationEventState(NavigationEventInfo.None), onBackCompleted = leave)
+    val words = LocalWords.current
+    val graph = LocalAppGraph.current
+    val shell = LocalShellUi.current
 
     val felt = LocalFelt.current
     val reducedMotion = rememberReducedMotion()
@@ -204,33 +201,29 @@ fun PlayScreen(
             PlayUi.Damaged -> {
                 TopBar("", progress = null, onBack = leave)
                 Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.Center) {
-                    Text(stringResource(R.string.play_damaged), style = GemType.body, color = GemColors.Bone)
+                    Text(words.text("play_damaged"), style = GemType.body, color = GemColors.Bone)
                     Spacer(Modifier.height(16.dp))
-                    QuietButton(stringResource(R.string.action_back), leave, Modifier.fillMaxWidth())
+                    QuietButton(words.text("action_back"), leave, Modifier.fillMaxWidth())
                 }
             }
             is PlayUi.Ready -> {
                 val s = ui.session
-                val context = LocalContext.current
-                val view = LocalView.current
                 val scope = rememberCoroutineScope()
-                val settings = LocalAppGraph.current.settings
+                val settings = graph.settings
                 val milestonesOn by settings.milestones.collectAsStateWithLifecycle()
                 SideEffect {
                     s.milestonesOn = milestonesOn
                     s.reducedMotion = reducedMotion
                 }
                 // Placement tools (#20): unlimited for VIP; anyone else uses the fills they hold (#38).
-                val monetization = (context.applicationContext as GemmoryApp).monetization
-                val entitlements by monetization.entitlements.collectAsStateWithLifecycle()
-                val inventory by monetization.inventory.collectAsStateWithLifecycle()
+                val entitlements by graph.access.entitlements.collectAsStateWithLifecycle()
+                val inventory by graph.access.inventory.collectAsStateWithLifecycle()
                 LaunchedEffect(s, entitlements.vip, inventory.fills) { s.offerTools(entitlements.vip, inventory.fills) }
                 val peek = remember(s) { Peek(scope) }
                 // A mystery picture (T43, D23) keeps its title, Peek and Share progress hidden (not dimmed) until finished.
                 val hidden = s.hiddenAs != null
                 // In the app's language now: a language switch keeps this session (T49).
-                val configuration = LocalConfiguration.current
-                val title = remember(s, configuration) { vm.titleOf(s) }
+                val title = remember(s, words) { vm.titleOf(s) }
                 TopBar(
                     title,
                     progress = s.placedCount to s.cellCount,
@@ -245,15 +238,14 @@ fun PlayScreen(
                 val diskFull by s.diskFull.collectAsStateWithLifecycle()
                 if (diskFull) {
                     Text(
-                        stringResource(R.string.play_disk_full),
+                        words.text("play_disk_full"),
                         style = GemType.label,
                         color = GemColors.Bone,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                     )
                 }
-                val feedback = remember { Feedback(context, settings) }
-                DisposableEffect(feedback) { onDispose { feedback.release() } }
-                val controller = remember(s) { CanvasController(s, scope, feedback, view, vm.hints, reducedMotion) }
+                val feedback = shell.rememberFeedback()
+                val controller = remember(s) { CanvasController(s, scope, feedback, vm.hints, reducedMotion) }
                 val window = LocalWindowInfo.current.containerSize
                 // Large screens (design D22): at 600dp and wider in landscape the tray is a 2-column rail on the right.
                 val rail = with(LocalDensity.current) { window.width.toDp() >= RAIL_MIN_WIDTH } && window.width > window.height
@@ -279,7 +271,7 @@ fun PlayScreen(
             }
         }
     }
-    ProgressShareHost(vm.sharing, returnFocusTo = SHARE_PROGRESS_TAG)
+    shell.ProgressShareHost(vm.sharing, returnFocusTo = SHARE_PROGRESS_TAG)
 }
 
 /**
@@ -296,8 +288,9 @@ private fun TopBar(
     onShare: (() -> Unit)? = null,
 ) {
     val largeFont = LocalDensity.current.fontScale > LARGE_FONT_SCALE
+    val words = LocalWords.current
     Row(modifier.fillMaxWidth().heightIn(min = 56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconAction(GemIcons.Back, stringResource(R.string.action_back), onBack)
+        IconAction(GemIcons.Back, words.text("action_back"), onBack)
         Spacer(Modifier.width(4.dp))
         Text(
             title,
@@ -308,15 +301,14 @@ private fun TopBar(
             modifier = Modifier.weight(1f),
         )
         if (peek != null) PeekButton(peek, Modifier.padding(start = 4.dp))
-        if (onShare != null) IconAction(GemIcons.Share, stringResource(R.string.action_share_progress), onShare, Modifier.testTag(SHARE_PROGRESS_TAG))
+        if (onShare != null) IconAction(GemIcons.Share, words.text("action_share_progress"), onShare, Modifier.testTag(SHARE_PROGRESS_TAG))
         if (progress != null) {
-            val strings = strings()
             val (placed, total) = progress
             Text(
                 if (largeFont) {
-                    strings.text(R.string.play_progress_percent, placed * 100L / maxOf(1, total))
+                    words.text("play_progress_percent", placed * 100L / maxOf(1, total))
                 } else {
-                    strings.text(R.string.play_progress_count, strings.number(placed), strings.number(total))
+                    words.text("play_progress_count", words.number(placed), words.number(total))
                 },
                 style = GemType.mono.copy(fontSize = 14.sp),
                 color = GemColors.Bone,
@@ -335,15 +327,14 @@ private fun TopBar(
 private class CanvasController(
     private val session: PlaySession,
     private val scope: CoroutineScope,
-    val feedback: Feedback,
-    val view: View,
+    val feedback: ScreenFeedback,
     private val hints: CoachHints,
     val reducedMotion: Boolean,
 ) : CanvasInputHandler {
     val effects = CanvasEffects()
 
     /** The frame clock while an effect runs; the canvas redraws on every change. */
-    var frameNanos by mutableLongStateOf(System.nanoTime())
+    var frameNanos by mutableLongStateOf(frameClockNanos())
         private set
     private val viewport = session.viewport
     private var animation: Job? = null
@@ -370,7 +361,7 @@ private class CanvasController(
                     TapOutcome.PLACED
                 }
                 is PlaceResult.Rejected -> {
-                    if (result.reason == Rejection.WRONG_COLOR) feedback.wrongColor(view)
+                    if (result.reason == Rejection.WRONG_COLOR) feedback.wrongColor()
                     TapOutcome.OTHER
                 }
             }
@@ -438,7 +429,7 @@ private class CanvasController(
         val columns = viewport.columns
         animateTo(CanvasZoom.TAP_ZOOM_DP, cell % columns + 0.5f, cell / columns + 0.5f) {
             if (!reducedMotion) {
-                effects.pulse(cell, System.nanoTime())
+                effects.pulse(cell, frameClockNanos())
                 tick()
             }
         }
@@ -473,13 +464,13 @@ private class CanvasController(
      */
     private fun placed(batch: Batch, drag: Boolean = false) {
         val durationMs = if (reducedMotion) 0 else Sweep.durationMs(batch.lastRing)
-        val now = System.nanoTime()
+        val now = frameClockNanos()
         val ringNanos = (Sweep.ringMs(batch.lastRing) * 1_000_000).toLong()
         if (durationMs == 0) {
-            feedback.gemPlaced(view, drag)
+            feedback.gemPlaced(drag)
         } else {
             effects.reveal(session.cellCount, batch.placed, batch.rings, now, ringNanos)
-            feedback.sweep(view, durationMs)
+            feedback.sweep(durationMs)
             val clicks = Sweep.clickTimes(durationMs)
             scope.launch {
                 for ((step, at) in clicks.withIndex()) {
@@ -494,11 +485,11 @@ private class CanvasController(
         if (durationMs > 0 || effects.isActive(now)) tick()
         if (batch.colorFinished != null) {
             if (durationMs == 0) {
-                feedback.colorFinished(view)
+                feedback.colorFinished()
             } else {
                 scope.launch {
                     delay(durationMs.toLong())
-                    feedback.colorFinished(view)
+                    feedback.colorFinished()
                 }
             }
         }
@@ -509,13 +500,13 @@ private class CanvasController(
         for (event in result.events) {
             when (event) {
                 is GameEvent.GemPlaced -> {
-                    feedback.gemPlaced(view, drag)
+                    feedback.gemPlaced(drag)
                     if (!reducedMotion && viewport.zoomDp >= CanvasZoom.FACET_MIN_DP) {
-                        effects.glint(event.cell, System.nanoTime())
+                        effects.glint(event.cell, frameClockNanos())
                         tick()
                     }
                 }
-                is GameEvent.ColorFinished -> feedback.colorFinished(view)
+                is GameEvent.ColorFinished -> feedback.colorFinished()
                 // The picture-finished chime and haptic play on the completion screen, at their step of "lights down".
                 GameEvent.PictureFinished -> Unit
             }
@@ -539,8 +530,8 @@ private class CanvasController(
     private fun tick() {
         if (ticker?.isActive == true) return
         ticker = scope.launch {
-            while (effects.isActive(System.nanoTime())) withFrameNanos { frameNanos = it }
-            frameNanos = System.nanoTime()
+            while (effects.isActive(frameClockNanos())) withFrameNanos { frameNanos = it }
+            frameNanos = frameClockNanos()
         }
     }
 }
@@ -556,15 +547,14 @@ private fun GemCanvas(
     modifier: Modifier,
 ) {
     val viewport = session.viewport
-    val context = LocalContext.current
     val density = LocalDensity.current.density
     val mystery = session.hiddenAs != null
-    // iOS Stage 1a (T62): the shared renderer, unless a hotfix switched back to the old one (R10-8).
+    // iOS Stage 1a (T62): the shared renderer, unless an Android hotfix switched back to the old one (R10-8).
     val textMeasurer = rememberTextMeasurer()
-    val shared = remember(session.pattern, mystery) {
-        if (BuildConfig.SHARED_RENDERER) SharedCanvasRenderer(session.pattern, textMeasurer, AppRenderAssets, mystery) else null
+    val legacy = LocalShellUi.current.rememberLegacyCanvas(session.pattern, mystery)
+    val shared = remember(session.pattern, mystery, legacy) {
+        if (legacy == null) SharedCanvasRenderer(session.pattern, textMeasurer, AppRenderAssets, mystery) else null
     }
-    val renderer = remember(session.pattern, mystery) { if (shared == null) CanvasRenderer(context, session.pattern, mystery) else null }
     // Read in the draw block, so a change in Settings redraws an open canvas at once (#19).
     val highlight by LocalAppGraph.current.settings.highlight.collectAsStateWithLifecycle()
 
@@ -582,27 +572,27 @@ private fun GemCanvas(
 
     // TalkBack (design D19): the canvas is one node with six actions (eight with the tools, #20) instead of a node per cell. Its description
     // changes at most once per placement. The peek action (#35) reads "Back to canvas" while the picture shows.
-    val strings = strings()
-    val a11y = remember(strings) { A11yText(strings.words) }
+    val words = LocalWords.current
+    val a11y = remember(words) { A11yText(words) }
     val slot = session.selectedSlot
     val description = a11y.canvas(session.placedCount, session.cellCount, slot + 1, session.remaining(slot))
     val peeking = peek.shown
     // Placement tools (#20, VIP): "Fill region at next gem", and "Fill the rest of color 7" while Fill color shows.
     val toolsOn = session.toolsUsable
     val fillColor = session.fillColorVisible
-    val actions = remember(controller, peeking, toolsOn, fillColor, slot, mystery, strings) {
+    val actions = remember(controller, peeking, toolsOn, fillColor, slot, mystery, words) {
         listOfNotNull(
-            CustomAccessibilityAction(strings.text(R.string.a11y_action_place_next)) { controller.placeNext() },
-            if (toolsOn) CustomAccessibilityAction(strings.text(R.string.a11y_action_fill_region_next)) { controller.fillRegionNext() } else null,
+            CustomAccessibilityAction(words.text("a11y_action_place_next")) { controller.placeNext() },
+            if (toolsOn) CustomAccessibilityAction(words.text("a11y_action_fill_region_next")) { controller.fillRegionNext() } else null,
             if (fillColor) CustomAccessibilityAction(a11y.fillColor(slot + 1)) { controller.fillColor(announceCount = true) } else null,
-            CustomAccessibilityAction(strings.text(R.string.a11y_action_find_next)) { controller.find() },
-            CustomAccessibilityAction(strings.text(R.string.a11y_action_zoom_in)) { controller.zoomStep(zoomIn = true) },
-            CustomAccessibilityAction(strings.text(R.string.a11y_action_zoom_out)) { controller.zoomStep(zoomIn = false) },
-            CustomAccessibilityAction(strings.text(R.string.a11y_action_whole_picture)) { controller.wholePicture() },
+            CustomAccessibilityAction(words.text("a11y_action_find_next")) { controller.find() },
+            CustomAccessibilityAction(words.text("a11y_action_zoom_in")) { controller.zoomStep(zoomIn = true) },
+            CustomAccessibilityAction(words.text("a11y_action_zoom_out")) { controller.zoomStep(zoomIn = false) },
+            CustomAccessibilityAction(words.text("a11y_action_whole_picture")) { controller.wholePicture() },
             if (mystery) {
                 null
             } else {
-                CustomAccessibilityAction(strings.text(if (peeking) R.string.a11y_peek_hidden else R.string.a11y_action_peek)) {
+                CustomAccessibilityAction(words.text(if (peeking) "a11y_peek_hidden" else "a11y_action_peek")) {
                     session.announcePeek(peek.toggle())
                     true
                 }
@@ -633,15 +623,15 @@ private fun GemCanvas(
             val style = highlight
             drawIntoCanvas {
                 shared?.draw(it, session, viewport, density, style, controller.effects, now)
-                renderer?.draw(it.nativeCanvas, session, density, style, controller.effects, now)
+                legacy?.draw(it, session, density, style, controller.effects, now)
             }
         }
         Crossfade(hint, Modifier.align(Alignment.TopCenter).padding(top = 12.dp), label = "hint") { shown ->
-            if (shown != null) HintChip(strings.words.text(shown.text))
+            if (shown != null) HintChip(words.text(shown.text))
         }
         // Over the hint chip, so the peek shows only the finished picture; under the banner, so a milestone still shows.
         PeekOverlay(session.pattern, peek, canvasSize)
-        MilestoneBanner(session, controller.feedback, controller.view, controller.reducedMotion)
+        MilestoneBanner(session, controller.feedback, controller.reducedMotion)
         Announcer(session)
         // A share link's one-time "Shared with you: <title>" (T50, DR1), 16dp above the tray, clear of the first coach
         // hint at the top (D6). Held by the ViewModel, so a rotation or a rail switch neither loses nor repeats it.
@@ -876,12 +866,12 @@ private fun Tray(session: PlaySession, controller: CanvasController, rail: Boole
 
 /** The placement tools' names (#20), on the tool troughs and in the well's label. */
 @Composable
-private fun PlacementTool.label(): String = stringResource(
+private fun PlacementTool.label(): String = LocalWords.current.text(
     when (this) {
-        PlacementTool.TAP -> R.string.tool_tap
-        PlacementTool.BRUSH -> R.string.tool_brush
-        PlacementTool.REGION -> R.string.tool_region
-        PlacementTool.FILL_COLOR -> R.string.tool_fill_color
+        PlacementTool.TAP -> "tool_tap"
+        PlacementTool.BRUSH -> "tool_brush"
+        PlacementTool.REGION -> "tool_region"
+        PlacementTool.FILL_COLOR -> "tool_fill_color"
     },
 )
 
@@ -899,7 +889,7 @@ private fun PlacementTool.icon() = when (this) {
  */
 @Composable
 private fun ToolWell(tool: PlacementTool, count: Int?, usable: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val description = A11yText(strings().words).tool(tool.label(), count)
+    val description = A11yText(LocalWords.current).tool(tool.label(), count)
     Box(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -957,7 +947,7 @@ private fun ToolTrough(
     val shape = RoundedCornerShape(8.dp)
     val felt = LocalFelt.current
     val label = tool.label()
-    val description = if (enabled) label else stringResource(R.string.tool_no_fills_left, label)
+    val description = if (enabled) label else LocalWords.current.text("tool_no_fills_left", label)
     Column(
         modifier
             .heightIn(min = 64.dp)
@@ -989,8 +979,8 @@ private fun ToolTrough(
 @Composable
 private fun FillColorButton(session: PlaySession, controller: CanvasController, modifier: Modifier = Modifier) {
     val left = session.remaining(session.selectedSlot)
-    val strings = strings()
-    val description = A11yText(strings.words).fillColor(session.selectedSlot + 1)
+    val words = LocalWords.current
+    val description = A11yText(words).fillColor(session.selectedSlot + 1)
     Row(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -1005,14 +995,14 @@ private fun FillColorButton(session: PlaySession, controller: CanvasController, 
     ) {
         Image(GemIcons.FillColor, contentDescription = null, colorFilter = ColorFilter.tint(GemColors.Bone))
         Spacer(Modifier.width(6.dp))
-        Text(strings.text(R.string.tool_fill_left, left), style = GemType.button, color = GemColors.Bone, maxLines = 1)
+        Text(words.text("tool_fill_left", left), style = GemType.button, color = GemColors.Bone, maxLines = 1)
     }
 }
 
 /** Find (design D24): a 48dp quiet icon button labelled "Find". */
 @Composable
 private fun FindButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val label = stringResource(R.string.action_find)
+    val label = LocalWords.current.text("action_find")
     Box(
         modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
@@ -1044,8 +1034,8 @@ private fun Trough(
     val finished = remaining == 0
     val lift by animateDpAsState(if (selected) (-3).dp else 0.dp, if (instantLift) snap() else tween(LIFT_MS), label = "lift")
     val shape = RoundedCornerShape(8.dp)
-    val strings = strings()
-    val description = A11yText(strings.words).trough(number, remaining)
+    val words = LocalWords.current
+    val description = A11yText(words).trough(number, remaining)
     Column(
         modifier
             .width(width)
@@ -1078,7 +1068,7 @@ private fun Trough(
         )
         if (showCount) {
             Text(
-                if (finished) "" else strings.number(remaining),
+                if (finished) "" else words.number(remaining),
                 style = GemType.mono.copy(fontSize = 12.sp),
                 color = GemColors.TextMuted,
                 maxLines = 1,
@@ -1143,7 +1133,7 @@ private fun Well(color: Color, remaining: Int) {
 private fun heapSize(remaining: Int): Int = if (remaining <= 0) 0 else ceil(remaining / CELLS_PER_HEAP_GEM).toInt().coerceIn(1, 9)
 
 /** Whether a trough wears its lamp outline right now; tests read it to see the reduced-motion blink (D21). */
-internal val LampOutline = SemanticsPropertyKey<Boolean>("LampOutline")
+val LampOutline = SemanticsPropertyKey<Boolean>("LampOutline")
 private var SemanticsPropertyReceiver.lampOutline by LampOutline
 
 private val HEAP_ROWS = intArrayOf(4, 3, 2)

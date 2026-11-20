@@ -25,31 +25,38 @@ fun View.moveAccessibilityFocus(tag: String): Boolean {
 }
 
 /**
- * Gives TalkBack's focus back to the node tagged [tag] after a sheet's window closes. TalkBack moves its focus on its
- * own when that window goes away, a moment after the sheet is gone, so for a short while the focus is asked for again
- * whenever the trigger doesn't have it, or isn't there yet. Stops early when [cancelled] says another sheet opened.
+ * Puts TalkBack's focus on the node tagged [tag] and keeps it there for a short while: a sheet's title when it opens,
+ * the trigger when it closes. TalkBack moves its focus on its own when a window comes or goes, a moment later (later
+ * still on a slow phone), so the focus is asked for again whenever the node doesn't have it, until it has stayed there
+ * for [HOLD_WINDOW_MS]. The node may come late (T56's thanks line, after its 400ms hold), and the whole wait is capped
+ * at [GIVE_UP_MS]. Stops early when [cancelled] says another sheet opened or this one closed.
  */
-fun View.returnAccessibilityFocus(tag: String, cancelled: () -> Boolean) {
-    val deadline = SystemClock.uptimeMillis() + RETURN_WINDOW_MS
+fun View.holdAccessibilityFocus(tag: String, cancelled: () -> Boolean) {
+    val start = SystemClock.uptimeMillis()
+    var lastMove = start
     val check = object : Runnable {
         override fun run() {
             if (cancelled()) return
             val provider = accessibilityNodeProvider ?: return
-            // The node may come a moment after the sheet goes (T56's thanks line, after its 400ms hold): keep asking.
+            val now = SystemClock.uptimeMillis()
             val id = semanticsIdOf(tag)
-            if (id != null && provider.createAccessibilityNodeInfo(id)?.isAccessibilityFocused != true) moveAccessibilityFocus(tag)
-            if (SystemClock.uptimeMillis() < deadline) postDelayed(this, RETURN_STEP_MS)
+            if (id == null || provider.createAccessibilityNodeInfo(id)?.isAccessibilityFocused != true) {
+                if (id != null) moveAccessibilityFocus(tag)
+                lastMove = now
+            }
+            if (now - lastMove < HOLD_WINDOW_MS && now - start < GIVE_UP_MS) postDelayed(this, FOCUS_STEP_MS)
         }
     }
-    postDelayed(check, RETURN_STEP_MS)
+    post(check)
 }
 
 private fun View.semanticsIdOf(tag: String): Int? =
     (this as? RootForTest)?.semanticsOwner?.getAllSemanticsNodes(mergingEnabled = true)
         ?.firstOrNull { it.config.getOrNull(SemanticsProperties.TestTag) == tag }?.id
 
-private const val RETURN_STEP_MS = 150L
-private const val RETURN_WINDOW_MS = 1_200L
+private const val FOCUS_STEP_MS = 150L
+private const val HOLD_WINDOW_MS = 1_200L
+private const val GIVE_UP_MS = 5_000L
 
 @Composable
 actual fun rememberReducedMotion(): Boolean {
@@ -66,7 +73,7 @@ actual fun rememberAccessibilityFocus(): AccessibilityFocus {
     return remember(view) {
         object : AccessibilityFocus {
             override fun moveTo(tag: String): Boolean = view.moveAccessibilityFocus(tag)
-            override fun returnTo(tag: String, cancelled: () -> Boolean) = view.returnAccessibilityFocus(tag, cancelled)
+            override fun holdOn(tag: String, cancelled: () -> Boolean) = view.holdAccessibilityFocus(tag, cancelled)
         }
     }
 }

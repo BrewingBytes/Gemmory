@@ -32,10 +32,11 @@ interface AccessibilityFocus {
     fun moveTo(tag: String): Boolean
 
     /**
-     * Gives the focus back to the node tagged [tag] after a sheet closes, asking again for a short while in case the
-     * screen reader moves it on its own; stops early when [cancelled] says another sheet opened.
+     * Puts the focus on the node tagged [tag] (a sheet's title on open, its trigger on close) and asks again for a
+     * short while from when the node is there, in case the screen reader moves it on its own; stops early when
+     * [cancelled] says another sheet opened or this one closed.
      */
-    fun returnTo(tag: String, cancelled: () -> Boolean)
+    fun holdOn(tag: String, cancelled: () -> Boolean)
 }
 
 /** The [AccessibilityFocus] of this composable's window. */

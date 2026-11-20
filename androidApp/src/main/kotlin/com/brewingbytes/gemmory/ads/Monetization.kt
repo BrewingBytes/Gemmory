@@ -114,7 +114,7 @@ class Monetization(
     private val _inventory = MutableStateFlow(InventoryState())
 
     /** What the inventory holds (#38): the gallery's Inventory sheet, the tool well's count and the kept canvases. */
-    val inventory: StateFlow<InventoryState> = _inventory.asStateFlow()
+    override val inventory: StateFlow<InventoryState> = _inventory.asStateFlow()
 
     private val _firstSessionOver = MutableStateFlow(false)
 
