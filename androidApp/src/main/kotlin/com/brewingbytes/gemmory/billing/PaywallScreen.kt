@@ -64,9 +64,7 @@ import com.brewingbytes.gemmory.ui.LocalFelt
 import com.brewingbytes.gemmory.ui.PrimaryButton
 import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
-import com.brewingbytes.gemmory.ui.moveAccessibilityFocus
-import com.brewingbytes.gemmory.ui.returnAccessibilityFocus
-import kotlinx.coroutines.delay
+import com.brewingbytes.gemmory.ui.holdAccessibilityFocus
 
 const val PAYWALL_TITLE_TAG = "paywall-title"
 
@@ -91,12 +89,13 @@ fun PaywallScreen(
     var yearly by rememberSaveable { mutableStateOf(true) }
     val view = LocalView.current
     val returnTo by rememberUpdatedState(returnFocusTo)
-    LaunchedEffect(Unit) {
-        delay(OPEN_FOCUS_DELAY_MS)
-        view.moveAccessibilityFocus(PAYWALL_TITLE_TAG)
-    }
     DisposableEffect(Unit) {
-        onDispose { returnTo?.let { view.returnAccessibilityFocus(it, cancelled = { false }) } }
+        var open = true
+        view.holdAccessibilityFocus(PAYWALL_TITLE_TAG, cancelled = { !open })
+        onDispose {
+            open = false
+            returnTo?.let { view.holdAccessibilityFocus(it, cancelled = { false }) }
+        }
     }
     val close by rememberUpdatedState(onClose)
     // Success closes the paywall; the gallery shows its line.
@@ -188,7 +187,6 @@ fun PaywallScreen(
     }
 }
 
-private const val OPEN_FOCUS_DELAY_MS = 400L
 
 private val mono = SpanStyle(fontFamily = GemType.mono.fontFamily, fontWeight = GemType.mono.fontWeight, fontFeatureSettings = "tnum")
 

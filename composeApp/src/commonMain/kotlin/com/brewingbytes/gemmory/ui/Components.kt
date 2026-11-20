@@ -455,7 +455,7 @@ fun GemSheet(title: String, onDismiss: () -> Unit, returnFocusTo: String? = null
         onDispose {
             openSheets--
             // When this sheet is replaced by another (Share progress → its result), the new title keeps the focus.
-            returnTo?.let { screen.returnTo(it, cancelled = { openSheets > 0 }) }
+            returnTo?.let { screen.holdOn(it, cancelled = { openSheets > 0 }) }
         }
     }
     ModalBottomSheet(
@@ -470,10 +470,12 @@ fun GemSheet(title: String, onDismiss: () -> Unit, returnFocusTo: String? = null
         dragHandle = { GrabHandle() },
     ) {
         val sheet = rememberAccessibilityFocus()
-        LaunchedEffect(Unit) {
-            // After the sheet's window is up and TalkBack has looked at it.
-            delay(OPEN_FOCUS_DELAY_MS)
-            sheet.moveTo(SHEET_TITLE_TAG)
+        DisposableEffect(Unit) {
+            var open = true
+            // From the moment the sheet's window is up; TalkBack looks at the new window first, so the title is asked
+            // for again until it holds.
+            sheet.holdOn(SHEET_TITLE_TAG, cancelled = { !open })
+            onDispose { open = false }
         }
         Column(
             Modifier
@@ -508,7 +510,6 @@ private fun GrabHandle() {
 
 const val SHEET_TITLE_TAG = "sheet-title"
 private const val SHEET_FADE_MS = 150
-private const val OPEN_FOCUS_DELAY_MS = 400L
 
 /** Sheets on screen now (main thread only). */
 private var openSheets = 0

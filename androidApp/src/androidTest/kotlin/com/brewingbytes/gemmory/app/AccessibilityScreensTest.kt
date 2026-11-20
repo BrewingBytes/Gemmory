@@ -66,7 +66,8 @@ class AccessibilityScreensTest {
 
     private fun launch() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        // TalkBack starting up slows the first frame (#215): 5 s wasn't always enough.
+        compose.waitUntil(15_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun actionLabels(tag: String): List<String> =
