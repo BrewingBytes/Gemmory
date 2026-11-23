@@ -556,7 +556,7 @@ class SheetAccessibilityChecksTest {
         android.os.SystemClock.sleep(1_000)
         for (state in listOf(
             EncodeState.Running(200, 450),
-            EncodeState.Picture(File("before-after.png")),
+            EncodeState.Picture("before-after.png"),
             EncodeState.Failed,
             EncodeState.DiskFull,
         )) {

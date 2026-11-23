@@ -25,33 +25,14 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
-/** Where one canvas's share stands, for the progress sheet (design system, Share progress sheet). */
-sealed interface EncodeState {
-    data object Idle : EncodeState
+/** A finished video as a file (the shared [EncodeState] names it by path). */
+val EncodeState.Video.file: File get() = File(path)
 
-    /** [done] of [total] frames of the current attempt. */
-    data class Running(val done: Int, val total: Int) : EncodeState {
-        val percent: Int get() = if (total == 0) 0 else done * 100 / total
-    }
+/** The feed cut beside a finished video as a file (T51); null when there isn't one. */
+val EncodeState.Video.feed: File? get() = feedPath?.let(::File)
 
-    /**
-     * The finished MP4, ready for the share sheet, and the feed cut made beside it for TikTok, Instagram and YouTube
-     * (T51; null when there isn't one). Not a data class: every result is a new value, so a re-share of the same cached
-     * file still reaches the screen.
-     */
-    class Video(val file: File, val feed: File? = null) : EncodeState {
-        override fun toString() = "Video(${file.name}${feed?.let { ", ${it.name}" }.orEmpty()})"
-    }
-
-    /** No video target worked: the before/after PNG (eng E1). Identity-equal like [Video]. */
-    class Picture(val file: File) : EncodeState {
-        override fun toString() = "Picture(${file.name})"
-    }
-
-    data object Failed : EncodeState
-
-    data object DiskFull : EncodeState
-}
+/** The before/after PNG as a file. */
+val EncodeState.Picture.file: File get() = File(path)
 
 /** Non-fatal for one failed attempt (eng E1): canvas kind, target, codec, stage and the error, never paths or titles. */
 class TimelapseAttemptException(ref: CanvasRef, failure: AttemptFailure) : Exception(
@@ -202,7 +183,7 @@ class EncodeManager(
         val feed = feedName?.takeUnless { it in failedFeeds }?.let { request.feed() }
         val feedVideo = feed?.let { File(dir, "$feedName.mp4") }
         if (video.isFile && (feedVideo == null || feedVideo.isFile)) {
-            post(ref, job, EncodeState.Video(video, feedVideo))
+            post(ref, job, EncodeState.Video(video.path, feedVideo?.path))
             return
         }
         val feedFrames = if (feed != null) FeedFramePlan.FRAMES else 0
@@ -215,7 +196,7 @@ class EncodeManager(
             marker.createNewFile()
             var outcome: ChainOutcome? = null
             val result = if (video.isFile) {
-                EncodeState.Video(video)
+                EncodeState.Video(video.path)
             } else {
                 val chain = FallbackChain(
                     backend = backend(request) { target -> partialOf(ref, target) },
@@ -224,8 +205,8 @@ class EncodeManager(
                 val made = chain.run(onProgress = progress(ref, job, before = 0, after = feedFrames), checkCancelled = { context.ensureActive() })
                 outcome = made
                 when (made) {
-                    is ChainOutcome.Video -> publish(ref, partialOf(ref, made.target), video)?.let(EncodeState::Video)
-                    ChainOutcome.Picture -> publish(ref, partialOf(ref, null), File(dir, "$name.png"))?.let(EncodeState::Picture)
+                    is ChainOutcome.Video -> publish(ref, partialOf(ref, made.target), video)?.let { EncodeState.Video(it.path) }
+                    ChainOutcome.Picture -> publish(ref, partialOf(ref, null), File(dir, "$name.png"))?.let { EncodeState.Picture(it.path) }
                     ChainOutcome.Failed -> EncodeState.Failed
                     ChainOutcome.DiskFull -> EncodeState.DiskFull
                 }
@@ -245,7 +226,7 @@ class EncodeManager(
                 // A full disk can be freed, so that one is tried again on the next share.
                 if (cut == FeedCut.FAILED && canvasExists(ref)) failedFeeds += feedName
                 log("time-lapse ${ref.id}: feed cut ${cut.name.lowercase()} in ${(nowNanos() - feedStarted) / 1_000_000} ms")
-                EncodeState.Video(result.file, feedVideo.takeIf { cut == FeedCut.MADE })
+                EncodeState.Video(result.path, feedVideo.takeIf { cut == FeedCut.MADE }?.path)
             } else {
                 result
             }

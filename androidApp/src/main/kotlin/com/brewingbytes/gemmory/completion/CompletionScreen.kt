@@ -1,8 +1,6 @@
 package com.brewingbytes.gemmory.completion
 
 import com.brewingbytes.gemmory.app.LocalAppGraph
-import android.app.Application
-import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -49,7 +47,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -68,35 +65,25 @@ import androidx.compose.ui.semantics.collectionItemInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.Strings
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.game.FinishCelebration
 import com.brewingbytes.gemmory.nav.Route
-import com.brewingbytes.gemmory.policy.DayKind
-import com.brewingbytes.gemmory.policy.FirstRunAsk
-import com.brewingbytes.gemmory.policy.isFirstFinish
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
-import com.brewingbytes.gemmory.play.CanvasStore
 import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.share.ShareIntents
-import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.share.ShareSheet
-import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.EncodeState
-import com.brewingbytes.gemmory.timelapse.FrameAssets
+import com.brewingbytes.gemmory.timelapse.feed
+import com.brewingbytes.gemmory.timelapse.file
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
-import com.brewingbytes.gemmory.ui.GemRenderer
 import com.brewingbytes.gemmory.ui.GemSheet
 import com.brewingbytes.gemmory.render.TableCut
 import com.brewingbytes.gemmory.ui.GemTextButton
@@ -107,249 +94,19 @@ import com.brewingbytes.gemmory.ui.QuietButton
 import com.brewingbytes.gemmory.ui.feltGround
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import com.brewingbytes.gemmory.ui.withFullMotion
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 
-/**
- * Canvases whose lights-down moment already ran in this process, so a rotation mid-sequence doesn't replay it.
- * A canvas is forgotten whenever it's finished again (after Start over or Play again).
- */
-class LightsDownTracker {
-    private val played = mutableSetOf<CanvasRef>()
+/** [route] as the player sees it: fresh if the stack says so or its canvas was just finished. */
+fun FreshFinishTracker.isFresh(route: Route.Completion): Boolean = isFresh(route.ref, route.fresh)
 
-    fun hasPlayed(ref: CanvasRef): Boolean = ref in played
+/** The player left [route]: true if it was fresh, and it is a still from now on. */
+fun FreshFinishTracker.left(route: Route.Completion): Boolean = left(route.ref, route.fresh)
 
-    fun markPlayed(ref: CanvasRef) {
-        played += ref
-    }
-
-    fun forget(ref: CanvasRef) {
-        played -= ref
-    }
-}
-
-/**
- * The canvas finished just now in this process, so its completion stays "fresh" (lights down, the interstitial check
- * on leaving) across a rotation: the back stack restores every completion as a still, which is right only after
- * process death, where this tracker is gone too. Cleared once the player has left that completion.
- */
-class FreshFinishTracker {
-    private var ref: CanvasRef? = null
-
-    fun finished(ref: CanvasRef) {
-        this.ref = ref
-    }
-
-    /** [route] as the player sees it: fresh if the stack says so or [ref] was just finished. */
-    fun isFresh(route: Route.Completion): Boolean = route.fresh || route.ref == ref
-
-    /** The player left [route]: true if it was fresh, and it is a still from now on. */
-    fun left(route: Route.Completion): Boolean = isFresh(route).also { if (route.ref == ref) ref = null }
-}
-
-/**
- * The finished picture and its meta line. [before] is the cropped photo (or the empty tint grid of a bundled
- * picture) for the before/after fallback sheet; [request] is what Share encodes.
- */
-class Finished(
-    val ref: CanvasRef,
-    val image: ImageBitmap,
-    val before: ImageBitmap,
-    val aspect: Float,
-    val meta: String,
-    val request: EncodeRequest,
-) {
-    val cols: Int get() = request.pattern.width
-    val rows: Int get() = request.pattern.height
-
-    /** Gems per palette slot and each slot's color, for the confetti (#57). */
-    val counts: IntArray = request.pattern.countsPerSlot()
-    val colors: List<Color> = request.pattern.palette.map { Color(it.argb) }
-}
-
-class CompletionViewModel(application: Application, private val savedState: SavedStateHandle) : AndroidViewModel(application) {
-    private val store = (application as GemmoryApp).store
-    private val encodes = application.let { it as GemmoryApp }.encodes
-    private val billing = (application as GemmoryApp).billing
-    private val analytics = (application as GemmoryApp).analytics
-    private val app = application as GemmoryApp
-
-    /** "Where did you find Gemmory?" (T56) on this completion. */
-    val whereFound = WhereFoundFlow(
-        scope = viewModelScope,
-        answered = { app.firstRun.whereFoundAnswered(it) },
-        earn = { app.monetization.earnCanvasOnce(WHERE_FOUND_EARN_ID) },
-        log = { analytics.log(it) },
-        now = SystemClock::uptimeMillis,
-        onChange = { saveWhereFound() },
-    )
-
-    /** The completion T56's row or thanks line belongs to; it shows there, fresh or (after the process died) as a still. */
-    private var whereFoundRef: CanvasRef? = null
-
-    init {
-        // A Share round-trip can cost the process (#160 review): the row or the thanks line comes back with the completion.
-        savedState.get<String>(WHERE_FOUND_KEY)?.let { saved ->
-            val ref = saved.substringBefore('|').split(':').takeIf { it.size == 2 }
-                ?.let { (kind, id) -> CanvasKind.entries.firstOrNull { it.name == kind }?.let { CanvasRef(it, id) } }
-            if (ref != null) {
-                whereFoundRef = ref
-                whereFound.restore(saved.substringAfter('|'), open = app.firstRun.whereFoundOpen())
-            }
-        }
-    }
-
-    private fun saveWhereFound() {
-        savedState[WHERE_FOUND_KEY] = whereFoundRef?.let { ref -> whereFound.saved()?.let { "${ref.kind.name}:${ref.id}|$it" } }
-    }
-
-    /** T56's row or thanks line shows on [ref]'s completion. */
-    fun whereFoundOn(ref: CanvasRef) = whereFoundRef == ref
-
-    /** The player left [ref]'s completion (not a rotation): T56's row or thanks line stays behind. */
-    fun leftCompletion(ref: CanvasRef) {
-        if (whereFoundRef != ref) return
-        whereFound.reset()
-        whereFoundRef = null
-    }
-
-    var finished by mutableStateOf<Finished?>(null)
-        private set
-
-    var damaged by mutableStateOf(false)
-        private set
-
-    /** "The video stopped when the app closed." Shown for this visit, once per killed encode (design D8). */
-    var killedNotice by mutableStateOf(false)
-        private set
-
-    private val played = LightsDownTracker()
-
-    /** Survives rotation, not process death (see [FreshFinishTracker]). */
-    val fresh = FreshFinishTracker()
-
-    fun encodeState(ref: CanvasRef): StateFlow<EncodeState> = encodes.state(ref)
-
-    /** The completion screen was left: the killed-encode notice belonged to that visit. Kept across rotation. */
-    fun onLeft() {
-        killedNotice = false
-    }
-
-    fun hasPlayed(ref: CanvasRef) = played.hasPlayed(ref)
-
-    /**
-     * A fresh completion of [ref] opened (T56): decide the question once per canvas here, so a rotation keeps the same
-     * answer. The first-run rule, the consent check and the save come first ([com.brewingbytes.gemmory.telemetry.FirstRun]).
-     * Only while T56 is undecided does it look for an earlier finish ([isFirstFinish]: the canvases' small `play` files
-     * and the streak log), so an install that updated into T56 after finishing a picture isn't asked. On the main thread,
-     * like the `commit()` (eng #12): the row must be laid out before the picture draws, or the picture would resize.
-     */
-    fun decideWhereFound(ref: CanvasRef) {
-        if (whereFoundRef == ref) return
-        whereFoundRef = ref
-        if (!app.firstRun.whereFoundDue()) return
-        val repository = store.repository
-        val firstFinish = isFirstFinish(
-            otherCanvasFinished = CanvasKind.entries.any { kind ->
-                repository.list(kind).any { id -> CanvasRef(kind, id).let { it != ref && repository.readPlay(it)?.firstFinishedDay != null } }
-            },
-            thisCanvasFirstFinishedDay = repository.readPlay(ref)?.firstFinishedDay,
-            streakFinishDays = app.streak.history().filter { it.kind == DayKind.FINISHED }.map { it.day },
-            today = app.dayClock.today(),
-        )
-        val granted = app.whereFoundConsentForTest ?: app.consent.consentMode.value.analyticsStorage
-        val ask = app.firstRun.firstRunAsk(granted, app.whereFoundSeedForTest ?: Random.nextLong(), firstFinish)
-        if (ask is FirstRunAsk.Show) whereFound.ask(ask.order, vip = app.monetization.entitlements.value.vip)
-    }
-
-    /** T56's row is on the screen (the text has faded in). */
-    fun whereFoundShown() = app.firstRun.whereFoundShown()
-
-    fun markPlayed(ref: CanvasRef) = played.markPlayed(ref)
-
-    /** A canvas was just finished: its lights-down moment plays again, whatever ran for it before. */
-    fun onFinished(ref: CanvasRef) {
-        fresh.finished(ref)
-        played.forget(ref)
-        if (finished?.ref == ref) finished = null
-        // T56: a new finish is decided anew (a later one is never asked), so an earlier row or thanks line never shows.
-        whereFoundRef?.let(::leftCompletion)
-    }
-
-    /** Always re-reads, so a rename or a new play time since the last visit shows. The old picture stays until then. */
-    fun load(ref: CanvasRef) {
-        if (finished?.ref != ref) {
-            finished = null
-            killedNotice = false
-        }
-        damaged = false
-        viewModelScope.launch {
-            if (encodes.takeKilledNotice(ref)) killedNotice = true
-            when (val opened = store.open(ref)) {
-                is CanvasStore.Opened.Damaged -> damaged = true
-                is CanvasStore.Opened.Ready -> finished = withContext(Dispatchers.Default) { finishedOf(ref, opened) }
-            }
-        }
-    }
-
-    private fun finishedOf(ref: CanvasRef, opened: CanvasStore.Opened.Ready): Finished {
-        val pattern = opened.grid.pattern
-        val cellPx = (720 / pattern.width).coerceIn(4, 24)
-        val bitmap = GemRenderer.render(pattern, cellPx)
-        val source = getApplication<GemmoryApp>().sourceFileOf(ref)
-        val before = source?.let { FrameAssets.decodeSource(it, bitmap.width, bitmap.height) }
-            ?: GemRenderer.render(pattern, cellPx) { false }
-        val strings = getApplication<GemmoryApp>().strings
-        val meta = strings.text(R.string.completion_meta, opened.title, strings.number(pattern.cells.size), playTime(strings, opened.record?.playMillis ?: 0L))
-        val request = EncodeRequest(ref, pattern, opened.state.log(), opened.title, source, watermark = true)
-        return Finished(ref, bitmap.asImageBitmap(), before.asImageBitmap(), pattern.width / pattern.height.toFloat(), meta, request)
-    }
-
-    /**
-     * Share tap (eng D2): starts the encode, or reuses the cached MP4. VIP gets no watermark, and the cache key
-     * carries the flag, so a video made before VIP isn't reused.
-     */
-    fun share(ref: CanvasRef) {
-        val request = finished?.takeIf { it.ref == ref }?.request?.withWatermark(!billing.entitlements.value.vip) ?: return
-        killedNotice = false
-        analytics.log(AnalyticsEvent.shareTapped(ref, request.pattern.width, request.pattern.height, progress = false))
-        encodes.share(request)
-    }
-
-    fun cancelShare(ref: CanvasRef) = encodes.cancel(ref)
-
-    /** The share sheet was opened for the result, or the player closed the message. */
-    fun shareHandled(ref: CanvasRef) = encodes.acknowledge(ref)
-
-    /** Play again (design D3): the Start over confirm, then progress, view and play time are cleared. */
-    fun playAgain(ref: CanvasRef, then: () -> Unit) {
-        viewModelScope.launch {
-            store.startOver(ref)
-            played.forget(ref)
-            finished = null
-            then()
-        }
-    }
-
-    companion object {
-        /** T56's reward, earned once per install (Inventory's earn id). */
-        const val WHERE_FOUND_EARN_ID = "where-found"
-
-        /** T56's row or thanks line in saved state: `<kind>:<id>|<WhereFoundFlow.saved>`. */
-        private const val WHERE_FOUND_KEY = "where_found"
-
-        /** "5 min", "1 h 12 min"; under a minute rounds up to "1 min". */
-        fun playTime(s: Strings, millis: Long): String {
-            val minutes = ((millis + 59_999) / 60_000).coerceAtLeast(1)
-            return if (minutes < 60) s.text(R.string.play_time_minutes, minutes) else s.text(R.string.play_time_hours, minutes / 60, minutes % 60)
-        }
-    }
-}
+/** What Android's share sheet sends for [finished]: its share link and `share_completed` (the encode itself is the graph's). */
+private fun GemmoryApp.shareRequest(finished: Finished) =
+    EncodeRequest(finished.ref, finished.pattern, finished.log, finished.title, sourceFileOf(finished.ref), watermark = true)
 
 /**
  * Completion (design system, Completion: "lights down" and the finish celebration, #57). Fresh: the screen dims ~30%
@@ -372,6 +129,7 @@ fun CompletionScreen(
     LaunchedEffect(ref, fresh) { if (fresh) vm.decideWhereFound(ref) }
     val reducedMotion = rememberReducedMotion()
     val context = LocalContext.current
+    val app = context.applicationContext as GemmoryApp
     val settings = LocalAppGraph.current.settings
     val feedback = remember { Feedback(context, settings) }
     DisposableEffect(feedback) { onDispose { feedback.release() } }
@@ -393,7 +151,7 @@ fun CompletionScreen(
         val video = encode as? EncodeState.Video ?: return@LaunchedEffect
         if (!loaded) return@LaunchedEffect
         lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
-        val request = vm.finished?.takeIf { it.ref == ref }?.request ?: return@LaunchedEffect
+        val request = vm.finished?.takeIf { it.ref == ref }?.let(app::shareRequest) ?: return@LaunchedEffect
         context.startActivity(ShareIntents.chooser(context, video.file, request, video.feed))
         vm.shareHandled(ref)
     }
@@ -507,7 +265,7 @@ fun CompletionScreen(
         onCancel = { vm.cancelShare(ref) },
         onSharePicture = {
             val picture = encode as? EncodeState.Picture
-            val request = finished?.request
+            val request = finished?.let(app::shareRequest)
             if (picture != null && request != null) context.startActivity(ShareIntents.chooser(context, picture.file, request))
             vm.shareHandled(ref)
         },

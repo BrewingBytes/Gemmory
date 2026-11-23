@@ -274,7 +274,7 @@ class FinishCelebrationTest {
         val handle = SavedStateHandle()
         fun viewModel(): CompletionViewModel {
             var vm: CompletionViewModel? = null
-            instrumentation.runOnMainSync { vm = CompletionViewModel(app, handle) }
+            instrumentation.runOnMainSync { vm = CompletionViewModel(app.graph, handle) }
             return vm!!
         }
         val first = viewModel()

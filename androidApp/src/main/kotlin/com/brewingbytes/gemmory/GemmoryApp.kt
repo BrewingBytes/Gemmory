@@ -6,6 +6,8 @@ import com.brewingbytes.gemmory.ads.PlayerAccess
 import com.brewingbytes.gemmory.app.PlayerProgress
 import com.brewingbytes.gemmory.bundled.TodaysPicks
 import com.brewingbytes.gemmory.collections.CollectionBook
+import com.brewingbytes.gemmory.completion.CompletionHooks
+import com.brewingbytes.gemmory.completion.TimelapseShares
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.play.PlayHooks
@@ -63,6 +65,9 @@ import com.brewingbytes.gemmory.policy.AchievementCodec
 import com.brewingbytes.gemmory.policy.AchievementRules
 import com.brewingbytes.gemmory.policy.Cover
 import com.brewingbytes.gemmory.policy.DayClock
+import com.brewingbytes.gemmory.policy.DayKind
+import com.brewingbytes.gemmory.policy.FirstRunAsk
+import com.brewingbytes.gemmory.policy.WhereFoundAnswer
 import com.brewingbytes.gemmory.policy.DayPlayed
 import com.brewingbytes.gemmory.policy.EntitlementCache
 import com.brewingbytes.gemmory.policy.EntitlementCodec
@@ -118,6 +123,8 @@ import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import com.brewingbytes.gemmory.telemetry.PLAYED_FILE
 import com.brewingbytes.gemmory.telemetry.PrefsDayStore
 import com.brewingbytes.gemmory.timelapse.EncodeManager
+import com.brewingbytes.gemmory.timelapse.EncodeRequest
+import com.brewingbytes.gemmory.timelapse.EncodeState
 import com.brewingbytes.gemmory.timelapse.MediaCodecEncoder
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -128,6 +135,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -300,6 +308,39 @@ class GemmoryApp : Application() {
         }
 
         override fun progressSharing(): ProgressShareSession = ProgressSharing(this@GemmoryApp)
+
+        override val timelapses: TimelapseShares = object : TimelapseShares {
+            override fun state(ref: CanvasRef): StateFlow<EncodeState> = encodes.state(ref)
+
+            override fun share(ref: CanvasRef, pattern: Pattern, log: IntArray, title: String, watermark: Boolean) =
+                encodes.share(EncodeRequest(ref, pattern, log, title, sourceFileOf(ref), watermark))
+
+            override fun cancel(ref: CanvasRef) = encodes.cancel(ref)
+
+            override fun acknowledge(ref: CanvasRef) = encodes.acknowledge(ref)
+
+            override suspend fun takeKilledNotice(ref: CanvasRef): Boolean = encodes.takeKilledNotice(ref)
+        }
+
+        override val completion: CompletionHooks = object : CompletionHooks {
+            override fun whereFoundDue(): Boolean = firstRun.whereFoundDue()
+
+            override fun whereFoundOpen(): Boolean = firstRun.whereFoundOpen()
+
+            override fun whereFoundShown() = firstRun.whereFoundShown()
+
+            override fun whereFoundAnswered(answer: WhereFoundAnswer): Boolean = firstRun.whereFoundAnswered(answer)
+
+            override fun whereFoundAsk(firstFinish: Boolean): FirstRunAsk {
+                val granted = whereFoundConsentForTest ?: consent.consentMode.value.analyticsStorage
+                return firstRun.firstRunAsk(granted, whereFoundSeedForTest ?: kotlin.random.Random.nextLong(), firstFinish)
+            }
+
+            override suspend fun earnCanvasOnce(earnId: String): Boolean = monetization.earnCanvasOnce(earnId)
+
+            override fun finishDays(): List<Long> =
+                this@GemmoryApp.streak.history().filter { it.kind == DayKind.FINISHED }.map { it.day }
+        }
 
         // The renderer hotfix switch (R10-8) covers gallery thumbnails too.
         override fun renderGems(pattern: Pattern, cellPx: Int, placed: ((Int) -> Boolean)?): ImageBitmap =
@@ -507,7 +548,7 @@ class GemmoryApp : Application() {
 
     /**
      * Connected tests only (T56): analytics consent as T56's question sees it; null (always, outside tests) reads the
-     * real consent. Read by the completion screen, so not marked test-only.
+     * real consent. Read by the completion's hooks, so not marked test-only.
      */
     internal var whereFoundConsentForTest: Boolean? = null
 

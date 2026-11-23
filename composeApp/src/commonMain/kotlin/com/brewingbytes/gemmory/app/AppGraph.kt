@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import com.brewingbytes.gemmory.ads.PlayerAccess
 import com.brewingbytes.gemmory.bundled.TodaysPicks
 import com.brewingbytes.gemmory.collections.CollectionBook
+import com.brewingbytes.gemmory.completion.CompletionHooks
+import com.brewingbytes.gemmory.completion.TimelapseShares
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.photo.FaceFinder
@@ -72,6 +74,10 @@ class AppGraph(val services: PlatformServices) {
     val photos: PhotoDecoder get() = services.photos
 
     val faces: FaceFinder get() = services.faces
+
+    val timelapses: TimelapseShares get() = services.timelapses
+
+    val completion: CompletionHooks get() = services.completion
 
     fun progressSharing(): ProgressShareSession = services.progressSharing()
 
