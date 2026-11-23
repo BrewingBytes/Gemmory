@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.reminder
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.copy.strings
 import android.Manifest
 import android.app.Activity
@@ -130,7 +131,7 @@ class ReminderFlowTest {
         }
     }
 
-    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
+    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = LOAD_WAIT_MS) =
         compose.waitUntil(matcher.description, timeout) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
 
     private fun posted(timeoutMs: Long = 12_000): android.app.Notification? {

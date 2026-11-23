@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.R
 import android.app.Activity
 import android.content.Context
@@ -172,9 +173,9 @@ open class StoreScreenshots {
     @Test
     fun capture() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("tile-bundled-starter").performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         val colors = s.pattern.palette.size
         // About half the colors done, the way a player fills a picture.
@@ -191,11 +192,11 @@ open class StoreScreenshots {
         shot("3-canvas-zoom")
 
         compose.onNodeWithContentDescription(t(R.string.action_back)).performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         shot("1-gallery")
 
         compose.onNodeWithTag("tile-bundled-starter").performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val again = session()!!
         instrumentation.runOnMainSync { while (!again.isFinished) again.placeNext() }
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("completion-fresh")).fetchSemanticsNodes().isNotEmpty() }
@@ -205,7 +206,7 @@ open class StoreScreenshots {
 
         compose.onNodeWithTag("completion-done").performClick()
         // #89: the finished starter has moved to the Finished section, out of view.
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("gallery-grid")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("gallery-grid")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(t(R.string.settings_title)).performClick()
         compose.onNodeWithTag("settings-membership").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }
@@ -248,7 +249,7 @@ open class StoreScreenshots {
         runBlocking { app.store.rename(ref, title) }
         // The open canvas keeps the title it opened with: back out and reopen it.
         leaveCanvas()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag(tileTag(ref)), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag(tileTag(ref)), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag(tileTag(ref), useUnmergedTree = true).performClick()
         compose.waitUntil(20_000) { session()?.let { it.ref == ref && it.viewport.isLaidOut } == true }
         return session()!!
@@ -281,7 +282,7 @@ open class StoreScreenshots {
 
     private fun leaveCanvas() {
         compose.onNodeWithContentDescription(t(R.string.action_back)).performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText(t(R.string.gallery_tab_photos))).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasText(t(R.string.gallery_tab_photos))).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun finish(s: PlaySession, shotName: String? = null) {
@@ -291,7 +292,7 @@ open class StoreScreenshots {
         compose.mainClock.advanceTimeBy(6_000)
         shotName?.let(::shot)
         compose.onNodeWithTag("completion-done").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText(t(R.string.gallery_tab_photos))).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasText(t(R.string.gallery_tab_photos))).fetchSemanticsNodes().isNotEmpty() }
     }
 
     /** A photo canvas's title in the run's language (the listing's photo set); the pets keep their names. */
@@ -308,7 +309,7 @@ open class StoreScreenshots {
         app.resetRemindersForTest()
         try {
             scenario = ActivityScenario.launch(MainActivity::class.java)
-            compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
 
             // Created oldest first, so the gallery (newest first) opens on the puppy and the finished couple.
             val cat = makeCanvas("cat", "Marmalade")

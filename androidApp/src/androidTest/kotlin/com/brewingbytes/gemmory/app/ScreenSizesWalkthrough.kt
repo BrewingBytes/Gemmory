@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.R
 import android.app.Activity
 import android.content.Context
@@ -160,7 +161,7 @@ class ScreenSizesWalkthrough {
         shot("$name-gallery-photos")
         compose.onNodeWithText(t(R.string.gallery_tab_pictures)).performClick()
         compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel(t(R.string.action_start_over))
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
         shot("$name-sheet")
         compose.onNodeWithText(t(R.string.action_keep)).performClick()
     }
@@ -169,7 +170,7 @@ class ScreenSizesWalkthrough {
     fun largeScreensKeepTheirLayoutsAndTheCanvasKeepsItsState() {
         display(phone)
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         for (d in tablets) {
             display(d)
             gallery(d.name)
@@ -189,7 +190,7 @@ class ScreenSizesWalkthrough {
         display(phone)
         compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         compose.onNodeWithTag("tile-photo-walk-big").performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         instrumentation.runOnMainSync {
             s.select(2)
@@ -211,11 +212,11 @@ class ScreenSizesWalkthrough {
         display(narrow)
         A11yTestSupport.shell("settings put system font_scale 2.0")
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         shot("font2-gallery")
         gallery("font2")
         compose.onNodeWithTag("tile-bundled-starter").performCustomAccessibilityActionWithLabel(t(R.string.action_start_over))
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasText(t(R.string.gallery_start_over_title))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText(t(R.string.action_keep)).performClick()
         compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         compose.onNodeWithTag("tile-photo-walk-1").performCustomAccessibilityActionWithLabel(t(R.string.action_rename))
@@ -237,7 +238,7 @@ class ScreenSizesWalkthrough {
 
         compose.onNodeWithText(t(R.string.gallery_tab_photos)).performClick()
         compose.onNodeWithTag("tile-photo-walk-1").performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         instrumentation.runOnMainSync { while (s.remaining(s.selectedSlot) > 15) s.placeNext() }
         shot("font2-canvas")

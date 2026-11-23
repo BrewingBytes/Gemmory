@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -182,7 +184,7 @@ class PlayStreakTest {
         instrumentation.runOnMainSync { session()!!.placeNext() }
         compose.waitForIdle()
         back()
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
         compose.waitForIdle()
         assertEquals("2 days in a row, not done today, opens your streak", chipText(), "a gem alone doesn't count the day")
 
@@ -274,7 +276,7 @@ class PlayStreakTest {
 
     private fun openTile() {
         compose.onNodeWithTag(TILE).performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
     }
 
     private fun back() = scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
@@ -282,8 +284,8 @@ class PlayStreakTest {
     private fun launchOnMyPhotos() {
         runBlocking { app.store.create(ref, small) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
     }
 
     private fun chipText(): String? = compose.onAllNodes(hasTestTag(STREAK_TAG)).fetchSemanticsNodes().firstOrNull()

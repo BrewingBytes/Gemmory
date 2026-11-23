@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -124,7 +126,7 @@ class StreakShareFlowTest {
         val red = Pattern(8, 6, listOf(PaletteColor(1, Color.RED, Lab(53.0, 80.0, 67.0))), IntArray(48))
         runBlocking { app.store.create(photo, red) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         waitFor("the photo") { exists(tileTag(photo)) }
         compose.onNodeWithTag(tileTag(photo)).performClick()
         waitFor("the canvas") { session()?.viewport?.isLaidOut == true }
@@ -140,7 +142,7 @@ class StreakShareFlowTest {
 
     private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
 
-    private fun waitFor(what: String, timeout: Long = 10_000, condition: () -> Boolean) = try {
+    private fun waitFor(what: String, timeout: Long = LOAD_WAIT_MS, condition: () -> Boolean) = try {
         compose.waitUntil(what, timeout, condition)
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         A11yTestSupport.shell("screencap -p /data/local/tmp/share-${what.replace(' ', '-')}.png")

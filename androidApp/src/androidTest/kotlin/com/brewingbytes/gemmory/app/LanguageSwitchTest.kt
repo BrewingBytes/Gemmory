@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import android.os.Build
 import androidx.compose.ui.test.hasTestTag
@@ -79,9 +80,9 @@ class LanguageSwitchTest {
     @Test
     fun aLanguagePickedMidCanvasKeepsTheCanvasAndSwitchesItsWords() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("tile-bundled-starter").performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         waitText("The Starry Night")
         InstrumentationRegistry.getInstrumentation().runOnMainSync { repeat(25) { session()!!.placeNext() } }
         val placed = session()!!.placedCount
@@ -89,7 +90,7 @@ class LanguageSwitchTest {
 
         TestLanguage.set(context, "de")
         waitText("Die Sternennacht")
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         assertEquals(placed, session()!!.placedCount, "the canvas comes back with every gem")
 
         compose.onNodeWithContentDescription("Zurück").performClick()

@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.review
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.test.hasTestTag
@@ -133,7 +135,7 @@ class ReviewFlowTest {
     private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
 
     /** On a timeout, the screen is saved to /data/local/tmp/review-<what>.png for a look at what showed instead. */
-    private fun waitFor(what: String, timeout: Long = 10_000, condition: () -> Boolean) = try {
+    private fun waitFor(what: String, timeout: Long = LOAD_WAIT_MS, condition: () -> Boolean) = try {
         compose.waitUntil(what, timeout, condition)
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         A11yTestSupport.shell("screencap -p /data/local/tmp/review-${what.replace(' ', '-')}.png")
@@ -171,7 +173,7 @@ class ReviewFlowTest {
     /** The player's first finish, "yesterday": the photo, then "Not now" if the reminder ask shows; the clock moves to today. */
     private fun finishFirstYesterday() {
         val photo = CanvasRef(CanvasKind.PHOTO, "warm-up")
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         waitFor("the photo") { exists(tileTag(photo)) }
         compose.onNodeWithTag(tileTag(photo)).performClick()
         placeAllAndDone()

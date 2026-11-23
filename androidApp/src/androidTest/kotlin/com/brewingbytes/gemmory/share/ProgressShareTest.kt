@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.share
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
@@ -109,9 +111,9 @@ class ProgressShareTest {
         open().also { s -> onMain { s.placeNext() } }
         backToGallery()
         // The tile shows what the gallery last read; its refresh after back is asynchronous (lessons, #50).
-        compose.waitUntil(5_000) { tileActions().firstOrNull() == "Share progress" }
+        compose.waitUntil(LOAD_WAIT_MS) { tileActions().firstOrNull() == "Share progress" }
         compose.onNodeWithTag(TILE).performTouchInput { longClick() }
-        compose.waitUntil(5_000) { exists("tile-share-progress") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("tile-share-progress") }
         compose.onNodeWithTag("tile-share-progress").performClick()
         compose.waitUntil(10_000) { exists("share-percent") }
         compose.onNodeWithTag("share-cancel").performClick()
@@ -122,11 +124,11 @@ class ProgressShareTest {
         if (!::scenario.isInitialized) {
             runBlocking { app.store.create(ref, small) }
             scenario = ActivityScenario.launch(MainActivity::class.java)
-            compose.onNode(hasText("My Photos")).performClick()
+            compose.openMyPhotos()
         }
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
         compose.onNodeWithTag(TILE).performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         compose.waitForIdle()
         return session()!!
     }
@@ -134,7 +136,7 @@ class ProgressShareTest {
     /** System back to the gallery, then wait for its refresh to show the tile's new progress. */
     private fun backToGallery() {
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
         compose.waitForIdle()
     }
 

@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.test.hasContentDescription
@@ -135,14 +137,14 @@ class StreakFlowTest {
         }
         scenario = ActivityScenario.launch(MainActivity::class.java)
         if (!photos) return
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         waitFor("the photos") { exists(tileTag(first)) }
     }
 
     private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
 
     /** On a timeout, the screen is saved to /data/local/tmp/streak-<what>.png for a look at what showed instead. */
-    private fun waitFor(what: String, timeout: Long = 10_000, condition: () -> Boolean) = try {
+    private fun waitFor(what: String, timeout: Long = LOAD_WAIT_MS, condition: () -> Boolean) = try {
         compose.waitUntil(what, timeout, condition)
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         A11yTestSupport.shell("screencap -p /data/local/tmp/streak-${what.replace(' ', '-')}.png")

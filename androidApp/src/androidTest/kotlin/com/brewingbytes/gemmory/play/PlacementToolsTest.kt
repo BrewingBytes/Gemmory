@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.copy.strings
 import android.content.Context
 import android.os.SystemClock
@@ -199,10 +201,10 @@ class PlacementToolsTest {
     private fun launchCanvas(): PlaySession {
         runBlocking { app.store.create(ref, big) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("tile-photo-tools")).fetchSemanticsNodes().isNotEmpty() }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-photo-tools")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("tile-photo-tools").performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         compose.waitForIdle()
         return session()!!
     }

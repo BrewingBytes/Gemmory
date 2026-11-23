@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.gallery
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.copy.strings
 import com.brewingbytes.gemmory.R
 import android.app.Activity
@@ -122,15 +123,15 @@ class FinishedSectionFlowTest {
         runBlocking { app.store.create(photo, A11yTestSupport.pattern(8, 6, 3)) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNodeWithText("My Photos").performClick()
-        compose.waitUntil(5_000) { exists(tileTag(photo)) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(tileTag(photo)) }
         assertTrue(!exists(FINISHED_TAG), "nothing finished: no heading")
         compose.onNodeWithTag(tileTag(photo)).performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
-        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-done") }
         compose.onNodeWithTag("completion-done").performClick()
-        compose.waitUntil(5_000) { exists(FINISHED_TAG) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(FINISHED_TAG) }
     }
 
     @Test
@@ -144,18 +145,18 @@ class FinishedSectionFlowTest {
         assertTrue(compose.onAllNodes(hasText("Your photos, in gems")).fetchSemanticsNodes().isEmpty())
 
         heading.performClick()
-        compose.waitUntil(5_000) { exists(tileTag(photo)) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(tileTag(photo)) }
         assertEquals("expanded", heading.state())
         compose.onNodeWithTag(tileTag(photo)).assert(hasContentDescription(", done", substring = true))
         compose.onNodeWithTag(tileTag(photo)).performClick()
-        compose.waitUntil(5_000) { exists("completion-still") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-still") }
 
         compose.onNodeWithText("Play again").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Start this picture over?")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasText("Start this picture over?")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Start over").performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
-        compose.waitUntil(5_000) { exists(tileTag(photo)) && !exists(FINISHED_TAG) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(tileTag(photo)) && !exists(FINISHED_TAG) }
         compose.onNodeWithTag(tileTag(photo)).assert(hasContentDescription("0% done", substring = true))
     }
 
@@ -164,12 +165,12 @@ class FinishedSectionFlowTest {
     fun theExpandStateIsKeptPerTab() {
         finishPhoto()
         compose.onNodeWithTag(FINISHED_TAG).performClick()
-        compose.waitUntil(5_000) { exists(tileTag(photo)) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(tileTag(photo)) }
         scenario.close()
 
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNodeWithText("My Photos").performClick()
-        compose.waitUntil(5_000) { exists(FINISHED_TAG) && exists(tileTag(photo)) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(FINISHED_TAG) && exists(tileTag(photo)) }
         assertEquals("expanded", compose.onNodeWithTag(FINISHED_TAG).state())
         assertTrue(app.settings.finishedOpen(1))
         assertTrue(!app.settings.finishedOpen(0), "Pictures keeps its own state")
@@ -215,7 +216,7 @@ class FinishedSectionFlowTest {
                 heading.assertHeightIsAtLeast(48.dp)
                 compose.onAllNodes(isRoot()).tryPerformAccessibilityChecks()
                 heading.performClick()
-                compose.waitUntil(5_000) { exists(tileTag(photo)) }
+                compose.waitUntil(LOAD_WAIT_MS) { exists(tileTag(photo)) }
                 compose.onAllNodes(isRoot()).tryPerformAccessibilityChecks()
             } finally {
                 A11yTestSupport.shell("settings put system font_scale 1.0")

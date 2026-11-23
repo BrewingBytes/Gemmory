@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.gallery
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.test.SemanticsMatcher
@@ -113,7 +114,7 @@ class TodaysPictureTest {
         assertEquals(emptyList(), app.remote.listed().map { it.id }, "no remote pictures: the counts and picks below are bundled ones")
     }
 
-    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
+    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = LOAD_WAIT_MS) =
         compose.waitUntil(matcher.description, timeout) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
     private fun gallery(): GalleryState {

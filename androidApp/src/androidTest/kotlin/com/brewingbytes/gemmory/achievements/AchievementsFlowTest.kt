@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.achievements
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -151,14 +153,14 @@ class AchievementsFlowTest {
 
     private fun openTile() {
         compose.onNodeWithTag(TILE).performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
     }
 
     private fun launchOnMyPhotos() {
         runBlocking { app.store.create(ref, small) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
     }
 
     private fun session(): PlaySession? {

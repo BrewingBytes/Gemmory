@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.completion
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -127,7 +129,7 @@ class FinishCelebrationTest {
         scenario.close()
         // A new activity: the finish is no longer fresh, so the gallery tile opens the still.
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         // #89: the finished canvas sits in My Photos' Finished section.
         compose.openFinishedTile(ref)
         compose.waitUntil(5_000) { exists("completion-still") }
@@ -249,10 +251,10 @@ class FinishCelebrationTest {
             exists("gallery-grid")
         }
         if (exists(REMINDER_ASK_NOT_NOW_TAG)) compose.onNodeWithTag(REMINDER_ASK_NOT_NOW_TAG).performClick()
-        compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { exists("tile-photo-celebration-two") }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { exists("tile-photo-celebration-two") }
         compose.onNodeWithTag("tile-photo-celebration-two").performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         onMain { while (!s.isFinished) s.placeNext() }
         compose.waitUntil(10_000) { exists("completion-fresh") && exists("completion-done") }
@@ -354,7 +356,7 @@ class FinishCelebrationTest {
         onMain { repeat(47) { session.placeNext() } }
         compose.mainClock.autoAdvance = false
         instrumentation.runOnMainSync { session.placeNext() }
-        val deadline = System.currentTimeMillis() + 10_000
+        val deadline = System.currentTimeMillis() + LOAD_WAIT_MS
         while (!(exists("completion-fresh") && picture())) {
             assertTrue(System.currentTimeMillis() < deadline, "the fresh completion and its picture show")
             compose.mainClock.advanceTimeByFrame()
@@ -380,10 +382,10 @@ class FinishCelebrationTest {
         // A case may have made it already (with a play file of its own).
         if (!app.store.repository.exists(ref)) runBlocking { app.store.create(ref, small) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
         compose.onNodeWithTag(TILE).performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         compose.waitForIdle()
         return session()!!
     }

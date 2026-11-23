@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -139,7 +141,7 @@ class StreakNudgeFlowTest {
         seedAlive()
         launch()
         // Some gems on the photo canvas: it's now the closest to done.
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         waitFor("the photos", 60_000) { exists(tileTag(photo)) }
         compose.onNodeWithTag(tileTag(photo)).performClick()
         waitFor("the canvas") { session()?.viewport?.isLaidOut == true }
@@ -224,7 +226,7 @@ class StreakNudgeFlowTest {
     private fun shows(text: String) = compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
 
     /** On a timeout, the screen is saved to /data/local/tmp/nudge-<what>.png for a look at what showed instead. */
-    private fun waitFor(what: String, timeout: Long = 10_000, condition: () -> Boolean) = try {
+    private fun waitFor(what: String, timeout: Long = LOAD_WAIT_MS, condition: () -> Boolean) = try {
         compose.waitUntil(what, timeout, condition)
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         A11yTestSupport.shell("screencap -p /data/local/tmp/nudge-${what.replace(' ', '-')}.png")

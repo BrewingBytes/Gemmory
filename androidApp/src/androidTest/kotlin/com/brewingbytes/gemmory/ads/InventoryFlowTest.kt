@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.ads
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import android.os.Handler
@@ -140,7 +142,7 @@ class InventoryFlowTest {
         waitFor(hasTestTag("tile-bundled-starter"))
     }
 
-    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
+    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = LOAD_WAIT_MS) =
         compose.waitUntil(timeout) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
 
     private fun exists(tag: String) = compose.onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
@@ -159,7 +161,7 @@ class InventoryFlowTest {
         compose.waitUntil(5_000) { app.monetization.inventory.value.fills == 5 }
 
         // On a canvas the tool well shows the 5; TalkBack's "Fill region at next gem" spends one.
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         waitFor(hasTestTag("tile-photo-inv"))
         compose.onNodeWithTag("tile-photo-inv").performClick()
         waitFor(hasTestTag("tool-well") and hasContentDescription("Tool: Tap, 5 fills"))
