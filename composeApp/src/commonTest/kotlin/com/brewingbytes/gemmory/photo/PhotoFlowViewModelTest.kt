@@ -122,6 +122,10 @@ class PhotoFlowViewModelTest {
 
         override val store get() = error("not used")
 
+        override val timelapses get() = error("not used")
+
+        override val completion get() = error("not used")
+
         override val play get() = error("not used")
 
         override val appScope get() = error("not used")

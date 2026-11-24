@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.achievements
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -98,7 +100,7 @@ class AchievementsFlowTest {
         launchOnMyPhotos()
         openTile()
         instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
-        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-done") }
         // Give a stray send time to arrive: nothing goes out on the completion screen.
         Thread.sleep(1_000)
         assertEquals(emptyList(), games.server.toList(), "nothing is sent on the canvas or the completion screen")
@@ -112,7 +114,7 @@ class AchievementsFlowTest {
             "a_week_of_gems=1",
             "a_month_of_gems=1",
         )
-        compose.waitUntil("sent from the gallery", 5_000) { games.server.size >= expected.size }
+        compose.waitUntil("sent from the gallery", LOAD_WAIT_MS) { games.server.size >= expected.size }
         assertEquals(expected.sorted(), games.server.toList().sorted())
     }
 
@@ -120,9 +122,9 @@ class AchievementsFlowTest {
     fun aShareIsCountedAndSentWhileTheGalleryShows() {
         launchOnMyPhotos()
         share(progress = true)
-        compose.waitUntil("progress share sent", 5_000) { games.server.contains("work_in_progress") }
+        compose.waitUntil("progress share sent", LOAD_WAIT_MS) { games.server.contains("work_in_progress") }
         share(progress = false)
-        compose.waitUntil("finished share sent", 5_000) { games.server.contains("show_and_tell") }
+        compose.waitUntil("finished share sent", LOAD_WAIT_MS) { games.server.contains("show_and_tell") }
         assertEquals(listOf("work_in_progress", "show_and_tell"), games.server.toList())
     }
 
@@ -131,11 +133,11 @@ class AchievementsFlowTest {
         games.online = false
         launchOnMyPhotos()
         share(progress = false)
-        compose.waitUntil("counted", 5_000) { app.achievements.state.unlocked.isNotEmpty() }
+        compose.waitUntil("counted", LOAD_WAIT_MS) { app.achievements.state.unlocked.isNotEmpty() }
         assertTrue(games.server.isEmpty())
         games.online = true
         compose.onNodeWithContentDescription("Settings").performClick()
-        compose.waitUntil("sent from Settings", 5_000) { games.server.contains("show_and_tell") }
+        compose.waitUntil("sent from Settings", LOAD_WAIT_MS) { games.server.contains("show_and_tell") }
         assertEquals(listOf("show_and_tell"), games.server.toList(), "sent once")
     }
 
@@ -151,14 +153,14 @@ class AchievementsFlowTest {
 
     private fun openTile() {
         compose.onNodeWithTag(TILE).performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
     }
 
     private fun launchOnMyPhotos() {
         runBlocking { app.store.create(ref, small) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
     }
 
     private fun session(): PlaySession? {

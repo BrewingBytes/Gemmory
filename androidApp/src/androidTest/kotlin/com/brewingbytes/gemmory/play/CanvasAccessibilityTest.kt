@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -118,10 +120,10 @@ class CanvasAccessibilityTest {
     /** Opens the canvas already on disk, as a player coming back to it from the gallery. */
     private fun reopen(): PlaySession {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(androidx.compose.ui.test.hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-photo-a11y")).fetchSemanticsNodes().isNotEmpty() }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-photo-a11y")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("tile-photo-a11y").performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         compose.waitForIdle()
         return session()!!
     }

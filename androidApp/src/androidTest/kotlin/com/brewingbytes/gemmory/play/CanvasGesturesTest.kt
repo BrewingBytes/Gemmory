@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
@@ -85,9 +86,9 @@ class CanvasGesturesTest {
     private fun open(): PlaySession {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNodeWithText("My Photos").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-photo-gestures")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-photo-gestures")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("tile-photo-gestures").performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         compose.waitForIdle()
         return session()!!
     }

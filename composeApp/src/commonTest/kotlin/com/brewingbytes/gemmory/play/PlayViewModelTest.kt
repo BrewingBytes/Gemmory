@@ -216,6 +216,10 @@ class PlayViewModelTest {
             wallMillis = { 0L },
         )
 
+        override val timelapses get() = error("not used")
+
+        override val completion get() = error("not used")
+
         override val play = object : PlayHooks {
             override fun takeSharedToast(ref: CanvasRef): String? = toasts.remove(ref)
 

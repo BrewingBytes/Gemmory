@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.collections
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.test.SemanticsMatcher
@@ -129,7 +131,7 @@ class CollectionsFlowTest {
     private fun exists(tag: String) = exists(hasTestTag(tag))
 
     /** On a timeout, the screen is saved to /data/local/tmp/collections-<what>.png for a look at what showed instead. */
-    private fun waitFor(what: String, timeout: Long = 10_000, condition: () -> Boolean) = try {
+    private fun waitFor(what: String, timeout: Long = LOAD_WAIT_MS, condition: () -> Boolean) = try {
         compose.waitUntil(what, timeout, condition)
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         A11yTestSupport.shell("screencap -p /data/local/tmp/collections-${what.replace(' ', '-')}.png")
@@ -179,7 +181,7 @@ class CollectionsFlowTest {
 
     private fun finishPhoto() {
         val photo = CanvasRef(CanvasKind.PHOTO, "warm-up")
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         waitFor("the photo") { exists(tileTag(photo)) }
         compose.onNodeWithTag(tileTag(photo)).performClick()
         waitFor("the canvas") { session()?.viewport?.isLaidOut == true }

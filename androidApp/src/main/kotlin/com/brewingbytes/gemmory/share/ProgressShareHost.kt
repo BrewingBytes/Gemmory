@@ -21,6 +21,7 @@ import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.EncodeState
 import com.brewingbytes.gemmory.timelapse.FrameAssets
+import com.brewingbytes.gemmory.timelapse.file
 import com.brewingbytes.gemmory.ui.GemRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first

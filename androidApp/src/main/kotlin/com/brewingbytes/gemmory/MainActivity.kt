@@ -55,6 +55,8 @@ import com.brewingbytes.gemmory.storage.CanvasRef
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.brewingbytes.gemmory.completion.CompletionScreen
 import com.brewingbytes.gemmory.completion.CompletionViewModel
+import com.brewingbytes.gemmory.completion.isFresh
+import com.brewingbytes.gemmory.completion.left
 import com.brewingbytes.gemmory.gallery.GalleryScreen
 import com.brewingbytes.gemmory.gallery.GalleryViewModel
 import com.brewingbytes.gemmory.gallery.tileTag
@@ -105,7 +107,10 @@ class MainActivity : ComponentActivity() {
     private val gallery: GalleryViewModel by viewModels {
         viewModelFactory { initializer { GalleryViewModel(app.graph, createSavedStateHandle()) } }
     }
-    private val completion: CompletionViewModel by viewModels()
+    /** Shared since iOS Stage 1c (T64), like the canvas's. */
+    private val completion: CompletionViewModel by viewModels {
+        viewModelFactory { initializer { CompletionViewModel(app.graph, createSavedStateHandle()) } }
+    }
     private val rewarded: RewardedViewModel by viewModels()
     private val streakDay: StreakDayViewModel by viewModels()
     private val streakScreen: StreakViewModel by viewModels()

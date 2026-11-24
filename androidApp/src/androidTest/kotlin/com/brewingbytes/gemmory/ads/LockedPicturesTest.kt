@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.ads
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.copy.strings
 import android.app.Activity
 import android.content.Context
@@ -139,7 +140,7 @@ class LockedPicturesTest {
         waitFor(hasTestTag("tile-bundled-starter"))
     }
 
-    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
+    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = LOAD_WAIT_MS) =
         compose.waitUntil(matcher.description, timeout) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
     private fun title(id: String) = BundledPictures.byId(id)!!.title(context.strings)

@@ -49,6 +49,16 @@ class EncodeCancelTest {
         EncodeRequest(ref, pattern, pattern.cells.indices.toList().toIntArray(), "The Starry Night", source = null, watermark = true)
     }
 
+    private companion object {
+        /**
+         * How long an encode may take to get going or finish. In a freshly started test process the app's own startup
+         * work competes for the cores: on the emulator (2026-11-23, #172) the starter's 714 frames ran at about 1.4 a
+         * second for the first 150 s, then at about 70, on main's APKs and the branch's alike. A wait ends when its
+         * state arrives, so a quick device pays nothing.
+         */
+        const val ENCODE_WAIT_MS = 240_000L
+    }
+
     @After
     fun cleanUp() {
         scope.cancel()
@@ -58,14 +68,14 @@ class EncodeCancelTest {
     private fun files() = File(cache, EncodeManager.DIR).listFiles()?.map { it.name }?.sorted().orEmpty()
 
     private fun awaitRunningPast(percent: Int) = runBlocking {
-        withTimeout(30_000) { manager.state(ref).first { it is EncodeState.Running && it.percent >= percent } }
+        withTimeout(ENCODE_WAIT_MS) { manager.state(ref).first { it is EncodeState.Running && it.percent >= percent } }
     }
 
     private fun awaitStopped() = runBlocking { withTimeout(30_000) { while (manager.isRunning(ref)) delay(10) } }
 
     private fun shareAndWait(): File {
         manager.share(request)
-        return runBlocking { withTimeout(60_000) { assertIs<EncodeState.Video>(manager.state(ref).first { it is EncodeState.Video }).file } }
+        return runBlocking { withTimeout(ENCODE_WAIT_MS) { assertIs<EncodeState.Video>(manager.state(ref).first { it is EncodeState.Video }).file } }
     }
 
     @Test

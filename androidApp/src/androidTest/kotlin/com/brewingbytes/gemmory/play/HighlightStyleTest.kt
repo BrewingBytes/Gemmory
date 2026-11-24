@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -73,7 +74,7 @@ class HighlightStyleTest {
     private fun setStyle(style: HighlightStyle) = instrumentation.runOnMainSync { app.settings.setHighlight(style) }
 
     private fun waitForTag(tag: String) =
-        compose.waitUntil("tag $tag", 10_000) { compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil("tag $tag", LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
 
     @Test
     fun pickedInSettingsAndKeptAcrossARestart() {

@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.billing
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import android.os.SystemClock
 import androidx.compose.ui.test.assertIsEnabled
@@ -82,7 +83,7 @@ class BillingFlowTest {
         waitFor(hasTestTag("tile-bundled-starter"))
     }
 
-    private fun waitFor(matcher: androidx.compose.ui.test.SemanticsMatcher, timeout: Long = 10_000) =
+    private fun waitFor(matcher: androidx.compose.ui.test.SemanticsMatcher, timeout: Long = LOAD_WAIT_MS) =
         compose.waitUntil(matcher.description, timeout) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
 
     private fun waitForText(text: String) = waitFor(hasText(text, substring = true))

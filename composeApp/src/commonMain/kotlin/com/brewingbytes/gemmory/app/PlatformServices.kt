@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import com.brewingbytes.gemmory.ads.PlayerAccess
 import com.brewingbytes.gemmory.bundled.TodaysPicks
 import com.brewingbytes.gemmory.collections.CollectionBook
+import com.brewingbytes.gemmory.completion.CompletionHooks
+import com.brewingbytes.gemmory.completion.TimelapseShares
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.copy.Words
 import com.brewingbytes.gemmory.photo.FaceFinder
@@ -89,6 +91,12 @@ interface PlatformServices {
 
     /** What an open canvas tells the Android services that haven't moved yet. */
     val play: PlayHooks
+
+    /** The time-lapse shares of finished canvases: Android's encoder until iOS has one (Stage 2). */
+    val timelapses: TimelapseShares
+
+    /** What a completion asks of the first-run funnel, the inventory and the streak log (T56). */
+    val completion: CompletionHooks
 
     /** A new Share progress session for one screen's ViewModel. */
     fun progressSharing(): ProgressShareSession

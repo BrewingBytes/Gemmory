@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.streak
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.copy.strings
 import android.content.ComponentName
 import android.content.Context
@@ -147,7 +149,7 @@ class StreakWidgetFlowTest {
         runBlocking { app.store.create(photo, A11yTestSupport.pattern(8, 6, 3)) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
         waitFor("the gallery", 60_000) { shows("My Photos") }
-        compose.onNode(hasText("My Photos")).performClick()
+        compose.openMyPhotos()
         waitFor("the photos", 60_000) { exists(tileTag(photo)) }
         compose.onNodeWithTag(tileTag(photo)).performClick()
         waitFor("the canvas") { session()?.viewport?.isLaidOut == true }
@@ -173,7 +175,7 @@ class StreakWidgetFlowTest {
     private fun shows(text: String) = compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
 
     /** On a timeout, the screen is saved to /data/local/tmp/widget-<what>.png for a look at what showed instead. */
-    private fun waitFor(what: String, timeout: Long = 10_000, condition: () -> Boolean) = try {
+    private fun waitFor(what: String, timeout: Long = LOAD_WAIT_MS, condition: () -> Boolean) = try {
         compose.waitUntil(what, timeout, condition)
     } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
         A11yTestSupport.shell("screencap -p /data/local/tmp/widget-${what.replace(' ', '-')}.png")

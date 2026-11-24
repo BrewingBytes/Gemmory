@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
@@ -72,11 +73,11 @@ class FreshInstallTest {
 
     @Test
     fun starterTileFirstThenPlayToCompletionThenStillOnReopen() {
-        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasContentDescription("The Starry Night, 0% done")).assertExists()
         compose.onNodeWithTag("tile-bundled-starter").performClick()
 
-        compose.waitUntil(5_000) { session() != null && session()!!.viewport.isLaidOut }
+        compose.waitUntil(LOAD_WAIT_MS) { session() != null && session()!!.viewport.isLaidOut }
         val session = session()!!
         assertTrue(
             session.viewport.zoomDp >= CanvasViewport.PLACE_MIN_DP,

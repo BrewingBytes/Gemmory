@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performSemanticsAction
 import org.junit.Assume.assumeTrue
@@ -200,7 +201,7 @@ class AccessibilityChecksTest {
     }
 
     private fun waitForTag(tag: String) =
-        compose.waitUntil("tag $tag", 10_000) { compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil("tag $tag", LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
 
     private fun waitForText(text: String) =
         compose.waitUntil("text $text", 20_000) { compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
@@ -394,7 +395,7 @@ class AccessibilityChecksTest {
         compose.onNodeWithText("My Photos").performClick()
         waitForTag("tile-photo-a11y-scan")
         compose.onNodeWithTag("tile-photo-a11y-scan").performClick()
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         scan()
         // Zoomed in, with Find showing for a color that's nearly done.
         val s = session()!!
@@ -488,7 +489,7 @@ class AccessibilityChecksTest {
         compose.onNodeWithText("My Photos").performSemanticsAction(SemanticsActions.OnClick)
         waitForTag("tile-photo-a11y-scan")
         compose.onNodeWithTag("tile-photo-a11y-scan").performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitUntil(10_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         instrumentation.runOnMainSync { while (!s.isFinished) s.placeNext() }
         waitForTag("completion-fresh")
@@ -556,7 +557,7 @@ class SheetAccessibilityChecksTest {
         android.os.SystemClock.sleep(1_000)
         for (state in listOf(
             EncodeState.Running(200, 450),
-            EncodeState.Picture(File("before-after.png")),
+            EncodeState.Picture("before-after.png"),
             EncodeState.Failed,
             EncodeState.DiskFull,
         )) {

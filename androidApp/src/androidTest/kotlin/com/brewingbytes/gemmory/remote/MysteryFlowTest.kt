@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.remote
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import android.os.SystemClock
@@ -134,7 +135,7 @@ class MysteryFlowTest {
         compose.waitUntil("gallery loaded", 10_000) { tiles().isNotEmpty() }
     }
 
-    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = 10_000) =
+    private fun waitFor(matcher: SemanticsMatcher, timeout: Long = LOAD_WAIT_MS) =
         compose.waitUntil(matcher.description, timeout) { compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty() }
 
     private fun tiles(): List<Tile> {
@@ -191,7 +192,7 @@ class MysteryFlowTest {
         // test clock is stepped by hand, as FinishCelebrationTest does.
         compose.mainClock.autoAdvance = false
         instrumentation.runOnMainSync { while (!session.isFinished) session.placeNext() }
-        val deadline = System.currentTimeMillis() + 15_000
+        val deadline = System.currentTimeMillis() + LOAD_WAIT_MS
         while (!(exists(hasTestTag("completion-fresh")) && exists(hasText("Lantern", substring = true)))) {
             assertTrue(System.currentTimeMillis() < deadline, "the completion screen names it")
             compose.mainClock.advanceTimeByFrame()

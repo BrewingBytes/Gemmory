@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
@@ -83,7 +84,7 @@ class HighlightWalkthrough {
     }
 
     private fun waitForTag(tag: String) =
-        compose.waitUntil("tag $tag", 15_000) { compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil("tag $tag", LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
 
     private fun shot(name: String) {
         SystemClock.sleep(1_200)

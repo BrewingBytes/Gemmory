@@ -1,5 +1,6 @@
 package com.brewingbytes.gemmory.app
 
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.R
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
@@ -69,7 +70,7 @@ class AccessibilityScreensTest {
 
     private fun launch() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-bundled-starter")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun actionLabels(tag: String): List<String> =
@@ -87,7 +88,7 @@ class AccessibilityScreensTest {
         compose.waitForIdle()
 
         compose.onNodeWithText("My Photos").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodes(hasTestTag("tile-photo-a11y-tile")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("tile-photo-a11y-tile")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("tile-photo-a11y-tile").assertContentDescriptionEquals("${context.getString(R.string.photo_default_title)}, 0% done")
         assertEquals(listOf("Rename", "Delete"), actionLabels("tile-photo-a11y-tile"))
         compose.onNodeWithTag("tile-photo-a11y-tile").performCustomAccessibilityActionWithLabel("Rename")

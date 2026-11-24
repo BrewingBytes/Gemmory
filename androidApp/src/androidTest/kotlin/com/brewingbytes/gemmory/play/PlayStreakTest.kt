@@ -1,5 +1,7 @@
 package com.brewingbytes.gemmory.play
 
+import com.brewingbytes.gemmory.openMyPhotos
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import android.app.Activity
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -177,20 +179,20 @@ class PlayStreakTest {
     fun finishingAPictureTodayExtendsYesterdaysStreak() {
         seed(length = 2, daysAgo = 1)
         launchOnMyPhotos()
-        compose.waitUntil(5_000) { chipText()?.startsWith("2 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("2 days in a row,") == true }
         openTile()
         instrumentation.runOnMainSync { session()!!.placeNext() }
         compose.waitForIdle()
         back()
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
         compose.waitForIdle()
         assertEquals("2 days in a row, not done today, opens your streak", chipText(), "a gem alone doesn't count the day")
 
         openTile()
         instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
-        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-done") }
         compose.onNodeWithTag("completion-done").performClick()
-        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("3 days in a row,") == true }
     }
 
     /** #101 E2, O3: the new day and its celebration are committed together, and outlive a recreate and a restart. */
@@ -199,7 +201,7 @@ class PlayStreakTest {
         seed(length = 2, daysAgo = 1)
         launchOnMyPhotos()
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("3 days in a row,") == true }
         val today = LocalDate.now().toEpochDay()
         val pending = assertNotNull(app.streak.pendingCelebration())
         assertEquals(today, pending.day)
@@ -226,7 +228,7 @@ class PlayStreakTest {
         seed(length = 2, daysAgo = 2)
         launchOnMyPhotos()
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("3 days in a row,") == true }
         val today = LocalDate.now().toEpochDay()
         assertEquals(listOf(CoveredDay(today - 1, DayKind.DAY_OFF)), app.streak.pendingCelebration()?.covered)
         val logged = listOf(HistoryDay(today - 1, DayKind.DAY_OFF), HistoryDay(today, DayKind.FINISHED, "PHOTO/streak"))
@@ -244,12 +246,12 @@ class PlayStreakTest {
         launchOnMyPhotos()
         assertFalse(exists(STREAK_TAG), "no streak yet: no chip")
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText() == "1 day in a row, done today, opens your streak" }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText() == "1 day in a row, done today, opens your streak" }
         compose.onNodeWithTag(STREAK_TAG).performClick()
-        compose.waitUntil(5_000) { exists(STREAK_SCREEN_TAG) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(STREAK_SCREEN_TAG) }
         compose.onNode(hasText("Your streak")).assertExists()
         back()
-        compose.waitUntil(5_000) { exists(STREAK_TAG) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(STREAK_TAG) }
     }
 
     /**
@@ -267,14 +269,14 @@ class PlayStreakTest {
     private fun finishAndLeave() {
         openTile()
         instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
-        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-done") }
         compose.onNodeWithTag("completion-done").performClick()
         runBlocking { app.streak.settled() }
     }
 
     private fun openTile() {
         compose.onNodeWithTag(TILE).performClick()
-        compose.waitUntil(5_000) { session()?.viewport?.isLaidOut == true }
+        compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
     }
 
     private fun back() = scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
@@ -282,8 +284,8 @@ class PlayStreakTest {
     private fun launchOnMyPhotos() {
         runBlocking { app.store.create(ref, small) }
         scenario = ActivityScenario.launch(MainActivity::class.java)
-        compose.onNode(hasText("My Photos")).performClick()
-        compose.waitUntil(5_000) { exists(TILE) }
+        compose.openMyPhotos()
+        compose.waitUntil(LOAD_WAIT_MS) { exists(TILE) }
     }
 
     private fun chipText(): String? = compose.onAllNodes(hasTestTag(STREAK_TAG)).fetchSemanticsNodes().firstOrNull()
