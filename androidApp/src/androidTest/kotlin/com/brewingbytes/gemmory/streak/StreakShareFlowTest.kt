@@ -168,14 +168,14 @@ class StreakShareFlowTest {
 
         compose.onNodeWithTag(CELEBRATION_SHARE_TAG).performClick()
         waitFor("the card") { card.isFile }
-        waitFor("the share sheet", 15_000) { "intentresolver" in focused() || "ResolverActivity" in focused() }
+        waitFor("the share sheet") { "intentresolver" in focused() || "ResolverActivity" in focused() }
         val png = BitmapFactory.decodeFile(card.path)
         assertEquals(1080 to 1920, png.width to png.height)
         val pixels = IntArray(png.width * png.height).also { png.getPixels(it, 0, png.width, 0, 0, png.width, png.height) }
         assertTrue(pixels.none { Color.red(it) > 200 && Color.green(it) < 40 && Color.blue(it) < 40 }, "the red photo canvas isn't on the card")
 
         A11yTestSupport.shell("input keyevent KEYCODE_BACK")
-        waitFor("back on the celebration", 15_000) { "MainActivity" in focused() && exists(CELEBRATION_TAG) }
+        waitFor("back on the celebration") { "MainActivity" in focused() && exists(CELEBRATION_TAG) }
 
         // The sheet's callback when an app is picked.
         A11yTestSupport.shell("logcat -c")

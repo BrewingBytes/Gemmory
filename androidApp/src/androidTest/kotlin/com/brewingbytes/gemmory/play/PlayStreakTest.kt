@@ -179,7 +179,7 @@ class PlayStreakTest {
     fun finishingAPictureTodayExtendsYesterdaysStreak() {
         seed(length = 2, daysAgo = 1)
         launchOnMyPhotos()
-        compose.waitUntil(5_000) { chipText()?.startsWith("2 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("2 days in a row,") == true }
         openTile()
         instrumentation.runOnMainSync { session()!!.placeNext() }
         compose.waitForIdle()
@@ -190,9 +190,9 @@ class PlayStreakTest {
 
         openTile()
         instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
-        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-done") }
         compose.onNodeWithTag("completion-done").performClick()
-        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("3 days in a row,") == true }
     }
 
     /** #101 E2, O3: the new day and its celebration are committed together, and outlive a recreate and a restart. */
@@ -201,7 +201,7 @@ class PlayStreakTest {
         seed(length = 2, daysAgo = 1)
         launchOnMyPhotos()
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("3 days in a row,") == true }
         val today = LocalDate.now().toEpochDay()
         val pending = assertNotNull(app.streak.pendingCelebration())
         assertEquals(today, pending.day)
@@ -228,7 +228,7 @@ class PlayStreakTest {
         seed(length = 2, daysAgo = 2)
         launchOnMyPhotos()
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText()?.startsWith("3 days in a row,") == true }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText()?.startsWith("3 days in a row,") == true }
         val today = LocalDate.now().toEpochDay()
         assertEquals(listOf(CoveredDay(today - 1, DayKind.DAY_OFF)), app.streak.pendingCelebration()?.covered)
         val logged = listOf(HistoryDay(today - 1, DayKind.DAY_OFF), HistoryDay(today, DayKind.FINISHED, "PHOTO/streak"))
@@ -246,12 +246,12 @@ class PlayStreakTest {
         launchOnMyPhotos()
         assertFalse(exists(STREAK_TAG), "no streak yet: no chip")
         finishAndLeave()
-        compose.waitUntil(5_000) { chipText() == "1 day in a row, done today, opens your streak" }
+        compose.waitUntil(LOAD_WAIT_MS) { chipText() == "1 day in a row, done today, opens your streak" }
         compose.onNodeWithTag(STREAK_TAG).performClick()
-        compose.waitUntil(5_000) { exists(STREAK_SCREEN_TAG) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(STREAK_SCREEN_TAG) }
         compose.onNode(hasText("Your streak")).assertExists()
         back()
-        compose.waitUntil(5_000) { exists(STREAK_TAG) }
+        compose.waitUntil(LOAD_WAIT_MS) { exists(STREAK_TAG) }
     }
 
     /**
@@ -269,7 +269,7 @@ class PlayStreakTest {
     private fun finishAndLeave() {
         openTile()
         instrumentation.runOnMainSync { val s = session()!!; while (!s.isFinished) s.placeNext() }
-        compose.waitUntil(10_000) { exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-done") }
         compose.onNodeWithTag("completion-done").performClick()
         runBlocking { app.streak.settled() }
     }

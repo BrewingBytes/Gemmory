@@ -257,7 +257,7 @@ class FinishCelebrationTest {
         compose.waitUntil(LOAD_WAIT_MS) { session()?.viewport?.isLaidOut == true }
         val s = session()!!
         onMain { while (!s.isFinished) s.placeNext() }
-        compose.waitUntil(10_000) { exists("completion-fresh") && exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-fresh") && exists("completion-done") }
         compose.mainClock.advanceTimeBy(6_000)
         compose.waitForIdle()
         assertTrue(!exists(WHERE_FOUND_ROW_TAG), "no row at a later finish")
@@ -321,7 +321,7 @@ class FinishCelebrationTest {
         start()
         compose.mainClock.advanceTimeBy(6_000)
         compose.mainClock.autoAdvance = true
-        compose.waitUntil(5_000) { exists("completion-done") }
+        compose.waitUntil(LOAD_WAIT_MS) { exists("completion-done") }
         assertTrue(!exists(WHERE_FOUND_ROW_TAG), "no row")
         assertTrue(!app.firstRun.whereFoundDue() && !app.firstRun.whereFoundOpen(), "decided as not shown, for good")
     }

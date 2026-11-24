@@ -134,7 +134,7 @@ class ScheduledDropsFlowTest {
     private fun launch() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         waitFor(hasTestTag("tile-bundled-starter"))
-        compose.waitUntil("gallery loaded", 10_000) { tiles().isNotEmpty() }
+        compose.waitUntil("gallery loaded", LOAD_WAIT_MS) { tiles().isNotEmpty() }
     }
 
     private fun waitFor(matcher: SemanticsMatcher, timeout: Long = LOAD_WAIT_MS) =
@@ -162,7 +162,7 @@ class ScheduledDropsFlowTest {
         waitFor(hasTestTag(TOMORROW_TAG) and hasContentDescription("Tomorrow's picture, opens tomorrow"))
 
         // Local midnight while the gallery shows: it reloads by itself.
-        compose.waitUntil("the drop after midnight", 20_000) { tiles().any { it.ref.id == "harbor-lights" } }
+        compose.waitUntil("the drop after midnight", LOAD_WAIT_MS) { tiles().any { it.ref.id == "harbor-lights" } }
         waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture, new today: Harbor lights, Quick, free to start today"))
         compose.onNode(hasTestTag(NEW_TODAY_TAG), useUnmergedTree = true).assertExists()
         assertTrue(compose.onAllNodes(hasTestTag(TOMORROW_TAG)).fetchSemanticsNodes().isEmpty(), "no drop for the day after")
@@ -191,7 +191,7 @@ class ScheduledDropsFlowTest {
         scenario.moveToState(Lifecycle.State.CREATED)
         setClock(dropDay, LocalTime(8, 0))
         scenario.moveToState(Lifecycle.State.RESUMED)
-        compose.waitUntil("the drop after the night", 10_000) { tiles().any { it.ref.id == "harbor-lights" } }
+        compose.waitUntil("the drop after the night", LOAD_WAIT_MS) { tiles().any { it.ref.id == "harbor-lights" } }
         waitFor(hasTestTag(TODAY_TAG) and hasContentDescription("Today's picture, new today: Harbor lights, Quick, free to start today"))
         compose.onNode(hasTestTag(NEW_TODAY_TAG), useUnmergedTree = true).assertExists()
         assertTrue(compose.onAllNodes(hasTestTag(TOMORROW_TAG)).fetchSemanticsNodes().isEmpty(), "the Tomorrow line moved on")

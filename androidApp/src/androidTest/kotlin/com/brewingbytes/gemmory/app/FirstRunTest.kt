@@ -12,6 +12,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.LOAD_WAIT_MS
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.ads.AdGateway
 import com.brewingbytes.gemmory.ads.RewardedLoad
@@ -149,7 +150,7 @@ class FirstRunTest {
 
     /** Done on the completion screen; a tap during its entrance can be missed, so it's tapped until the gallery shows. */
     private fun done() {
-        compose.waitUntil("the completion screen", 10_000) { exists("completion-done") }
+        compose.waitUntil("the completion screen", LOAD_WAIT_MS) { exists("completion-done") }
         compose.waitUntil("the gallery", 10_000) {
             if (!exists("gallery-grid") && exists("completion-done")) runCatching { compose.onNodeWithTag("completion-done").performClick() }
             exists("gallery-grid")
