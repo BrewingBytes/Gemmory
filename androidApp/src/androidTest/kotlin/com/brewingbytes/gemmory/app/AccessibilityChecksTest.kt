@@ -64,6 +64,7 @@ import com.brewingbytes.gemmory.policy.Unavailable
 import com.brewingbytes.gemmory.share.ShareSheet
 import com.brewingbytes.gemmory.storage.CanvasKind
 import com.brewingbytes.gemmory.storage.CanvasRef
+import com.brewingbytes.gemmory.play.STREAK_PREFS
 import com.brewingbytes.gemmory.storage.StorageLayout
 import com.brewingbytes.gemmory.timelapse.EncodeState
 import com.brewingbytes.gemmory.ui.GemmoryTheme
@@ -478,6 +479,10 @@ class AccessibilityChecksTest {
 
     /** A first-run install (consent granted, answers in a pinned order) finishes a photo canvas; the row has come in. */
     private fun finishFirstRun() {
+        // A first finish: no finish day in the streak log from an earlier run on this device, or T56 isn't asked.
+        context.getSharedPreferences(STREAK_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        File(context.filesDir, StorageLayout.STREAK_HISTORY).delete()
+        app.resetStreakForTest(celebrations = false)
         app.resetFirstRunForTest(fresh = true)
         app.whereFoundConsentForTest = true
         app.whereFoundSeedForTest = 1

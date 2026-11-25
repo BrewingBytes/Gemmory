@@ -25,7 +25,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -34,8 +33,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.copy.LocalWords
 import com.brewingbytes.gemmory.game.MusicRules
 import com.brewingbytes.gemmory.ui.A11yText
 import com.brewingbytes.gemmory.ui.GemColors
@@ -53,11 +51,11 @@ const val MUSIC_VOLUME_TAG = "settings-music-volume"
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun MusicRows(settings: AppSettings) {
+fun MusicRows(settings: AppSettings) {
     val on by settings.music.collectAsStateWithLifecycle()
     val volume by settings.musicVolume.collectAsStateWithLifecycle()
-    val strings = strings()
-    val volumeLabel = stringResource(R.string.music_volume)
+    val words = LocalWords.current
+    val volumeLabel = words.text("music_volume")
     Row(
         Modifier
             .fillMaxWidth()
@@ -67,7 +65,7 @@ internal fun MusicRows(settings: AppSettings) {
             .testTag(MUSIC_TAG),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(R.string.music_title), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
+        Text(words.text("music_title"), style = GemType.body, color = GemColors.Bone, modifier = Modifier.weight(1f))
         GemSwitch(on, onCheckedChange = null)
     }
     if (!on) return
@@ -101,13 +99,13 @@ internal fun MusicRows(settings: AppSettings) {
                 .weight(1f)
                 .semantics {
                     contentDescription = volumeLabel
-                    stateDescription = A11yText(strings.words).musicVolume(volume)
+                    stateDescription = A11yText(words).musicVolume(volume)
                 }
                 .testTag(MUSIC_VOLUME_TAG),
         )
         Spacer(Modifier.width(12.dp))
         Text(
-            strings.text(R.string.percent, volume),
+            words.text("percent", volume),
             style = GemType.mono.copy(fontSize = 13.sp),
             color = GemColors.Bone,
             modifier = Modifier.testTag("settings-music-volume-value").clearAndSetSemantics {},
