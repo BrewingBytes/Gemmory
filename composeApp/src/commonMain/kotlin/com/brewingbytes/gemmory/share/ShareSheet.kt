@@ -23,14 +23,12 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.strings
+import com.brewingbytes.gemmory.copy.LocalWords
 import com.brewingbytes.gemmory.timelapse.EncodeState
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemSheet
@@ -58,14 +56,15 @@ fun ShareSheet(
     returnFocusTo: String? = null,
     progress: Boolean = false,
 ) {
+    val words = LocalWords.current
     when (state) {
-        is EncodeState.Running -> GemSheet(stringResource(R.string.share_making), onCancel, returnFocusTo) {
-            Text(stringResource(R.string.share_making_line), style = GemType.body, color = GemColors.Bone)
+        is EncodeState.Running -> GemSheet(words.text("share_making"), onCancel, returnFocusTo) {
+            Text(words.text("share_making_line"), style = GemType.body, color = GemColors.Bone)
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ProgressBar(state.percent, Modifier.weight(1f))
                 Text(
-                    strings().text(R.string.percent, state.percent),
+                    words.text("percent", state.percent),
                     style = GemType.mono.copy(fontSize = 16.sp),
                     color = GemColors.Bone,
                     modifier = Modifier.padding(start = 12.dp).widthIn(min = 48.dp).testTag("share-percent"),
@@ -73,30 +72,30 @@ fun ShareSheet(
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                GemTextButton(stringResource(R.string.action_cancel), onCancel, Modifier.testTag("share-cancel"))
+                GemTextButton(words.text("action_cancel"), onCancel, Modifier.testTag("share-cancel"))
             }
         }
-        is EncodeState.Picture -> GemSheet(stringResource(R.string.share_picture_title), onClose, returnFocusTo) {
+        is EncodeState.Picture -> GemSheet(words.text("share_picture_title"), onClose, returnFocusTo) {
             Text(
-                stringResource(if (progress) R.string.share_picture_progress else R.string.share_picture_before_after),
+                words.text(if (progress) "share_picture_progress" else "share_picture_before_after"),
                 style = GemType.body,
                 color = GemColors.Bone,
             )
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Thumb(before, stringResource(R.string.frame_before), aspect, Modifier.weight(1f))
-                Thumb(after, stringResource(if (progress) R.string.frame_so_far else R.string.frame_after), aspect, Modifier.weight(1f))
+                Thumb(before, words.text("frame_before"), aspect, Modifier.weight(1f))
+                Thumb(after, words.text(if (progress) "frame_so_far" else "frame_after"), aspect, Modifier.weight(1f))
             }
             Spacer(Modifier.height(20.dp))
-            PrimaryButton(stringResource(R.string.share_picture), onSharePicture, Modifier.fillMaxWidth().testTag("share-picture"))
+            PrimaryButton(words.text("share_picture"), onSharePicture, Modifier.fillMaxWidth().testTag("share-picture"))
         }
-        EncodeState.Failed -> GemSheet(stringResource(R.string.share_making), onClose, returnFocusTo) {
-            Text(stringResource(R.string.share_failed), style = GemType.body, color = GemColors.Bone)
+        EncodeState.Failed -> GemSheet(words.text("share_making"), onClose, returnFocusTo) {
+            Text(words.text("share_failed"), style = GemType.body, color = GemColors.Bone)
             Spacer(Modifier.height(20.dp))
-            QuietButton(stringResource(R.string.action_try_again), onTryAgain, Modifier.fillMaxWidth().testTag("share-try-again"))
+            QuietButton(words.text("action_try_again"), onTryAgain, Modifier.fillMaxWidth().testTag("share-try-again"))
         }
-        EncodeState.DiskFull -> GemSheet(stringResource(R.string.share_making), onClose, returnFocusTo) {
-            Text(stringResource(R.string.share_disk_full), style = GemType.body, color = GemColors.Bone)
+        EncodeState.DiskFull -> GemSheet(words.text("share_making"), onClose, returnFocusTo) {
+            Text(words.text("share_disk_full"), style = GemType.body, color = GemColors.Bone)
         }
         EncodeState.Idle, is EncodeState.Video -> Unit
     }
