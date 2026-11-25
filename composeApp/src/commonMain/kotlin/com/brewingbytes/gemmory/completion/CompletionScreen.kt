@@ -1,6 +1,8 @@
 package com.brewingbytes.gemmory.completion
 
-import com.brewingbytes.gemmory.app.LocalAppGraph
+import com.brewingbytes.gemmory.app.LocalShellUi
+import com.brewingbytes.gemmory.app.ShellUi
+import com.brewingbytes.gemmory.copy.LocalWords
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -28,7 +30,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -52,11 +53,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CollectionInfo
 import androidx.compose.ui.semantics.CollectionItemInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -68,20 +67,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.brewingbytes.gemmory.R
-import com.brewingbytes.gemmory.copy.strings
-import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.game.FinishCelebration
-import com.brewingbytes.gemmory.nav.Route
 import com.brewingbytes.gemmory.policy.WhereFoundAnswer
-import com.brewingbytes.gemmory.play.Feedback
-import com.brewingbytes.gemmory.share.ShareIntents
 import com.brewingbytes.gemmory.share.ShareSheet
 import com.brewingbytes.gemmory.storage.CanvasRef
-import com.brewingbytes.gemmory.timelapse.EncodeRequest
 import com.brewingbytes.gemmory.timelapse.EncodeState
-import com.brewingbytes.gemmory.timelapse.feed
-import com.brewingbytes.gemmory.timelapse.file
 import com.brewingbytes.gemmory.ui.ConfirmSheet
 import com.brewingbytes.gemmory.ui.GemColors
 import com.brewingbytes.gemmory.ui.GemSheet
@@ -98,23 +88,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/** [route] as the player sees it: fresh if the stack says so or its canvas was just finished. */
-fun FreshFinishTracker.isFresh(route: Route.Completion): Boolean = isFresh(route.ref, route.fresh)
-
-/** The player left [route]: true if it was fresh, and it is a still from now on. */
-fun FreshFinishTracker.left(route: Route.Completion): Boolean = left(route.ref, route.fresh)
-
-/** What Android's share sheet sends for [finished]: its share link and `share_completed` (the encode itself is the graph's). */
-private fun GemmoryApp.shareRequest(finished: Finished) =
-    EncodeRequest(finished.ref, finished.pattern, finished.log, finished.title, sourceFileOf(finished.ref), watermark = true)
-
 /**
  * Completion (design system, Completion: "lights down" and the finish celebration, #57). Fresh: the screen dims ~30%
  * around the picture, a sparkle sweep glints every gem over 2.4s over a rising haptic crescendo, the chime lands, gem
  * confetti in the picture's colors falls through the room during the 2s hold, then "Finished", the meta line, Share
  * and Done fade in. Reduced motion keeps the dim, the chime, the soft finish haptic and the hold only. Reopened from
- * the gallery it's the completion still: no celebration, plus "Play again". Share makes the time-lapse (or reuses it) behind the progress sheet, then opens the
- * Android share sheet; a cancelled or dismissed share comes back here with no message (design D8).
+ * the gallery it's the completion still: no celebration, plus "Play again". Share makes the time-lapse (or reuses it)
+ * behind the progress sheet, then opens the platform's share sheet ([ShellUi.rememberFinishedShare]); a cancelled or
+ * dismissed share comes back here with no message (design D8). Shared since iOS Stage 1c (T64): haptics and sounds
+ * come from the shell's [ShellUi.rememberFeedback].
  */
 @Composable
 fun CompletionScreen(
@@ -128,11 +110,11 @@ fun CompletionScreen(
     // T56: decided before the text fades in, so the row is in the column from the start and the picture never resizes.
     LaunchedEffect(ref, fresh) { if (fresh) vm.decideWhereFound(ref) }
     val reducedMotion = rememberReducedMotion()
-    val context = LocalContext.current
-    val app = context.applicationContext as GemmoryApp
-    val settings = LocalAppGraph.current.settings
-    val feedback = remember { Feedback(context, settings) }
-    DisposableEffect(feedback) { onDispose { feedback.release() } }
+    val words = LocalWords.current
+    val shell = LocalShellUi.current
+    // Released when the screen leaves, which also stops a crescendo still rising mid-sequence.
+    val feedback = shell.rememberFeedback()
+    val shareSheet = shell.rememberFinishedShare()
 
     val sequence = fresh && !vm.hasPlayed(ref)
     val dim = remember { Animatable(if (sequence) 0f else DIM) }
@@ -151,8 +133,8 @@ fun CompletionScreen(
         val video = encode as? EncodeState.Video ?: return@LaunchedEffect
         if (!loaded) return@LaunchedEffect
         lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
-        val request = vm.finished?.takeIf { it.ref == ref }?.let(app::shareRequest) ?: return@LaunchedEffect
-        context.startActivity(ShareIntents.chooser(context, video.file, request, video.feed))
+        val finished = vm.finished?.takeIf { it.ref == ref } ?: return@LaunchedEffect
+        shareSheet.open(finished, video)
         vm.shareHandled(ref)
     }
 
@@ -203,7 +185,7 @@ fun CompletionScreen(
                             },
                         )
                         vm.damaged -> Text(
-                            stringResource(R.string.play_damaged),
+                            words.text("play_damaged"),
                             style = GemType.body,
                             color = GemColors.Bone,
                         )
@@ -211,11 +193,11 @@ fun CompletionScreen(
                 }
                 Box(Modifier.fillMaxWidth().heightIn(max = textMax)) {
                     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).alpha(text.value).padding(top = 16.dp)) {
-                        Text(stringResource(R.string.completion_title), style = GemType.displayLarge, color = GemColors.Bone)
+                        Text(words.text("completion_title"), style = GemType.displayLarge, color = GemColors.Bone)
                         Text(finished?.meta.orEmpty(), style = GemType.label, color = GemColors.TextMuted)
                         Spacer(Modifier.height(16.dp))
                         PrimaryButton(
-                            stringResource(R.string.action_share),
+                            words.text("action_share"),
                             onClick = { vm.share(ref) },
                             enabled = finished != null,
                             held = encode is EncodeState.Running,
@@ -223,17 +205,17 @@ fun CompletionScreen(
                         )
                         if (vm.killedNotice) {
                             Text(
-                                stringResource(R.string.completion_killed),
+                                words.text("completion_killed"),
                                 style = GemType.label,
                                 color = GemColors.TextMuted,
                                 modifier = Modifier.padding(top = 4.dp).testTag("share-killed"),
                             )
                         }
                         Spacer(Modifier.height(8.dp))
-                        QuietButton(stringResource(R.string.action_done), onDone, Modifier.fillMaxWidth().testTag(DONE_TAG))
+                        QuietButton(words.text("action_done"), onDone, Modifier.fillMaxWidth().testTag(DONE_TAG))
                         if (!fresh) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                                GemTextButton(stringResource(R.string.completion_play_again), { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
+                                GemTextButton(words.text("completion_play_again"), { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
                             }
                         }
                         if (fresh || vm.whereFoundOn(ref)) WhereFoundBlock(vm.whereFound, revealed = text.value >= 1f)
@@ -265,8 +247,7 @@ fun CompletionScreen(
         onCancel = { vm.cancelShare(ref) },
         onSharePicture = {
             val picture = encode as? EncodeState.Picture
-            val request = finished?.let(app::shareRequest)
-            if (picture != null && request != null) context.startActivity(ShareIntents.chooser(context, picture.file, request))
+            if (picture != null && finished != null) shareSheet.open(finished, picture)
             vm.shareHandled(ref)
         },
         onTryAgain = {
@@ -278,9 +259,9 @@ fun CompletionScreen(
     )
     if (confirmPlayAgain) {
         ConfirmSheet(
-            title = stringResource(R.string.gallery_start_over_title),
-            body = stringResource(R.string.gallery_start_over_body),
-            confirm = stringResource(R.string.action_start_over),
+            title = words.text("gallery_start_over_title"),
+            body = words.text("gallery_start_over_body"),
+            confirm = words.text("action_start_over"),
             onConfirm = {
                 confirmPlayAgain = false
                 vm.playAgain(ref, onPlayAgain)
@@ -299,6 +280,7 @@ fun CompletionScreen(
  */
 @Composable
 private fun WhereFoundBlock(flow: WhereFoundFlow, revealed: Boolean) {
+    val words = LocalWords.current
     // The block keeps the tallest it has been, so the shorter thanks line, or nothing after Skip, doesn't resize the
     // picture above it.
     var held by remember { mutableIntStateOf(0) }
@@ -312,8 +294,8 @@ private fun WhereFoundBlock(flow: WhereFoundFlow, revealed: Boolean) {
     ) {
     when (val wf = flow.ui) {
         is WhereFoundUi.Row -> {
-            val question = stringResource(R.string.where_found_question)
-            val reward = stringResource(R.string.where_found_reward)
+            val question = words.text("where_found_question")
+            val reward = words.text("where_found_reward")
             Spacer(Modifier.height(24.dp))
             QuietButton(
                 question,
@@ -333,7 +315,7 @@ private fun WhereFoundBlock(flow: WhereFoundFlow, revealed: Boolean) {
             LaunchedEffect(wf) { withFullMotion { fade.animateTo(1f, tween(WHERE_FOUND_FADE_MS)) } }
             Spacer(Modifier.height(24.dp))
             Text(
-                stringResource(if (wf.paid) R.string.where_found_thanks_canvas else R.string.where_found_thanks),
+                words.text(if (wf.paid) "where_found_thanks_canvas" else "where_found_thanks"),
                 style = GemType.body,
                 color = GemColors.Bone,
                 modifier = Modifier.alpha(fade.value).testTag(WHERE_FOUND_THANKS_TAG),
@@ -351,18 +333,19 @@ private fun WhereFoundBlock(flow: WhereFoundFlow, revealed: Boolean) {
  */
 @Composable
 private fun WhereFoundSheet(row: WhereFoundUi.Row, flow: WhereFoundFlow, reducedMotion: Boolean) {
+    val words = LocalWords.current
     GemSheet(
-        title = stringResource(R.string.where_found_question),
+        title = words.text("where_found_question"),
         onDismiss = flow::dismiss,
         // Read at the close: with reduced motion an answer closes the sheet in the same frame it is tapped, before
         // the sheet recomposes, so a value passed in would still say Done (#215).
         returnFocusAtClose = { if (flow.answering) WHERE_FOUND_THANKS_TAG else DONE_TAG },
     ) {
-        if (!row.vip) Text(stringResource(R.string.where_found_reward), style = GemType.label, color = GemColors.TextMuted)
+        if (!row.vip) Text(words.text("where_found_reward"), style = GemType.label, color = GemColors.TextMuted)
         Column(Modifier.fillMaxWidth().semantics { collectionInfo = CollectionInfo(row.order.size, 1) }) {
             row.order.forEachIndexed { index, answer ->
                 QuietButton(
-                    stringResource(answer.label()),
+                    words.text(answer.label()),
                     { flow.answer(answer, reducedMotion) },
                     Modifier
                         .fillMaxWidth()
@@ -375,18 +358,19 @@ private fun WhereFoundSheet(row: WhereFoundUi.Row, flow: WhereFoundFlow, reduced
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            GemTextButton(stringResource(R.string.where_found_skip), { flow.answer(WhereFoundAnswer.SKIP, reducedMotion) }, Modifier.testTag(WHERE_FOUND_SKIP_TAG))
+            GemTextButton(words.text("where_found_skip"), { flow.answer(WhereFoundAnswer.SKIP, reducedMotion) }, Modifier.testTag(WHERE_FOUND_SKIP_TAG))
         }
     }
 }
 
-private fun WhereFoundAnswer.label(): Int = when (this) {
-    WhereFoundAnswer.VIDEO -> R.string.where_found_video
-    WhereFoundAnswer.COMMUNITY -> R.string.where_found_community
-    WhereFoundAnswer.FRIEND -> R.string.where_found_friend
-    WhereFoundAnswer.PLAY_SEARCH -> R.string.where_found_play_search
-    WhereFoundAnswer.OTHER -> R.string.where_found_other
-    WhereFoundAnswer.SKIP -> R.string.where_found_skip
+/** The string name of this answer's label. */
+private fun WhereFoundAnswer.label(): String = when (this) {
+    WhereFoundAnswer.VIDEO -> "where_found_video"
+    WhereFoundAnswer.COMMUNITY -> "where_found_community"
+    WhereFoundAnswer.FRIEND -> "where_found_friend"
+    WhereFoundAnswer.PLAY_SEARCH -> "where_found_play_search"
+    WhereFoundAnswer.OTHER -> "where_found_other"
+    WhereFoundAnswer.SKIP -> "where_found_skip"
 }
 
 /**
@@ -396,10 +380,11 @@ private fun WhereFoundAnswer.label(): Int = when (this) {
  */
 @Composable
 private fun Picture(finished: Finished, sweep: Float, modifier: Modifier = Modifier) {
+    val words = LocalWords.current
     Box(Modifier.wrapContentSize().aspectRatio(finished.aspect).clipToBounds().then(modifier)) {
         Image(
             finished.image,
-            contentDescription = stringResource(R.string.completion_picture),
+            contentDescription = words.text("completion_picture"),
             contentScale = ContentScale.Fit,
             filterQuality = FilterQuality.Low,
             modifier = Modifier.fillMaxSize(),

@@ -3,11 +3,13 @@ package com.brewingbytes.gemmory.app
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Canvas
+import com.brewingbytes.gemmory.completion.Finished
 import com.brewingbytes.gemmory.converter.Pattern
 import com.brewingbytes.gemmory.play.CanvasEffects
 import com.brewingbytes.gemmory.play.HighlightStyle
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.share.ProgressShareSession
+import com.brewingbytes.gemmory.timelapse.EncodeState
 
 /**
  * What a shared screen draws or plays through its platform shell (iOS Stage 1c, T64): the parts that stay native, as
@@ -21,6 +23,13 @@ interface ShellUi {
      */
     @Composable
     fun ProgressShareHost(session: ProgressShareSession, returnFocusTo: String?)
+
+    /**
+     * Opens the platform's share sheet for a finished canvas's time-lapse (design D8): Android's chooser with the
+     * tracked Play link and `share_completed` (eng D14), iOS's in Stage 2.
+     */
+    @Composable
+    fun rememberFinishedShare(): FinishedShare
 
     /** Haptics and sounds for one screen, following the Settings toggles; released when the screen leaves. */
     @Composable
@@ -56,6 +65,18 @@ interface ScreenFeedback {
 
     /** A color finished: the confirm haptic and the color-done sound. */
     fun colorFinished()
+
+    /** The finish celebration's haptic (#57): rises under the sparkle sweep and peaks on the chime. */
+    fun crescendo()
+
+    /** The picture-finished chime, with the soft finish haptic unless [crescendo] is already peaking on it. */
+    fun pictureFinished()
+}
+
+/** The platform's share sheet for one finished canvas, from [ShellUi.rememberFinishedShare]. */
+fun interface FinishedShare {
+    /** Hands [result], a [EncodeState.Video] or an [EncodeState.Picture] of [finished], to the share sheet. */
+    fun open(finished: Finished, result: EncodeState)
 }
 
 /** The old canvas renderer behind [ShellUi.rememberLegacyCanvas] (R10-8): draws the open canvas as it did before T62. */

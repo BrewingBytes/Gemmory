@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import com.brewingbytes.gemmory.BuildConfig
 import com.brewingbytes.gemmory.GemmoryApp
+import com.brewingbytes.gemmory.app.FinishedShare
 import com.brewingbytes.gemmory.app.LegacyCanvas
 import com.brewingbytes.gemmory.app.ScreenFeedback
 import com.brewingbytes.gemmory.app.ShellUi
@@ -19,15 +20,38 @@ import com.brewingbytes.gemmory.play.Feedback
 import com.brewingbytes.gemmory.play.HighlightStyle
 import com.brewingbytes.gemmory.play.PlaySession
 import com.brewingbytes.gemmory.share.ProgressShareSession
+import com.brewingbytes.gemmory.share.ShareIntents
+import com.brewingbytes.gemmory.timelapse.EncodeRequest
+import com.brewingbytes.gemmory.timelapse.EncodeState
+import com.brewingbytes.gemmory.timelapse.feed
+import com.brewingbytes.gemmory.timelapse.file
 import com.brewingbytes.gemmory.share.ProgressShareHost as AndroidProgressShareHost
 
 /**
- * Android's slots for shared screens (T64): today's share host, [Feedback] on the composition's view, and the old
+ * Android's slots for shared screens (T64): today's share host, the chooser for a finished share, [Feedback] on the
+ * composition's view, and the old
  * canvas renderer while a hotfix switches the shared one off (R10-8).
  */
 object AndroidShellUi : ShellUi {
     @Composable
     override fun ProgressShareHost(session: ProgressShareSession, returnFocusTo: String?) = AndroidProgressShareHost(session, returnFocusTo)
+
+    @Composable
+    override fun rememberFinishedShare(): FinishedShare {
+        val context = LocalContext.current
+        return remember(context) {
+            val app = context.applicationContext as GemmoryApp
+            FinishedShare { finished, result ->
+                // Finished shares carry the watermark the encode decided at the tap; the request only names the link.
+                val request = EncodeRequest(finished.ref, finished.pattern, finished.log, finished.title, app.sourceFileOf(finished.ref), watermark = true)
+                when (result) {
+                    is EncodeState.Video -> context.startActivity(ShareIntents.chooser(context, result.file, request, result.feed))
+                    is EncodeState.Picture -> context.startActivity(ShareIntents.chooser(context, result.file, request))
+                    else -> Unit
+                }
+            }
+        }
+    }
 
     @Composable
     override fun rememberFeedback(): ScreenFeedback {
@@ -48,6 +72,10 @@ object AndroidShellUi : ShellUi {
                 override fun wrongColor() = feedback.wrongColor(view)
 
                 override fun colorFinished() = feedback.colorFinished(view)
+
+                override fun crescendo() = feedback.crescendo()
+
+                override fun pictureFinished() = feedback.pictureFinished()
             }
         }
     }
