@@ -208,6 +208,9 @@ open class StoreScreenshots {
         // #89: the finished starter has moved to the Finished section, out of view.
         compose.waitUntil(LOAD_WAIT_MS) { compose.onAllNodes(hasTestTag("gallery-grid")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(t(R.string.settings_title)).performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("settings-membership")).fetchSemanticsNodes().isNotEmpty() }
+        // Shared since T64: ScreenParity holds Settings to its look on main.
+        shot("6-settings")
         compose.onNodeWithTag("settings-membership").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("plan-yearly")).fetchSemanticsNodes().isNotEmpty() }
         shot("5-paywall")
