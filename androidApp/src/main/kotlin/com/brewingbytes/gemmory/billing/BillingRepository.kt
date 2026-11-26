@@ -215,7 +215,7 @@ class BillingRepository(
         if (_purchase.value is PurchaseUi.Launching) return
         _purchase.value = PurchaseUi.Launching(product)
         when (val code = backend.launchPurchase(activity, product)) {
-            BillingCode.OK -> Unit
+            BillingCode.OK -> analytics.log(AnalyticsEvent.purchaseStarted(product))
             BillingCode.CANCELLED -> _purchase.value = PurchaseUi.Idle
             else -> scope.launch { onUpdate(PurchaseUpdate(code, emptyList())) }
         }
@@ -250,7 +250,10 @@ class BillingRepository(
                 // The full list, so a switch or anything else bought elsewhere is in step too.
                 refresh()
             }
-            BillingCode.CANCELLED -> _purchase.value = PurchaseUi.Idle
+            BillingCode.CANCELLED -> {
+                launching?.let { analytics.log(AnalyticsEvent.purchaseCancelled(it)) }
+                _purchase.value = PurchaseUi.Idle
+            }
             BillingCode.ALREADY_OWNED -> {
                 // Bought on another device or before a reinstall: what Play holds is the answer.
                 val owned = (refresh() as? Outcome.Ok)?.value

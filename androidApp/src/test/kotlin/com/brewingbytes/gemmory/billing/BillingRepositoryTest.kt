@@ -210,7 +210,7 @@ class BillingRepositoryTest {
         assertEquals(PurchaseUi.Succeeded(Products.VIP_YEARLY), r.purchase.value)
         assertEquals(Notice.VIP_STARTED, r.notice.value)
         assertEquals(Entitlements(VipPlan.YEARLY), r.entitlements.value)
-        assertEquals(listOf(AnalyticsEvent.vipPurchased("yearly")), events)
+        assertEquals(listOf(AnalyticsEvent.purchaseStarted(Products.VIP_YEARLY), AnalyticsEvent.vipPurchased("yearly")), events)
         r.purchaseHandled()
         assertEquals(PurchaseUi.Idle, r.purchase.value)
     }
@@ -224,7 +224,7 @@ class BillingRepositoryTest {
         client.queryCodes += BillingCode.NETWORK
         client.updates.emit(PurchaseUpdate(BillingCode.OK, listOf(purchase(Products.VIP_WEEKLY))))
         assertEquals(Entitlements(VipPlan.WEEKLY, removeAds = true), r.entitlements.value)
-        assertEquals(listOf(AnalyticsEvent.vipPurchased("weekly")), events)
+        assertEquals(listOf(AnalyticsEvent.purchaseStarted(Products.VIP_WEEKLY), AnalyticsEvent.vipPurchased("weekly")), events)
     }
 
     @Test
@@ -270,7 +270,25 @@ class BillingRepositoryTest {
         client.updates.emit(PurchaseUpdate(BillingCode.OK, client.owned))
         assertEquals(Notice.ADS_OFF, r.notice.value)
         assertEquals(Membership.ADS_REMOVED, r.membership.value)
-        assertEquals(listOf(AnalyticsEvent.removeAdsPurchased), events)
+        assertEquals(listOf(AnalyticsEvent.purchaseStarted(Products.REMOVE_ADS), AnalyticsEvent.removeAdsPurchased), events)
+    }
+
+    @Test
+    fun closingPlaysSheetCountsAsACancelledPurchase() = runTest(UnconfinedTestDispatcher()) {
+        // 1.0.6's funnel: paywall_shown (MainActivity), purchase_started when Play's sheet opens, then a purchase or this.
+        val r = repository()
+        r.buy(ACTIVITY, Products.VIP_WEEKLY)
+        client.updates.emit(PurchaseUpdate(BillingCode.CANCELLED, emptyList()))
+        assertEquals(PurchaseUi.Idle, r.purchase.value)
+        assertEquals(listOf(AnalyticsEvent.purchaseStarted(Products.VIP_WEEKLY), AnalyticsEvent.purchaseCancelled(Products.VIP_WEEKLY)), events)
+    }
+
+    @Test
+    fun aSheetThatNeverOpenedIsNotAStartedPurchase() = runTest(UnconfinedTestDispatcher()) {
+        val r = repository()
+        client.launchCode = BillingCode.UNAVAILABLE
+        r.buy(ACTIVITY, Products.REMOVE_ADS)
+        assertTrue(events.none { it.name == "purchase_started" })
     }
 
     @Test
@@ -310,7 +328,7 @@ class BillingRepositoryTest {
         assertEquals(PurchaseUi.Pending(Products.REMOVE_ADS), r.purchase.value)
         assertEquals(Entitlements.FREE, r.entitlements.value)
         assertTrue(client.acknowledged.isEmpty())
-        assertTrue(events.isEmpty(), "a pending payment isn't a purchase yet")
+        assertEquals(listOf("purchase_started"), events.map { it.name }, "a pending payment isn't a purchase yet: only Play's sheet opening was logged")
         r.purchaseHandled()
         assertEquals(PurchaseUi.Pending(Products.REMOVE_ADS), r.purchase.value, "still pending when the paywall reopens")
 
@@ -321,7 +339,7 @@ class BillingRepositoryTest {
         assertEquals(listOf("t-remove_ads"), client.acknowledged)
         assertEquals(Notice.ADS_OFF, r.notice.value)
         assertEquals(PurchaseUi.Succeeded(Products.REMOVE_ADS), r.purchase.value)
-        assertEquals(listOf(AnalyticsEvent.removeAdsPurchased), events, "counted once Play confirms it")
+        assertEquals(listOf(AnalyticsEvent.purchaseStarted(Products.REMOVE_ADS), AnalyticsEvent.removeAdsPurchased), events, "counted once Play confirms it")
     }
 
     @Test
@@ -352,7 +370,7 @@ class BillingRepositoryTest {
         r.buy(ACTIVITY, Products.REMOVE_ADS)
         client.updates.emit(PurchaseUpdate(BillingCode.ALREADY_OWNED, emptyList()))
         assertEquals(PurchaseUi.Failed, r.purchase.value, "Play doesn't actually list it")
-        assertTrue(events.isEmpty(), "already owned isn't a new purchase")
+        assertEquals(listOf("purchase_started", "purchase_started"), events.map { it.name }, "already owned isn't a new purchase: only the two sheet openings")
     }
 
     @Test

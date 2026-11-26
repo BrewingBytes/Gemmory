@@ -207,6 +207,22 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         val removeAdsPurchased = AnalyticsEvent("remove_ads_purchased")
 
         /**
+         * The paywall opened (1.0.6), the top of the purchase funnel. [source] is what opened it: `gallery` (the VIP
+         * action), `membership` (Settings), or the rewarded sheet's VIP line for `rewarded_picture`, `rewarded_photo`,
+         * `rewarded_colors`, `rewarded_fills` or `streak_repair`. A VIP never sees it, so it is never logged for one.
+         */
+        fun paywallShown(source: String) = AnalyticsEvent("paywall_shown", mapOf(SOURCE to source))
+
+        /**
+         * Play's purchase sheet opened for [product] (1.0.6): `vip_weekly`, `vip_yearly` or `remove_ads`, our own
+         * product ids, never the player's. Then `vip_purchased` / `remove_ads_purchased`, or [purchaseCancelled].
+         */
+        fun purchaseStarted(product: String) = AnalyticsEvent("purchase_started", mapOf(PRODUCT to product))
+
+        /** The player closed Play's purchase sheet for [product] without buying (1.0.6). */
+        fun purchaseCancelled(product: String) = AnalyticsEvent("purchase_cancelled", mapOf(PRODUCT to product))
+
+        /**
          * A time-lapse was encoded (not a cached re-share): how long it took on this phone and how it ended (eng
          * finding 16). [outcome] as in EncodeManager.outcomeName.
          */
@@ -222,6 +238,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         const val COLLECTION_ID = "collection_id"
         const val EVENT_ID = "event_id"
         const val MYSTERY = "mystery"
+        const val PRODUCT = "product"
 
         /** The share's kind (#36): `progress` before the last gem, `finished` after it. */
         fun kind(progress: Boolean): String = if (progress) "progress" else "finished"
