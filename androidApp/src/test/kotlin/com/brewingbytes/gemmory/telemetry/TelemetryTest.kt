@@ -280,6 +280,10 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("interstitial_shown"), AnalyticsEvent.interstitialShown)
         assertEquals(AnalyticsEvent("vip_purchased", mapOf("period" to "weekly")), AnalyticsEvent.vipPurchased("weekly"))
         assertEquals(AnalyticsEvent("remove_ads_purchased"), AnalyticsEvent.removeAdsPurchased)
+        // 1.0.6: the purchase funnel, by product id and paywall source only.
+        assertEquals(AnalyticsEvent("paywall_shown", mapOf("source" to "rewarded_fills")), AnalyticsEvent.paywallShown("rewarded_fills"))
+        assertEquals(AnalyticsEvent("purchase_started", mapOf("product" to "vip_yearly")), AnalyticsEvent.purchaseStarted("vip_yearly"))
+        assertEquals(AnalyticsEvent("purchase_cancelled", mapOf("product" to "remove_ads")), AnalyticsEvent.purchaseCancelled("remove_ads"))
         // #29: a photo canvas carries its color choice; a picture has none.
         assertEquals(AnalyticsEvent("photo_canvas_started", mapOf("colors" to "fewer")), AnalyticsEvent.photoCanvasStarted(ColorChoice.FEWER))
         assertEquals(

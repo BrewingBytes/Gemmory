@@ -206,9 +206,9 @@ class MainActivity : ComponentActivity() {
 
         /**
          * "VIP", Membership and the rewarded sheet's VIP texts (design D3, D6): the paywall, or Play's subscription
-         * page for a VIP, whom the paywall never shows.
+         * page for a VIP, whom the paywall never shows. [source] is `paywall_shown`'s (1.0.6).
          */
-        fun openVip(trigger: String?) {
+        fun openVip(trigger: String?, source: String) {
             if (entitlements.vip || membership == Membership.VIP_UNCONFIRMED) {
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, subscriptionPage(packageName, entitlements.plan)))
@@ -220,6 +220,7 @@ class MainActivity : ComponentActivity() {
             app.billing.purchaseHandled()
             app.billing.loadPrices()
             stack.push(Route.Paywall)
+            app.analytics.log(AnalyticsEvent.paywallShown(source))
         }
 
         // Billing's one-time gallery line: taken when the gallery is up, kept while it stays up.
@@ -467,7 +468,7 @@ class MainActivity : ComponentActivity() {
                     onSettings = { stack.push(Route.Settings) },
                     onStreak = { source -> stack.openStreak(source) },
                     showVip = firstSessionOver,
-                    onVip = { openVip(VIP_ACTION_TAG) },
+                    onVip = { openVip(VIP_ACTION_TAG, "gallery") },
                     notice = galleryNotice,
                     // VIP has everything unlimited, so no inventory (#38).
                     inventory = inventory.takeIf { !entitlements.vip },
@@ -491,7 +492,7 @@ class MainActivity : ComponentActivity() {
             }
             Route.Settings -> {
                 SendAchievementsWhileShown(app.achievements)
-                SettingsScreen(onBack = { stack.pop() }, onMembership = { openVip(MEMBERSHIP_TAG) })
+                SettingsScreen(onBack = { stack.pop() }, onMembership = { openVip(MEMBERSHIP_TAG, "membership") })
             }
             Route.Paywall -> {
                 val prices by app.billing.prices.collectAsStateWithLifecycle()
@@ -664,6 +665,13 @@ class MainActivity : ComponentActivity() {
                             RewardTarget.PhotoCanvas, RewardTarget.Colors -> "preview-primary"
                             RewardTarget.Fills -> INVENTORY_TAG
                             RewardTarget.StreakRepair -> STREAK_REPAIR_TAG
+                        },
+                        when (ui.target) {
+                            is RewardTarget.Picture -> "rewarded_picture"
+                            RewardTarget.PhotoCanvas -> "rewarded_photo"
+                            RewardTarget.Colors -> "rewarded_colors"
+                            RewardTarget.Fills -> "rewarded_fills"
+                            RewardTarget.StreakRepair -> "streak_repair"
                         },
                     )
                 },

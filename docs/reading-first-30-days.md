@@ -109,6 +109,30 @@ Organic has no tag, so it has no Play Console column of its own. A row with 100 
 
 The production-launch checks (AdMob linked to the listing, app-ads.txt verified, non-zero earnings within 7 days) are a checklist, not a 30-day rate: [designs/ad-mediation.md](designs/ad-mediation.md) → Success Criteria and #74.
 
+## Money: ad revenue and the purchase funnel (1.0.6)
+
+**Ad revenue per player has no event of ours.** AdMob is the mediation platform (Unity bids through it), so linking the
+AdMob app to Firebase makes the Mobile Ads SDK log `ad_impression` with its revenue (`value`, `currency`, `ad_source`,
+`ad_format`) by itself, mediated bidding networks included. Never add an `OnPaidEventListener` that logs it too: every
+impression would count twice. The link: AdMob → Apps → Gemmory → App settings → Link to Firebase, after turning on
+impression-level ad revenue (AdMob → Settings). Like every event, it covers consented players only.
+
+**The purchase funnel**, each step a count of events (Firebase → Analytics → Events, or a GA4 funnel exploration):
+
+| Step | Event | Params |
+|---|---|---|
+| Saw the paywall | `paywall_shown` | `source`: `gallery`, `membership`, `rewarded_picture`, `rewarded_photo`, `rewarded_colors`, `rewarded_fills`, `streak_repair` |
+| Opened Play's sheet | `purchase_started` | `product`: `vip_weekly`, `vip_yearly`, `remove_ads` |
+| Closed it without buying | `purchase_cancelled` | `product` |
+| Bought | `vip_purchased` (`period`) / `remove_ads_purchased` | |
+
+Read it as rates: started ÷ shown is the paywall's pull (prices, copy), bought ÷ started is Play's checkout. Which
+`source` converts best says where VIP belongs. Firebase's own `in_app_purchase` carries the price; ours carry the step.
+
+**Key events for paid ads.** In Firebase → Analytics → Key events, mark `vip_purchased`, `remove_ads_purchased`,
+`in_app_purchase` and `ad_impression` (counting once per event), so a Google Ads app campaign linked to Firebase can
+bid for players who pay, not only for installs.
+
 ## iOS: the platform split and the after-launch bars
 
 Plan `docs/designs/gemmory-ios.md` (eng D18, D26, R3-6). iOS sends the same events with the same params into the same Firebase project, as its own app.
