@@ -1,4 +1,5 @@
 Gemmory is a diamond painting game made from your own photos. Pick a picture, tap a color and set its gems one tap at a time, until the whole canvas sparkles.
+Like color by number and paint by number, but with sparkling gems.
 
 WHY PLAYERS LOVE IT
 • Unwind after a long day: no timer, no score, no rush.

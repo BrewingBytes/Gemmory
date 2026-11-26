@@ -1,4 +1,5 @@
 Gemmory, kendi fotoğraflarınla oynanan bir elmas boyama oyunu. Bir tablo seç, bir renge dokun ve taşlarını tek tek yerleştir; ta ki bütün tuval parıldayana kadar.
+Sayılarla boyama gibi, ama parıldayan taşlarla.
 
 OYUNCULAR NEDEN SEVİYOR
 • Uzun bir günün ardından rahatla: süre yok, puan yok, acele yok.

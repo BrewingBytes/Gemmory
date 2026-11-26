@@ -1,4 +1,5 @@
 Gemmory é um jogo de pintura de diamante feito com suas próprias fotos. Escolha um quadro, toque em uma cor e coloque as gemas uma a uma, até a tela inteira brilhar.
+Como pintar por números, mas com gemas brilhantes.
 
 POR QUE AS PESSOAS AMAM
 • Relaxe depois de um dia longo: sem cronômetro, sem pontos, sem pressa.
