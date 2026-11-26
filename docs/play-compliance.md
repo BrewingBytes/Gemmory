@@ -257,6 +257,7 @@ Record each check (date, version, both numbers) in the PR or release notes that 
 - **2026-11-25, 1.0.4 (26), gate passed:** crash-free users 100% (no tester crashed), no `: damaged,` save-load failures. Production access granted the same day.
 - **2026-11-25, open testing live** with 1.0.4 in 175 countries (every country except Russia and Belarus, which have no Play billing or AdMob serving, and Vietnam, which asks games for a local license; new countries are added automatically). Pre-registration skipped: AdMob can't link an app nobody can download. AdMob's store search didn't find the open-testing listing that day.
 - **2026-11-25, soft launch:** 1.0.4 (ads off, #203) sent to production at full rollout in the same countries as open testing. It is "soft" in that it has no ads and no promotion yet: the channel links (docs/channel-links.md) start once ads are on. Ads come with 1.0.5 (`gemmory.ads.enabled=true`) after AdMob links the production listing and its readiness review passes (#74).
+- **2026-11-25, AdMob linked and ready:** the production listing was linked in AdMob the day it went public, and the app readiness review passed the same day ("Ready", ad serving enabled). The Unity mediation groups were created on the v2 ad units. Ads go on with 1.0.5 (27). Data safety and the ads declaration re-read for it: no change, since the ad SDKs shipped in every version and only their start was switched off.
 
 ## In-app review (T39)
 
@@ -268,28 +269,28 @@ The prompt is on in every build from 0.8.4 (20) (T52, review prompt always on; C
 
 Design: [docs/designs/ad-mediation.md](designs/ad-mediation.md). AdMob serves rewarded and interstitial ads, and Unity Ads bids in the same auction through AdMob mediation (adapter `com.google.ads.mediation:unity`). No app code picks between the two.
 
-**Ads off until AdMob links the app (#203).** `gemmory.ads.enabled=false` in `gradle.properties` ships a release that never starts the ad SDK: no `MobileAds.initialize`, no Unity `privacy.consent` write, no ad loads, no video offers, and every video's reward is free. UMP still runs (first-launch form where required, Settings → Privacy choices), because it is also Firebase Analytics' Consent Mode v2 (#12). The SDKs still ship in the APK, so Data safety and the ads declaration stay as they are. Turning ads on is that one line and a release; re-read this section and the Data safety answers then.
+**The ads switch (#203).** `gemmory.ads.enabled` in `gradle.properties`. False ships a release that never starts the ad SDK: no `MobileAds.initialize`, no Unity `privacy.consent` write, no ad loads, no video offers, and every video's reward is free. UMP still runs (first-launch form where required, Settings → Privacy choices), because it is also Firebase Analytics' Consent Mode v2 (#12). 1.0.0-1.0.4 shipped with it false; it is **true from 1.0.5 (27)**, after AdMob linked the production listing on 2026-11-25. The SDKs shipped in every version, so Data safety and the ads declaration didn't change either way.
 
-**IDs.** The three production AdMob IDs are committed in `gradle.properties`. Release builds use them (the app ID through `manifestPlaceholders`, the units through `BuildConfig`), and `:shared:validateReleaseAdIds` fails the release build on a missing, blank or test-publisher ID. The Unity Game ID and placement IDs are entered only in the AdMob console (each unit → bidding sources → Unity Ads).
+**IDs.** The three production AdMob IDs are committed in `gradle.properties`. The ad units are "Rewarded v2" and "Interstitial v2" (2026-11-25): the first two units had "Partner bidding" ticked (for another mediation platform, which can't be undone and keeps a unit out of AdMob mediation), so their mediation group picker stayed empty; never tick it on a Gemmory unit. Release builds use them (the app ID through `manifestPlaceholders`, the units through `BuildConfig`), and `:shared:validateReleaseAdIds` fails the release build on a missing, blank or test-publisher ID. The Unity Game ID and placement IDs are entered only in the AdMob console (each unit → bidding sources → Unity Ads).
 
 **Consent.**
 - GDPR: Unity Ads is a custom ad partner in the AdMob Privacy & messaging GDPR message. The adapter forwards UMP's `IABTCF_AddtlConsent` to Unity, and the app never writes `gdpr.consent`.
 - US states: a published US-states message lists Unity Ads. The app writes Unity's `privacy.consent` from the GPP string UMP stores (`ads/UsPrivacy.kt`): false on any sale, sharing or targeted-ads opt-out, true with no US section, false and a non-fatal when the string doesn't decode. The write happens after each consent update (every launch, the first-ad form, Settings → Privacy choices) and always before `MobileAds.initialize`.
 
-**Closed test (no friendly clicks).**
-- The founder's phones are AdMob test devices (AdMob → Settings → Test devices).
-- Unity test mode is **on** for the whole closed test (Unity dashboard → Monetization → Testing), because AdMob's test devices don't cover mediated Unity demand.
+**No friendly clicks.**
+- An Android phone of ours that runs the Play build is registered as an AdMob test device (AdMob → Settings → Test devices) and a Unity test device (Unity dashboard → Monetization → Settings → Test device, by advertising ID), because AdMob's test devices don't cover mediated Unity demand. Since 1.0.5 the founder plays on an iPhone, so no Android phone of ours runs the Play build; ad checks run on the emulator, which AdMob always treats as a test device.
+- During the closed test Unity's project-wide test mode was forced on; the founder switched it off on 2026-11-25 for 1.0.5. The SDK itself starts in production mode (logcat `UnityAds: Initializing SDK … in production mode`); an emulator still gets test creatives because AdMob marks every emulator request "sent from a test device".
 - Testers get a written "please don't tap ads" note.
 - Check on the founder's phone: AdMob fills both units (test ads).
-- Unity is already set up (Game ID `800406589`, placements `BP_Rewarded_Android` and `Interstitial_Android`, test mode forced on, not child-directed). Its two AdMob mediation groups wait for the production launch: while the app is in "needs review" (no public store listing to link), AdMob's mediation group picker lists no ad units (seen 2026-10-21).
+- Unity is set up (Game ID `800406589`, placements `BP_Rewarded_Android` and `Interstitial_Android`, not child-directed). The two AdMob mediation groups (Rewarded and Interstitial, Android, Unity Ads bidding) were created on 2026-11-25, once the v2 ad units existed: the first units had "Partner bidding" ticked, which keeps a unit out of AdMob's mediation group picker.
 
 **app-ads.txt.** `app-ads.txt` sits at the root of `https://brewingbytes.github.io/` (repo `BrewingBytes/brewingbytes.github.io`), with the AdMob line plus Unity's lines, and that site is the Play developer website. AdMob verifies it only after the app is linked to its public listing (production launch).
 
 **Rollback.** If Crashlytics shows a crash or ANR cluster with Unity SDK frames, or Play vitals regress after the release, disable Unity Ads as a bidding source on both AdMob units. That needs no release, and AdMob demand keeps serving. The SDK removal then ships in the next version.
 
 **Production launch** (tracked in #74's checklist):
-- Link the AdMob app to the public listing and pass the readiness review.
-- Create the two mediation groups (Rewarded and Interstitial, Android), each with Unity Ads as a bidding source mapped to Game ID `800406589` and its placement. Then check in Ad Inspector that Unity Ads (Bidding) fills both units.
-- app-ads.txt shows "Verified".
-- Turn Unity test mode off.
+- Link the AdMob app to the public listing and pass the readiness review. **Done 2026-11-25**: linked the day production went live, status "Ready", ad serving enabled the same day.
+- Create the two mediation groups (Rewarded and Interstitial, Android), each with Unity Ads as a bidding source mapped to Game ID `800406589` and its placement. **Done 2026-11-25.** Then check in Ad Inspector (emulator, 1.0.5) that Unity Ads (Bidding) fills both units.
+- app-ads.txt shows "Verified" (AdMob → Apps → Gemmory → App settings → app-ads.txt; the crawl can take up to a few days after linking).
+- Unity test mode off. **Done 2026-11-25.**
 - Non-zero AdMob earnings within 7 days.
