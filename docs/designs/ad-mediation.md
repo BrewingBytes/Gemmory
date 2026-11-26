@@ -110,9 +110,9 @@ One issue (T34) covering, in order:
 - Repo Data safety and privacy policy updated and merged, and the Play Console Data safety form submitted, before the build is promoted.
 
 **Production launch (checked at launch, tracked in this issue's checklist):**
-- AdMob app linked to the public Play listing; app readiness review passed.
-- app-ads.txt shows "Verified" in AdMob; no "limited ad serving" banner.
-- Unity test mode off; AdMob shows non-zero estimated earnings within 7 days of the production release.
+- AdMob app linked to the public Play listing; app readiness review passed. **Done 2026-11-25** (ads on from 1.0.5).
+- app-ads.txt shows "Verified" in AdMob; no "limited ad serving" banner. Limited serving lifted 2026-11-25; app-ads.txt verification: check in AdMob.
+- Unity test mode off (**done 2026-11-25**); AdMob shows non-zero estimated earnings within 7 days of the production release (1.0.5).
 
 ## Distribution Plan
 The existing release path (README → Release): `./gradlew :androidApp:bundleRelease` locally with the upload key from `local.properties`, tag `v<versionName>`, Test Lab checks pass, upload the AAB to Play, promote to closed. The ad IDs come from the committed `gradle.properties`, so nothing new is needed on the build machine. Ships as **0.8.1** (0.8.0 was built and tagged but never uploaded; 0.6.1 went out first with scheduled drops and the evening reminder, then 0.7.0 with collections and the weekly event): a new ad SDK and the switch to real monetization.
