@@ -1,4 +1,5 @@
 Gemmory ist ein Diamond Painting Spiel mit deinen eigenen Fotos. Wähle ein Bild, tippe eine Farbe an und setze ihre Steinchen Tipp für Tipp, bis die ganze Leinwand funkelt.
+Wie Malen nach Zahlen, nur mit funkelnden Steinchen.
 
 WARUM SPIELER ES LIEBEN
 • Abschalten nach einem langen Tag: kein Timer, keine Punkte, keine Eile.

@@ -1,4 +1,5 @@
 Gemmory est un jeu de broderie diamant fait à partir de tes propres photos. Choisis un tableau, touche une couleur et pose ses gemmes une à une, jusqu’à ce que toute la toile scintille.
+Comme un coloriage par numéro, mais avec des gemmes scintillantes.
 
 POURQUOI ON L’ADORE
 • Décompresse après une longue journée : pas de chrono, pas de score, pas de hâte.

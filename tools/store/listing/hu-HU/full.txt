@@ -1,4 +1,5 @@
 A Gemmory egy gyémántfestés játék a saját fotóidból. Válassz egy képet, koppints egy színre, és rakd le a köveit egyenként, amíg az egész vászon csillog.
+Mint a számfestő, csak csillogó kövekkel.
 
 MIÉRT SZERETIK A JÁTÉKOSOK
 • Kikapcsolódás egy hosszú nap után: nincs időzítő, nincs pontszám, nincs sietség.
