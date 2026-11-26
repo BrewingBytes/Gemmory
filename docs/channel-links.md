@@ -8,7 +8,7 @@ One tagged Play Store link per place Gemmory is posted, so every install from it
 |---|---|---|---|---|
 | TikTok bio | `tiktok` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dtiktok%26utm_campaign%3Dbio` | `tiktok-bio` |
 | Instagram bio | `instagram` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dinstagram%26utm_campaign%3Dbio` | `instagram-bio` |
-| YouTube channel (About and Shorts description) | `youtube` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dyoutube%26utm_campaign%3Dbio` | `youtube-bio` |
+| YouTube channel [@gemmoryapp](https://www.youtube.com/@gemmoryapp) (About and Shorts description; also the Play listing video, [lpDTh2bPwuo](https://youtube.com/shorts/lpDTh2bPwuo)) | `youtube` | `bio` | `https://play.google.com/store/apps/details?id=com.brewingbytes.gemmory&referrer=utm_source%3Dyoutube%26utm_campaign%3Dbio` | `youtube-bio` |
 
 Add a row here before you post somewhere new, with the rule below. A link is never reused for another community: two places on one link read as one channel.
 
