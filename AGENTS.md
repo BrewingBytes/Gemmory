@@ -1,6 +1,6 @@
 # Gemmory
 
-Android diamond-painting game ("Gemmory: Diamond Painting Game" on Play since #209): turn your own photo into a finishable gem canvas, then share a 9:16 sparkle time-lapse. Kotlin Multiplatform, `:shared` (pure commonMain) + `:androidApp` (Compose); iOS is being built on a shared Compose Multiplatform UI (`:composeApp` + the `iosApp/` Xcode shell, T59-T68). Monetized with AdMob + a VIP subscription.
+Android diamond-painting game ("Gemmory: Diamond Painting" on Play): turn your own photo into a finishable gem canvas, then share a 9:16 sparkle time-lapse. Kotlin Multiplatform, `:shared` (pure commonMain) + `:androidApp` (Compose); iOS is being built on a shared Compose Multiplatform UI (`:composeApp` + the `iosApp/` Xcode shell, T59-T68). Monetized with AdMob + a VIP subscription.
 
 This file is an index. Details live in `docs/`; read the relevant doc before working in that area. How changes are made, verified and shipped is in [docs/agents/workflow.md](docs/agents/workflow.md); read it before your first change, and add what you learn to [docs/agents/lessons.md](docs/agents/lessons.md).
 

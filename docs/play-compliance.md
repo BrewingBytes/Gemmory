@@ -115,7 +115,7 @@ Declare only these. Everything else is **not collected**.
 
 Before submitting each listing change, check:
 
-- [ ] Title "Gemmory: Diamond Painting Game" (30 of 30 characters; each locale leads with its own search term for diamond painting, #209). The full description is at least 3,000 characters (Japanese 1,400), which `ListingTest` checks. No "free", "best", "#1", ranking or price words in the title or icon.
+- [ ] Title "Gemmory: Diamond Painting" (25 of 30 characters, as live on Play; each locale leads with its own search term for diamond painting, #209). The full description is at least 3,000 characters (Japanese 1,400), which `ListingTest` checks. No "free", "best", "#1", ranking or price words in the title or icon.
 - [ ] Short description (≤80) and full description: every claim is true of the current build. "Your photos never leave your phone" is true (ML Kit sends diagnostics only, never images). Don't promise features that aren't shipped (more colours). The streak gift wheel is free (never bought), so it needs no odds disclosure for paid random items, but its odds are shown in the app.
 - [ ] The full description mentions ads and the VIP subscription honestly, with no fake urgency.
 - [ ] Screenshots and the feature graphic show the real app (StoreScreenshots + the app's own time-lapse output). No device frames of other brands, no awards or ratings we don't have.
