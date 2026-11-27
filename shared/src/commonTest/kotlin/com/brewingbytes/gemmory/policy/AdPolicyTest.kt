@@ -37,6 +37,16 @@ class AdPolicyTest {
             Row("on the play canvas", AdBlock.WRONG_MOMENT, leave.copy(moment = AdMoment.PLAY_CANVAS)),
             Row("before or during share", AdBlock.WRONG_MOMENT, leave.copy(moment = AdMoment.SHARE)),
             Row("leaving while the video is still being made", AdBlock.SHARING, leave.copy(sharing = true)),
+            // ad-spots R2-1: a bonus watched on this completion blocks both formats on its exit, however long ago.
+            Row("bonus watched on this completion, 3 min ago", AdBlock.BONUS_WATCHED, leave.copy(bonusWatched = true)) { c ->
+                onRewardedShown(); c.advanceMinutes(3)
+            },
+            // The intro counts toward the caps whether skipped or watched; watched also starts the rewarded quiet.
+            Row("an intro skipped 9 min ago", AdBlock.TOO_SOON) { c -> onInterstitialShown(); c.advanceMinutes(9) },
+            Row("an intro watched 1 min ago", AdBlock.TOO_SOON) { c -> onInterstitialShown(); onRewardedShown(); c.advanceMinutes(1) },
+            Row("an intro watched 10 min ago", null) { c -> onInterstitialShown(); onRewardedShown(); c.advanceMinutes(10) },
+            Row("4 intros today", AdBlock.DAILY_CAP) { c -> repeat(4) { onInterstitialShown(); c.advanceMinutes(10) } },
+            Row("remove-ads blocks both formats", AdBlock.ADS_REMOVED, leave.copy(entitlements = Entitlements(removeAds = true), bonusWatched = true)),
             Row("VIP", AdBlock.ADS_REMOVED, leave.copy(entitlements = Entitlements(VipPlan.YEARLY))),
             Row("remove-ads", AdBlock.ADS_REMOVED, leave.copy(entitlements = Entitlements(removeAds = true))),
             Row("9:59 after the last one", AdBlock.TOO_SOON) { c -> onInterstitialShown(); c.now += 599_000 },

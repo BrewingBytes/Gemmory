@@ -24,9 +24,9 @@ class InventoryTest {
         inv.earn(Item.FILLS, Inventory.FILLS_PER_VIDEO)
         assertTrue(inv.spend(Item.FILLS, "use-1"))
         assertTrue(inv.spend(Item.FILLS, "use-1"), "a repeat of the same use is fine")
-        assertEquals(4, inv.count(Item.FILLS), "and takes nothing more")
+        assertEquals(2, inv.count(Item.FILLS), "and takes nothing more")
         assertTrue(inv.spend(Item.FILLS, "use-2"))
-        assertEquals(3, inv.count(Item.FILLS))
+        assertEquals(1, inv.count(Item.FILLS))
         // The same id for another item is another spend.
         inv.earn(Item.UNLOCK_TOKEN, 1)
         assertTrue(inv.spend(Item.UNLOCK_TOKEN, "use-2"))
@@ -67,11 +67,11 @@ class InventoryTest {
         val inv = inventory()
         repeat(3) { inv.onStreakDay(5) }
         rolls += listOf(0, 85, 70)
-        assertEquals(WheelPrize.FILLS_5, inv.spin()?.prize)
+        assertEquals(WheelPrize.FILLS_SMALL, inv.spin()?.prize)
         assertEquals(WheelPrize.UNLOCK_TOKEN, inv.spin()?.prize)
         assertEquals(WheelPrize.PHOTO_CANVAS, inv.spin()?.prize)
         assertNull(inv.spin(), "no spin left")
-        assertEquals(InventoryState(fills = 5, canvases = 1, tokens = 1, spinsEarned = 3, spinsUsed = 3), inv.state)
+        assertEquals(InventoryState(fills = 3, canvases = 1, tokens = 1, spinsEarned = 3, spinsUsed = 3), inv.state)
         // What's on disk is the same: a kill right after a spin can't spin it again.
         assertEquals(inv.state, Inventory(store).state)
     }
@@ -81,27 +81,28 @@ class InventoryTest {
         val counts = (0 until 100).groupingBy(WheelPrize::forRoll).eachCount()
         assertEquals(WheelPrize.entries.associateWith { it.percent }, counts)
         assertEquals(100, WheelPrize.entries.sumOf { it.percent })
-        // #102, E7: 45/20/15/10/10, in this order.
+        // #102, E7: 45/20/15/10/10, in this order; 1.0.7 (DR-D17) pays 3 and 6 fills.
         assertEquals(listOf(45, 20, 15, 10, 10), WheelPrize.entries.map { it.percent })
-        assertEquals(WheelPrize.FILLS_5, WheelPrize.forRoll(44))
-        assertEquals(WheelPrize.FILLS_10, WheelPrize.forRoll(45))
-        assertEquals(WheelPrize.FILLS_10, WheelPrize.forRoll(64))
+        assertEquals(listOf(3, 6, 1, 1, 1), WheelPrize.entries.map { it.amount })
+        assertEquals(WheelPrize.FILLS_SMALL, WheelPrize.forRoll(44))
+        assertEquals(WheelPrize.FILLS_LARGE, WheelPrize.forRoll(45))
+        assertEquals(WheelPrize.FILLS_LARGE, WheelPrize.forRoll(64))
         assertEquals(WheelPrize.PHOTO_CANVAS, WheelPrize.forRoll(79))
         assertEquals(WheelPrize.UNLOCK_TOKEN, WheelPrize.forRoll(89))
         assertEquals(WheelPrize.STREAK_FREEZE, WheelPrize.forRoll(90))
         assertEquals(WheelPrize.STREAK_FREEZE, WheelPrize.forRoll(99))
     }
 
-    /** #102, E7: the freeze slice pays a freeze up to 2 held, then 5 fills; nothing ever holds a 3rd. */
+    /** #102, E7: the freeze slice pays a freeze up to 2 held, then fills (3 from 1.0.7); nothing ever holds a 3rd. */
     @Test
-    fun aFreezeAtTheCapPaysFiveFills() {
+    fun aFreezeAtTheCapPaysFills() {
         val inv = inventory()
         repeat(3) { inv.onStreakDay(5) }
         rolls += listOf(95, 95, 95)
         assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.STREAK_FREEZE, 1), inv.spin())
         assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.STREAK_FREEZE, 1), inv.spin())
-        assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.FILLS, Inventory.FILLS_PER_VIDEO), inv.spin())
-        assertEquals(InventoryState(fills = 5, spinsEarned = 3, spinsUsed = 3, freezes = 2), inv.state)
+        assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.FILLS, Inventory.FILLS_FOR_FULL_FREEZE), inv.spin())
+        assertEquals(InventoryState(fills = 3, spinsEarned = 3, spinsUsed = 3, freezes = 2), inv.state)
         inv.earn(Item.STREAK_FREEZE, 1)
         assertEquals(Inventory.MAX_FREEZES, inv.count(Item.STREAK_FREEZE), "held up to 2")
         assertTrue(inv.spend(Item.STREAK_FREEZE, "freeze-20000"))
@@ -176,5 +177,58 @@ class InventoryTest {
     fun aDamagedFileStartsEmpty() {
         store.bytes = byteArrayOf(1, 2, 3)
         assertEquals(InventoryState(), inventory().state)
+    }
+
+    /** DR-D17: the 1.0.7 reward table, each number its own constant (the full-freeze fills no longer ride the video's). */
+    @Test
+    fun theRewardTable() {
+        assertEquals(3, Inventory.FILLS_PER_VIDEO)
+        assertEquals(1, Inventory.FILLS_PER_BONUS)
+        assertEquals(3, Inventory.FILLS_FOR_FULL_FREEZE)
+        assertEquals(listOf(50, 35, 10, 5), GiftPrize.entries.map { it.percent })
+        assertEquals(listOf(1, 2, 1, 1), GiftPrize.entries.map { it.amount })
+        assertEquals(100, GiftPrize.entries.sumOf { it.percent })
+        assertFalse(GiftPrize.entries.any { it.item == Item.STREAK_FREEZE }, "the 5-day wheel stays the only freeze")
+        val counts = (0 until 100).groupingBy(GiftPrize::forRoll).eachCount()
+        assertEquals(GiftPrize.entries.associateWith { it.percent }, counts)
+    }
+
+    /** Today's gift pays once per id, in the same write as its id, and survives a reload. */
+    @Test
+    fun todaysGiftPaysOncePerDay() {
+        val inv = inventory()
+        rolls += listOf(60, 0)
+        assertEquals(Spin(GiftPrize.FILLS_LARGE, Item.FILLS, 2), inv.openGift(SpotRules.giftId(20_000)))
+        assertNull(inv.openGift(SpotRules.giftId(20_000)), "a retry pays nothing")
+        assertTrue(Inventory(store).hasEarned(SpotRules.giftId(20_000)), "on disk with the prize")
+        assertEquals(2, Inventory(store).count(Item.FILLS))
+        assertEquals(Spin(GiftPrize.FILLS_SMALL, Item.FILLS, 1), inv.openGift(SpotRules.giftId(20_001)))
+    }
+
+    /** DR-D12: "same again" repeats the slice once per spin; a freeze at the cap pays its fills. */
+    @Test
+    fun sameAgainRepeatsTheSliceOnce() {
+        val inv = inventory()
+        repeat(2) { inv.onStreakDay(5) }
+        rolls += listOf(70, 95)
+        val canvas = inv.spin()!!
+        assertEquals(Spin(WheelPrize.PHOTO_CANVAS, Item.PHOTO_CANVAS, 1), inv.sameAgain(canvas, SpotRules.againId(1)))
+        assertNull(inv.sameAgain(canvas, SpotRules.againId(1)), "once per spin")
+        assertEquals(2, inv.count(Item.PHOTO_CANVAS))
+        inv.earn(Item.STREAK_FREEZE, 1)
+        val freeze = inv.spin()!!
+        assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.STREAK_FREEZE, 1), freeze)
+        assertEquals(Spin(WheelPrize.STREAK_FREEZE, Item.FILLS, Inventory.FILLS_FOR_FULL_FREEZE), inv.sameAgain(freeze, SpotRules.againId(2)))
+        assertEquals(Inventory.MAX_FREEZES, inv.count(Item.STREAK_FREEZE))
+    }
+
+    @Test
+    fun markOnceRecordsWithoutEarning() {
+        val inv = inventory()
+        assertFalse(inv.hasEarned(SpotRules.giftPopupId(1)))
+        assertTrue(inv.markOnce(SpotRules.giftPopupId(1)))
+        assertFalse(inv.markOnce(SpotRules.giftPopupId(1)))
+        assertTrue(Inventory(store).hasEarned(SpotRules.giftPopupId(1)))
+        assertEquals(InventoryState(rewarded = setOf(SpotRules.giftPopupId(1))), inv.state)
     }
 }

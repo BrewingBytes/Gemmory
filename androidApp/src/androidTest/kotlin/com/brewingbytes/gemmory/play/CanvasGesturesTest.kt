@@ -65,7 +65,7 @@ class CanvasGesturesTest {
     @Before
     fun setUp() {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         hintsShown(true)
         runBlocking { (context.applicationContext as GemmoryApp).store.create(ref, pattern) }
     }

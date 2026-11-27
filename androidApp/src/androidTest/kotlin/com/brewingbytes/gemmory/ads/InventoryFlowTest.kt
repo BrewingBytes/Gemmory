@@ -94,7 +94,7 @@ class InventoryFlowTest {
     fun setUp() {
         assertTrue(BuildConfig.FAKE_BILLING, "connected tests run on the fake billing backend")
         clearState()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit().clear()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()
@@ -157,17 +157,18 @@ class InventoryFlowTest {
         compose.onNodeWithTag("inventory-watch").performClick()
         waitFor(hasTestTag("rewarded-primary") and hasText("Watch video"))
         compose.onNodeWithTag("rewarded-primary").performClick()
-        waitFor(hasText("5 fills added"))
-        compose.waitUntil(5_000) { app.monetization.inventory.value.fills == 5 }
+        // 3 fills a video from 1.0.7 (ad-spots DR-D17).
+        waitFor(hasText("3 fills added"))
+        compose.waitUntil(5_000) { app.monetization.inventory.value.fills == 3 }
 
-        // On a canvas the tool well shows the 5; TalkBack's "Fill region at next gem" spends one.
+        // On a canvas the tool well shows the 3; TalkBack's "Fill region at next gem" spends one.
         compose.openMyPhotos()
         waitFor(hasTestTag("tile-photo-inv"))
         compose.onNodeWithTag("tile-photo-inv").performClick()
-        waitFor(hasTestTag("tool-well") and hasContentDescription("Tool: Tap, 5 fills"))
+        waitFor(hasTestTag("tool-well") and hasContentDescription("Tool: Tap, 3 fills"))
         compose.onNodeWithTag("play-canvas").performCustomAccessibilityActionWithLabel("Fill region at next gem")
-        compose.waitUntil(5_000) { app.monetization.inventory.value.fills == 4 }
-        waitFor(hasTestTag("tool-well") and hasContentDescription("Tool: Tap, 4 fills"))
+        compose.waitUntil(5_000) { app.monetization.inventory.value.fills == 2 }
+        waitFor(hasTestTag("tool-well") and hasContentDescription("Tool: Tap, 2 fills"))
     }
 
     @Test
@@ -203,7 +204,7 @@ class InventoryFlowTest {
         waitFor(hasTestTag(INVENTORY_TAG) and hasContentDescription("Inventory"))
     }
 
-    /** #102: the freeze row shows what's held, and at 2 held the wheel's freeze slice reads 5 fills (E7). */
+    /** #102: the freeze row shows what's held, and at 2 held the wheel's freeze slice reads its fills, 3 (E7, DR-D17). */
     @Test
     fun streakFreezesShowInTheInventoryAndFillTheWheelAtTheCap() {
         seed(InventoryState(spinsEarned = 1, freezes = 2))
@@ -213,7 +214,7 @@ class InventoryFlowTest {
         compose.onNodeWithTag("inventory-spin").performClick()
         waitFor(
             hasTestTag("wheel") and
-                hasContentDescription("Gift wheel. 5 fills 45%, 10 fills 20%, 1 photo canvas 15%, 1 unlock token 10%, 5 fills 10%"),
+                hasContentDescription("Gift wheel. 3 fills 45%, 6 fills 20%, 1 photo canvas 15%, 1 unlock token 10%, 3 fills 10%"),
         )
         compose.onNodeWithTag("wheel-spin").performClick()
         waitFor(hasTestTag("wheel-done"), timeout = 15_000)

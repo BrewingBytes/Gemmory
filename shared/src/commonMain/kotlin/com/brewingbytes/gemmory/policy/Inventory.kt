@@ -39,37 +39,63 @@ enum class EarnSource(val param: String) {
     WHERE_FOUND("where_found"),
 }
 
+/** One slice of a prize wheel: what it pays and its odds in percent. */
+interface WheelSlice {
+    val item: Item
+    val amount: Int
+    val percent: Int
+}
+
+/** Picks a slice for a roll in 0 until 100: the slices in order, each as wide as its odds. */
+fun <T : WheelSlice> List<T>.forRoll(roll: Int): T {
+    require(roll in 0 until 100) { "roll $roll out of 0 until 100" }
+    var edge = 0
+    for (slice in this) {
+        edge += slice.percent
+        if (roll < edge) return slice
+    }
+    error("odds add up to $edge, not 100")
+}
+
 /**
- * The gift wheel's prizes and their odds in percent (#38, founder pick 2026-10-17; the streak freeze from #102, E7);
- * they add up to 100.
+ * The 5-day gift wheel's prizes and their odds in percent (#38, founder pick 2026-10-17; the streak freeze from #102,
+ * E7; amounts cut in 1.0.7, ad-spots DR-D17); they add up to 100.
  */
-enum class WheelPrize(val item: Item, val amount: Int, val percent: Int) {
-    FILLS_5(Item.FILLS, 5, 45),
-    FILLS_10(Item.FILLS, 10, 20),
+enum class WheelPrize(override val item: Item, override val amount: Int, override val percent: Int) : WheelSlice {
+    FILLS_SMALL(Item.FILLS, 3, 45),
+    FILLS_LARGE(Item.FILLS, 6, 20),
     PHOTO_CANVAS(Item.PHOTO_CANVAS, 1, 15),
     UNLOCK_TOKEN(Item.UNLOCK_TOKEN, 1, 10),
     STREAK_FREEZE(Item.STREAK_FREEZE, 1, 10),
     ;
 
     companion object {
-        /** The prize for a roll in 0 until 100: the segments in order, each as wide as its odds. */
-        fun forRoll(roll: Int): WheelPrize {
-            require(roll in 0 until 100) { "roll $roll out of 0 until 100" }
-            var edge = 0
-            for (prize in entries) {
-                edge += prize.percent
-                if (roll < edge) return prize
-            }
-            error("odds add up to $edge, not 100")
-        }
+        /** The prize for a roll in 0 until 100. */
+        fun forRoll(roll: Int): WheelPrize = entries.forRoll(roll)
+    }
+}
+
+/**
+ * Today's gift's prizes (1.0.7, ad-spots DR-D11/D17): one video a day spins a smaller wheel with no streak freeze, so
+ * the 5-day wheel stays the only way to earn one.
+ */
+enum class GiftPrize(override val item: Item, override val amount: Int, override val percent: Int) : WheelSlice {
+    FILLS_SMALL(Item.FILLS, 1, 50),
+    FILLS_LARGE(Item.FILLS, 2, 35),
+    PHOTO_CANVAS(Item.PHOTO_CANVAS, 1, 10),
+    UNLOCK_TOKEN(Item.UNLOCK_TOKEN, 1, 5),
+    ;
+
+    companion object {
+        fun forRoll(roll: Int): GiftPrize = entries.forRoll(roll)
     }
 }
 
 /**
  * A spin's result (#102, E7): the wheel lands on [prize] and pays [amount] of [item], which is the prize itself except
- * for a streak freeze while [Inventory.MAX_FREEZES] are held: that pays 5 fills.
+ * for a streak freeze while [Inventory.MAX_FREEZES] are held: that pays [Inventory.FILLS_FOR_FULL_FREEZE] fills.
  */
-data class Spin(val prize: WheelPrize, val item: Item, val amount: Int)
+data class Spin(val prize: WheelSlice, val item: Item, val amount: Int)
 
 /**
  * The inventory's state (#38). [spinsEarned] counts the 5-day streak gifts ever earned and [spinsUsed] the ones spun,
@@ -180,19 +206,54 @@ class Inventory(
 
     /**
      * Spins the wheel: the prize is rolled and added in one step, so killing the app mid-animation can't spin again.
-     * A streak freeze while [MAX_FREEZES] are held pays [FILLS_PER_VIDEO] fills instead (E7). Null when no spin is
+     * A streak freeze while [MAX_FREEZES] are held pays [FILLS_FOR_FULL_FREEZE] fills instead (E7). Null when no spin is
      * waiting.
      */
     fun spin(): Spin? {
         if (state.spinsWaiting <= 0) return null
-        val prize = WheelPrize.forRoll(roll())
-        val spin = if (prize.item == Item.STREAK_FREEZE && state.freezes >= MAX_FREEZES) {
-            Spin(prize, Item.FILLS, FILLS_PER_VIDEO)
+        val spin = payout(WheelPrize.forRoll(roll()))
+        commit(state.with(spin.item, state.count(spin.item) + spin.amount).copy(spinsUsed = state.spinsUsed + 1))
+        return spin
+    }
+
+    /** What [prize] pays now: a streak freeze while [MAX_FREEZES] are held pays [FILLS_FOR_FULL_FREEZE] fills (E7). */
+    private fun payout(prize: WheelSlice): Spin =
+        if (prize.item == Item.STREAK_FREEZE && state.freezes >= MAX_FREEZES) {
+            Spin(prize, Item.FILLS, FILLS_FOR_FULL_FREEZE)
         } else {
             Spin(prize, prize.item, prize.amount)
         }
-        commit(state.with(spin.item, state.count(spin.item) + spin.amount).copy(spinsUsed = state.spinsUsed + 1))
+
+    /** True when [earnId] was already earned ([earnOnce]) or marked ([markOnce]). */
+    fun hasEarned(earnId: String): Boolean = earnId in state.rewarded
+
+    /** Records [id] with nothing earned (ad-spots DR-D5: Today's gift popup shown on a day). False when already there. */
+    fun markOnce(id: String): Boolean {
+        if (id in state.rewarded) return false
+        commit(state.copy(rewarded = state.rewarded + id))
+        return true
+    }
+
+    /**
+     * Today's gift (ad-spots DR-D11), after its video: rolls [GiftPrize] and adds it under [earnId] in one write, so a
+     * retry can't pay twice. Null when [earnId] already paid.
+     */
+    fun openGift(earnId: String): Spin? {
+        if (earnId in state.rewarded) return null
+        val spin = payout(GiftPrize.forRoll(roll()))
+        commit(state.with(spin.item, state.count(spin.item) + spin.amount).copy(rewarded = state.rewarded + earnId))
         return spin
+    }
+
+    /**
+     * "Same again" after a 5-day spin (ad-spots DR-D12/D17), after its video: [spin]'s prize once more under [earnId],
+     * a streak freeze while [MAX_FREEZES] are held paying fills. Null when [earnId] already paid.
+     */
+    fun sameAgain(spin: Spin, earnId: String): Spin? {
+        if (earnId in state.rewarded) return null
+        val again = payout(spin.prize)
+        commit(state.with(again.item, state.count(again.item) + again.amount).copy(rewarded = state.rewarded + earnId))
+        return again
     }
 
     override val canvases: Int get() = state.canvases
@@ -207,8 +268,14 @@ class Inventory(
         /** The streak gift comes every this many days in a row. */
         const val SPIN_EVERY = 5
 
-        /** Fills a rewarded video (or today's fills grace) gives. */
-        const val FILLS_PER_VIDEO = 5
+        /** Fills the Inventory sheet's video (or today's fills grace) gives (5 before 1.0.7, ad-spots DR-D17). */
+        const val FILLS_PER_VIDEO = 3
+
+        /** Fills the completion bonus and the rewarded interstitial give (ad-spots DR-D17). */
+        const val FILLS_PER_BONUS = 1
+
+        /** Fills a streak freeze pays while [MAX_FREEZES] are held (E7; DR-D17). Its own number, not the video's. */
+        const val FILLS_FOR_FULL_FREEZE = 3
 
         /** Recent spends kept for idempotency. */
         const val MAX_REMEMBERED = 16

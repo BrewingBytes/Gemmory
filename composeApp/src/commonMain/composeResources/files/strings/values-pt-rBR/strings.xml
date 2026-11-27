@@ -579,7 +579,7 @@
     <string name="billing_restore_failed">Não foi possível acessar o Google Play. Tente de novo.</string>
     <string name="billing_yearly">%1$s / ano (%2$s por semana)</string>
     <string name="billing_weekly">%1$s / semana</string>
-    <string name="billing_remove_ads">Só remover anúncios · %1$s uma vez</string>
+    <string name="billing_remove_ads">Remover anúncios em tela cheia · %1$s uma vez</string>
     <string name="membership_vip_yearly">VIP · anual</string>
     <string name="membership_vip_weekly">VIP · semanal</string>
     <string name="membership_vip_unconfirmed">VIP · conecte-se ao Google Play para confirmar</string>
@@ -589,7 +589,7 @@
     <string name="billing_restored_weekly">Compras restauradas: VIP (semanal)</string>
     <string name="billing_restored_ads">Compras restauradas: anúncios removidos</string>
     <string name="billing_notice_vip">Você é VIP. Todos os quadros da galeria estão desbloqueados.</string>
-    <string name="billing_notice_ads_off">Os anúncios foram removidos para sempre.</string>
+    <string name="billing_notice_ads_off">Os anúncios que começam sozinhos foram desativados para sempre. Os vídeos que você escolher continuam opcionais.</string>
     <string name="billing_notice_lapsed">Não conseguimos confirmar seu VIP por uma semana. Conecte-se à internet para restaurá-lo.</string>
 
     <string name="action_close">Fechar</string>
@@ -720,4 +720,27 @@
     <string name="title_japanese_garden">Jardim japonês</string>
     <string name="title_northern_lights">Aurora boreal</string>
     <string name="title_misty_pier">Píer na neblina</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">Nenhum vídeo agora.</string>
+    <string name="spot_watch_to_end">Assista até o fim para ganhar.</string>
+    <string name="spot_unavailable_sharing">indisponível enquanto seu vídeo é criado</string>
+    <string name="spot_again">Assista a um vídeo: +%1$s</string>
+    <string name="prize_one_freeze">1 protetor de sequência</string>
+    <string name="gift_title">Presente de hoje</string>
+    <string name="gift_watch">Assista a um vídeo para girar</string>
+    <string name="gift_not_now">Agora não</string>
+    <string name="gift_row_body">Assista a um vídeo curto para girar a roda de hoje.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Um vídeo curto por %1$d preenchimento</item>
+        <item quantity="many">Um vídeo curto por %1$d de preenchimentos</item>
+        <item quantity="other">Um vídeo curto por %1$d preenchimentos</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">Começa em %1$d segundo. Pule se preferir.</item>
+        <item quantity="many">Começa em %1$d de segundos. Pule se preferir.</item>
+        <item quantity="other">Começa em %1$d segundos. Pule se preferir.</item>
+    </plurals>
+    <string name="intro_body_untimed">Começa quando você toca em Assistir agora. Pule se preferir.</string>
+    <string name="intro_skip">Pular</string>
+    <string name="intro_watch">Assistir agora</string>
 </resources>

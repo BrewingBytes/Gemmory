@@ -130,6 +130,12 @@ import com.brewingbytes.gemmory.ui.galleryColumns
 import com.brewingbytes.gemmory.ui.noteFitsBeside
 import com.brewingbytes.gemmory.ui.rememberReducedMotion
 import kotlinx.coroutines.delay
+import kotlin.time.TimeSource
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.DisposableEffect
+import com.brewingbytes.gemmory.ads.LocalAdSpots
+import com.brewingbytes.gemmory.ads.Spot
 import com.brewingbytes.gemmory.policy.ShareLanding
 import com.brewingbytes.gemmory.share.LandingUi
 import androidx.compose.animation.core.Animatable
@@ -176,6 +182,13 @@ private sealed interface GallerySheet {
         )
     }
 }
+
+/** Today's gift popup waits for this long without a touch (DR-D8). */
+private const val GIFT_IDLE_MS = 1_000L
+
+private val galleryClock = TimeSource.Monotonic.markNow()
+
+private fun monotonicMillis(): Long = galleryClock.elapsedNow().inWholeMilliseconds
 
 /** The gallery's "VIP" action, also where TalkBack focus returns when the paywall closes. */
 const val VIP_ACTION_TAG = "gallery-vip"
@@ -245,6 +258,11 @@ fun GalleryScreen(
     onSharedOpen: (LandingUi.Offer) -> Unit = {},
     /** The offer's 8 s ran out (it has no timeout under TalkBack, D7). */
     onSharedOfferGone: () -> Unit = {},
+    /**
+     * Something of the shell's is up or about to be (a return's interruption, the rewarded sheet, the music chip, a
+     * shared link): Today's gift popup waits (1.0.7, DR-D8).
+     */
+    giftPopupBlocked: Boolean = true,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val adsOn = vm.adsOn
@@ -284,10 +302,29 @@ fun GalleryScreen(
     }
     val tab = vm.tab
     var sheet by rememberSaveable(stateSaver = GallerySheet.saver) { mutableStateOf<GallerySheet?>(null) }
-    // The Inventory sheet (#38) and its gift wheel: 0 none, 1 inventory, 2 wheel.
-    var inventorySheet by rememberSaveable { mutableIntStateOf(0) }
     // The All collections sheet (T37).
     var collectionsSheet by rememberSaveable { mutableStateOf(false) }
+    // The Inventory sheet (#38) and its gift wheel: 0 none, 1 inventory, 2 wheel, 3 Today's gift (1.0.7).
+    var inventorySheet by rememberSaveable { mutableIntStateOf(0) }
+    // Today's gift (1.0.7, DR-D5..D8): its video loads while the gallery shows and the gift is still there today; the
+    // popup opens once a day, on a gallery visit with nothing over it and no touch for a second.
+    val spots = LocalAdSpots.current
+    val spotsReady by spots.ready.collectAsStateWithLifecycle()
+    val giftAllowed = inventory != null && spots.giftAllowed()
+    val giftReady = giftAllowed && Spot.GIFT in spotsReady
+    DisposableEffect(giftAllowed) {
+        if (giftAllowed) spots.want(Spot.GIFT)
+        onDispose { spots.unwant(Spot.GIFT) }
+    }
+    var lastTouch by remember { mutableStateOf(0L) }
+    val giftCalm = sheet == null && inventorySheet == 0 && !collectionsSheet && !giftPopupBlocked && !musicChip && sharedOffer == null
+    LaunchedEffect(giftReady, giftCalm) {
+        if (!giftReady || !giftCalm || !spots.giftPopupDue()) return@LaunchedEffect
+        // No touch in the last second (DR-D8), so it never lands under a tap.
+        while (monotonicMillis() - lastTouch < GIFT_IDLE_MS) delay(250)
+        spots.giftPopupShown()
+        inventorySheet = 3
+    }
     val gridState = rememberLazyStaggeredGridState()
     // The floating button (and the allowance chip) never cover a tile's %: the grid scrolls clear of them (D10).
     // The measured height excludes the overlay's 16dp padding; another 16dp keeps a gap (56dp button → 88dp).
@@ -297,6 +334,14 @@ fun GalleryScreen(
     Box(
         Modifier
             .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(PointerEventPass.Initial)
+                        lastTouch = monotonicMillis()
+                    }
+                }
+            }
             .feltGround(LocalFelt.current.ground)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
@@ -483,6 +528,8 @@ fun GalleryScreen(
             state = inventory,
             streak = state.streak,
             adsOn = adsOn,
+            gift = giftReady,
+            onGift = { inventorySheet = 3 },
             onWatchFills = {
                 inventorySheet = 0
                 onWatchFills()
@@ -491,6 +538,7 @@ fun GalleryScreen(
             onDismiss = { inventorySheet = 0 },
         )
         2 -> WheelSheet(inventory.spinsWaiting, inventory.freezes >= Inventory.MAX_FREEZES, onSpin, onDismiss = { inventorySheet = 0 })
+        3 -> GiftSheet(onDismiss = { inventorySheet = 0 })
         }
     }
     if (collectionsSheet) {

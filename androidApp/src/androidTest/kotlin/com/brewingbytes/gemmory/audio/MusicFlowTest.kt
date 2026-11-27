@@ -89,7 +89,7 @@ class MusicFlowTest {
     @Before
     fun freshInstall() {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             app.settings.resetMusicForTest()
             app.music.ringerModeForTest = AudioManager.RINGER_MODE_NORMAL

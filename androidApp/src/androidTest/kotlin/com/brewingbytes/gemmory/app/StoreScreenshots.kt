@@ -24,6 +24,8 @@ import com.brewingbytes.gemmory.DeviceCheck
 import com.brewingbytes.gemmory.GemmoryApp
 import com.brewingbytes.gemmory.MainActivity
 import com.brewingbytes.gemmory.ads.AdGateway
+import com.brewingbytes.gemmory.policy.AdPolicyCodec
+import com.brewingbytes.gemmory.policy.AdPolicyState
 import com.brewingbytes.gemmory.ads.PictureUnlocks
 import com.brewingbytes.gemmory.ads.RewardedLoad
 import com.brewingbytes.gemmory.assumeDeviceChecks
@@ -99,7 +101,7 @@ open class StoreScreenshots {
         app.resetStreakForTest(celebrations = false)
         assumeDeviceChecks()
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()
@@ -126,6 +128,14 @@ open class StoreScreenshots {
         // the monetization below is rebuilt, which reads them.
         clearStateFile(StorageLayout.LEDGER_DAILY)
         clearStateFile(StorageLayout.INVENTORY)
+        // A fixed ads ledger (1.0.7): past the first session (the gallery's "VIP" shows, as in the baselines) with no
+        // finish on record, so the shot's finish is the 1st and holds no completion-bonus slot (from the 2nd, DR-D3). A
+        // ledger left by another test would otherwise change the completion shot.
+        clearStateFile(StorageLayout.LEDGER_ADS)
+        File(context.filesDir, StorageLayout.LEDGER_ADS).apply {
+            parentFile?.mkdirs()
+            writeBytes(AdPolicyCodec.encode(AdPolicyState(launchedBefore = true, firstSessionOver = true)))
+        }
         app.resetMonetizationForTest(NoAds)
     }
 

@@ -21,6 +21,10 @@ class FirebaseAnalyticsLogger(private val analytics: FirebaseAnalytics) : Analyt
         )
     }
 
+    override fun userProperty(name: String, value: String) {
+        analytics.setUserProperty(name, value)
+    }
+
     override fun consent(mode: ConsentModeV2) {
         val flags = Analytics.consentFlags(mode)
         analytics.setConsent(

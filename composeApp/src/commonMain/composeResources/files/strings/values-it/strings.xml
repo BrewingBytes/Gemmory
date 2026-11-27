@@ -578,7 +578,7 @@
     <string name="billing_restore_failed">Impossibile raggiungere Google Play. Riprova.</string>
     <string name="billing_yearly">%1$s / anno (%2$s a settimana)</string>
     <string name="billing_weekly">%1$s / settimana</string>
-    <string name="billing_remove_ads">Solo rimuovi pubblicità · %1$s una volta</string>
+    <string name="billing_remove_ads">Rimuovi le pubblicità a schermo intero · %1$s una volta</string>
     <string name="membership_vip_yearly">VIP · annuale</string>
     <string name="membership_vip_weekly">VIP · settimanale</string>
     <string name="membership_vip_unconfirmed">VIP · connettiti a Google Play per confermare</string>
@@ -588,7 +588,7 @@
     <string name="billing_restored_weekly">Acquisti ripristinati: VIP (settimanale)</string>
     <string name="billing_restored_ads">Acquisti ripristinati: pubblicità rimossa</string>
     <string name="billing_notice_vip">Sei VIP. Tutti i quadri della galleria sono sbloccati.</string>
-    <string name="billing_notice_ads_off">La pubblicità è disattivata per sempre.</string>
+    <string name="billing_notice_ads_off">Le pubblicità che partono da sole sono disattivate per sempre. I video che scegli restano facoltativi.</string>
     <string name="billing_notice_lapsed">Non siamo riusciti a confermare il tuo VIP per una settimana. Connettiti a Internet per ripristinarlo.</string>
 
     <string name="action_close">Chiudi</string>
@@ -719,4 +719,27 @@
     <string name="title_japanese_garden">Giardino giapponese</string>
     <string name="title_northern_lights">Aurora boreale</string>
     <string name="title_misty_pier">Pontile nella nebbia</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">Nessun video al momento.</string>
+    <string name="spot_watch_to_end">Guarda fino alla fine per ottenerlo.</string>
+    <string name="spot_unavailable_sharing">non disponibile mentre il tuo video viene creato</string>
+    <string name="spot_again">Guarda un video: +%1$s</string>
+    <string name="prize_one_freeze">1 protezione serie</string>
+    <string name="gift_title">Il regalo di oggi</string>
+    <string name="gift_watch">Guarda un video per girare</string>
+    <string name="gift_not_now">Non ora</string>
+    <string name="gift_row_body">Guarda un breve video per girare la ruota di oggi.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Un breve video per %1$d riempimento</item>
+        <item quantity="many">Un breve video per %1$d di riempimenti</item>
+        <item quantity="other">Un breve video per %1$d riempimenti</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">Inizia tra %1$d secondo. Salta, se preferisci.</item>
+        <item quantity="many">Inizia tra %1$d di secondi. Salta, se preferisci.</item>
+        <item quantity="other">Inizia tra %1$d secondi. Salta, se preferisci.</item>
+    </plurals>
+    <string name="intro_body_untimed">Inizia quando tocchi Guarda ora. Salta, se preferisci.</string>
+    <string name="intro_skip">Salta</string>
+    <string name="intro_watch">Guarda ora</string>
 </resources>

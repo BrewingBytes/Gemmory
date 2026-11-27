@@ -25,6 +25,9 @@ enum class AdBlock {
     WRONG_MOMENT,
     ADS_REMOVED,
     SHARING,
+
+    /** A completion bonus video was watched on this completion screen, however long ago (ad-spots R2-1, DR-D15). */
+    BONUS_WATCHED,
     FIRST_SESSION,
     BEFORE_SECOND_FINISH,
     DAILY_CAP,
@@ -34,8 +37,14 @@ enum class AdBlock {
 
 /**
  * [sharing]: an encode or the share flow is still running for the picture, so the ad would land during share.
+ * [bonusWatched]: the completion bonus (1.0.7) was watched on the completion screen being left.
  */
-data class InterstitialContext(val moment: AdMoment, val entitlements: Entitlements, val sharing: Boolean = false)
+data class InterstitialContext(
+    val moment: AdMoment,
+    val entitlements: Entitlements,
+    val sharing: Boolean = false,
+    val bonusWatched: Boolean = false,
+)
 
 /**
  * Persisted ad-cap state. [launchedBefore] tells a later cold start from the first; [finishes] counts pictures
@@ -70,6 +79,9 @@ class AdPolicy(private val clock: DayClock, private val store: StateStore<AdPoli
         store.save(next)
     }
 
+    /** Pictures finished on this install, counting the one just finished (the completion bonus waits for 2, DR-D3). */
+    val finishes: Int get() = state.finishes
+
     /** The first session is over (D6): from now on the gallery offers its quiet "VIP" action (design D3). */
     val firstSessionOver: Boolean get() = state.firstSessionOver
 
@@ -97,6 +109,10 @@ class AdPolicy(private val clock: DayClock, private val store: StateStore<AdPoli
         commit(state.copy(lastRewardedAt = clock.nowMillis()))
     }
 
+    /**
+     * An interstitial or a rewarded interstitial's intro showed (ad-spots: the intro counts toward the gap and the daily
+     * cap whether it's skipped or watched; a watched video also calls [onRewardedShown]).
+     */
     fun onInterstitialShown() {
         val today = clock.today()
         val count = if (state.interstitialDay == today) state.interstitialsToday else 0
@@ -112,6 +128,7 @@ class AdPolicy(private val clock: DayClock, private val store: StateStore<AdPoli
             ctx.moment != AdMoment.LEAVE_FRESH_COMPLETION -> AdBlock.WRONG_MOMENT
             ctx.entitlements.adsRemoved -> AdBlock.ADS_REMOVED
             ctx.sharing -> AdBlock.SHARING
+            ctx.bonusWatched -> AdBlock.BONUS_WATCHED
             !s.firstSessionOver -> AdBlock.FIRST_SESSION
             s.finishes < MIN_FINISHES -> AdBlock.BEFORE_SECOND_FINISH
             s.interstitialDay == clock.today() && s.interstitialsToday >= MAX_PER_DAY -> AdBlock.DAILY_CAP

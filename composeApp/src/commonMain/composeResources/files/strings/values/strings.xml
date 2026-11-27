@@ -615,7 +615,7 @@
     <!-- Prices are Play's own strings: "$29.99 / year ($0.58 a week)". -->
     <string name="billing_yearly">%1$s / year (%2$s a week)</string>
     <string name="billing_weekly">%1$s / week</string>
-    <string name="billing_remove_ads">Just remove ads · %1$s once</string>
+    <string name="billing_remove_ads">Remove pop-up ads · %1$s once</string>
     <string name="membership_vip_yearly">VIP · yearly</string>
     <string name="membership_vip_weekly">VIP · weekly</string>
     <string name="membership_vip_unconfirmed">VIP · connect to Google Play to confirm</string>
@@ -625,7 +625,7 @@
     <string name="billing_restored_weekly">Purchases restored: VIP (weekly)</string>
     <string name="billing_restored_ads">Purchases restored: Ads removed</string>
     <string name="billing_notice_vip">You\'re VIP. Every gallery picture is unlocked.</string>
-    <string name="billing_notice_ads_off">Ads are off for good.</string>
+    <string name="billing_notice_ads_off">Ads that play on their own are off for good. Videos you choose stay optional.</string>
     <string name="billing_notice_lapsed">We couldn\'t confirm VIP for a week. Connect to the internet to restore it.</string>
 
     <string name="action_close">Close</string>
@@ -759,4 +759,25 @@
     <string name="title_japanese_garden">Japanese Garden</string>
     <string name="title_northern_lights">Northern Lights</string>
     <string name="title_misty_pier">Misty Pier</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">No video right now.</string>
+    <string name="spot_watch_to_end">Watch to the end to get it.</string>
+    <string name="spot_unavailable_sharing">unavailable while your video is made</string>
+    <string name="spot_again">Watch a video: +%1$s</string>
+    <string name="prize_one_freeze">1 streak freeze</string>
+    <string name="gift_title">Today\'s gift</string>
+    <string name="gift_watch">Watch a video to spin</string>
+    <string name="gift_not_now">Not now</string>
+    <string name="gift_row_body">Watch a short video to spin today\'s wheel.</string>
+    <plurals name="intro_title">
+        <item quantity="one">A short video for %1$d fill</item>
+        <item quantity="other">A short video for %1$d fills</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">It starts in %1$d second. Skip if you\'d rather not.</item>
+        <item quantity="other">It starts in %1$d seconds. Skip if you\'d rather not.</item>
+    </plurals>
+    <string name="intro_body_untimed">It starts when you tap Watch now. Skip if you\'d rather not.</string>
+    <string name="intro_skip">Skip</string>
+    <string name="intro_watch">Watch now</string>
 </resources>

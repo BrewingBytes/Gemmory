@@ -171,3 +171,17 @@ Each of these shipped as Claude's draft, with no native-speaker review yet (foun
 - **Context:** a second collaborator, an outside contributor's PR, or the first App Store release, whichever comes first.
 - **Effort estimate:** human S / CC S
 - **Priority:** P3
+
+### 1.0.7 ad spots: low findings left from the pre-landing review (2026-11-27)
+- **What:** none loses a reward or breaks a cap rule; each is a rough edge.
+  - A retry after "Watch to the end to get it" often gets "No video right now": a slot leaves the cache when shown and reloads only on dismiss (`AdMobGateway.showSlot`). Show the retry only while the slot is ready.
+  - A slot whose load fails isn't retried during that visit (`AdMobGateway` `failed`); Today's gift then stays hidden until the gallery is rebuilt. Add a backoff retry while wanted.
+  - The intro counts toward the gap and cap even if its video expired or failed between the check and Watch; no fallback to today's interstitial.
+  - A gift or "same again" won while the Activity is recreated (rotation mid-video) is paid but its wheel result isn't shown; keep the last granted outcome per spot and show it on the next composition.
+  - The gift popup's idle timer can mark the popup shown while a full-screen ad, share sheet or billing sheet is up; and a gallery open past midnight keeps yesterday's gift state until it recomposes.
+  - `InventoryState.rewarded` grows by about two ids a day (`gift-<day>`, `gift-popup-<day>`) and never trims; trim day ids older than a week.
+  - The consent re-ask can land over a reminder or widget tap's route on a cold start.
+  - Analytics: `rewarded_offer_seen` for the intro has no `reward_type`, and `reward_type` (`daily_gift`, `same_again`) differs from `placement` (`daily_chest`, `double_wheel`); explorations group by `placement`.
+  - `AdMobGateway`'s slot maps are unsynchronized; every caller is on Main today, worth a `check` on the main thread.
+- **Context:** after the first week of 1.0.7 data, or with the next ads change.
+- **Priority:** P3

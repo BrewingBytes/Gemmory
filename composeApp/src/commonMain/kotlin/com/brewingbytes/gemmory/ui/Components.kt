@@ -131,6 +131,20 @@ object GemIcons {
         .addPath(addPathNodes("M7 7V6a5 5 0 0 1 10 0v1h3l-1.2 14H5.2L4 7h3zm2 0h6V6a3 3 0 0 0-6 0v1z"), fill = SolidColor(Color.White))
         .build()
 
+    /**
+     * Today's gift (1.0.7, DR-D18): a small gem box in outline, a square box with a table-cut gem on its lid. Flat,
+     * bone, from the gem-outline family; never a chest, never lamp or gold.
+     */
+    val GiftBox: ImageVector = ImageVector.Builder("GiftBox", 24.dp, 24.dp, 24f, 24f)
+        .addPath(
+            addPathNodes(
+                "M4 11h16v10H4V11zm2 2v6h12v-6H6z M3 8h18v3H3V8z " +
+                    "M12 1.5l3.5 3.5-3.5 3.5-3.5-3.5 3.5-3.5zm0 2.8l-0.7 0.7 0.7 0.7 0.7-0.7-0.7-0.7z",
+            ),
+            fill = SolidColor(Color.White),
+        )
+        .build()
+
     /** Inventory: kept photo canvases (#38), a framed landscape. */
     val PhotoCanvas: ImageVector = ImageVector.Builder("PhotoCanvas", 24.dp, 24.dp, 24f, 24f)
         .addPath(

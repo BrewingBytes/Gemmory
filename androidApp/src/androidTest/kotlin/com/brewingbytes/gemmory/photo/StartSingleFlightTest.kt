@@ -47,7 +47,7 @@ class StartSingleFlightTest {
     @Before
     fun setUp() {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         // Earlier tests may have used today's free canvas: one more, so Start is enabled whatever ran before.
         runBlocking { app.monetization.grantReward() }
         val bitmap = Bitmap.createBitmap(900, 1200, Bitmap.Config.ARGB_8888)

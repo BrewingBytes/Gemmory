@@ -56,7 +56,7 @@ class MoreColorsFlowTest {
     @Before
     fun setUp() {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         // Earlier tests may have used today's free canvas: one more, so Start can make a canvas whatever ran before.
         runBlocking { app.monetization.grantReward() }
         // Every hue and lightness with noise, so Big at More keeps well over 36 distinct colors.

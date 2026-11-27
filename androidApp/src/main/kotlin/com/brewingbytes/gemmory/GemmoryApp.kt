@@ -37,6 +37,7 @@ import com.brewingbytes.gemmory.photo.FaceFinder
 import com.brewingbytes.gemmory.photo.MlKitFaceFinder
 import com.brewingbytes.gemmory.photo.PhotoDecoder
 import com.brewingbytes.gemmory.ads.AdMobGateway
+import com.brewingbytes.gemmory.ads.AndroidAdSpots
 import com.brewingbytes.gemmory.ads.ResumedActivity
 import com.brewingbytes.gemmory.ads.ConsentManager
 import com.brewingbytes.gemmory.ads.Interstitials
@@ -121,6 +122,7 @@ import com.brewingbytes.gemmory.telemetry.CrashlyticsReporter
 import com.brewingbytes.gemmory.telemetry.FirebaseAnalyticsLogger
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import com.brewingbytes.gemmory.telemetry.PLAYED_FILE
+import com.brewingbytes.gemmory.telemetry.PlayerTier
 import com.brewingbytes.gemmory.telemetry.PrefsDayStore
 import com.brewingbytes.gemmory.timelapse.EncodeManager
 import com.brewingbytes.gemmory.timelapse.EncodeRequest
@@ -133,6 +135,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
@@ -391,6 +394,13 @@ class GemmoryApp : Application() {
 
     lateinit var interstitials: Interstitials
         private set
+
+    /** The 1.0.7 ad spots (ad-spots.md), provided to the shared screens as LocalAdSpots. */
+    lateinit var adSpots: AndroidAdSpots
+        private set
+
+    /** The Activity on screen, for the spots' videos (held weakly). */
+    private lateinit var resumedActivity: ResumedActivity
 
     private lateinit var adMob: AdGateway
 
@@ -848,10 +858,16 @@ class GemmoryApp : Application() {
         gateways.value = ads
         monetization.close()
         monetization = newMonetization()
-        interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
+        newAdSpots()
         // The streak view follows the inventory's freezes (#102): point it at the new instance's.
         streakView.close()
         streakView = newStreakView()
+    }
+
+    /** The spots and the interstitial check, on the current [ads] and [monetization] (1.0.7). */
+    private fun newAdSpots() {
+        adSpots = AndroidAdSpots(monetization, ads, resumedActivity::current, analytics, CoroutineScope(SupervisorJob() + Dispatchers.Main))
+        interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics, adSpots::takeBonusWatched)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -955,11 +971,19 @@ class GemmoryApp : Application() {
         achievements = newAchievements(games)
         // Consent Mode v2 from the UMP result, on every change (R3-7); the saved one was applied above.
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch { consent.consentMode.collect { analytics.consent(it) } }
+        // The `tier` user property (1.0.7, analytics D22): set again on every entitlement and consent change, since
+        // ConsentFirst drops it until consent is applied.
+        CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
+            combine(monetization.entitlements, consent.consentMode) { e, _ -> e }.collect { e ->
+                analytics.userProperty(AnalyticsEvent.TIER, PlayerTier.of(e).param)
+            }
+        }
         // Interstitial loads use the Activity on screen (T34), held weakly.
         val resumed = ResumedActivity().also(::registerActivityLifecycleCallbacks)
+        resumedActivity = resumed
         adMob = AdMobGateway(this, consent, resumed, CoroutineScope(SupervisorJob() + Dispatchers.Main))
         ads = if (adsOn) adMob else NoAds
-        interstitials = Interstitials(monetization, ads, { ref -> encodes.state(ref).value }, analytics)
+        newAdSpots()
         gateways = MutableStateFlow(ads)
         music = newMusic()
         reminderNotifier = ReminderNotifier(this)

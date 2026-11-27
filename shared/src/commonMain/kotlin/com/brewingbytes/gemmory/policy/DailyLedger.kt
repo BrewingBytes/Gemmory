@@ -10,10 +10,25 @@ import com.brewingbytes.gemmory.save.i64
 
 /**
  * What a rewarded video (or a grace unlock) is for (design doc, Ad rules); [FILLS] is the inventory's fills (#38),
- * [COLORS] the More colors choice for one photo canvas (#29), [STREAK_REPAIR] a broken streak brought back (#102). New
- * entries go last: the ledger stores grace as bits by ordinal.
+ * [COLORS] the More colors choice for one photo canvas (#29), [STREAK_REPAIR] a broken streak brought back (#102). The
+ * 1.0.7 ad spots (ad-spots.md) follow: [COMPLETION_BONUS] on a fresh completion, [DAILY_GIFT] Today's gift and
+ * [SAME_AGAIN] after a 5-day spin; they have no grace ([hasGrace]). New entries go last: the ledger stores grace as bits
+ * by ordinal.
  */
-enum class RewardType { PHOTO_CANVAS, PICTURE, FILLS, COLORS, STREAK_REPAIR }
+enum class RewardType(val placement: String) {
+    PHOTO_CANVAS("photo_canvas"),
+    PICTURE("locked_picture"),
+    FILLS("inventory_fills"),
+    COLORS("colors"),
+    STREAK_REPAIR("streak_repair"),
+    COMPLETION_BONUS("completion_bonus"),
+    DAILY_GIFT("daily_chest"),
+    SAME_AGAIN("double_wheel"),
+    ;
+
+    /** Whether an online no-fill offers today's grace (the 1.0.7 spots never do, ad-spots DR-D9). */
+    val hasGrace: Boolean get() = ordinal <= STREAK_REPAIR.ordinal
+}
 
 /** Which allowance a Start used: today's free one, a bonus earned today (before #38), or a kept canvas (#38). */
 enum class Spent { FREE, BONUS, KEPT }
@@ -153,7 +168,7 @@ class DailyLedger(
     }
 
     /** Whether today's grace unlock for [type] is still there (the caller checks online no-fill first, D15). */
-    fun graceAvailable(type: RewardType): Boolean = type !in current().graceUsed
+    fun graceAvailable(type: RewardType): Boolean = type.hasGrace && type !in current().graceUsed
 
     /**
      * Uses today's grace unlock for [type]. For a photo canvas it grants a bonus canvas (kept, with a bank); for a
@@ -173,7 +188,7 @@ class DailyLedger(
                         bonusLeft = if (bank != null) s.bonusLeft else s.bonusLeft + 1,
                     )
                 }
-                RewardType.PICTURE, RewardType.FILLS, RewardType.COLORS, RewardType.STREAK_REPAIR -> s.copy(graceUsed = s.graceUsed + type)
+                else -> s.copy(graceUsed = s.graceUsed + type)
             },
         )
         return true

@@ -536,7 +536,7 @@
     <string name="billing_restore_failed">A Google Play nem érhető el. Próbáld újra.</string>
     <string name="billing_yearly">%1$s / év (heti %2$s)</string>
     <string name="billing_weekly">%1$s / hét</string>
-    <string name="billing_remove_ads">Csak a reklámok eltávolítása · egyszeri %1$s</string>
+    <string name="billing_remove_ads">Felugró reklámok eltávolítása · egyszeri %1$s</string>
     <string name="membership_vip_yearly">VIP · éves</string>
     <string name="membership_vip_weekly">VIP · heti</string>
     <string name="membership_vip_unconfirmed">VIP · a megerősítéshez csatlakozz a Google Playhez</string>
@@ -546,7 +546,7 @@
     <string name="billing_restored_weekly">Vásárlások visszaállítva: VIP (heti)</string>
     <string name="billing_restored_ads">Vásárlások visszaállítva: reklámok eltávolítva</string>
     <string name="billing_notice_vip">VIP vagy. A galéria minden képe feloldva.</string>
-    <string name="billing_notice_ads_off">A reklámok végleg kikapcsolva.</string>
+    <string name="billing_notice_ads_off">A maguktól induló reklámok végleg kikapcsolva. Az általad választott videók továbbra is önkéntesek.</string>
     <string name="billing_notice_lapsed">Egy hete nem tudjuk megerősíteni a VIP-tagságod. Csatlakozz az internethez a visszaállításhoz.</string>
 
     <string name="action_close">Bezárás</string>
@@ -673,4 +673,25 @@
     <string name="title_japanese_garden">Japánkert</string>
     <string name="title_northern_lights">Északi fény</string>
     <string name="title_misty_pier">Ködös stég</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">Most nincs videó.</string>
+    <string name="spot_watch_to_end">Nézd végig, hogy megkapd.</string>
+    <string name="spot_unavailable_sharing">nem érhető el, amíg a videód készül</string>
+    <string name="spot_again">Videó megnézése: +%1$s</string>
+    <string name="prize_one_freeze">1 sorozatvédő</string>
+    <string name="gift_title">A mai ajándék</string>
+    <string name="gift_watch">Nézz meg egy videót a pörgetéshez</string>
+    <string name="gift_not_now">Most nem</string>
+    <string name="gift_row_body">Nézz meg egy rövid videót, és pörgesd meg a mai kereket.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Egy rövid videó %1$d kitöltésért</item>
+        <item quantity="other">Egy rövid videó %1$d kitöltésért</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">%1$d másodperc múlva indul. Hagyd ki, ha nem kéred.</item>
+        <item quantity="other">%1$d másodperc múlva indul. Hagyd ki, ha nem kéred.</item>
+    </plurals>
+    <string name="intro_body_untimed">Akkor indul, amikor a Megnézem gombra koppintasz. Hagyd ki, ha nem kéred.</string>
+    <string name="intro_skip">Kihagyom</string>
+    <string name="intro_watch">Megnézem</string>
 </resources>

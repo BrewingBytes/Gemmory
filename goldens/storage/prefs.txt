@@ -7,6 +7,7 @@ collections done:* string
 collections earned:* string
 collections glint:* boolean
 consent firstLaunchDone boolean
+consent formMissed boolean
 first_run first_launch_millis long
 first_run gem_logged boolean
 first_run landing_ended boolean

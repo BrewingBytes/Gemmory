@@ -17,7 +17,8 @@ class BillingCopyTest {
     fun planRows() {
         assertEquals("$29.99 / year ($0.58 a week)", copy.yearly(Price("$29.99", 29_990_000, "USD")))
         assertEquals("$2.99 / week", copy.weekly(Price("$2.99", 2_990_000, "USD")))
-        assertEquals("Just remove ads · $4.99 once", copy.removeAds(Price("$4.99", 4_990_000, "USD")))
+        // 1.0.7 (DR-D14): what Remove ads removes, the ads that play on their own.
+        assertEquals("Remove pop-up ads · $4.99 once", copy.removeAds(Price("$4.99", 4_990_000, "USD")))
     }
 
     @Test
@@ -51,7 +52,7 @@ class BillingCopyTest {
         assertEquals("Purchases restored: Ads removed", copy.restored(Entitlements(removeAds = true)))
         assertEquals("No purchases found on this account", copy.restored(Entitlements.FREE))
         assertEquals("You're VIP. Every gallery picture is unlocked.", copy.notice(Notice.VIP_STARTED))
-        assertEquals("Ads are off for good.", copy.notice(Notice.ADS_OFF))
+        assertEquals("Ads that play on their own are off for good. Videos you choose stay optional.", copy.notice(Notice.ADS_OFF))
         assertEquals("We couldn't confirm VIP for a week. Connect to the internet to restore it.", copy.notice(Notice.VIP_LAPSED))
         assertEquals("Payment pending. VIP starts when Google Play confirms it.", copy.pending(Products.VIP_YEARLY))
         assertEquals("Payment pending. Ads turn off when Google Play confirms it.", copy.pending(Products.REMOVE_ADS))

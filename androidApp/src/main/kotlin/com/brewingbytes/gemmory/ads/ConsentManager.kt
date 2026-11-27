@@ -77,27 +77,37 @@ class ConsentManager(context: Context, reporter: NonFatalReporter, private val a
     }
 
     /**
-     * Every launch refreshes the consent status (it keeps [canRequestAds] and the privacy options current); only the
-     * first launch also shows the form when it's required.
+     * Every launch refreshes the consent status (it keeps [canRequestAds] and the privacy options current). The first
+     * launch shows the form when it's required; a later launch shows it again only while it was never answered (the
+     * first launch was offline, or the form failed, and it's still unanswered): otherwise the 1.0.7 spots, which load
+     * only with consent settled, would never reach that player (ad-spots CEO D6). A form that showed, answered or
+     * not, isn't asked again here.
      */
     fun onLaunch(activity: Activity) {
         val first = !prefs.getBoolean(KEY_FIRST_LAUNCH_DONE, false)
+        // No record yet (an install from before 1.0.7): a still-required consent counts as missed once (CEO D6).
+        val missed = prefs.getBoolean(KEY_FORM_MISSED, true)
         prefs.edit { putBoolean(KEY_FIRST_LAUNCH_DONE, true) }
         info.requestConsentInfoUpdate(
             activity,
             parameters(),
             {
-                if (first) {
+                val unanswered = info.consentStatus == ConsentInformation.ConsentStatus.REQUIRED
+                if (first || (missed && unanswered)) {
                     UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { error ->
                         if (error != null) Log.w(TAG, "consent form: ${error.errorCode} ${error.message}")
+                        prefs.edit { putBoolean(KEY_FORM_MISSED, error != null) }
                         publish()
                     }
                 } else {
+                    if (missed && !unanswered) prefs.edit { putBoolean(KEY_FORM_MISSED, false) }
                     publish()
                 }
             },
             { error ->
                 Log.w(TAG, "consent info: ${error.errorCode} ${error.message}")
+                // Offline on the first launch (or still): its form couldn't show, so a later launch asks (CEO D6).
+                if (first || missed) prefs.edit { putBoolean(KEY_FORM_MISSED, true) }
                 publish()
             },
         )
@@ -172,5 +182,8 @@ class ConsentManager(context: Context, reporter: NonFatalReporter, private val a
         const val TAG = "GemmoryAds"
         const val FILE = StorageLayout.Prefs.CONSENT
         const val KEY_FIRST_LAUNCH_DONE = "firstLaunchDone"
+
+        /** The first launch's form couldn't show (offline, an error): a later launch shows it while unanswered (CEO D6). */
+        const val KEY_FORM_MISSED = "formMissed"
     }
 }

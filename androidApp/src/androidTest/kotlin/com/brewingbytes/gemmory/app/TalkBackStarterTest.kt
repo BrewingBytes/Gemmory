@@ -35,7 +35,7 @@ class TalkBackStarterTest {
         assumeDeviceChecks()
         assumeTrue("needs TalkBack on the device", A11yTestSupport.talkBackInstalled)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         A11yTestSupport.talkBackOn()
     }
 

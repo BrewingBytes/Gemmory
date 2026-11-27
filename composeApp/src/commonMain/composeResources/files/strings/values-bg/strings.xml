@@ -536,7 +536,7 @@
     <string name="billing_restore_failed">Няма връзка с Google Play. Опитай отново.</string>
     <string name="billing_yearly">%1$s / година (%2$s на седмица)</string>
     <string name="billing_weekly">%1$s / седмица</string>
-    <string name="billing_remove_ads">Само без реклами · еднократно %1$s</string>
+    <string name="billing_remove_ads">Без изскачащи реклами · еднократно %1$s</string>
     <string name="membership_vip_yearly">VIP · годишно</string>
     <string name="membership_vip_weekly">VIP · седмично</string>
     <string name="membership_vip_unconfirmed">VIP · свържи се с Google Play за потвърждение</string>
@@ -546,7 +546,7 @@
     <string name="billing_restored_weekly">Покупките са възстановени: VIP (седмично)</string>
     <string name="billing_restored_ads">Покупките са възстановени: без реклами</string>
     <string name="billing_notice_vip">Ти си VIP. Всички картини в галерията са отключени.</string>
-    <string name="billing_notice_ads_off">Рекламите са изключени завинаги.</string>
+    <string name="billing_notice_ads_off">Рекламите, които се пускат сами, са изключени завинаги. Видеата, които избираш, остават по желание.</string>
     <string name="billing_notice_lapsed">Не успяхме да потвърдим VIP цяла седмица. Свържи се с интернет, за да го възстановиш.</string>
 
     <string name="action_close">Затвори</string>
@@ -673,4 +673,25 @@
     <string name="title_japanese_garden">Японска градина</string>
     <string name="title_northern_lights">Северно сияние</string>
     <string name="title_misty_pier">Кей в мъглата</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">В момента няма видео.</string>
+    <string name="spot_watch_to_end">Гледай до края, за да го получиш.</string>
+    <string name="spot_unavailable_sharing">недостъпно, докато видеото ти се прави</string>
+    <string name="spot_again">Гледай видео: +%1$s</string>
+    <string name="prize_one_freeze">1 защита на серията</string>
+    <string name="gift_title">Днешният подарък</string>
+    <string name="gift_watch">Гледай видео, за да завъртиш</string>
+    <string name="gift_not_now">Не сега</string>
+    <string name="gift_row_body">Гледай кратко видео, за да завъртиш днешното колело.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Кратко видео за %1$d запълване</item>
+        <item quantity="other">Кратко видео за %1$d запълвания</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">Започва след %1$d секунда. Пропусни, ако не искаш.</item>
+        <item quantity="other">Започва след %1$d секунди. Пропусни, ако не искаш.</item>
+    </plurals>
+    <string name="intro_body_untimed">Започва, когато докоснеш „Гледай сега“. Пропусни, ако не искаш.</string>
+    <string name="intro_skip">Пропусни</string>
+    <string name="intro_watch">Гледай сега</string>
 </resources>

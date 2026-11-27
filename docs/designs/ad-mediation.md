@@ -97,6 +97,18 @@ One issue (T34) covering, in order:
 - UMP keeps running while ads are off: it is also Firebase Analytics' Consent Mode v2 (#12), and Settings → Privacy choices is how a player in the EEA withdraws it.
 - Turning ads on is the one property and a release. Nothing earned while off is taken away: kept canvases, fills and started pictures stay; pictures never started lock again.
 
+## Ad spots (1.0.7, ad-spots.md)
+
+- Four new units in the Gemmory app: three rewarded (`completion_bonus`, `daily_chest`, `double_wheel`) and one
+  rewarded interstitial. Their production IDs go in `gradle.properties` (`gemmory.admob.bonusUnit`, `giftUnit`,
+  `againUnit`, `rewardedInterstitialUnit`), checked by `:shared:validateReleaseAdIds` like the first two.
+- Add the three rewarded units to the Rewarded mediation group (AdMob Network + Unity bidding). The rewarded
+  interstitial unit is AdMob demand only: Google's Unity Ads mediation page (checked 2026-11-26) lists banner,
+  interstitial and rewarded for the Unity adapter, not rewarded interstitial. When none is loaded, today's Unity-bid
+  interstitial shows instead, under the same caps.
+- Each spot shows only while its own unit has a loaded ad, so archiving a unit in AdMob turns that spot off without a
+  release (CEO D2).
+
 ## Open Questions
 - Does Unity's Data safety disclosure add data types Gemmory hasn't declared yet? Read it during the issue.
 - Are closed testers in the EEA (UMP message shown)? This affects how much of the test traffic is personalized.

@@ -89,7 +89,7 @@ class FinishedSectionFlowTest {
         // A new streak day's celebration (#101) would sit between Done and the gallery; this class tests what follows.
         app.resetStreakForTest(celebrations = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()

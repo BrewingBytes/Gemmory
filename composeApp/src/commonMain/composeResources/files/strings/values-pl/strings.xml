@@ -620,7 +620,7 @@
     <string name="billing_restore_failed">Nie można połączyć się z Google Play. Spróbuj ponownie.</string>
     <string name="billing_yearly">%1$s / rok (%2$s tygodniowo)</string>
     <string name="billing_weekly">%1$s / tydzień</string>
-    <string name="billing_remove_ads">Tylko usuń reklamy · %1$s jednorazowo</string>
+    <string name="billing_remove_ads">Usuń reklamy pełnoekranowe · %1$s jednorazowo</string>
     <string name="membership_vip_yearly">VIP · rocznie</string>
     <string name="membership_vip_weekly">VIP · tygodniowo</string>
     <string name="membership_vip_unconfirmed">VIP · połącz się z Google Play, aby potwierdzić</string>
@@ -630,7 +630,7 @@
     <string name="billing_restored_weekly">Przywrócono zakupy: VIP (tygodniowo)</string>
     <string name="billing_restored_ads">Przywrócono zakupy: reklamy usunięte</string>
     <string name="billing_notice_vip">Masz VIP. Wszystkie obrazy z galerii są odblokowane.</string>
-    <string name="billing_notice_ads_off">Reklamy wyłączone na zawsze.</string>
+    <string name="billing_notice_ads_off">Reklamy, które włączają się same, są wyłączone na zawsze. Filmy, które wybierasz, pozostają opcjonalne.</string>
     <string name="billing_notice_lapsed">Od tygodnia nie możemy potwierdzić twojego VIP. Połącz się z internetem, aby go przywrócić.</string>
 
     <string name="action_close">Zamknij</string>
@@ -765,4 +765,29 @@
     <string name="title_japanese_garden">Ogród japoński</string>
     <string name="title_northern_lights">Zorza polarna</string>
     <string name="title_misty_pier">Pomost we mgle</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">Teraz nie ma filmu.</string>
+    <string name="spot_watch_to_end">Obejrzyj do końca, aby to dostać.</string>
+    <string name="spot_unavailable_sharing">niedostępne, gdy powstaje twój film</string>
+    <string name="spot_again">Obejrzyj film: +%1$s</string>
+    <string name="prize_one_freeze">1 ochrona serii</string>
+    <string name="gift_title">Dzisiejszy prezent</string>
+    <string name="gift_watch">Obejrzyj film, aby zakręcić</string>
+    <string name="gift_not_now">Nie teraz</string>
+    <string name="gift_row_body">Obejrzyj krótki film i zakręć dzisiejszym kołem.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Krótki film za %1$d wypełnienie</item>
+        <item quantity="few">Krótki film za %1$d wypełnienia</item>
+        <item quantity="many">Krótki film za %1$d wypełnień</item>
+        <item quantity="other">Krótki film za %1$d wypełnienia</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">Zacznie się za %1$d sekundę. Pomiń, jeśli wolisz.</item>
+        <item quantity="few">Zacznie się za %1$d sekundy. Pomiń, jeśli wolisz.</item>
+        <item quantity="many">Zacznie się za %1$d sekund. Pomiń, jeśli wolisz.</item>
+        <item quantity="other">Zacznie się za %1$d sekundy. Pomiń, jeśli wolisz.</item>
+    </plurals>
+    <string name="intro_body_untimed">Zacznie się, gdy dotkniesz Obejrzyj teraz. Pomiń, jeśli wolisz.</string>
+    <string name="intro_skip">Pomiń</string>
+    <string name="intro_watch">Obejrzyj teraz</string>
 </resources>
