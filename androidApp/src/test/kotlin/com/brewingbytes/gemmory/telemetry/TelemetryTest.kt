@@ -139,6 +139,15 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("canvas_finished", mapOf("source" to "remote", "size" to "big", "entry" to "gallery")), AnalyticsEvent.canvasFinished(fox, 106, 142))
         assertEquals("remote/fox-in-snow", fox.reportLabel)
         assertEquals(mapOf("source" to "photo", "size" to "medium", "entry" to "gallery"), AnalyticsEvent.canvasFinished(photo, 90, 90).params)
+        // 1.0.7 (D22): effort to finish, as metrics; sittings unknown (0, started before 1.0.7) and days unknown are left out.
+        assertEquals(
+            mapOf("source" to "photo", "size" to "medium", "entry" to "gallery", "play_ms" to 3_600_000L, "sittings" to 4L, "days_open" to 2L),
+            AnalyticsEvent.canvasFinished(photo, 90, 90, effort = FinishEffort(3_600_000L, 4, 2L)).params,
+        )
+        assertEquals(
+            mapOf("source" to "photo", "size" to "medium", "entry" to "gallery", "play_ms" to 60_000L),
+            AnalyticsEvent.canvasFinished(photo, 90, 90, effort = FinishEffort(60_000L, 0, null)).params,
+        )
         assertEquals(mapOf("source" to "bundled", "size" to "big", "kind" to "finished"), AnalyticsEvent.shareTapped(puppy, 122, 122, progress = false).params)
         assertEquals(mapOf("source" to "photo", "size" to "quick", "kind" to "progress"), AnalyticsEvent.shareTapped(photo, 48, 64, progress = true).params)
         assertEquals("starter", AnalyticsEvent.size(starter, 24, 32), "the starter never counts as Quick")
@@ -270,14 +279,33 @@ class TelemetryTest {
 
     @Test
     fun monetizationEventsMatchTheDesignDoc() {
-        assertEquals(AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "photo_canvas")), AnalyticsEvent.rewardedOffered(RewardType.PHOTO_CANVAS))
-        assertEquals(AnalyticsEvent("rewarded_watched", mapOf("reward_type" to "picture")), AnalyticsEvent.rewardedWatched(RewardType.PICTURE))
         assertEquals(
-            AnalyticsEvent("rewarded_unavailable", mapOf("reward_type" to "picture", "reason" to "no_fill")),
+            AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "photo_canvas", "placement" to "photo_canvas")),
+            AnalyticsEvent.rewardedOffered(RewardType.PHOTO_CANVAS),
+        )
+        assertEquals(
+            AnalyticsEvent("rewarded_watched", mapOf("reward_type" to "picture", "placement" to "locked_picture")),
+            AnalyticsEvent.rewardedWatched(RewardType.PICTURE),
+        )
+        assertEquals(
+            AnalyticsEvent("rewarded_unavailable", mapOf("reward_type" to "picture", "placement" to "locked_picture", "reason" to "no_fill")),
             AnalyticsEvent.rewardedUnavailable(RewardType.PICTURE, UnavailableReason.NO_FILL),
         )
-        assertEquals(AnalyticsEvent("grace_unlock_granted", mapOf("reward_type" to "picture")), AnalyticsEvent.graceUnlockGranted(RewardType.PICTURE))
-        assertEquals(AnalyticsEvent("interstitial_shown"), AnalyticsEvent.interstitialShown)
+        assertEquals(
+            AnalyticsEvent("grace_unlock_granted", mapOf("reward_type" to "picture", "placement" to "locked_picture")),
+            AnalyticsEvent.graceUnlockGranted(RewardType.PICTURE),
+        )
+        assertEquals(AnalyticsEvent("interstitial_shown", mapOf("placement" to "interstitial")), AnalyticsEvent.interstitialShown)
+        // 1.0.7 (analytics audit D22): the spots' funnel by placement, the rewarded interstitial's own placement.
+        assertEquals(
+            AnalyticsEvent("rewarded_offer_seen", mapOf("reward_type" to "completion_bonus", "placement" to "completion_bonus")),
+            AnalyticsEvent.rewardedOfferSeen(RewardType.COMPLETION_BONUS),
+        )
+        assertEquals(mapOf("placement" to "daily_chest"), AnalyticsEvent.rewardedWatched(RewardType.DAILY_GIFT).params - "reward_type")
+        assertEquals(mapOf("placement" to "double_wheel"), AnalyticsEvent.rewardedOffered(RewardType.SAME_AGAIN).params - "reward_type")
+        assertEquals(AnalyticsEvent("rewarded_offer_seen", mapOf("placement" to "rewarded_interstitial")), AnalyticsEvent.rewardedIntroShown)
+        assertEquals(AnalyticsEvent("rewarded_offered", mapOf("placement" to "rewarded_interstitial")), AnalyticsEvent.rewardedIntroStarted)
+        assertEquals(AnalyticsEvent("rewarded_watched", mapOf("placement" to "rewarded_interstitial")), AnalyticsEvent.rewardedIntroWatched)
         assertEquals(AnalyticsEvent("vip_purchased", mapOf("period" to "weekly")), AnalyticsEvent.vipPurchased("weekly"))
         assertEquals(AnalyticsEvent("remove_ads_purchased"), AnalyticsEvent.removeAdsPurchased)
         // 1.0.6: the purchase funnel, by product id and paywall source only.
@@ -290,7 +318,7 @@ class TelemetryTest {
             AnalyticsEvent("canvas_started", mapOf("source" to "photo", "size" to "big", "colors" to "more", "entry" to "gallery")),
             AnalyticsEvent.canvasStarted(photo, 106, 142, ColorChoice.MORE),
         )
-        assertEquals(AnalyticsEvent("rewarded_watched", mapOf("reward_type" to "colors")), AnalyticsEvent.rewardedWatched(RewardType.COLORS))
+        assertEquals(AnalyticsEvent("rewarded_watched", mapOf("reward_type" to "colors", "placement" to "colors")), AnalyticsEvent.rewardedWatched(RewardType.COLORS))
         assertEquals(AnalyticsEvent("streak_day", mapOf("length" to 3L)), AnalyticsEvent.streakDay(3))
         assertEquals(AnalyticsEvent("streak_freeze_earned", mapOf("paid" to "fills")), AnalyticsEvent.streakFreezeEarned("fills"))
         assertEquals(AnalyticsEvent("streak_freeze_used", mapOf("count" to 2L)), AnalyticsEvent.streakFreezeUsed(2))
@@ -298,7 +326,10 @@ class TelemetryTest {
         assertEquals(AnalyticsEvent("streak_repair_completed", mapOf("vip" to 1L)), AnalyticsEvent.streakRepairCompleted(vip = true))
         assertEquals(AnalyticsEvent("streak_nudge_shown", mapOf("broken" to 0L)), AnalyticsEvent.streakNudgeShown(broken = false))
         assertEquals(AnalyticsEvent("streak_nudge_tapped", mapOf("target" to "canvas")), AnalyticsEvent.streakNudgeTapped("canvas"))
-        assertEquals(AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "streak_repair")), AnalyticsEvent.rewardedOffered(RewardType.STREAK_REPAIR))
+        assertEquals(
+            AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "streak_repair", "placement" to "streak_repair")),
+            AnalyticsEvent.rewardedOffered(RewardType.STREAK_REPAIR),
+        )
         assertEquals(
             AnalyticsEvent("streak_celebration_shown", mapOf("length" to 7L, "milestone" to 7L, "saved_by" to "day_off")),
             AnalyticsEvent.streakCelebrationShown(7, 7, "day_off"),
@@ -315,9 +346,9 @@ class TelemetryTest {
             AnalyticsEvent("inventory_earned", mapOf("item" to "fills", "source" to "wheel", "amount" to 10L)),
             AnalyticsEvent.inventoryEarned(Item.FILLS, EarnSource.WHEEL, 10),
         )
-        assertEquals(AnalyticsEvent("inventory_spent", mapOf("item" to "unlock_token")), AnalyticsEvent.inventorySpent(Item.UNLOCK_TOKEN))
+        assertEquals(AnalyticsEvent("inventory_spent", mapOf("item" to "unlock_token", "amount" to 1L)), AnalyticsEvent.inventorySpent(Item.UNLOCK_TOKEN))
         assertEquals(
-            AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "fills")),
+            AnalyticsEvent("rewarded_offered", mapOf("reward_type" to "fills", "placement" to "inventory_fills")),
             AnalyticsEvent.rewardedOffered(RewardType.FILLS),
         )
         assertEquals(

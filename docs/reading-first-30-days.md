@@ -133,6 +133,39 @@ Read it as rates: started ÷ shown is the paywall's pull (prices, copy), bought 
 `in_app_purchase` and `ad_impression` (counting once per event), so a Google Ads app campaign linked to Firebase can
 bid for players who pay, not only for installs.
 
+## Ad spots and play effort (1.0.7)
+
+ad-spots.md added four ad spots, and the analytics audit (`docs/designs/analytics-audit-1.0.7.md`, decision D22) added
+a few play numbers. Register before 1.0.7 ships: event-scoped custom dimension `placement`; metrics `play_ms`,
+`sittings`, `days_open` and `amount`; user-scoped dimension `tier`. Registration doesn't apply backwards. Then check
+each in DebugView (Checking that the events arrive, below).
+
+**Take-up per spot**, a GA4 funnel broken down by `placement` (`completion_bonus`, `daily_chest`, `double_wheel`,
+`rewarded_interstitial`, and the older `locked_picture`, `photo_canvas`, `colors`, `inventory_fills`, `streak_repair`):
+
+| Step | Event | Meaning |
+|---|---|---|
+| Saw it | `rewarded_offer_seen` | fully faded in and at least half visible, once per offer moment; for `rewarded_interstitial`, its intro showed |
+| Tapped it | `rewarded_offered` | a spot's button tapped, a rewarded sheet opened, or the intro's video started |
+| Got the reward | `rewarded_watched` | watched to the reward |
+| No video | `rewarded_unavailable` (`reason`) | nothing to play at the tap |
+
+Revenue per spot comes from AdMob by ad unit (each spot has its own), never from our events.
+
+**Judging a spot** (CEO D5, design D6): by organic ad revenue per daily active player with the spot on and off. Turn a
+spot off by archiving its AdMob unit, for at least 7 days. Ignore the first 2 days of each window, and read the fills
+players hold (`inventory_earned` minus `inventory_spent`, `amount`) alongside, since fills stored while it was on carry
+over. The read on about 2026-12-24 will most likely give counts only and a "keep going". Day-7 retention is judged
+only once both cohorts reach 100 players.
+
+**Share guardrail** (design D21): `share_tapped` per fresh completion (`canvas_finished`), the week before 1.0.7 against
+the weeks after. If it drops clearly, the completion bonus is the first suspect: archive its unit.
+
+**Effort to finish:** `canvas_finished` carries `play_ms` (active play time), `sittings` (sessions that saved a gem;
+absent for pictures started before 1.0.7) and `days_open` (days since it was made). Average them by `size` in a
+free-form exploration. **`tier`** (user property: `free`, `remove_ads`, `vip`, set after consent) splits any report by
+plan.
+
 ## iOS: the platform split and the after-launch bars
 
 Plan `docs/designs/gemmory-ios.md` (eng D18, D26, R3-6). iOS sends the same events with the same params into the same Firebase project, as its own app.

@@ -30,6 +30,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import com.brewingbytes.gemmory.ads.LocalAdSpots
+import com.brewingbytes.gemmory.ads.Spot
+import com.brewingbytes.gemmory.ads.TapLook
+import com.brewingbytes.gemmory.ads.TapSpot
+import com.brewingbytes.gemmory.ads.onHalfVisible
+import com.brewingbytes.gemmory.policy.Inventory
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -115,6 +122,16 @@ fun CompletionScreen(
     // Released when the screen leaves, which also stops a crescendo still rising mid-sequence.
     val feedback = shell.rememberFeedback()
     val shareSheet = shell.rememberFinishedShare()
+
+    // The completion bonus (1.0.7, DR-D3/D4): its slot is laid out from the first frame when the rules allow it, so the
+    // picture never resizes; whether it shows is decided once, when Share and Done have faded in (its video ready then).
+    val spots = LocalAdSpots.current
+    val bonusSlot = remember(ref, fresh) { fresh && spots.bonusAllowed(ref) }
+    DisposableEffect(bonusSlot) {
+        if (bonusSlot) spots.want(Spot.BONUS)
+        onDispose { spots.unwant(Spot.BONUS) }
+    }
+    var bonusOffer by remember(ref) { mutableStateOf<Boolean?>(null) }
 
     val sequence = fresh && !vm.hasPlayed(ref)
     val dim = remember { Animatable(if (sequence) 0f else DIM) }
@@ -218,6 +235,22 @@ fun CompletionScreen(
                                 GemTextButton(words.text("completion_play_again"), { confirmPlayAgain = true }, Modifier.testTag(PLAY_AGAIN_TAG))
                             }
                         }
+                        if (bonusSlot) {
+                            Box(Modifier.fillMaxWidth().padding(top = 16.dp).heightIn(min = BONUS_SLOT_MIN), contentAlignment = Alignment.TopCenter) {
+                                if (bonusOffer == true) {
+                                    val sharing = encode is EncodeState.Running || encode is EncodeState.Video || encode is EncodeState.Picture
+                                    TapSpot(
+                                        words.plural("inventory_watch", Inventory.FILLS_PER_BONUS, Inventory.FILLS_PER_BONUS),
+                                        TapLook.TEXT,
+                                        play = { spots.playBonus(ref) },
+                                        enabled = !sharing,
+                                        disabledReason = words.text("spot_unavailable_sharing"),
+                                        tag = BONUS_TAG,
+                                        modifier = Modifier.onHalfVisible { spots.seen(Spot.BONUS) },
+                                    )
+                                }
+                            }
+                        }
                         if (fresh || vm.whereFoundOn(ref)) WhereFoundBlock(vm.whereFound, revealed = text.value >= 1f)
                     }
                     // Until they have faded in, the buttons can't be pressed unseen; system back still works.
@@ -233,6 +266,10 @@ fun CompletionScreen(
                 }
             }
         }
+    }
+    // Decided once (DR-D4): never inserted after the text has faded in.
+    LaunchedEffect(bonusSlot, text.value >= 1f) {
+        if (bonusSlot && text.value >= 1f && bonusOffer == null) bonusOffer = Spot.BONUS in spots.ready.value
     }
     val whereFound = vm.whereFound.ui
     LaunchedEffect(whereFound is WhereFoundUi.Row, text.value >= 1f) {
@@ -464,6 +501,11 @@ private fun Confetti(finished: Finished, picture: Rect, roomWidth: Int, ms: Floa
 }
 
 private const val DIM = 0.3f
+
+/** The bonus offer's slot (DR-D4): a 48dp text button plus a line under it, held from the first frame. */
+private val BONUS_SLOT_MIN = 72.dp
+
+const val BONUS_TAG = "completion-bonus"
 private const val DIM_MS = 250
 private const val HOLD_MS = 2_000L
 private const val TEXT_MS = 400

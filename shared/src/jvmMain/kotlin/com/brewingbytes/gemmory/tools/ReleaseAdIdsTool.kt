@@ -5,10 +5,11 @@ import kotlin.system.exitProcess
 
 /** `./gradlew :shared:validateReleaseAdIds` (T34): fails the release build on missing or test AdMob IDs. */
 object ReleaseAdIdsTool {
-    /** `<appId> <rewardedUnit> <interstitialUnit>`, each possibly empty. */
+    /** `<appId> <rewardedUnit> <interstitialUnit>` then the four spot units (1.0.7), each possibly empty. */
     @JvmStatic
     fun main(args: Array<String>) {
-        val problems = ReleaseAdIds.problems(args.getOrNull(0), args.getOrNull(1), args.getOrNull(2))
+        val problems = ReleaseAdIds.problems(args.getOrNull(0), args.getOrNull(1), args.getOrNull(2)) +
+            ReleaseAdIds.spotProblems(args.drop(3))
         if (problems.isEmpty()) {
             println("release ad IDs OK")
             return

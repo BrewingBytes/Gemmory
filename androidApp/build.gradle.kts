@@ -35,8 +35,8 @@ android {
         applicationId = "com.brewingbytes.gemmory"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 28
-        versionName = "1.0.6"
+        versionCode = 29
+        versionName = "1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Frame-timing runs (@PerfTest) only on request: am instrument -e annotation com.brewingbytes.gemmory.PerfTest
@@ -48,6 +48,11 @@ android {
         manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         buildConfigField("String", "ADMOB_REWARDED", "\"ca-app-pub-3940256099942544/5224354917\"")
         buildConfigField("String", "ADMOB_INTERSTITIAL", "\"ca-app-pub-3940256099942544/1033173712\"")
+        // The 1.0.7 ad spots' own units (ad-spots CEO D2): Google's rewarded and rewarded interstitial test units.
+        buildConfigField("String", "ADMOB_BONUS", "\"ca-app-pub-3940256099942544/5224354917\"")
+        buildConfigField("String", "ADMOB_GIFT", "\"ca-app-pub-3940256099942544/5224354917\"")
+        buildConfigField("String", "ADMOB_AGAIN", "\"ca-app-pub-3940256099942544/5224354917\"")
+        buildConfigField("String", "ADMOB_REWARDED_INTERSTITIAL", "\"ca-app-pub-3940256099942544/5354046379\"")
         // UMP debug settings for device checks: `-Pgemmory.umpDebugEea=true` forces the EEA geography,
         // `-Pgemmory.umpDebugUsState=true` a regulated US state (T34: the US-states form, GPP strings for UsPrivacyTest),
         // `-Pgemmory.umpTestDevice=<hashed id from logcat>` marks the device as a test device. Debug builds only.
@@ -125,6 +130,14 @@ android {
             manifestPlaceholders["admobAppId"] = providers.gradleProperty("gemmory.admob.appId").getOrElse("")
             buildConfigField("String", "ADMOB_REWARDED", "\"${providers.gradleProperty("gemmory.admob.rewardedUnit").getOrElse("")}\"")
             buildConfigField("String", "ADMOB_INTERSTITIAL", "\"${providers.gradleProperty("gemmory.admob.interstitialUnit").getOrElse("")}\"")
+            for ((field, property) in listOf(
+                "ADMOB_BONUS" to "bonusUnit",
+                "ADMOB_GIFT" to "giftUnit",
+                "ADMOB_AGAIN" to "againUnit",
+                "ADMOB_REWARDED_INTERSTITIAL" to "rewardedInterstitialUnit",
+            )) {
+                buildConfigField("String", field, "\"${providers.gradleProperty("gemmory.admob.$property").getOrElse("")}\"")
+            }
             buildConfigField("boolean", "ADS_ENABLED", providers.gradleProperty("gemmory.ads.enabled").getOrElse("false"))
         }
         // Release-like build for the frame-timing check (#117): R8 and not debuggable, like what players run, but signed
@@ -140,6 +153,10 @@ android {
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
             buildConfigField("String", "ADMOB_REWARDED", "\"ca-app-pub-3940256099942544/5224354917\"")
             buildConfigField("String", "ADMOB_INTERSTITIAL", "\"ca-app-pub-3940256099942544/1033173712\"")
+            buildConfigField("String", "ADMOB_BONUS", "\"ca-app-pub-3940256099942544/5224354917\"")
+            buildConfigField("String", "ADMOB_GIFT", "\"ca-app-pub-3940256099942544/5224354917\"")
+            buildConfigField("String", "ADMOB_AGAIN", "\"ca-app-pub-3940256099942544/5224354917\"")
+            buildConfigField("String", "ADMOB_REWARDED_INTERSTITIAL", "\"ca-app-pub-3940256099942544/5354046379\"")
             val firebaseInPerf = providers.gradleProperty("gemmory.firebaseInPerf").getOrElse("false")
             buildConfigField("boolean", "FIREBASE", firebaseInPerf)
             manifestPlaceholders["firebaseEnabled"] = firebaseInPerf

@@ -69,7 +69,7 @@ class CanvasFrameTimingTest {
         Log.i(TAG, "build ${BuildConfig.BUILD_TYPE} debuggable=$debuggable")
         if (BuildConfig.BUILD_TYPE == "perf") assertFalse("The perf build must not be debuggable", debuggable)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         val app = context.applicationContext as GemmoryApp
         val style = HighlightStyle.fromKey(InstrumentationRegistry.getArguments().getString("highlight"))
         instrumentation.runOnMainSync { app.settings.setHighlight(style) }

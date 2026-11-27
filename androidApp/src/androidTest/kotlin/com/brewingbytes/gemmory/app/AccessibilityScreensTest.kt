@@ -56,7 +56,7 @@ class AccessibilityScreensTest {
         // A streak day another class finished would open on its celebration (#101), not the gallery (#215).
         (context.applicationContext as GemmoryApp).resetStreakForTest(celebrations = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         runBlocking { (context.applicationContext as GemmoryApp).store.create(photo, A11yTestSupport.pattern(10, 10, 4)) }
     }
 

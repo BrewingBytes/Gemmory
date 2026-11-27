@@ -48,4 +48,18 @@ class ReleaseAdIdsTest {
         assertTrue(problems.all { "not an AdMob ID" in it })
         assertEquals(1, ReleaseAdIds.problems(app, "ca-app-pub-XXXXXXXXXXXXXXXX/NNNNNNNNNN", interstitial).size)
     }
+
+    /** 1.0.7: the four spot units are checked the same way, each named. */
+    @Test
+    fun theSpotUnitsAreCheckedToo() {
+        val unit = "ca-app-pub-5739296020070844/6700966568"
+        assertEquals(emptyList(), ReleaseAdIds.spotProblems(listOf(unit, unit, unit, unit)))
+        assertEquals(
+            listOf(
+                "gemmory.admob.giftUnit is missing",
+                "gemmory.admob.rewardedInterstitialUnit is Google's test publisher (ca-app-pub-3940256099942544/5354046379): it only serves test ads",
+            ),
+            ReleaseAdIds.spotProblems(listOf(unit, "", unit, "ca-app-pub-3940256099942544/5354046379")),
+        )
+    }
 }

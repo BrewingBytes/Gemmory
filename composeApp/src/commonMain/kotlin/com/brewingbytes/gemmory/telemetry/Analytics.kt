@@ -4,6 +4,7 @@ import com.brewingbytes.gemmory.converter.ColorChoice
 import com.brewingbytes.gemmory.converter.GridSpec
 import com.brewingbytes.gemmory.policy.ConsentModeV2
 import com.brewingbytes.gemmory.policy.EarnSource
+import com.brewingbytes.gemmory.policy.Entitlements
 import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LoadFailure
 import com.brewingbytes.gemmory.policy.ReminderReason
@@ -43,6 +44,7 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
                 (if (mystery) mapOf(MYSTERY to "true") else emptyMap()),
         )
 
+        /** [effort] (1.0.7, analytics audit D22): how long and over how many sittings the picture took. */
         fun canvasFinished(
             ref: CanvasRef,
             width: Int,
@@ -51,7 +53,11 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
             daysSinceAvailable: Long? = null,
             collectionId: String? = null,
             eventId: String? = null,
-        ) = AnalyticsEvent("canvas_finished", canvas(ref, width, height) + opened(entry, daysSinceAvailable) + collection(collectionId) + event(eventId))
+            effort: FinishEffort? = null,
+        ) = AnalyticsEvent(
+            "canvas_finished",
+            canvas(ref, width, height) + opened(entry, daysSinceAvailable) + collection(collectionId) + event(eventId) + effort(effort),
+        )
 
         /** Every member of a collection is finished (T37): its keepsake and token are earned. A content id. */
         fun collectionCompleted(collectionId: String) = AnalyticsEvent("collection_completed", mapOf(COLLECTION_ID to collectionId))
@@ -187,8 +193,16 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
             mapOf("item" to item.param, "source" to source.param, "amount" to amount.toLong()),
         )
 
-        /** One inventory item was spent (#38). */
-        fun inventorySpent(item: Item) = AnalyticsEvent("inventory_spent", mapOf("item" to item.param))
+        /** One inventory item was spent (#38); [AMOUNT] is always 1 today, sent so a sum reads as items (D22). */
+        fun inventorySpent(item: Item) = AnalyticsEvent("inventory_spent", mapOf("item" to item.param, AMOUNT to 1L))
+
+        /**
+         * The rewarded funnel (1.0.7 meanings, analytics audit D22). Every event carries [PLACEMENT] (the spot) and the
+         * legacy `reward_type`. [rewardedOfferSeen]: an opt-in offer was fully shown and at least half visible, once per
+         * offer moment. [rewardedOffered]: the offer was tapped (a rewarded sheet opened, or a spot's button). [rewardedWatched]:
+         * the reward was earned. [rewardedUnavailable]: no video when it was tapped or opened.
+         */
+        fun rewardedOfferSeen(type: RewardType) = AnalyticsEvent("rewarded_offer_seen", reward(type))
 
         fun rewardedOffered(type: RewardType) = AnalyticsEvent("rewarded_offered", reward(type))
 
@@ -199,7 +213,17 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 
         fun graceUnlockGranted(type: RewardType) = AnalyticsEvent("grace_unlock_granted", reward(type))
 
-        val interstitialShown = AnalyticsEvent("interstitial_shown")
+        /** Today's interstitial showed (the fallback when no rewarded interstitial is loaded, 1.0.7). */
+        val interstitialShown = AnalyticsEvent("interstitial_shown", mapOf(PLACEMENT to "interstitial"))
+
+        /** The rewarded interstitial's intro showed (1.0.7): it counts as the return's ad whether skipped or watched. */
+        val rewardedIntroShown = AnalyticsEvent("rewarded_offer_seen", mapOf(PLACEMENT to REWARDED_INTERSTITIAL))
+
+        /** The rewarded interstitial's video was started from its intro (Watch now or the countdown). */
+        val rewardedIntroStarted = AnalyticsEvent("rewarded_offered", mapOf(PLACEMENT to REWARDED_INTERSTITIAL))
+
+        /** The rewarded interstitial's reward was earned. */
+        val rewardedIntroWatched = AnalyticsEvent("rewarded_watched", mapOf(PLACEMENT to REWARDED_INTERSTITIAL))
 
         /** [period]: `weekly` or `yearly`. */
         fun vipPurchased(period: String) = AnalyticsEvent("vip_purchased", mapOf("period" to period))
@@ -239,6 +263,12 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
         const val EVENT_ID = "event_id"
         const val MYSTERY = "mystery"
         const val PRODUCT = "product"
+        const val PLACEMENT = "placement"
+        const val AMOUNT = "amount"
+        const val REWARDED_INTERSTITIAL = "rewarded_interstitial"
+
+        /** The `tier` user property (D22): what the player has, set after consent; never a user id. */
+        const val TIER = "tier"
 
         /** The share's kind (#36): `progress` before the last gem, `finished` after it. */
         fun kind(progress: Boolean): String = if (progress) "progress" else "finished"
@@ -269,7 +299,15 @@ data class AnalyticsEvent(val name: String, val params: Map<String, Any> = empty
 
         private fun event(id: String?): Map<String, Any> = id?.let { mapOf(EVENT_ID to it) }.orEmpty()
 
-        private fun reward(type: RewardType) = mapOf("reward_type" to type.name.lowercase())
+        private fun reward(type: RewardType) = mapOf("reward_type" to type.name.lowercase(), PLACEMENT to type.placement)
+
+        private fun effort(effort: FinishEffort?): Map<String, Any> = effort?.let {
+            buildMap {
+                put("play_ms", it.playMillis)
+                if (it.sittings > 0) put("sittings", it.sittings.toLong())
+                it.daysOpen?.let { days -> put("days_open", days) }
+            }
+        }.orEmpty()
 
         /** `colors` = `fewer` | `standard` | `more` (#29): the choice, never the palette or the count. */
         private fun colors(choice: ColorChoice?): Map<String, Any> = choice?.let { mapOf("colors" to it.param) }.orEmpty()
@@ -310,9 +348,34 @@ enum class UnavailableReason(val param: String) {
     }
 }
 
+/**
+ * How long a picture took (1.0.7, D22): [playMillis] active play time, [sittings] sessions that saved a gem (0 when
+ * the picture was started before 1.0.7 counted them), [daysOpen] whole days since it was made (null when unknown).
+ */
+data class FinishEffort(val playMillis: Long, val sittings: Int, val daysOpen: Long?)
+
+/** What the player has, for the `tier` user property (D22). */
+enum class PlayerTier(val param: String) {
+    FREE("free"),
+    REMOVE_ADS("remove_ads"),
+    VIP("vip"),
+    ;
+
+    companion object {
+        fun of(entitlements: Entitlements): PlayerTier = when {
+            entitlements.vip -> VIP
+            entitlements.removeAds -> REMOVE_ADS
+            else -> FREE
+        }
+    }
+}
+
 /** Firebase Analytics, or the platform log in debug builds and tests ([Logcat]; common since iOS Stage 1c, T64). */
 interface Analytics {
     fun log(event: AnalyticsEvent)
+
+    /** A user property (D22: only [AnalyticsEvent.TIER]); dropped like events before consent. */
+    fun userProperty(name: String, value: String) = Unit
 
     /** Consent Mode v2 from the UMP result (R3-7). Collection runs only while analytics storage is granted. */
     fun consent(mode: ConsentModeV2) = Unit
@@ -321,6 +384,10 @@ interface Analytics {
         val Logcat = object : Analytics {
             override fun log(event: AnalyticsEvent) {
                 logEvent("analytics ${event.name} ${event.params}")
+            }
+
+            override fun userProperty(name: String, value: String) {
+                logEvent("analytics user_property $name=$value")
             }
         }
 
@@ -352,6 +419,10 @@ class ConsentFirst(private val analytics: Analytics) : Analytics {
 
     override fun log(event: AnalyticsEvent) {
         if (applied != null) analytics.log(event)
+    }
+
+    override fun userProperty(name: String, value: String) {
+        if (applied != null) analytics.userProperty(name, value)
     }
 
     override fun consent(mode: ConsentModeV2) {

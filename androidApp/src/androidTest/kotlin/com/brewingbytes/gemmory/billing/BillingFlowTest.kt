@@ -57,7 +57,7 @@ class BillingFlowTest {
     fun setUp() {
         assertTrue(BuildConfig.FAKE_BILLING, "connected tests run on the fake billing backend")
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         resetBilling()
     }
 
@@ -145,7 +145,7 @@ class BillingFlowTest {
         assertTrue(app.billing.entitlements.value.adsRemoved)
         assertEquals(1, fake.acknowledged.size)
         compose.onNodeWithContentDescription("Back").performClick()
-        waitForText("Ads are off for good.")
+        waitForText("Ads that play on their own are off for good. Videos you choose stay optional.")
 
         // Already owned: the paywall no longer offers it.
         openSettings()

@@ -146,7 +146,16 @@ class CanvasStoreTest {
         assertEquals(listOf(AnalyticsEvent("canvas_started", mapOf("source" to "bundled", "size" to "starter", "entry" to "gallery"))), events.toList())
         events.clear()
         play(starter, *(2 until 12).toList().toIntArray())
-        assertEquals(listOf(AnalyticsEvent("canvas_finished", mapOf("source" to "bundled", "size" to "starter", "entry" to "gallery"))), events.toList())
+        // 1.0.7 (analytics D22): with its effort, here 2 sittings (2 sessions saved a gem) on its first day.
+        assertEquals(
+            listOf(
+                AnalyticsEvent(
+                    "canvas_finished",
+                    mapOf("source" to "bundled", "size" to "starter", "entry" to "gallery", "play_ms" to 0L, "sittings" to 2L, "days_open" to 0L),
+                ),
+            ),
+            events.toList(),
+        )
         events.clear()
         play(starter)
         assertTrue(events.isEmpty(), "reopening a finished canvas counts nothing")
@@ -247,16 +256,17 @@ class CanvasStoreTest {
     fun thePlayFileFollowsTheSavesAndKeepsTheFirstFinishedDayThroughAStartOver() = runBlocking<Unit> {
         val repo = store.repository
         play(starter, 0, 1)
-        assertEquals(PlayTimes(lastGemMillis = wall, firstFinishedDay = null), repo.readPlay(starter))
+        assertEquals(PlayTimes(lastGemMillis = wall, firstFinishedDay = null, sittings = 1), repo.readPlay(starter))
         val finishedOn = day.today()
         wall += 60_000
         play(starter, *(2 until 12).toList().toIntArray())
-        assertEquals(PlayTimes(wall, finishedOn), repo.readPlay(starter))
+        assertEquals(PlayTimes(wall, finishedOn, sittings = 2), repo.readPlay(starter))
         store.startOver(starter)
         assertEquals(PlayTimes(null, finishedOn), repo.readPlay(starter))
         wall += 3 * 86_400_000L
         play(starter, *(0 until 12).toList().toIntArray())
-        assertEquals(PlayTimes(wall, finishedOn), repo.readPlay(starter), "finished again later: the first day stays")
+        // A start over begins a new canvas: its sittings count again from 1.
+        assertEquals(PlayTimes(wall, finishedOn, sittings = 1), repo.readPlay(starter), "finished again later: the first day stays")
     }
 
     /** T35 (eng D12): the reminder's read waits for a closing write and lists only canvases with a gem placed. */

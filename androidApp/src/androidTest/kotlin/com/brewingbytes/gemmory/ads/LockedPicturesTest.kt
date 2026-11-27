@@ -101,7 +101,7 @@ class LockedPicturesTest {
     fun setUp() {
         assertTrue(BuildConfig.FAKE_BILLING, "connected tests run on the fake billing backend")
         clearState()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         app.resetMonetizationForTest(ads)
         // No picture of the day (#34): these tests pin which pictures are locked and where they sit.
         app.resetTodaysForTest(enabled = false)

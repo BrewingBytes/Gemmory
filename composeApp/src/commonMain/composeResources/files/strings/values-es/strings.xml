@@ -578,7 +578,7 @@
     <string name="billing_restore_failed">No se pudo conectar con Google Play. Inténtalo de nuevo.</string>
     <string name="billing_yearly">%1$s / año (%2$s a la semana)</string>
     <string name="billing_weekly">%1$s / semana</string>
-    <string name="billing_remove_ads">Solo quitar anuncios · %1$s una vez</string>
+    <string name="billing_remove_ads">Quitar anuncios emergentes · %1$s una vez</string>
     <string name="membership_vip_yearly">VIP · anual</string>
     <string name="membership_vip_weekly">VIP · semanal</string>
     <string name="membership_vip_unconfirmed">VIP · conéctate a Google Play para confirmarlo</string>
@@ -588,7 +588,7 @@
     <string name="billing_restored_weekly">Compras restauradas: VIP (semanal)</string>
     <string name="billing_restored_ads">Compras restauradas: sin anuncios</string>
     <string name="billing_notice_vip">Ya eres VIP. Todos los cuadros de la galería están desbloqueados.</string>
-    <string name="billing_notice_ads_off">Los anuncios se quitaron para siempre.</string>
+    <string name="billing_notice_ads_off">Los anuncios que se reproducen solos están desactivados para siempre. Los videos que elijas siguen siendo opcionales.</string>
     <string name="billing_notice_lapsed">No pudimos confirmar tu VIP durante una semana. Conéctate a internet para recuperarlo.</string>
 
     <string name="action_close">Cerrar</string>
@@ -719,4 +719,27 @@
     <string name="title_japanese_garden">Jardín japonés</string>
     <string name="title_northern_lights">Auroras boreales</string>
     <string name="title_misty_pier">Muelle entre la niebla</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">No hay video ahora.</string>
+    <string name="spot_watch_to_end">Míralo hasta el final para conseguirlo.</string>
+    <string name="spot_unavailable_sharing">no disponible mientras se crea tu video</string>
+    <string name="spot_again">Mira un video: +%1$s</string>
+    <string name="prize_one_freeze">1 protector de racha</string>
+    <string name="gift_title">El regalo de hoy</string>
+    <string name="gift_watch">Mira un video para girar</string>
+    <string name="gift_not_now">Ahora no</string>
+    <string name="gift_row_body">Mira un video corto para girar la rueda de hoy.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Un video corto por %1$d relleno</item>
+        <item quantity="many">Un video corto por %1$d de rellenos</item>
+        <item quantity="other">Un video corto por %1$d rellenos</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">Empieza en %1$d segundo. Omítelo si prefieres.</item>
+        <item quantity="many">Empieza en %1$d de segundos. Omítelo si prefieres.</item>
+        <item quantity="other">Empieza en %1$d segundos. Omítelo si prefieres.</item>
+    </plurals>
+    <string name="intro_body_untimed">Empieza cuando tocas Ver ahora. Omítelo si prefieres.</string>
+    <string name="intro_skip">Omitir</string>
+    <string name="intro_watch">Ver ahora</string>
 </resources>

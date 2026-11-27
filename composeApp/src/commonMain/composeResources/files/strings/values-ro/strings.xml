@@ -578,7 +578,7 @@
     <string name="billing_restore_failed">Google Play nu răspunde. Încearcă din nou.</string>
     <string name="billing_yearly">%1$s / an (%2$s pe săptămână)</string>
     <string name="billing_weekly">%1$s / săptămână</string>
-    <string name="billing_remove_ads">Doar fără reclame · %1$s o singură dată</string>
+    <string name="billing_remove_ads">Fără reclame pe tot ecranul · %1$s o singură dată</string>
     <string name="membership_vip_yearly">VIP · anual</string>
     <string name="membership_vip_weekly">VIP · săptămânal</string>
     <string name="membership_vip_unconfirmed">VIP · conectează-te la Google Play pentru confirmare</string>
@@ -588,7 +588,7 @@
     <string name="billing_restored_weekly">Achiziții restaurate: VIP (săptămânal)</string>
     <string name="billing_restored_ads">Achiziții restaurate: fără reclame</string>
     <string name="billing_notice_vip">Ești VIP. Toate tablourile din galerie sunt deblocate.</string>
-    <string name="billing_notice_ads_off">Reclamele sunt oprite definitiv.</string>
+    <string name="billing_notice_ads_off">Reclamele care pornesc singure sunt oprite definitiv. Videoclipurile pe care le alegi rămân opționale.</string>
     <string name="billing_notice_lapsed">N-am putut confirma VIP-ul tău de o săptămână. Conectează-te la internet ca să-l restaurezi.</string>
 
     <string name="action_close">Închide</string>
@@ -719,4 +719,27 @@
     <string name="title_japanese_garden">Grădină japoneză</string>
     <string name="title_northern_lights">Aurora boreală</string>
     <string name="title_misty_pier">Ponton în ceață</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">Niciun video acum.</string>
+    <string name="spot_watch_to_end">Urmărește până la capăt ca să-l primești.</string>
+    <string name="spot_unavailable_sharing">indisponibil cât timp se face videoclipul tău</string>
+    <string name="spot_again">Urmărește un video: +%1$s</string>
+    <string name="prize_one_freeze">1 protecție de serie</string>
+    <string name="gift_title">Cadoul de azi</string>
+    <string name="gift_watch">Urmărește un video ca să învârți</string>
+    <string name="gift_not_now">Nu acum</string>
+    <string name="gift_row_body">Urmărește un video scurt ca să învârți roata de azi.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Un video scurt pentru %1$d umplere</item>
+        <item quantity="few">Un video scurt pentru %1$d umpleri</item>
+        <item quantity="other">Un video scurt pentru %1$d de umpleri</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">Începe în %1$d secundă. Sari peste dacă preferi.</item>
+        <item quantity="few">Începe în %1$d secunde. Sari peste dacă preferi.</item>
+        <item quantity="other">Începe în %1$d de secunde. Sari peste dacă preferi.</item>
+    </plurals>
+    <string name="intro_body_untimed">Începe când atingi Urmărește acum. Sari peste dacă preferi.</string>
+    <string name="intro_skip">Sari peste</string>
+    <string name="intro_watch">Urmărește acum</string>
 </resources>

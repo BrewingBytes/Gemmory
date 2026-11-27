@@ -13,6 +13,14 @@ object ReleaseAdIds {
     const val REWARDED_UNIT = "gemmory.admob.rewardedUnit"
     const val INTERSTITIAL_UNIT = "gemmory.admob.interstitialUnit"
 
+    /** The 1.0.7 ad spots' own units (ad-spots CEO D2), in the order the task passes them. */
+    val SPOT_UNITS = listOf(
+        "gemmory.admob.bonusUnit",
+        "gemmory.admob.giftUnit",
+        "gemmory.admob.againUnit",
+        "gemmory.admob.rewardedInterstitialUnit",
+    )
+
     private val APP = Regex("""ca-app-pub-\d{16}~\d{10}""")
     private val UNIT = Regex("""ca-app-pub-\d{16}/\d{10}""")
 
@@ -22,6 +30,10 @@ object ReleaseAdIds {
         problem(REWARDED_UNIT, rewardedUnit, UNIT, "ca-app-pub-<16 digits>/<10 digits>"),
         problem(INTERSTITIAL_UNIT, interstitialUnit, UNIT, "ca-app-pub-<16 digits>/<10 digits>"),
     )
+
+    /** The spot units' problems, [units] in [SPOT_UNITS] order; empty when all four may ship. */
+    fun spotProblems(units: List<String?>): List<String> =
+        SPOT_UNITS.mapIndexedNotNull { i, name -> problem(name, units.getOrNull(i), UNIT, "ca-app-pub-<16 digits>/<10 digits>") }
 
     private fun problem(name: String, value: String?, shape: Regex, expected: String): String? = when {
         value.isNullOrBlank() -> "$name is missing"

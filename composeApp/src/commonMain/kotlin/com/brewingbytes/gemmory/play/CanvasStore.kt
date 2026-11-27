@@ -35,6 +35,7 @@ import com.brewingbytes.gemmory.storage.LoadResult
 import com.brewingbytes.gemmory.storage.WriteResult
 import com.brewingbytes.gemmory.telemetry.Analytics
 import com.brewingbytes.gemmory.telemetry.AnalyticsEvent
+import com.brewingbytes.gemmory.telemetry.FinishEffort
 import com.brewingbytes.gemmory.telemetry.CanvasEntry
 import com.brewingbytes.gemmory.telemetry.NonFatalReporter
 import kotlinx.coroutines.CoroutineDispatcher
@@ -151,7 +152,8 @@ class CanvasStore(
         val binding = opened.grid.binding
         val cells = opened.state.cellCount
         // Touched on [writer] only. The finish is the save of the full log, so its day is stamped in the same call.
-        var play = opened.play
+        // This session is one more sitting once it saves a gem (1.0.7 analytics).
+        var play = opened.play.copy(sittings = opened.play.sittings + 1)
         val saver = SaveLoop(
             scope = CoroutineScope(scope.coroutineContext + writer),
             initialLog = opened.state.log(),
@@ -160,7 +162,7 @@ class CanvasStore(
                 repository.writeSave(ref, binding, log).also { result ->
                     if (result == WriteResult.Written && log.isNotEmpty()) {
                         val finishedDay = play.firstFinishedDay ?: dayClock.today().takeIf { log.size == cells }
-                        play = PlayTimes(dayClock.nowMillis(), finishedDay)
+                        play = PlayTimes(dayClock.nowMillis(), finishedDay, play.sittings)
                         repository.writePlay(ref, play)
                     }
                 }
@@ -182,7 +184,12 @@ class CanvasStore(
             onPictureFinished = {
                 val pattern = opened.grid.pattern
                 val days = remote.daysSinceAvailable(ref.id).takeIf { ref.kind == CanvasKind.REMOTE }
-                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height, opened.entry, days, remote.collectionOf(ref.id), remote.eventOf(ref.id)))
+                val effort = FinishEffort(
+                    playMillis = clock.total(),
+                    sittings = play.sittings,
+                    daysOpen = opened.record?.createdAtMillis?.takeIf { it > 0 }?.let { (dayClock.nowMillis() - it).coerceAtLeast(0) / DAY_MS },
+                )
+                analytics.log(AnalyticsEvent.canvasFinished(ref, pattern.width, pattern.height, opened.entry, days, remote.collectionOf(ref.id), remote.eventOf(ref.id), effort))
                 achievements(GameEvent.Finished(sizeOf(ref, pattern), ref.kind == CanvasKind.PHOTO))
             },
             onPlaced = { encodes.onPlaced(ref) },
@@ -562,6 +569,8 @@ class CanvasStore(
         }
     }
 }
+
+private const val DAY_MS = 86_400_000L
 
 /** Active play time of one session on top of what the record held: counts only between start and stop. */
 class PlayClock(private val base: Long, private val nowMillis: () -> Long) {

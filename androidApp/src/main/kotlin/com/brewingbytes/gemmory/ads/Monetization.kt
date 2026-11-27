@@ -23,6 +23,7 @@ import com.brewingbytes.gemmory.policy.Item
 import com.brewingbytes.gemmory.policy.LedgerCodec
 import com.brewingbytes.gemmory.policy.RewardType
 import com.brewingbytes.gemmory.policy.Spin
+import com.brewingbytes.gemmory.policy.SpotRules
 import com.brewingbytes.gemmory.storage.AndroidFileStore
 import com.brewingbytes.gemmory.storage.FileStateStore
 import com.brewingbytes.gemmory.storage.StorageLayout
@@ -116,6 +117,13 @@ class Monetization(
     /** What the inventory holds (#38): the gallery's Inventory sheet, the tool well's count and the kept canvases. */
     override val inventory: StateFlow<InventoryState> = _inventory.asStateFlow()
 
+    private val _finishes = MutableStateFlow(0)
+
+    /** Pictures finished on this install (the completion bonus waits for the 2nd, DR-D3; Today's gift for the 1st). */
+    val finishes: StateFlow<Int> = _finishes.asStateFlow()
+
+    private val today: () -> Long = clock::today
+
     private val _firstSessionOver = MutableStateFlow(false)
 
     /** From the 2nd session on, the gallery offers its quiet "VIP" action (design D3; the session is eng D6's). */
@@ -129,6 +137,7 @@ class Monetization(
         scope.launch(policy) {
             if (processStart) ads.onProcessStart()
             _firstSessionOver.value = ads.firstSessionOver
+            _finishes.value = ads.finishes
         }
         armMidnight()
         // VIP starting or lapsing changes the allowance at once (Unlimited, or back to today's free canvas).
@@ -171,7 +180,29 @@ class Monetization(
     private fun refreshLocked() {
         _allowance.value = ledger.allowance(entitlements.value)
         _inventory.value = items.state
+        // Never below the optimistic bump onPictureFinished made before its ledger write lands (review).
+        _finishes.value = maxOf(ads.finishes, _finishes.value)
     }
+
+    /** Today, local epoch days (Today's gift is once a day). */
+    fun today(): Long = today.invoke()
+
+    /** The completion bonus (DR-D17): 1 fill, once for [earnId] (SpotRules.bonusId). */
+    suspend fun earnBonusOnce(earnId: String): Boolean = onPolicy { items.earnOnce(Item.FILLS, Inventory.FILLS_PER_BONUS, earnId) }
+
+    /** The rewarded interstitial's reward (DR-D17): 1 fill. */
+    suspend fun earnBonusFills() = onPolicy { items.earn(Item.FILLS, Inventory.FILLS_PER_BONUS) }
+
+    /** Today's gift after its video (DR-D11): null when [earnId] already paid, or for VIP. */
+    suspend fun openGift(earnId: String): Spin? = onPolicy { if (entitlements.value.vip) null else items.openGift(earnId) }
+
+    /** "Same again" after a 5-day spin (DR-D12), once per spin: null when already paid, or for VIP. */
+    suspend fun sameAgain(spin: Spin): Spin? = onPolicy {
+        if (entitlements.value.vip) null else items.sameAgain(spin, SpotRules.againId(items.state.spinsUsed))
+    }
+
+    /** Records [id] once (Today's popup shown on a day, DR-D5). */
+    suspend fun markOnce(id: String): Boolean = onPolicy { items.markOnce(id) }
 
     private suspend fun <T> onPolicy(block: () -> T): T = withContext(policy) {
         block().also { refreshLocked() }
@@ -265,7 +296,13 @@ class Monetization(
     }
 
     fun onPictureFinished() {
-        scope.launch(policy) { ads.onPictureFinished() }
+        // Counted at once: the completion screen lays out the bonus's slot on its first frame (DR-D4), before the
+        // ledger's write below lands.
+        _finishes.value = _finishes.value + 1
+        scope.launch(policy) {
+            ads.onPictureFinished()
+            _finishes.value = ads.finishes
+        }
     }
 
     fun onRewardedShown() {

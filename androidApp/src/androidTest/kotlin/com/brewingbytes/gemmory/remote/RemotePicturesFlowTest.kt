@@ -74,7 +74,7 @@ class RemotePicturesFlowTest {
     @Before
     fun setUp() {
         clearState()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         app.resetMonetizationForTest(NoAds)
         app.resetTodaysForTest(enabled = false)
         app.resetRemoteForTest(source, listOf(TestCatalog.KEY))

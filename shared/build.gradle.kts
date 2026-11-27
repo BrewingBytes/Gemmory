@@ -278,7 +278,11 @@ tasks.register<JavaExec>("validateReleaseAdIds") {
     dependsOn(jvmMain.compileTaskProvider)
     classpath = files(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
     mainClass.set("com.brewingbytes.gemmory.tools.ReleaseAdIdsTool")
-    args(listOf("gemmory.admob.appId", "gemmory.admob.rewardedUnit", "gemmory.admob.interstitialUnit").map {
+    args(listOf(
+        "gemmory.admob.appId", "gemmory.admob.rewardedUnit", "gemmory.admob.interstitialUnit",
+        // The 1.0.7 ad spots' own units (ad-spots CEO D2).
+        "gemmory.admob.bonusUnit", "gemmory.admob.giftUnit", "gemmory.admob.againUnit", "gemmory.admob.rewardedInterstitialUnit",
+    ).map {
         providers.gradleProperty(it).getOrElse("")
     })
 }

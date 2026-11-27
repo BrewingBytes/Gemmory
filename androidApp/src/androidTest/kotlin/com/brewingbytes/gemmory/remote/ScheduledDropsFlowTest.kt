@@ -104,7 +104,7 @@ class ScheduledDropsFlowTest {
         clearState()
         // T45 (DR4): the Today card and the Tomorrow line wait for the player's first finish.
         app.seedFirstFinish()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         setClock(eve, LocalTime(23, 59, 50))
         app.testNowMillis = { base + SystemClock.elapsedRealtime() - since }
         app.resetMonetizationForTest(NoAds)

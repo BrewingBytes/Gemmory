@@ -113,13 +113,13 @@ class RewardedSheetTest {
         ui = RewardedUi(RewardTarget.Fills, RewardPhase.Ready)
         start()
         text("More fills").assertExists()
-        text("Watch a short video for 5 fills. Each fills a region, the rest of a color, or a brush stroke.").assertExists()
+        text("Watch a short video for 3 fills. Each fills a region, the rest of a color, or a brush stroke.").assertExists()
         show(RewardTarget.Fills, RewardPhase.NotAvailable(Unavailable.GRACE_OFFER))
         text("No video right now. These are on us today.").assertExists()
-        text("Get 5 fills").assertExists()
+        text("Get 3 fills").assertExists()
         text("Or get VIP: unlimited fills").assertExists()
         show(RewardTarget.Fills, RewardPhase.Unlocked)
-        text("5 fills added").assertExists()
+        text("3 fills added").assertExists()
 
         // No token held: no token button; one held: under the video, in every state but while it shows.
         show(RewardTarget.Picture("wave"), RewardPhase.Ready)

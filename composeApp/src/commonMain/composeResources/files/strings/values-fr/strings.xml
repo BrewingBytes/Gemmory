@@ -579,7 +579,7 @@
     <string name="billing_restore_failed">Impossible de joindre Google Play. Réessaie.</string>
     <string name="billing_yearly">%1$s / an (%2$s par semaine)</string>
     <string name="billing_weekly">%1$s / semaine</string>
-    <string name="billing_remove_ads">Juste retirer les pubs · %1$s une fois</string>
+    <string name="billing_remove_ads">Retirer les pubs plein écran · %1$s une fois</string>
     <string name="membership_vip_yearly">VIP · annuel</string>
     <string name="membership_vip_weekly">VIP · hebdomadaire</string>
     <string name="membership_vip_unconfirmed">VIP · connecte-toi à Google Play pour confirmer</string>
@@ -589,7 +589,7 @@
     <string name="billing_restored_weekly">Achats restaurés : VIP (hebdomadaire)</string>
     <string name="billing_restored_ads">Achats restaurés : pubs retirées</string>
     <string name="billing_notice_vip">Tu es VIP. Tous les tableaux de la galerie sont débloqués.</string>
-    <string name="billing_notice_ads_off">Les pubs sont retirées pour de bon.</string>
+    <string name="billing_notice_ads_off">Les pubs qui se lancent seules sont désactivées pour de bon. Les vidéos que tu choisis restent facultatives.</string>
     <string name="billing_notice_lapsed">Nous n’avons pas pu confirmer ton VIP depuis une semaine. Connecte-toi à Internet pour le rétablir.</string>
 
     <string name="action_close">Fermer</string>
@@ -720,4 +720,27 @@
     <string name="title_japanese_garden">Jardin japonais</string>
     <string name="title_northern_lights">Aurores boréales</string>
     <string name="title_misty_pier">Ponton dans la brume</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">Pas de vidéo pour le moment.</string>
+    <string name="spot_watch_to_end">Regarde jusqu’à la fin pour l’obtenir.</string>
+    <string name="spot_unavailable_sharing">indisponible pendant la création de ta vidéo</string>
+    <string name="spot_again">Regarde une vidéo : +%1$s</string>
+    <string name="prize_one_freeze">1 protection de série</string>
+    <string name="gift_title">Le cadeau du jour</string>
+    <string name="gift_watch">Regarde une vidéo pour tourner</string>
+    <string name="gift_not_now">Pas maintenant</string>
+    <string name="gift_row_body">Regarde une courte vidéo pour tourner la roue du jour.</string>
+    <plurals name="intro_title">
+        <item quantity="one">Une courte vidéo pour %1$d remplissage</item>
+        <item quantity="many">Une courte vidéo pour %1$d de remplissages</item>
+        <item quantity="other">Une courte vidéo pour %1$d remplissages</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">Elle démarre dans %1$d seconde. Passe si tu préfères.</item>
+        <item quantity="many">Elle démarre dans %1$d de secondes. Passe si tu préfères.</item>
+        <item quantity="other">Elle démarre dans %1$d secondes. Passe si tu préfères.</item>
+    </plurals>
+    <string name="intro_body_untimed">Elle démarre quand tu touches Regarder. Passe si tu préfères.</string>
+    <string name="intro_skip">Passer</string>
+    <string name="intro_watch">Regarder</string>
 </resources>

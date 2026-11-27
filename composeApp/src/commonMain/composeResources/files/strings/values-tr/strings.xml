@@ -536,7 +536,7 @@
     <string name="billing_restore_failed">Google Play\'e ulaşılamadı. Tekrar dene.</string>
     <string name="billing_yearly">%1$s / yıl (haftada %2$s)</string>
     <string name="billing_weekly">%1$s / hafta</string>
-    <string name="billing_remove_ads">Sadece reklamları kaldır · bir kez %1$s</string>
+    <string name="billing_remove_ads">Tam ekran reklamları kaldır · bir kez %1$s</string>
     <string name="membership_vip_yearly">VIP · yıllık</string>
     <string name="membership_vip_weekly">VIP · haftalık</string>
     <string name="membership_vip_unconfirmed">VIP · onaylamak için Google Play\'e bağlan</string>
@@ -546,7 +546,7 @@
     <string name="billing_restored_weekly">Satın almalar geri yüklendi: VIP (haftalık)</string>
     <string name="billing_restored_ads">Satın almalar geri yüklendi: reklamlar kaldırıldı</string>
     <string name="billing_notice_vip">Artık VIP\'sin. Galerideki tüm tablolar açık.</string>
-    <string name="billing_notice_ads_off">Reklamlar kalıcı olarak kapandı.</string>
+    <string name="billing_notice_ads_off">Kendiliğinden oynayan reklamlar kalıcı olarak kapatıldı. Seçtiğin videolar isteğe bağlı kalır.</string>
     <string name="billing_notice_lapsed">Bir haftadır VIP\'ini onaylayamadık. Geri yüklemek için internete bağlan.</string>
 
     <string name="action_close">Kapat</string>
@@ -673,4 +673,25 @@
     <string name="title_japanese_garden">Japon bahçesi</string>
     <string name="title_northern_lights">Kuzey ışıkları</string>
     <string name="title_misty_pier">Sisli iskele</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">Şu an video yok.</string>
+    <string name="spot_watch_to_end">Almak için sonuna kadar izle.</string>
+    <string name="spot_unavailable_sharing">videon hazırlanırken kullanılamaz</string>
+    <string name="spot_again">Video izle: +%1$s</string>
+    <string name="prize_one_freeze">1 seri koruması</string>
+    <string name="gift_title">Bugünün hediyesi</string>
+    <string name="gift_watch">Çevirmek için video izle</string>
+    <string name="gift_not_now">Şimdi değil</string>
+    <string name="gift_row_body">Bugünün çarkını çevirmek için kısa bir video izle.</string>
+    <plurals name="intro_title">
+        <item quantity="one">%1$d doldurma için kısa bir video</item>
+        <item quantity="other">%1$d doldurma için kısa bir video</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="one">%1$d saniye içinde başlıyor. İstemezsen geç.</item>
+        <item quantity="other">%1$d saniye içinde başlıyor. İstemezsen geç.</item>
+    </plurals>
+    <string name="intro_body_untimed">Şimdi izle\'ye dokunduğunda başlar. İstemezsen geç.</string>
+    <string name="intro_skip">Geç</string>
+    <string name="intro_watch">Şimdi izle</string>
 </resources>

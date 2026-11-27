@@ -52,7 +52,7 @@ class FreshInstallTest {
         app.resetStreakForTest(celebrations = false)
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
         // The UMP form belongs to a real first launch (ConsentManager); in the EEA it would cover the canvas here.
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         scenario = ActivityScenario.launch(MainActivity::class.java)
     }
 

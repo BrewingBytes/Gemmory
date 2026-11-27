@@ -20,6 +20,9 @@ import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +40,17 @@ import kotlinx.coroutines.withTimeoutOrNull
 object AdUnits {
     const val REWARDED = BuildConfig.ADMOB_REWARDED
     const val INTERSTITIAL = BuildConfig.ADMOB_INTERSTITIAL
+}
+
+/**
+ * The 1.0.7 ad spots' own units (ad-spots CEO D2: revenue per spot by `ad_unit_name`, and archiving a unit in AdMob
+ * turns its spot off with no release). [rewardedInterstitial]: the unit is a rewarded interstitial, not a rewarded ad.
+ */
+enum class AdSlot(val unit: String, val rewardedInterstitial: Boolean = false) {
+    BONUS(BuildConfig.ADMOB_BONUS),
+    GIFT(BuildConfig.ADMOB_GIFT),
+    AGAIN(BuildConfig.ADMOB_AGAIN),
+    REWARDED_INTERSTITIAL(BuildConfig.ADMOB_REWARDED_INTERSTITIAL, rewardedInterstitial = true),
 }
 
 /** How a rewarded load ended. */
@@ -82,9 +96,28 @@ interface AdGateway {
 
     /** A full-screen ad is showing, from its show until it's dismissed or fails to show: the music pauses (T42). */
     val fullScreen: StateFlow<Boolean> get() = NO_FULL_SCREEN
+
+    /** The 1.0.7 slots whose ad is loaded and fresh now (a spot shows only then, CEO D2). */
+    val slotsReady: StateFlow<Set<AdSlot>> get() = NO_SLOTS
+
+    /**
+     * Keep [slot]'s ad loaded while its moment is on screen (eng D2): it loads now if ads may be requested, else as soon
+     * as the SDK has started and consent allows (eng D5); it never shows the consent form. Reloaded after a show or
+     * expiry while still wanted.
+     */
+    fun want(slot: AdSlot) = Unit
+
+    fun unwant(slot: AdSlot) = Unit
+
+    /**
+     * Shows [slot]'s ready ad at once, never waiting for a load (eng D4). [onEarned] on the reward; [onClosed] once
+     * it's gone, `shown = false` when it failed to show. False when none is ready.
+     */
+    fun showSlot(activity: Activity, slot: AdSlot, onEarned: () -> Unit, onClosed: (shown: Boolean) -> Unit): Boolean = false
 }
 
 private val NO_FULL_SCREEN: StateFlow<Boolean> = MutableStateFlow(false).asStateFlow()
+private val NO_SLOTS: StateFlow<Set<AdSlot>> = MutableStateFlow(emptySet<AdSlot>()).asStateFlow()
 
 /**
  * AdMob (design doc Ad rules, R3-10; eng D15), with Unity Ads bidding through AdMob mediation (T34). Never initializes
@@ -114,6 +147,8 @@ class AdMobGateway(
                     scope.launch(Dispatchers.Main) {
                         Log.i(TAG, "MobileAds initialized")
                         done()
+                        // Slots wanted before the SDK was up load now (eng D5).
+                        loadWanted()
                     }
                 }
             }
@@ -140,6 +175,114 @@ class AdMobGateway(
                 preloadInterstitial()
             }
         }
+        // Consent settling later (an offline first launch, the form re-asked, CEO D6) loads the wanted slots then.
+        scope.launch { consent.canRequestAds.collect { if (it) loadWanted() } }
+    }
+
+    /** One cached ad per 1.0.7 slot (eng D2), with when it loaded. */
+    private class Cached(val ad: Any, val at: Long)
+
+    private val wanted = mutableSetOf<AdSlot>()
+    private val slotAds = mutableMapOf<AdSlot, Cached>()
+    private val slotLoading = mutableSetOf<AdSlot>()
+    private val _slotsReady = MutableStateFlow<Set<AdSlot>>(emptySet())
+    override val slotsReady: StateFlow<Set<AdSlot>> = _slotsReady.asStateFlow()
+
+    private fun publishSlots() {
+        _slotsReady.value = slotAds.keys.toSet()
+    }
+
+    override fun want(slot: AdSlot) {
+        wanted += slot
+        loadWanted()
+    }
+
+    override fun unwant(slot: AdSlot) {
+        // A loaded ad stays until it's shown or expires: the next moment may come within the hour.
+        wanted -= slot
+    }
+
+    private fun loadWanted() {
+        if (wanted.isEmpty()) return
+        if (!canLoad()) {
+            // Consent allows ads but the SDK isn't up yet: start it; its init loads the slots.
+            if (consent.canRequestAds.value && !sdkReady) scope.launch { start() }
+            return
+        }
+        wanted.toList().forEach(::loadSlot)
+    }
+
+    private fun loadSlot(slot: AdSlot) {
+        if (!canLoad() || slot in slotAds || slot in slotLoading || slot.unit.isEmpty()) return
+        slotLoading += slot
+        val loaded: (Any) -> Unit = { ad ->
+            val at = SystemClock.elapsedRealtime()
+            slotLoading -= slot
+            slotAds[slot] = Cached(ad, at)
+            publishSlots()
+            // Dropped after an hour (AdMob's expiry), and loaded again if its moment is still on screen.
+            scope.launch {
+                delay(MAX_AGE_MS)
+                if (slotAds[slot]?.at == at) {
+                    slotAds -= slot
+                    publishSlots()
+                    if (slot in wanted) loadSlot(slot)
+                }
+            }
+        }
+        val failed: (LoadAdError) -> Unit = { error ->
+            Log.i(TAG, "$slot failed: ${error.code} ${error.message}")
+            slotLoading -= slot
+        }
+        if (slot.rewardedInterstitial) {
+            RewardedInterstitialAd.load(app, slot.unit, AdRequest.Builder().build(), object : RewardedInterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedInterstitialAd) = loaded(ad)
+
+                override fun onAdFailedToLoad(error: LoadAdError) = failed(error)
+            })
+        } else {
+            RewardedAd.load(app, slot.unit, AdRequest.Builder().build(), object : RewardedAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedAd) = loaded(ad)
+
+                override fun onAdFailedToLoad(error: LoadAdError) = failed(error)
+            })
+        }
+    }
+
+    override fun showSlot(activity: Activity, slot: AdSlot, onEarned: () -> Unit, onClosed: (shown: Boolean) -> Unit): Boolean {
+        val cached = slotAds[slot]?.takeIf { SystemClock.elapsedRealtime() - it.at < MAX_AGE_MS }
+        slotAds -= slot
+        publishSlots()
+        if (cached == null) {
+            loadWanted()
+            return false
+        }
+        val callback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                _fullScreen.value = false
+                onClosed(true)
+                if (slot in wanted) loadSlot(slot)
+            }
+
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                Log.i(TAG, "$slot failed to show: ${error.code} ${error.message}")
+                _fullScreen.value = false
+                onClosed(false)
+                if (slot in wanted) loadSlot(slot)
+            }
+        }
+        _fullScreen.value = true
+        when (val ad = cached.ad) {
+            is RewardedAd -> {
+                ad.fullScreenContentCallback = callback
+                ad.show(activity) { onEarned() }
+            }
+            is RewardedInterstitialAd -> {
+                ad.fullScreenContentCallback = callback
+                ad.show(activity) { onEarned() }
+            }
+        }
+        return true
     }
 
     private val _fullScreen = MutableStateFlow(false)

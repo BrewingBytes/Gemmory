@@ -56,7 +56,7 @@ class HighlightStyleTest {
     @Before
     fun setUp() {
         File(context.filesDir, StorageLayout.CANVASES).deleteRecursively()
-        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).commit()
+        context.getSharedPreferences("consent", Context.MODE_PRIVATE).edit().putBoolean("firstLaunchDone", true).putBoolean("formMissed", false).commit()
         val hints = context.getSharedPreferences("hints", Context.MODE_PRIVATE).edit()
         CoachHint.entries.forEach { hints.putBoolean(it.key, true) }
         hints.commit()

@@ -494,7 +494,7 @@
     <string name="billing_restore_failed">Google Playに接続できませんでした。もう一度お試しください。</string>
     <string name="billing_yearly">%1$s / 年（1週間あたり%2$s）</string>
     <string name="billing_weekly">%1$s / 週</string>
-    <string name="billing_remove_ads">広告だけ削除・%1$s（買い切り）</string>
+    <string name="billing_remove_ads">全画面広告を削除・%1$s（買い切り）</string>
     <string name="membership_vip_yearly">VIP・年額</string>
     <string name="membership_vip_weekly">VIP・週額</string>
     <string name="membership_vip_unconfirmed">VIP・確認のためGoogle Playに接続してください</string>
@@ -504,7 +504,7 @@
     <string name="billing_restored_weekly">購入を復元しました：VIP（週額）</string>
     <string name="billing_restored_ads">購入を復元しました：広告なし</string>
     <string name="billing_notice_vip">VIPになりました。ギャラリーの絵がすべて解放されています。</string>
-    <string name="billing_notice_ads_off">広告はずっとオフです。</string>
+    <string name="billing_notice_ads_off">自動で流れる広告は永久にオフになりました。自分で選ぶ動画はこれまでどおり任意です。</string>
     <string name="billing_notice_lapsed">1週間VIPを確認できませんでした。復元するにはインターネットにつないでください。</string>
 
     <string name="action_close">閉じる</string>
@@ -627,4 +627,23 @@
     <string name="title_japanese_garden">日本庭園</string>
     <string name="title_northern_lights">オーロラ</string>
     <string name="title_misty_pier">霧の桟橋</string>
+    <!-- 1.0.7 ad spots (ad-spots.md, design review DR-D9..D18) -->
+    <string name="spot_no_video">今は動画がありません。</string>
+    <string name="spot_watch_to_end">最後まで見ると受け取れます。</string>
+    <string name="spot_unavailable_sharing">動画の作成中は利用できません</string>
+    <string name="spot_again">動画を見る：+%1$s</string>
+    <string name="prize_one_freeze">連続保護1個</string>
+    <string name="gift_title">今日のプレゼント</string>
+    <string name="gift_watch">動画を見て回す</string>
+    <string name="gift_not_now">今はしない</string>
+    <string name="gift_row_body">短い動画を見て、今日のルーレットを回しましょう。</string>
+    <plurals name="intro_title">
+        <item quantity="other">塗りつぶし%1$d回分の短い動画</item>
+    </plurals>
+    <plurals name="intro_body">
+        <item quantity="other">%1$d秒後に始まります。見ない場合はスキップしてください。</item>
+    </plurals>
+    <string name="intro_body_untimed">「今すぐ見る」をタップすると始まります。見ない場合はスキップしてください。</string>
+    <string name="intro_skip">スキップ</string>
+    <string name="intro_watch">今すぐ見る</string>
 </resources>

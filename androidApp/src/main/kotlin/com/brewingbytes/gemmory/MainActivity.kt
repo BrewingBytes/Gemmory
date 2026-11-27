@@ -9,6 +9,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
+import com.brewingbytes.gemmory.ads.LocalAdSpots
+import com.brewingbytes.gemmory.copy.LocalWords
+import com.brewingbytes.gemmory.policy.Inventory
+import com.brewingbytes.gemmory.ads.ReturnAd
+import com.brewingbytes.gemmory.ads.RewardedIntroSheet
+import com.brewingbytes.gemmory.gallery.result
 import com.brewingbytes.gemmory.app.LocalAppGraph
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
@@ -78,6 +84,7 @@ import com.brewingbytes.gemmory.reminder.Reminders
 import com.brewingbytes.gemmory.settings.MEMBERSHIP_TAG
 import com.brewingbytes.gemmory.settings.SettingsScreen
 import com.brewingbytes.gemmory.ui.GemmoryTheme
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import android.media.AudioManager
 import androidx.lifecycle.Lifecycle
@@ -150,7 +157,8 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             // The shared services (iOS eng D6) for every screen below, shared or not.
-            CompositionLocalProvider(LocalAppGraph provides app.graph) {
+            // The 1.0.7 ad spots (ad-spots.md) for the shared screens.
+            CompositionLocalProvider(LocalAppGraph provides app.graph, LocalAdSpots provides app.adSpots) {
                 GemmoryTheme {
                     // Saved state, so the screen survives rotation and the process being killed in the background.
                     val stack = rememberSaveable(saver = BackStack.saver) { BackStack() }
@@ -254,6 +262,9 @@ class MainActivity : ComponentActivity() {
         var reminderAsk by rememberSaveable { mutableStateOf<Int?>(null) }
         // Play's review flow is running (T39): the music chip waits for it like for the ask.
         var reviewing by remember { mutableStateOf(false) }
+        // The rewarded interstitial's intro (1.0.7, DR-D13) is the return's ad: up while it shows.
+        var intro by rememberSaveable { mutableStateOf(false) }
+        val words = LocalWords.current
         // The fresh finish whose return chain waits behind its streak celebration (#101), as a canvas key.
         var pendingChain by rememberSaveable { mutableStateOf<String?>(null) }
         // This gallery visit is the return from a fresh finish (T45): saved, so a rotation or a restored process on
@@ -294,7 +305,8 @@ class MainActivity : ComponentActivity() {
                 (summaries.first + summaries.second).mapNotNull { it as? CanvasSummary.Playable }.filter { it.state.isFinished }.map { it.firstFinishedDay }
             }
             val review = if (attempt == null && !reward) app.reviews.due() else null
-            when (GalleryReturn.choose(askDue = attempt != null, reviewDue = review != null, reward = reward)) {
+            val interruption = GalleryReturn.choose(askDue = attempt != null, reviewDue = review != null, reward = reward)
+            when (interruption) {
                 ReturnInterruption.REMINDER_ASK -> attempt?.let {
                     app.reminders.askShown(it)
                     reminderAsk = it
@@ -310,9 +322,17 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                ReturnInterruption.INTERSTITIAL -> app.interstitials.onLeftFreshCompletion(this@MainActivity, ref)
+                ReturnInterruption.INTERSTITIAL ->
+                    if (app.interstitials.onLeftFreshCompletion(this@MainActivity, ref) == ReturnAd.INTRO) {
+                        // Counted here, once: a rotation while the intro is up doesn't count it again (review).
+                        app.interstitials.introShown()
+                        intro = true
+                    }
                 ReturnInterruption.NONE -> Unit
             }
+            // Every other return releases the completion's ad state: the rewarded interstitial stops reloading, and a
+            // watched bonus can't block a later exit from the same canvas (review).
+            if (interruption != ReturnInterruption.INTERSTITIAL) app.interstitials.leftWithoutAd(ref)
         }
 
         // G9: a celebration not shown (the process died on the completion screen, or Play again left it): in full when
@@ -442,7 +462,7 @@ class MainActivity : ComponentActivity() {
         // reminder ask, Play's review sheet (T39) or rewarded sheet has closed.
         val musicPlaying by app.music.playing.collectAsStateWithLifecycle()
         var musicChip by remember { mutableStateOf(false) }
-        val sheetUp = reminderAsk != null || reviewing || rewarded.ui != null
+        val sheetUp = reminderAsk != null || reviewing || rewarded.ui != null || intro
         LaunchedEffect(top == Route.Gallery, musicPlaying, sheetUp) {
             if (top != Route.Gallery) {
                 musicChip = false
@@ -488,7 +508,23 @@ class MainActivity : ComponentActivity() {
                     // Opens through the landing's Open, like a picture ready at the first look.
                     onSharedOpen = app.sharedLanding::offerTaken,
                     onSharedOfferGone = app.sharedLanding::offerGone,
+                    // Today's gift popup (1.0.7, DR-D8) never takes a fresh finish's return, nor lands over the shell's
+                    // own sheets or a reminder or widget tap about to open something.
+                    giftPopupBlocked = finishReturn || sheetUp || reminderTap != null || widgetTap || landing != null,
                 )
+                if (intro) {
+                    RewardedIntroSheet(
+                        fills = Inventory.FILLS_PER_BONUS,
+                        onWatch = {
+                            intro = false
+                            // The reward is granted in the app's scope, so a recreated Activity can't drop it (review); the
+                            // gallery line (DR-D15) shows when this screen is still here.
+                            val granted = app.appScope.async { app.interstitials.playIntro(this@MainActivity) }
+                            scope.launch { granted.await()?.let { galleryNotice = it.result(words) } }
+                        },
+                        onSkip = { intro = false },
+                    )
+                }
             }
             Route.Settings -> {
                 SendAchievementsWhileShown(app.achievements)

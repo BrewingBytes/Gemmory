@@ -105,7 +105,7 @@ class PaywallScreenTest {
         text(copy.yearly(p.yearly)).assertExists()
         text("Weekly").assertExists()
         text("${p.weekly.formatted} / week").assertExists()
-        text("Just remove ads · ${p.removeAds!!.formatted} once").assertExists()
+        text("Remove pop-up ads · ${p.removeAds!!.formatted} once").assertExists()
         compose.onNodeWithTag("plan-yearly").assertIsSelected()
         compose.onNodeWithTag("plan-weekly").assertIsNotSelected()
         compose.onNodeWithTag("paywall-start").assertIsEnabled().performClick()

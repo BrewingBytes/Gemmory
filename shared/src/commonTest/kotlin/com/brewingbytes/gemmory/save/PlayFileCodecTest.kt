@@ -18,9 +18,17 @@ class PlayFileCodecTest {
     }
 
     @Test
-    fun layoutIsMagicVersionAndTwoLongs() {
-        val bytes = PlayFileCodec.encode(PlayTimes(lastGemMillis = 1, firstFinishedDay = null))
-        assertEquals("474d5254" + "0001" + "0000000000000001" + "8000000000000000", bytes.toHex().dropLast(8))
+    fun layoutIsMagicVersionTwoLongsAndSittings() {
+        val bytes = PlayFileCodec.encode(PlayTimes(lastGemMillis = 1, firstFinishedDay = null, sittings = 3))
+        assertEquals("474d5254" + "0002" + "0000000000000001" + "8000000000000000" + "00000003", bytes.toHex().dropLast(8))
+        assertEquals(PlayTimes(1, null, 3), roundTrip(PlayTimes(1, null, 3)))
+    }
+
+    /** A file written before 1.0.7 (v1, two longs) still reads, with 0 sittings: nothing migrates. */
+    @Test
+    fun aVersionOneFileReadsZeroSittings() {
+        val v1 = reseal(PlayFileCodec.encode(PlayTimes(5, 6)).copyOf().also { it[5] = 1 }.let { it.copyOf(it.size - 4) })
+        assertEquals(Decoded.Ok(PlayTimes(5, 6, 0)), PlayFileCodec.decode(v1))
     }
 
     @Test
@@ -29,7 +37,7 @@ class PlayFileCodecTest {
         assertEquals(Refusal.BadCrc, refusal(bytes.copyOf().also { it[8] = (it[8] + 1).toByte() }))
         assertEquals(Refusal.TooShort, refusal(bytes.copyOf(5)))
         assertEquals(Refusal.BadMagic, refusal(CanvasRecordCodec.encode(CanvasRecord("", 0, 0))))
-        assertEquals(Refusal.NewerVersion(2), refusal(reseal(bytes.copyOf().also { it[5] = 2 })))
+        assertEquals(Refusal.NewerVersion(3), refusal(reseal(bytes.copyOf().also { it[5] = 3 })))
         assertEquals(Refusal.NoMigration(0), refusal(reseal(bytes.copyOf().also { it[5] = 0 })))
         // A body one byte short or long.
         assertEquals(Refusal.Malformed, refusal(reseal(bytes.copyOf(bytes.size - 1))))
